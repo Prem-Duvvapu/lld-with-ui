@@ -1,0 +1,126 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f0f2f5;
+  color: #333;
+}
+
+.app { max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+header { text-align: center; margin-bottom: 24px; }
+header h1 { font-size: 28px; color: #000; }
+header p { color: #666; font-size: 14px; margin-top: 4px; }
+
+nav {
+  display: flex; gap: 8px; margin-bottom: 24px; justify-content: center;
+}
+
+nav button {
+  padding: 10px 24px; border: 2px solid #000;
+  background: white; color: #000; border-radius: 8px;
+  cursor: pointer; font-size: 14px; font-weight: 600;
+  transition: all 0.2s;
+}
+
+nav button.active { background: #000; color: white; }
+nav button:hover:not(.active) { background: #f0f0f0; }
+
+main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+/* Booking Form */
+.booking-form h2 { margin-bottom: 20px; font-size: 20px; }
+
+.form-row { display: flex; gap: 16px; margin-bottom: 16px; }
+
+.form-group { flex: 1; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; }
+.form-group select, .form-group input {
+  width: 100%; padding: 10px 12px; border: 2px solid #ddd;
+  border-radius: 6px; font-size: 14px;
+}
+.form-group select:focus, .form-group input:focus {
+  outline: none; border-color: #000;
+}
+
+.btn-primary {
+  width: 100%; padding: 14px; background: #000; color: white;
+  border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer;
+}
+.btn-primary:hover { background: #333; }
+.btn-primary:disabled { background: #999; cursor: not-allowed; }
+
+/* Estimate Card */
+.estimate-card {
+  margin-top: 16px; padding: 16px; background: #f8f9fa;
+  border-radius: 8px; border-left: 4px solid #000;
+}
+.estimate-card h3 { margin-bottom: 12px; font-size: 16px; }
+.estimate-detail { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #eee; }
+.estimate-detail:last-child { border-bottom: none; }
+.estimate-detail .label { color: #666; }
+.estimate-detail .value { font-weight: 600; }
+
+/* Ride Result */
+.result-card {
+  margin-top: 20px; padding: 16px; background: #e8f5e9;
+  border-radius: 8px; border-left: 4px solid #4caf50;
+}
+.result-card h3 { margin-bottom: 12px; color: #2e7d32; }
+.result-card .detail { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid #c8e6c9; }
+.result-card .detail:last-child { border-bottom: none; }
+.result-card .label { color: #555; }
+.result-card .value { font-weight: 600; }
+
+.error { margin-top: 16px; padding: 12px; background: #fff0f0; color: #d32f2f; border-radius: 8px; font-size: 14px; }
+
+.alert { text-align: center; padding: 32px; color: #666; font-size: 16px; }
+
+/* Ride History */
+.ride-card {
+  border: 2px solid #eee; border-radius: 10px; padding: 16px; margin-bottom: 12px;
+}
+.ride-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.ride-header .ride-id { font-weight: 700; }
+.ride-header .ride-type { font-size: 12px; color: #999; }
+
+.status-badge {
+  display: inline-block; padding: 4px 12px; border-radius: 12px;
+  font-size: 12px; font-weight: 600;
+}
+.status-REQUESTED { background: #e3f2fd; color: #1565c0; }
+.status-ACCEPTED { background: #fff3e0; color: #e65100; }
+.status-ARRIVED { background: #fce4ec; color: #c62828; }
+.status-STARTED { background: #e8f5e9; color: #2e7d32; }
+.status-COMPLETED { background: #f1f8e9; color: #558b2f; }
+.status-CANCELLED { background: #fafafa; color: #9e9e9e; }
+
+.ride-route { margin: 8px 0; font-size: 13px; color: #555; }
+.ride-route .point { display: flex; align-items: center; gap: 6px; margin: 2px 0; }
+.ride-route .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.ride-route .dot.green { background: #4caf50; }
+.ride-route .dot.red { background: #f44336; }
+
+.ride-info { font-size: 13px; color: #666; margin: 4px 0; }
+.ride-fare { font-weight: 700; font-size: 16px; margin: 8px 0; }
+
+.ride-actions { margin-top: 8px; display: flex; gap: 8px; }
+.ride-actions button {
+  padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px;
+  cursor: pointer; font-size: 12px; background: white;
+}
+.ride-actions button:hover { background: #f5f5f5; }
+.ride-actions .btn-cancel { color: #d32f2f; }
+
+/* Vehicle type cards */
+.vehicle-types { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+
+.vehicle-card {
+  border: 2px solid #ddd; border-radius: 10px; padding: 16px; text-align: center;
+  cursor: pointer; transition: all 0.2s;
+}
+.vehicle-card.selected { border-color: #000; background: #f8f9fa; }
+.vehicle-card:hover { border-color: #999; }
+.vehicle-card .v-icon { font-size: 28px; margin-bottom: 8px; }
+.vehicle-card .v-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.vehicle-card .v-rate { font-size: 12px; color: #666; }
