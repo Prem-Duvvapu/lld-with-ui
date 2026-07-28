@@ -14,6 +14,7 @@ SDE-2 interview preparation (2+ years experience). Each LLD is visualized throug
 | 6 | [Snake & Ladders](./snake-ladders) | 8085 | Multiplayer board game | State Machine, Board design, Snake/Ladder mapping |
 | 7 | [ATM](./atm) | 8086 | Banking ATM | State Machine, Thread Safety (ReentrantLock), Authentication |
 | 8 | [Splitwise](./splitwise) | 8087 | Expense sharing | State Machine, Split Strategies (Equal/Percentage/Exact), Balance calculation |
+| 9 | [Elevator](./elevator) | 8088 | Elevator Control | SCAN Scheduling, Proximity-based assignment, Thread Safety (ReentrantLock) |
 
 ## Design Patterns & OOPs Concepts
 
@@ -47,6 +48,7 @@ cd tic-tac-toe/backend     && mvn spring-boot:run    # port 8084
 cd snake-ladders/backend   && mvn spring-boot:run    # port 8085
 cd atm/backend             && mvn spring-boot:run    # port 8086
 cd splitwise/backend       && mvn spring-boot:run    # port 8087
+cd elevator/backend         && mvn spring-boot:run    # port 8088
 
 # Terminal 2 — Frontend (choose one)
 cd parking-lot/frontend     && npm run dev
@@ -57,6 +59,7 @@ cd tic-tac-toe/frontend     && npm run dev
 cd snake-ladders/frontend   && npm run dev
 cd atm/frontend             && npm run dev
 cd splitwise/frontend       && npm run dev
+cd elevator/frontend         && npm run dev
 ```
 
 ## Project Details
@@ -92,6 +95,10 @@ cd splitwise/frontend       && npm run dev
 ### 8. Splitwise (port 8087)
 **Features:** User/group management, expense creation with EQUAL/PERCENTAGE/EXACT split, balance calculation, settle up, transaction history, concurrent access safety
 **APIs:** `POST /api/splitwise/users`, `GET /api/splitwise/users`, `POST /api/splitwise/groups`, `GET /api/splitwise/groups`, `POST /api/splitwise/expenses`, `GET /api/splitwise/groups/{id}/expenses`, `GET /api/splitwise/users/{id}/balances`, `POST /api/splitwise/settle`, `GET /api/splitwise/users/{id}/transactions`
+
+### 9. Elevator (port 8088)
+**Features:** 4 elevators, 10 floors, SCAN scheduling algorithm, proximity-based assignment, capacity limits, animated elevator movement with door open/close, floor call buttons, request log, thread-safe concurrent processing
+**APIs:** `GET /api/elevator/elevators`, `POST /api/elevator/request`, `GET /api/elevator/requests`, `POST /api/elevator/tick`
 
 ## Tech Stack
 - **Backend:** Java 17, Spring Boot 3.2, Maven
