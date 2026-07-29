@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getEstimate, requestRide, getUserRides, updateRideStatus } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -69,6 +70,10 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 .vehicle-card .v-rate { font-size: 12px; color: #666; }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #000; border-radius: 6px; color: #000; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #000; color: white; }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
+.step-dot.active { background: #2196f3; box-shadow: 0 0 8px rgba(33,150,243,0.5); }
+.step-dot.done { background: #3fb950; }
 `;
 
 const USER_ID = 'user1';
@@ -227,22 +232,109 @@ function RideHistory() {
   );
 }
 
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [ride, setRide] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const mountedRef = useRef(true);
+  const steps = ['Pickup', 'Estimate', 'Booking', 'Driver', 'Complete'];
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const reset = () => { setStep(0); setRide(null); setLoading(false); setError(''); };
+
+  const startSim = async () => {
+    setError(''); setLoading(true); setStep(1);
+    try {
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(2);
+
+      const est = await getEstimate(12.9716, 77.5946, 12.9344, 77.6101, 'UBER_GO');
+      if (!mountedRef.current) return;
+      setStep(3);
+
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      const data = await requestRide('user1', 12.9716, 77.5946, 'MG Road', 12.9344, 77.6101, 'Koramangala', 'UBER_GO');
+      if (!mountedRef.current) return;
+      if (data.error) { setError(data.error); setLoading(false); return; }
+      setRide(data);
+      setLoading(false);
+      setStep(4);
+
+      await new Promise(r => setTimeout(r, 2000));
+      if (!mountedRef.current) return;
+      await updateRideStatus(data.id, 'ARRIVED');
+      if (!mountedRef.current) return;
+      await new Promise(r => setTimeout(r, 1500));
+      if (!mountedRef.current) return;
+      await updateRideStatus(data.id, 'STARTED');
+      if (!mountedRef.current) return;
+      await new Promise(r => setTimeout(r, 2000));
+      if (!mountedRef.current) return;
+      await updateRideStatus(data.id, 'COMPLETED');
+      if (!mountedRef.current) return;
+      setStep(5);
+    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+  };
+
+  return (
+    <div>
+      <div className="step-indicator">
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      </div>
+
+      {error && <div className="error" style={{ color: '#d32f2f', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12 }} onClick={reset}>↺ Reset</button></div>}
+
+      {step === 0 && <button className="btn-primary" onClick={startSim} disabled={loading}>▶ Start Simulation</button>}
+
+      {step >= 1 && !error && (
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          {step === 1 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>📍</div><div style={{ fontWeight: 600 }}>Pickup: MG Road → Drop: Koramangala</div></div>}
+          {step === 2 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>💰</div><div style={{ fontWeight: 600 }}>Getting fare estimate...</div></div>}
+          {step === 3 && loading && <div><div style={{ fontSize: 40, marginBottom: 12 }}>📱</div><div style={{ fontWeight: 600 }}>Booking your ride...</div></div>}
+          {step === 4 && ride && <div><div style={{ fontSize: 40, marginBottom: 12 }}>🚗</div><div style={{ fontWeight: 600 }}>{ride.driverName} is on the way!</div><div style={{ fontSize: 13, color: '#666', marginTop: 8 }}>{ride.vehicleNumber} • {ride.vehicleType}</div></div>}
+          {step === 5 && ride && (
+            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: 16, maxWidth: 300, margin: '0 auto' }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+              <div style={{ fontWeight: 700, color: '#4CAF50' }}>Ride Complete!</div>
+              <div style={{ margin: '8px 0', fontSize: 13 }}>Driver: {ride.driverName}</div>
+              <div style={{ fontSize: 13 }}>Distance: {ride.distanceKm?.toFixed(1)} km</div>
+              <div style={{ fontSize: 16, fontWeight: 700, margin: '8px 0' }}>Fare: ₹{ride.fare?.toFixed(2)}</div>
+              <button className="btn-primary" style={{ marginTop: 12, padding: '8px 20px', fontSize: 13 }} onClick={reset}>🔄 New Ride</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function UberPage() {
-  const [page, setPage] = useState('book');
+  const [page, setPage] = useState('bookRide');
   return (
     <div className="app">
       <style>{styles}</style>
       <Link to="/" className="back-home">← Back to Home</Link>
       <header><h1>Uber</h1><p>Ride-Hailing - Low-Level Design</p></header>
       <nav>
-        <button className={page === 'book' ? 'active' : ''} onClick={() => setPage('book')}>Book a Ride</button>
-        <button className={page === 'history' ? 'active' : ''} onClick={() => setPage('history')}>My Rides</button>
+        <button className={page === 'bookRide' ? 'active' : ''} onClick={() => setPage('bookRide')}>Book a Ride</button>
+        <button className={page === 'rides' ? 'active' : ''} onClick={() => setPage('rides')}>My Rides</button>
+        <button className={page === 'simulation' ? 'active' : ''} onClick={() => setPage('simulation')}>Simulation</button>
         <button className={page === 'diagram' ? 'active' : ''} onClick={() => setPage('diagram')}>Class Diagram</button>
+        <button className={page === 'design' ? 'active' : ''} onClick={() => setPage('design')}>Design Details</button>
       </nav>
       <main>
-        {page === 'book' && <BookRide onRideBooked={() => setPage('history')} />}
-        {page === 'history' && <RideHistory />}
+        {page === 'bookRide' && <BookRide onRideBooked={() => setPage('rides')} />}
+        {page === 'rides' && <RideHistory />}
+        {page === 'simulation' && <AnimatedFlow />}
         {page === 'diagram' && <ClassDiagram module="uber" />}
+        {page === 'design' && <DesignDetails module="uber" />}
       </main>
     </div>
   );

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getRestaurants, placeOrder, getUserOrders, updateOrderStatus } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -72,6 +73,10 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 .result-card .value { font-weight: 600; }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #e23744; border-radius: 6px; color: #e23744; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #e23744; color: white; }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
+.step-dot.active { background: #e23744; box-shadow: 0 0 8px rgba(226,55,68,0.5); }
+.step-dot.done { background: #3fb950; }
 `;
 
 const USER_ID = 'user1';
@@ -234,6 +239,90 @@ function Orders({ refreshKey }) {
   );
 }
 
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const mountedRef = useRef(true);
+  const steps = ['Browse', 'Order', 'Preparing', 'Delivering', 'Done'];
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const reset = () => { setStep(0); setOrder(null); setLoading(false); setError(''); };
+
+  const startSim = async () => {
+    setError(''); setLoading(true); setStep(1); setOrder(null);
+    try {
+      await new Promise(r => setTimeout(r, 1500));
+      if (!mountedRef.current) return;
+      setStep(2);
+      setLoading(true);
+
+      const data = await placeOrder('R1', 'user1', [{ menuItemId: 'M1', name: 'Margherita Pizza', quantity: 2, price: 299 }]);
+      if (!mountedRef.current) return;
+      if (data.error) { setError(data.error); setLoading(false); return; }
+      setOrder(data);
+      setLoading(false);
+      setStep(3);
+
+      await new Promise(r => setTimeout(r, 2000));
+      if (!mountedRef.current) return;
+      await updateOrderStatus(data.id, 'CONFIRMED');
+      if (!mountedRef.current) return;
+      await new Promise(r => setTimeout(r, 1500));
+      if (!mountedRef.current) return;
+      await updateOrderStatus(data.id, 'PREPARING');
+      if (!mountedRef.current) return;
+      setStep(4);
+
+      await new Promise(r => setTimeout(r, 2000));
+      if (!mountedRef.current) return;
+      await updateOrderStatus(data.id, 'OUT_FOR_DELIVERY');
+      if (!mountedRef.current) return;
+      await new Promise(r => setTimeout(r, 2000));
+      if (!mountedRef.current) return;
+      await updateOrderStatus(data.id, 'DELIVERED');
+      if (!mountedRef.current) return;
+      setStep(5);
+    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+  };
+
+  return (
+    <div>
+      <div className="step-indicator">
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      </div>
+
+      {error && <div className="error">{error}<button className="btn-back" style={{ marginLeft: 12 }} onClick={reset}>↺ Reset</button></div>}
+
+      {step === 0 && <button className="btn-checkout" onClick={startSim} disabled={loading}>▶ Start Simulation</button>}
+
+      {step >= 1 && !error && (
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          {step === 1 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div><div style={{ color: '#e23744', fontWeight: 600 }}>Browsing Pizza Paradise...</div></div>}
+          {step === 2 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>{loading ? '⏳' : '✅'}</div><div style={{ fontWeight: 600 }}>{loading ? 'Placing order...' : 'Order placed!'}</div></div>}
+          {step === 3 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>👨‍🍳</div><div style={{ fontWeight: 600 }}>Preparing your Margherita Pizza...</div></div>}
+          {step === 4 && order && <div><div style={{ fontSize: 40, marginBottom: 12 }}>🛵</div><div style={{ fontWeight: 600 }}>{order.deliveryPartnerName || 'Partner'} is delivering your order!</div></div>}
+          {step === 5 && order && (
+            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: 16, maxWidth: 300, margin: '0 auto' }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>🍕</div>
+              <div style={{ fontWeight: 700, color: '#e23744' }}>Delivered!</div>
+              <div style={{ margin: '8px 0', fontSize: 13 }}>Order: {order.id}</div>
+              <div style={{ margin: '8px 0', fontSize: 13 }}>Total: ₹{order.totalAmount?.toFixed(2)}</div>
+              <div style={{ margin: '8px 0', fontSize: 13 }}>Delivered by: {order.deliveryPartnerName}</div>
+              <button className="btn-checkout" style={{ marginTop: 12, padding: '8px 20px', fontSize: 13 }} onClick={reset}>🔄 New Simulation</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ZomatoPage() {
   const [page, setPage] = useState('restaurants');
   const [selectedRestaurant, setSelectedRestaurant] = useState(null);
@@ -262,16 +351,20 @@ export default function ZomatoPage() {
       <header><h1>Zomato</h1><p>Food Delivery - Low-Level Design</p></header>
       <nav>
         <button className={page === 'restaurants' ? 'active' : ''} onClick={() => { setPage('restaurants'); setSelectedRestaurant(null); }}>Restaurants</button>
-        <button className={page === 'orders' ? 'active' : ''} onClick={() => setPage('orders')}>My Orders {cart.length > 0 && <span className="badge">{cart.length}</span>}</button>
+        <button className={page === 'orders' ? 'active' : ''} onClick={() => setPage('orders')}>Orders {cart.length > 0 && <span className="badge">{cart.length}</span>}</button>
         <button className={page === 'cart' ? 'active' : ''} onClick={() => setPage('cart')}>Cart {cart.length > 0 && <span className="badge">{cart.reduce((s, i) => s + i.quantity, 0)}</span>}</button>
+        <button className={page === 'simulation' ? 'active' : ''} onClick={() => setPage('simulation')}>Simulation</button>
         <button className={page === 'diagram' ? 'active' : ''} onClick={() => setPage('diagram')}>Class Diagram</button>
+        <button className={page === 'design' ? 'active' : ''} onClick={() => setPage('design')}>Design Details</button>
       </nav>
       <main>
         {page === 'restaurants' && !selectedRestaurant && <RestaurantList onSelect={(r) => { setSelectedRestaurant(r); setPage('menu'); }} />}
         {page === 'menu' && selectedRestaurant && <MenuView restaurant={selectedRestaurant} cart={cart} addToCart={addToCart} updateQty={updateQty} onBack={() => { setSelectedRestaurant(null); setPage('restaurants'); }} />}
         {page === 'cart' && <Cart cart={cart} updateQty={updateQty} onOrderPlaced={onOrderPlaced} />}
         {page === 'orders' && <Orders key={refreshKey} refreshKey={refreshKey} />}
+        {page === 'simulation' && <AnimatedFlow />}
         {page === 'diagram' && <ClassDiagram module="zomato" />}
+        {page === 'design' && <DesignDetails module="zomato" />}
       </main>
     </div>
   );

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getQuestions, getQuestion, getTags, getUsers, postQuestion, postAnswer, voteQuestion, voteAnswer, acceptAnswer, addComment } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -72,6 +73,10 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 .user-card .reputation { font-size: 13px; color: #f48024; font-weight: 600; }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #f48024; border-radius: 6px; color: #f48024; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #f48024; color: white; }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
+.step-dot.active { background: #2196f3; box-shadow: 0 0 8px rgba(33,150,243,0.5); }
+.step-dot.done { background: #3fb950; }
 `;
 
 const USER_ID = 'U1';
@@ -322,6 +327,87 @@ function Users() {
   );
 }
 
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [question, setQuestion] = useState(null);
+  const [answer, setAnswer] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
+  const steps = ['Question', 'Answer', 'Vote', 'Accept', 'Done'];
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const reset = () => { setStep(0); setQuestion(null); setAnswer(null); setError(''); setLoading(false); };
+
+  const startSim = async () => {
+    setError(''); setLoading(true); setStep(1);
+    try {
+      const q = await postQuestion('How does Java garbage collection work?', 'Can someone explain how GC works in Java?', 'U1', ['Java']);
+      if (!mountedRef.current) return;
+      if (q.error) { setError(q.error); setLoading(false); return; }
+      setQuestion(q);
+      setLoading(false);
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(2);
+
+      const a = await postAnswer(q.id, 'Java GC automatically manages memory by removing unreachable objects.', 'U2');
+      if (!mountedRef.current) return;
+      if (a.error) { setError(a.error); setLoading(false); return; }
+      setAnswer(a);
+      await new Promise(r => setTimeout(r, 800));
+      if (!mountedRef.current) return;
+      setStep(3);
+
+      await voteAnswer(a.id, 'U1', 'UPVOTE');
+      if (!mountedRef.current) return;
+      await new Promise(r => setTimeout(r, 800));
+      if (!mountedRef.current) return;
+      setStep(4);
+
+      await acceptAnswer(q.id, a.id, 'U1');
+      if (!mountedRef.current) return;
+      await new Promise(r => setTimeout(r, 800));
+      if (!mountedRef.current) return;
+      setStep(5);
+    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+  };
+
+  return (
+    <div>
+      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      </div>
+
+      {error && <div className="error" style={{ color: '#d32f2f', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button className="btn-back" style={{ marginLeft: 12 }} onClick={reset}>↺ Reset</button></div>}
+
+      {step === 0 && <button className="btn-primary" onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+
+      {step >= 1 && !error && (
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          {step === 1 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>❓</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{loading ? 'Posting question...' : 'Question posted!'}</div>{question && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>{question.title}</div>}</div>}
+          {step === 2 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>✍️</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Submitting answer...</div></div>}
+          {step === 3 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>👍</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Voting up the answer!</div></div>}
+          {step === 4 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>✅</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Accepting best answer...</div></div>}
+          {step === 5 && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 16, maxWidth: 350, margin: '0 auto', border: '1px solid var(--border-primary)' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🏆</div>
+              <div style={{ fontWeight: 700, color: 'var(--info)', fontSize: 16 }}>Q&A Complete!</div>
+              {question && <div style={{ margin: '8px 0', fontSize: 13, color: 'var(--text-secondary)' }}>Question: {question.title}</div>}
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Score: +1 upvote • Answer accepted ✓</div>
+              <button className="btn-primary" style={{ marginTop: 12, padding: '8px 20px', fontSize: 13 }} onClick={reset}>🔄 New Simulation</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StackOverflowPage() {
   const [page, setPage] = useState('questions');
   const [selectedQId, setSelectedQId] = useState(null);
@@ -336,6 +422,8 @@ export default function StackOverflowPage() {
         <button className={page === 'ask' ? 'active' : ''} onClick={() => setPage('ask')}>Ask Question</button>
         <button className={page === 'users' ? 'active' : ''} onClick={() => setPage('users')}>Users</button>
         <button className={page === 'diagram' ? 'active' : ''} onClick={() => setPage('diagram')}>Class Diagram</button>
+        <button className={page === 'simulation' ? 'active' : ''} onClick={() => setPage('simulation')}>Simulation</button>
+        <button className={page === 'design' ? 'active' : ''} onClick={() => setPage('design')}>Design Details</button>
       </nav>
       <main>
         {page === 'questions' && !selectedQId && <QuestionList onSelect={(id) => { setSelectedQId(id); setPage('detail'); }} />}
@@ -343,6 +431,8 @@ export default function StackOverflowPage() {
         {page === 'ask' && <AskQuestion onPosted={() => setPage('questions')} />}
         {page === 'users' && <Users />}
         {page === 'diagram' && <ClassDiagram module="stackoverflow" />}
+        {page === 'simulation' && <AnimatedFlow />}
+        {page === 'design' && <DesignDetails module="stackoverflow" />}
       </main>
     </div>
   );

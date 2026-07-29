@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getUsers, createUser, getGroups, createGroup, addExpense, getBalances, getTransactions, settleUp } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -52,6 +53,10 @@ body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height
 .sw-flex { display: flex; gap: 8px; }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid rgba(255,255,255,0.5); border-radius: 6px; color: #fff; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: rgba(255,255,255,0.2); }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
+.step-dot.active { background: #667eea; box-shadow: 0 0 8px rgba(102,126,234,0.5); }
+.step-dot.done { background: #3fb950; }
 `;
 
 function UserList({ onUserSelect, onUserCreated }) {
@@ -380,6 +385,98 @@ function SettleUp({ user, onBack, onSettled }) {
   );
 }
 
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
+  const steps = ['Users', 'Group', 'Expense', 'Split', 'Settle'];
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const reset = () => { setStep(0); setResult(null); setError(''); setLoading(false); };
+
+  const startSim = async () => {
+    setError(''); setLoading(true); setStep(1);
+    try {
+      const users = await getUsers();
+      let u1, u2;
+      if (users.length >= 2) { u1 = users[0]; u2 = users[1]; }
+      else {
+        u1 = await createUser('Alice', 'alice@test.com');
+        u2 = await createUser('Bob', 'bob@test.com');
+      }
+      if (!mountedRef.current) return;
+      if (u1.error || u2.error) { setError('Failed to create users'); setLoading(false); return; }
+      await new Promise(r => setTimeout(r, 800));
+      if (!mountedRef.current) return;
+      setStep(2);
+
+      const group = await createGroup('Trip to Goa', [u1.id, u2.id]);
+      if (!mountedRef.current) return;
+      if (group.error) { setError(group.error); setLoading(false); return; }
+      await new Promise(r => setTimeout(r, 800));
+      if (!mountedRef.current) return;
+      setStep(3);
+
+      const expense = await addExpense('Hotel Booking', 5000, u1.id, group.id, [
+        { userId: u1.id, type: 'EQUAL' },
+        { userId: u2.id, type: 'EQUAL' }
+      ]);
+      if (!mountedRef.current) return;
+      if (expense.error) { setError(expense.error); setLoading(false); return; }
+      await new Promise(r => setTimeout(r, 800));
+      if (!mountedRef.current) return;
+      setStep(4);
+
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(5);
+      setLoading(false);
+
+      await new Promise(r => setTimeout(r, 1500));
+      if (!mountedRef.current) return;
+      setResult({ group: group.name, expense: expense.description, amount: expense.amount, paidBy: expense.paidBy?.name || 'Alice', totalUsers: 2 });
+    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+  };
+
+  return (
+    <div>
+      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+
+      {step >= 1 && !error && (
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          {step === 1 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>👥</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Creating users...</div></div>}
+          {step === 2 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>📁</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Creating group...</div></div>}
+          {step === 3 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>💰</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{loading ? 'Adding expense...' : 'Expense added!'}</div></div>}
+          {step === 4 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>➗</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Splitting equally...</div></div>}
+          {step === 5 && result && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 16, maxWidth: 320, margin: '0 auto', border: '1px solid var(--border-primary)' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
+              <div style={{ fontWeight: 700, color: 'var(--info)', fontSize: 16, marginBottom: 12 }}>Expense Split!</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Group: {result.group}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Expense: {result.expense}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '8px 0' }}>₹{result.amount?.toFixed(2)}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Paid by {result.paidBy} • Split across {result.totalUsers} people</div>
+              <button style={{ marginTop: 12, padding: '8px 20px', fontSize: 13, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>🔄 New Simulation</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SplitwisePage() {
   const [view, setView] = useState('users');
   const [selectedUser, setSelectedUser] = useState(null);
@@ -396,17 +493,21 @@ export default function SplitwisePage() {
         <h1>Splitwise</h1>
         {selectedUser && <span className="sw-user-badge">{selectedUser.name[0]}</span>}
       </header>
-      <nav style={{ display: 'flex', gap: 8, marginBottom: 12, justifyContent: 'center' }}>
-        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view !== 'diagram' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view !== 'diagram' ? '#fff' : '#555' }} onClick={() => setView('users')}>App</button>
+      <nav style={{ display: 'flex', gap: 8, marginBottom: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'users' || view === 'groups' || view === 'expense' || view === 'balances' || view === 'settle' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'users' || view === 'groups' || view === 'expense' || view === 'balances' || view === 'settle' ? '#fff' : '#555' }} onClick={() => setView('users')}>App</button>
+        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'simulation' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'simulation' ? '#fff' : '#555' }} onClick={() => setView('simulation')}>Simulation</button>
         <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'diagram' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'diagram' ? '#fff' : '#555' }} onClick={() => setView('diagram')}>📐 Class Diagram</button>
+        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'design' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'design' ? '#fff' : '#555' }} onClick={() => setView('design')}>Design Details</button>
       </nav>
       <main className="sw-main">
+        {view === 'simulation' && <AnimatedFlow />}
+        {view === 'design' && <DesignDetails module="splitwise" />}
         {view === 'diagram' && <ClassDiagram module="splitwise" />}
-        {view !== 'diagram' && view === 'users' && <UserList onUserSelect={handleUserSelect} onUserCreated={() => {}} />}
-        {view !== 'diagram' && view === 'groups' && selectedUser && <GroupList user={selectedUser} onGroupSelect={handleGroupSelect} onBack={() => { setSelectedUser(null); setView('users'); }} />}
-        {view !== 'diagram' && view === 'expense' && selectedGroup && selectedUser && <AddExpense user={selectedUser} group={selectedGroup} onBack={() => { setSelectedGroup(null); setView('groups'); }} onExpenseAdded={() => setView('balances')} />}
-        {view !== 'diagram' && view === 'balances' && selectedUser && <BalanceView user={selectedUser} onBack={() => setView('groups')} onSettle={(otherId) => setView('settle')} />}
-        {view !== 'diagram' && view === 'settle' && selectedUser && <SettleUp user={selectedUser} onBack={() => setView('balances')} onSettled={() => setView('balances')} />}
+        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'users' && <UserList onUserSelect={handleUserSelect} onUserCreated={() => {}} />}
+        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'groups' && selectedUser && <GroupList user={selectedUser} onGroupSelect={handleGroupSelect} onBack={() => { setSelectedUser(null); setView('users'); }} />}
+        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'expense' && selectedGroup && selectedUser && <AddExpense user={selectedUser} group={selectedGroup} onBack={() => { setSelectedGroup(null); setView('groups'); }} onExpenseAdded={() => setView('balances')} />}
+        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'balances' && selectedUser && <BalanceView user={selectedUser} onBack={() => setView('groups')} onSettle={(otherId) => setView('settle')} />}
+        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'settle' && selectedUser && <SettleUp user={selectedUser} onBack={() => setView('balances')} onSettled={() => setView('balances')} />}
       </main>
     </div>
   );

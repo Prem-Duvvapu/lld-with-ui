@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { authenticate, getBalance, withdraw, deposit, getTransactions } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -60,6 +61,10 @@ body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-heigh
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #33ff33; border-radius: 6px; color: #33ff33; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #33ff33; color: #0a1a0a; }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #1a5a3a; transition: all 0.3s; }
+.step-dot.active { background: #00ff41; box-shadow: 0 0 8px rgba(0,255,65,0.5); }
+.step-dot.done { background: #3fb950; }
 `;
 
 const PRESET_AMOUNTS = [20, 40, 60, 100, 200, 500];
@@ -287,14 +292,100 @@ function AtmScreen({ screen, setScreen, cardNumber, setCardNumber, account, onAu
   return null;
 }
 
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [account, setAccount] = useState(null);
+  const [receipt, setReceipt] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
+  const steps = ['Insert Card', 'Verify PIN', 'Menu', 'Withdraw', 'Receipt'];
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const reset = () => { setStep(0); setAccount(null); setReceipt(null); setError(''); setLoading(false); };
+
+  const startSim = async () => {
+    setError(''); setLoading(true); setStep(1);
+    try {
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(2);
+
+      const auth = await authenticate('1234567890', '1234');
+      if (!mountedRef.current) return;
+      if (auth.error) { setError(auth.error); setLoading(false); return; }
+      setAccount(auth);
+      setLoading(false);
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(3);
+
+      await new Promise(r => setTimeout(r, 1200));
+      if (!mountedRef.current) return;
+      setStep(4);
+      setLoading(true);
+
+      const tx = await withdraw(auth.accountNumber, 500);
+      if (!mountedRef.current) return;
+      if (tx.error) { setError(tx.error); setLoading(false); return; }
+      setReceipt(tx);
+      setLoading(false);
+      await new Promise(r => setTimeout(r, 1500));
+      if (!mountedRef.current) return;
+      setStep(5);
+    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+  };
+
+  return (
+    <div>
+      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
+
+      {step === 0 && <button className="btn-primary" onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+
+      {step >= 1 && !error && (
+        <div style={{ textAlign: 'center', padding: 20, background: '#0a3d2e', borderRadius: 12, maxWidth: 360, margin: '0 auto', color: '#00ff41', fontFamily: 'monospace', border: '2px solid #00ff41' }}>
+          {step === 1 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>💳</div><div style={{ fontWeight: 600 }}>Inserting card...</div></div>}
+          {step === 2 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>🔐</div><div>{loading ? 'Verifying PIN...' : '✅ PIN Verified'}</div>{account && <div style={{ fontSize: 12, marginTop: 8 }}>Welcome, {account.holderName}</div>}</div>}
+          {step === 3 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>📋</div><div style={{ fontWeight: 600 }}>Selecting Withdrawal...</div></div>}
+          {step === 4 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>{loading ? '⏳' : '💰'}</div><div>{loading ? 'Dispensing cash...' : 'Withdrawal successful!'}</div></div>}
+          {step === 5 && receipt && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🧾</div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>TRANSACTION RECEIPT</div>
+              <div style={{ fontSize: 12, borderTop: '1px dashed #00ff41', paddingTop: 8 }}>
+                <div>Amount: ₹{receipt.amount?.toFixed(2)}</div>
+                <div>Type: {receipt.transactionType}</div>
+                <div>Status: {receipt.status}</div>
+                {account && <div>Balance: ₹{account.balance?.toFixed(2)}</div>}
+              </div>
+              <button style={{ marginTop: 12, padding: '8px 20px', fontSize: 13, background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }} onClick={reset}>🔄 New Transaction</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AtmPage() {
   const [screen, setScreen] = useState('insertCard');
   const [cardNumber, setCardNumber] = useState('');
   const [account, setAccount] = useState(null);
-  const [showDiagram, setShowDiagram] = useState(false);
+  const [tab, setTab] = useState('atm');
 
   const handleAuthenticated = (accountData) => { setAccount(accountData); setScreen('mainMenu'); };
   const handleExit = () => { setAccount(null); setCardNumber(''); setScreen('insertCard'); };
+
+  const tabs = ['atm', 'simulation', 'diagram', 'design'];
+  const tabLabels = { atm: 'ATM', simulation: 'Simulation', diagram: 'Class Diagram', design: 'Design Details' };
 
   return (
     <div className="atm-machine">
@@ -302,12 +393,19 @@ export default function AtmPage() {
       <div className="atm-screen">
         <div style={{ marginBottom: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
           <Link to="/" className="back-home">← Back</Link>
-          <button onClick={() => setShowDiagram(!showDiagram)} style={{ padding: '4px 10px', border: '1px solid #33ff33', borderRadius: 6, background: 'transparent', color: '#33ff33', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'Courier New, monospace' }}>
-            {showDiagram ? 'ATM' : '📐 Diagram'}
-          </button>
         </div>
         <div className="atm-title">ATM</div>
-        {showDiagram ? <ClassDiagram module="atm" /> : <AtmScreen screen={screen} setScreen={setScreen} cardNumber={cardNumber} setCardNumber={setCardNumber} account={account} onAuthenticated={handleAuthenticated} onExit={handleExit} />}
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+          {tabs.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '4px 10px', border: `1px solid ${tab === t ? '#00ff41' : '#1a5a3a'}`, borderRadius: 4, background: tab === t ? 'rgba(0,255,65,0.1)' : 'transparent', color: tab === t ? '#00ff41' : '#1a6a1a', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'Courier New, monospace', transition: 'all 0.2s' }}>
+              {tabLabels[t]}
+            </button>
+          ))}
+        </div>
+        {tab === 'atm' && <AtmScreen screen={screen} setScreen={setScreen} cardNumber={cardNumber} setCardNumber={setCardNumber} account={account} onAuthenticated={handleAuthenticated} onExit={handleExit} />}
+        {tab === 'simulation' && <AnimatedFlow />}
+        {tab === 'diagram' && <ClassDiagram module="atm" />}
+        {tab === 'design' && <DesignDetails module="atm" />}
       </div>
     </div>
   );

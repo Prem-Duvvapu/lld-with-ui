@@ -64,6 +64,7 @@ const PARKING_CSS = `
 .parking-cell.occupied-sim { background: var(--danger-bg); border-color: var(--danger); border-style: solid; }
 .parking-cell .car-icon { font-size: 20px; transition: all 0.3s; }
 .car-animated { position: absolute; bottom: 40px; font-size: 28px; z-index: 5; transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.person-animated { position: absolute; font-size: 26px; z-index: 6; transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
 .ticket-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: var(--shadow-lg); min-width: 220px; text-align: center; animation: ticketIn 0.5s ease-out; }
 @keyframes ticketIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 .ticket-popup h3 { color: var(--info); margin-bottom: 8px; font-size: 16px; }
@@ -332,6 +333,9 @@ function AnimatedFlow() {
   const [exitGateBarUp, setExitGateBarUp] = useState(false);
   const [entryLoading, setEntryLoading] = useState(false);
   const [simError, setSimError] = useState('');
+  const [personLeft, setPersonLeft] = useState(-60);
+  const [personBottom, setPersonBottom] = useState(40);
+  const [personVisible, setPersonVisible] = useState(false);
   const intervalRef = useRef(null);
   const timerRef = useRef(null);
   const mountedRef = useRef(true);
@@ -400,6 +404,7 @@ function AnimatedFlow() {
     setExitGateBarUp(false);
     setEntryLoading(false);
     setSimError('');
+    setPersonVisible(false);
   };
 
   const steps = ['Entry', 'Ticket', 'Park', 'Away', 'Return', 'Exit', 'Done'];
@@ -485,59 +490,84 @@ function AnimatedFlow() {
 
   const startAway = (act) => {
     setActivity(act);
-    setCarLeft(-60);
-    setCarBottom(40);
+    const cellIdx = occupiedCells.length > 0 ? occupiedCells[occupiedCells.length - 1] : -1;
+    if (cellIdx >= 0) {
+      const pos = cellCenter(cellIdx);
+      setPersonLeft(pos.left);
+      setPersonBottom(pos.bottom);
+    } else {
+      setPersonLeft(carLeft);
+      setPersonBottom(carBottom);
+    }
+    setPersonVisible(true);
+    setTimeout(() => {
+      setPersonLeft(-40);
+      setPersonBottom(40);
+    }, 800);
     setStep(4);
   };
 
   const returnToCar = () => {
     setAway(false);
     if (timerRef.current) clearInterval(timerRef.current);
-    const cellIdx = occupiedCells[occupiedCells.length - 1];
-    const pos = cellCenter(cellIdx);
-    setCarLeft(pos.left);
-    setCarBottom(pos.bottom);
-
+    const cellIdx = occupiedCells.length > 0 ? occupiedCells[occupiedCells.length - 1] : -1;
+    const pos = cellIdx >= 0 ? cellCenter(cellIdx) : { left: 50, bottom: 40 };
+    setPersonLeft(-40);
+    setPersonBottom(40);
+    setPersonVisible(true);
     setTimeout(() => {
+      setPersonLeft(pos.left);
+      setPersonBottom(pos.bottom);
+    }, 100);
+    setTimeout(() => {
+      setPersonVisible(false);
       setStep(5);
-      setTimeout(() => {
-        setExitGateBarUp(true);
-        setCarLeft(sceneWidth + 30);
-        setCarBottom(40);
-      }, 500);
-      setTimeout(() => {
-        setExitGateBarUp(false);
-        setStep(6);
-      }, 2000);
-    }, 1800);
+    }, 1200);
   };
 
   const completeExit = () => {
     setSimError('');
     if (!exitGateRef.current) { setSimError('No exit gate found'); return; }
     setEntryLoading(true);
-    const tktNo = ticketData?.ticketNumber || 'TKT-00001';
-    vehicleExit(exitGateRef.current, tktNo).then((data) => {
-      if (!mountedRef.current) return;
-      setEntryLoading(false);
-      if (data.error) {
-        setSimError(data.error);
-      } else {
-        setReceiptData(data);
-        setShowReceipt(true);
-        setTimeout(() => {
-          if (!mountedRef.current) return;
-          setShowReceipt(false);
-          setCarLeft(sceneWidth + 80);
+    setStep(6);
+    const cellIdx = occupiedCells.length > 0 ? occupiedCells[occupiedCells.length - 1] : -1;
+    const pos = cellIdx >= 0 ? cellCenter(cellIdx) : { left: 50, bottom: 40 };
+
+    setCarLeft(pos.left);
+    setCarBottom(40);
+
+    setTimeout(() => {
+      setCarLeft(sceneWidth + 30);
+      setCarBottom(40);
+      setExitGateBarUp(true);
+    }, 1500);
+
+    setTimeout(() => {
+      setExitGateBarUp(false);
+      const tktNo = ticketData?.ticketNumber || 'TKT-00001';
+      vehicleExit(exitGateRef.current, tktNo).then((data) => {
+        if (!mountedRef.current) return;
+        setEntryLoading(false);
+        if (data.error) {
+          setSimError(data.error);
+        } else {
+          setReceiptData(data);
+          setShowReceipt(true);
           setTimeout(() => {
             if (!mountedRef.current) return;
-            resetFlow();
-          }, 800);
-        }, 2500);
-      }
-    }).catch(() => {
-      if (mountedRef.current) { setEntryLoading(false); setSimError('API call failed'); }
-    });
+            setShowReceipt(false);
+            setCarLeft(sceneWidth + 80);
+            setTimeout(() => {
+              if (!mountedRef.current) return;
+              setOccupiedCells([]);
+              resetFlow();
+            }, 800);
+          }, 2500);
+        }
+      }).catch(() => {
+        if (mountedRef.current) { setEntryLoading(false); setSimError('API call failed'); }
+      });
+    }, 3000);
   };
 
   const fmtTimer = (s) => {
@@ -574,13 +604,14 @@ function AnimatedFlow() {
         <div className="parking-area">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className={`parking-cell ${occupiedCells.includes(i) ? 'occupied-sim' : ''}`}>
-              {occupiedCells.includes(i) && <span className="car-icon">🚗</span>}
               <span>P{i + 1}</span>
             </div>
           ))}
         </div>
 
         <div className="car-animated" style={{ left: carLeft, bottom: carBottom }}>🚗</div>
+
+        {personVisible && <div className="person-animated" style={{ left: personLeft, bottom: personBottom }}>🧑</div>}
 
         {showTicket && ticketData && (
           <div className="ticket-popup">
@@ -637,10 +668,18 @@ function AnimatedFlow() {
         </div>
       )}
 
-      {step === 6 && (
-        <button className="flow-btn danger" onClick={completeExit} disabled={entryLoading}>
-          {entryLoading ? 'Processing...' : '💰 Pay & Exit'}
-        </button>
+      {step === 5 && (
+        <div style={{ textAlign: 'center' }}>
+          <button className="flow-btn danger" onClick={completeExit} disabled={entryLoading}>
+            🚗 Drive to Exit
+          </button>
+        </div>
+      )}
+
+      {step === 6 && entryLoading && (
+        <div style={{ textAlign: 'center', padding: 12, color: 'var(--text-muted)', fontSize: 14 }}>
+          🚗 Exiting...
+        </div>
       )}
     </div>
   );

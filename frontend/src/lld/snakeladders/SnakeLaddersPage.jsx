@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { createGame, getGame, rollDice } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,6 +64,10 @@ main { background: rgba(22, 33, 62, 0.95); border-radius: 16px; padding: 24px; b
 .alert { text-align: center; padding: 32px; color: #666; font-size: 16px; }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #4ecdc4; border-radius: 6px; color: #4ecdc4; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #4ecdc4; color: #1a1a2e; }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a5a; transition: all 0.3s; }
+.step-dot.active { background: #667eea; box-shadow: 0 0 8px rgba(102,126,234,0.5); }
+.step-dot.done { background: #3fb950; }
 `;
 
 const COLORS = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
@@ -283,10 +288,107 @@ function GameBoard({ gameId, playerNames, onNewGame }) {
   );
 }
 
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [game, setGame] = useState(null);
+  const [diceValue, setDiceValue] = useState(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const mountedRef = useRef(true);
+  const steps = ['Setup', 'Playing...', 'Winner!'];
+  const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#ffa502'];
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const reset = () => { setStep(0); setGame(null); setDiceValue(null); setMessage(''); setError(''); };
+
+  const startSim = async () => {
+    setError(''); setStep(1);
+    try {
+      const g = await createGame(['Alice', 'Bob']);
+      if (!mountedRef.current) return;
+      if (g.error) { setError(g.error); return; }
+      setGame(g);
+      setMessage('Game started! Alice goes first.');
+
+      let currentGame = g;
+      while (currentGame.state !== 'FINISHED' && currentGame.state !== 'COMPLETED') {
+        await new Promise(r => setTimeout(r, 1500));
+        if (!mountedRef.current) return;
+
+        const rolled = await rollDice(currentGame.id);
+        if (!mountedRef.current) return;
+        if (rolled.error) { setError(rolled.error); return; }
+
+        setDiceValue(rolled.lastDiceValue);
+        if (rolled.message) setMessage(rolled.message);
+
+        currentGame = rolled;
+        setGame(rolled);
+
+        if (rolled.winner) {
+          setMessage(`🎉 ${rolled.winner} wins!`);
+          break;
+        }
+      }
+      if (!mountedRef.current) return;
+      setStep(2);
+    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
+  };
+
+  const players = game?.players || [];
+  const winner = game?.winner;
+
+  return (
+    <div>
+      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
+
+      {step === 0 && <button className="btn-primary" onClick={startSim} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Auto-Play Game</button>}
+
+      {step >= 1 && !error && (
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          <div style={{ fontSize: 48, marginBottom: 12, transition: 'all 0.3s' }}>{diceValue ? ['⚀','⚁','⚂','⚃','⚄','⚅'][diceValue - 1] : '🎲'}</div>
+
+          <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16, fontWeight: 500 }}>{message}</div>
+
+          {players.length > 0 && (
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {players.map((p, i) => (
+                <div key={p.name} style={{ padding: '8px 16px', background: 'var(--bg-card)', border: `2px solid ${colors[i % colors.length]}`, borderRadius: 8, fontSize: 13, color: 'var(--text-primary)' }}>
+                  <div style={{ fontWeight: 600, color: colors[i % colors.length] }}>{p.name}</div>
+                  <div>Cell: {p.position || p.currentCell || 1}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {step === 2 && winner && (
+            <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 16, maxWidth: 300, margin: '16px auto', border: '1px solid var(--border-primary)' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🏆</div>
+              <div style={{ fontWeight: 700, color: 'var(--info)', fontSize: 16 }}>{winner} Wins!</div>
+              <button style={{ marginTop: 12, padding: '8px 20px', fontSize: 13, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>🔄 New Game</button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SnakeLaddersPage() {
   const [gameId, setGameId] = useState(null);
   const [players, setPlayers] = useState(['Player 1', 'Player 2']);
-  const [showDiagram, setShowDiagram] = useState(false);
+  const [tab, setTab] = useState('setup');
+
+  const tabs = ['setup', 'simulation', 'diagram', 'design'];
+  const tabLabels = { setup: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', design: 'Design Details' };
 
   return (
     <div className="app">
@@ -295,30 +397,35 @@ export default function SnakeLaddersPage() {
       <header>
         <h1>Snake & Ladders</h1>
         <p>Low-Level Design</p>
-        <button onClick={() => setShowDiagram(!showDiagram)} style={{ marginTop: 8, padding: '6px 14px', border: '1px solid #4ecdc4', borderRadius: 6, background: 'transparent', color: '#4ecdc4', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-          {showDiagram ? 'Back to Game' : '📐 Class Diagram'}
-        </button>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+          {tabs.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', border: `1px solid ${tab === t ? '#4ecdc4' : '#2a2a4a'}`, borderRadius: 6, background: tab === t ? 'rgba(78,205,196,0.15)' : 'transparent', color: tab === t ? '#4ecdc4' : '#888', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.2s' }}>
+              {tabLabels[t]}
+            </button>
+          ))}
+        </div>
       </header>
-      {showDiagram ? (
-        <main><ClassDiagram module="snakeladders" /></main>
-      ) : (
       <main>
-        {!gameId ? (
-          <div className="setup">
-            <h2>New Game</h2>
-            {players.map((p, i) => (
-              <div key={i} className="form-group">
-                <label>Player {i + 1}</label>
-                <input value={p} onChange={(e) => { const next = [...players]; next[i] = e.target.value; setPlayers(next); }} />
-              </div>
-            ))}
-            <button className="btn-primary" onClick={async () => { const data = await createGame(players); if (!data.error) setGameId(data.id); }}>Start Game</button>
-          </div>
-        ) : (
-          <GameBoard gameId={gameId} playerNames={players} onNewGame={() => setGameId(null)} />
+        {tab === 'setup' && (
+          !gameId ? (
+            <div className="setup">
+              <h2>New Game</h2>
+              {players.map((p, i) => (
+                <div key={i} className="form-group">
+                  <label>Player {i + 1}</label>
+                  <input value={p} onChange={(e) => { const next = [...players]; next[i] = e.target.value; setPlayers(next); }} />
+                </div>
+              ))}
+              <button className="btn-primary" onClick={async () => { const data = await createGame(players); if (!data.error) setGameId(data.id); }}>Start Game</button>
+            </div>
+          ) : (
+            <GameBoard gameId={gameId} playerNames={players} onNewGame={() => setGameId(null)} />
+          )
         )}
+        {tab === 'simulation' && <AnimatedFlow />}
+        {tab === 'diagram' && <ClassDiagram module="snakeladders" />}
+        {tab === 'design' && <DesignDetails module="snakeladders" />}
       </main>
-      )}
     </div>
   );
 }

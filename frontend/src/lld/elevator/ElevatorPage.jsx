@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { getElevators, getRequests, requestElevator } from './api';
+import { getElevators, getRequests, requestElevator, tick } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -63,6 +64,10 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 @keyframes bounceDown { from { transform: translateY(0); } to { transform: translateY(3px); } }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #1a1a2e; border-radius: 6px; color: #1a1a2e; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #1a1a2e; color: white; }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a5a; transition: all 0.3s; }
+.step-dot.active { background: var(--accent); box-shadow: 0 0 8px rgba(102,126,234,0.5); }
+.step-dot.done { background: #3fb950; }
 `;
 
 const FLOOR_HEIGHT = 70;
@@ -140,12 +145,106 @@ function Floor({ floorNum, onCall }) {
   );
 }
 
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [request, setRequest] = useState(null);
+  const [elevators, setElevators] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const mountedRef = useRef(true);
+  const steps = ['Call', 'Arriving', 'Boarding', 'Moving', 'Arrived'];
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const reset = () => { setStep(0); setRequest(null); setElevators([]); setError(''); setLoading(false); };
+
+  const startSim = async () => {
+    setError(''); setLoading(true); setStep(1);
+    try {
+      const req = await requestElevator(1, 5);
+      if (!mountedRef.current) return;
+      if (req.error) { setError(req.error); setLoading(false); return; }
+      setRequest(req);
+      setLoading(false);
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(2);
+
+      for (let i = 0; i < 8; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        if (!mountedRef.current) return;
+        const evs = await tick();
+        if (!mountedRef.current) return;
+        setElevators(evs);
+
+        const assigned = evs.find(e => e.id === req.assignedElevatorId);
+        if (assigned && assigned.currentFloor === 1 && i >= 2) {
+          setStep(3);
+          await new Promise(r => setTimeout(r, 1200));
+          if (!mountedRef.current) return;
+          setStep(4);
+        }
+        if (assigned && assigned.currentFloor >= 5) {
+          setStep(5);
+          break;
+        }
+      }
+      if (!mountedRef.current) return;
+      setStep(5);
+    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+  };
+
+  const assignedElevator = elevators.find(e => e.id === request?.assignedElevatorId);
+
+  return (
+    <div>
+      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+
+      {step >= 1 && !error && (
+        <div style={{ textAlign: 'center', padding: 20 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>
+            {step === 1 && '🛗'}
+            {step === 2 && '⬇️'}
+            {step === 3 && '🚶'}
+            {step === 4 && '⬆️'}
+            {step === 5 && '✅'}
+          </div>
+          <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
+            {step === 1 && (loading ? 'Calling elevator...' : 'Elevator called from Floor 1 → 5')}
+            {step === 2 && 'Elevator arriving...'}
+            {step === 3 && 'Boarding passengers...'}
+            {step === 4 && 'Moving to Floor 5...'}
+            {step === 5 && 'Arrived at Floor 5!'}
+          </div>
+          {assignedElevator && (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              Elevator {assignedElevator.name} • Floor {assignedElevator.currentFloor} • {assignedElevator.direction}
+            </div>
+          )}
+          {step === 5 && (
+            <button style={{ marginTop: 16, padding: '8px 20px', fontSize: 13, background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>🔄 New Trip</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ElevatorPage() {
   const [elevators, setElevators] = useState([]);
   const [requests, setRequests] = useState([]);
   const [fromFloor, setFromFloor] = useState(1);
   const [toFloor, setToFloor] = useState(2);
-  const [showDiagram, setShowDiagram] = useState(false);
+  const [page, setPage] = useState('app');
 
   useEffect(() => {
     const fetchElevators = async () => {
@@ -181,11 +280,17 @@ export default function ElevatorPage() {
           <h1>Elevator Control System</h1>
           <p>Building Management</p>
         </div>
-        <button onClick={() => setShowDiagram(!showDiagram)} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-          {showDiagram ? 'Back to App' : '📐 Class Diagram'}
-        </button>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setPage('app')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'app' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>App</button>
+          <button onClick={() => setPage('simulation')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'simulation' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Simulation</button>
+          <button onClick={() => setPage('diagram')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'diagram' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>📐 Diagram</button>
+          <button onClick={() => setPage('design')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'design' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Design</button>
+        </div>
       </header>
-      {showDiagram ? <ClassDiagram module="elevator" /> : (<>
+      {page === 'diagram' && <ClassDiagram module="elevator" />}
+      {page === 'design' && <DesignDetails module="elevator" />}
+      {page === 'simulation' && <AnimatedFlow />}
+      {page === 'app' && (<>
         <div className="floor-list">
           {Array.from({ length: TOTAL_FLOORS }, (_, i) => TOTAL_FLOORS - i).map((num) => (
             <Floor key={num} floorNum={num} onCall={handleCall} />
