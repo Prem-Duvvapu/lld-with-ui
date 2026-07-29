@@ -1,65 +1,120 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import LldPage from '../../components/LldPage';
 
-const styles = `
-.app { max-width: 900px; margin: 0 auto; padding: 20px; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #667eea; border-radius: 6px; color: #667eea; text-decoration: none; font-size: 14px; font-weight: 600; }
-.header { text-align: center; margin-bottom: 24px; }
-.content-section { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-.code-block { background: #0d0d1a; border: 1px solid #333; border-radius: 8px; padding: 16px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; color: #b5e890; white-space: pre; }
-.desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px; }
+const CSS = `
+.zeo-container { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 12px; padding: 20px; }
+.threads-trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.thread-card { background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: 10px; padding: 12px; text-align: center; transition: all 0.3s; }
+.thread-card.active { border-color: var(--accent); box-shadow: 0 0 14px rgba(102,126,234,0.4); transform: scale(1.04); }
+
+.seq-stream { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 16px; min-height: 120px; font-family: monospace; font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.seq-tag { padding: 6px 12px; border-radius: 6px; font-weight: 700; }
+.seq-tag.zero { background: rgba(102,126,234,0.2); color: var(--accent); border: 1px solid var(--accent); }
+.seq-tag.odd { background: rgba(234,179,8,0.2); color: var(--warning); border: 1px solid var(--warning); }
+.seq-tag.even { background: rgba(63,185,80,0.2); color: var(--success); border: 1px solid var(--success); }
 `;
 
-const TITLE = 'Print Zero Even Odd';
-const DESC = 'Three threads print numbers: Thread A prints 0, Thread B prints even numbers, Thread C prints odd numbers. Sequence: 0102030405...';
-const CODE = `class ZeroEvenOdd {
-  private int n;
-  private Semaphore zeroSema = new Semaphore(1);
-  private Semaphore evenSema = new Semaphore(0);
-  private Semaphore oddSema = new Semaphore(0);
+function AnimatedFlow() {
+  const [numCounter, setNumCounter] = useState(1);
+  const [turn, setTurn] = useState('ZERO'); // ZERO, ODD, EVEN
+  const [output, setOutput] = useState([]);
+  const [log, setLog] = useState('Semaphores initialized: zeroSema(1), oddSema(0), evenSema(0).');
 
-  public ZeroEvenOdd(int n) { this.n = n; }
-
-  public void zero(IntConsumer printNumber) throws InterruptedException {
-    for (int i = 1; i <= n; i++) {
-      zeroSema.acquire();
-      printNumber.accept(0);
-      if (i % 2 == 0) evenSema.release();
-      else oddSema.release();
+  const stepSequence = () => {
+    if (turn === 'ZERO') {
+      setOutput(prev => [...prev, { val: '0', type: 'zero' }]);
+      if (numCounter % 2 !== 0) {
+        setTurn('ODD');
+        setLog(`0️⃣ Thread-Zero printed "0" -> released oddSema for n=${numCounter}`);
+      } else {
+        setTurn('EVEN');
+        setLog(`0️⃣ Thread-Zero printed "0" -> released evenSema for n=${numCounter}`);
+      }
+    } else if (turn === 'ODD') {
+      setOutput(prev => [...prev, { val: `${numCounter}`, type: 'odd' }]);
+      setTurn('ZERO');
+      setLog(`1️⃣ Thread-Odd printed "${numCounter}" -> released zeroSema.`);
+      setNumCounter(n => n + 1);
+    } else if (turn === 'EVEN') {
+      setOutput(prev => [...prev, { val: `${numCounter}`, type: 'even' }]);
+      setTurn('ZERO');
+      setLog(`2️⃣ Thread-Even printed "${numCounter}" -> released zeroSema.`);
+      setNumCounter(n => n + 1);
     }
-  }
+  };
 
-  public void even(IntConsumer printNumber) throws InterruptedException {
-    for (int i = 2; i <= n; i += 2) {
-      evenSema.acquire();
-      printNumber.accept(i);
-      zeroSema.release();
-    }
-  }
+  const reset = () => {
+    setNumCounter(1);
+    setTurn('ZERO');
+    setOutput([]);
+    setLog('Reset sequence.');
+  };
 
-  public void odd(IntConsumer printNumber) throws InterruptedException {
-    for (int i = 1; i <= n; i += 2) {
-      oddSema.acquire();
-      printNumber.accept(i);
-      zeroSema.release();
-    }
-  }
-}`;
+  return (
+    <div className="zeo-container">
+      <style>{CSS}</style>
+
+      <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 16 }}>
+        3-THREAD SEMAPHORE INTERLEAVED SEQUENCE (0 → 1 → 0 → 2...)
+      </div>
+
+      <div className="threads-trio">
+        <div className={`thread-card ${turn === 'ZERO' ? 'active' : ''}`}>
+          <div style={{ fontSize: 24 }}>0️⃣</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Thread-Zero</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>zeroSema(1)</div>
+        </div>
+
+        <div className={`thread-card ${turn === 'ODD' ? 'active' : ''}`}>
+          <div style={{ fontSize: 24 }}>1️⃣</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Thread-Odd</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>oddSema(0)</div>
+        </div>
+
+        <div className={`thread-card ${turn === 'EVEN' ? 'active' : ''}`}>
+          <div style={{ fontSize: 24 }}>2️⃣</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Thread-Even</div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>evenSema(0)</div>
+        </div>
+      </div>
+
+      <div className="seq-stream">
+        {output.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Click "Step Sequence" to generate interleaved output stream.</div>
+        ) : (
+          output.map((item, idx) => (
+            <div key={idx} className={`seq-tag ${item.type}`}>
+              {item.val}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}>
+        <button onClick={stepSequence} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--accent-gradient)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+          ▶ Step Sequence (Next: {turn})
+        </button>
+        <button onClick={reset} style={{ padding: '10px 20px', borderRadius: 8, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', cursor: 'pointer', fontWeight: 600 }}>
+          🔄 Reset
+        </button>
+      </div>
+
+      <div style={{ marginTop: 16, background: 'var(--bg-primary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 12, color: 'var(--info)', textAlign: 'center', fontWeight: 600 }}>
+        {log}
+      </div>
+    </div>
+  );
+}
 
 export default function ZeroEvenOddPage() {
   return (
-    <div className="app">
-      <style>{styles}</style>
-      <Link to="/" className="back-home" style={{ color: '#667eea', textDecoration: 'none' }}>← Back to Home</Link>
-      <div className="header">
-        <h1 style={{ fontSize: 24, marginBottom: 4 }}>{TITLE}</h1>
-        <p style={{ color: '#888', fontSize: 14 }}>Concurrency & Multi-threading</p>
-      </div>
-      <main>
-        <div className="content-section">
-          <div className="desc">{DESC}</div>
-          <div className="code-block">{CODE}</div>
-        </div>
-      </main>
-    </div>
+    <LldPage module="zero-even-odd" title="Print Zero Even Odd" icon="0️⃣" tabs={['app', 'simulation', 'diagram', 'design']}>
+      {(activeTab) => (
+        <>
+          {activeTab === 'simulation' && <AnimatedFlow />}
+          {activeTab === 'app' && <AnimatedFlow />}
+        </>
+      )}
+    </LldPage>
   );
 }

@@ -28,7 +28,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
       <main style={{ maxWidth: tab === 'app' ? 1200 : 900, margin: '0 auto', width: '100%' }}>
         {tab === 'design' && <DesignDetails module={module} />}
         {tab === 'diagram' && <ClassDiagram module={module} />}
-        {isCustom && children}
+        {isCustom && (typeof children === 'function' ? children(tab) : children)}
       </main>
     </div>
   );

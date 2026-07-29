@@ -1,73 +1,113 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import LldPage from '../../components/LldPage';
 
-const styles = `
-.app { max-width: 900px; margin: 0 auto; padding: 20px; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #667eea; border-radius: 6px; color: #667eea; text-decoration: none; font-size: 14px; font-weight: 600; }
-.header { text-align: center; margin-bottom: 24px; }
-.content-section { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-.code-block { background: #0d0d1a; border: 1px solid #333; border-radius: 8px; padding: 16px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; color: #b5e890; white-space: pre; }
-.desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px; }
+const CSS = `
+.ms-container { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 12px; padding: 20px; }
+.ms-stage { background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 20px; min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; }
+
+.bar-container { display: flex; align-items: flex-end; gap: 8px; height: 180px; padding: 10px; }
+.bar-element { width: 32px; background: var(--accent); border-radius: 4px 4px 0 0; display: flex; align-items: flex-end; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; padding-bottom: 4px; transition: all 0.3s; }
+.bar-element.sorted { background: var(--success); }
+.bar-element.comparing { background: var(--warning); transform: scaleY(1.05); }
+
+.forkjoin-tree { display: flex; gap: 16px; justify-content: center; margin-top: 16px; font-family: monospace; font-size: 11px; }
+.tree-node { background: var(--bg-card); border: 1px solid var(--border-primary); padding: 6px 12px; border-radius: 6px; }
 `;
 
-const TITLE = 'Multi-threaded Merge Sort';
-const DESC = 'Merge sort that uses multiple threads to sort sub-arrays in parallel. Uses ForkJoinPool or custom thread pool.';
-const CODE = `public class ParallelMergeSort {
-  private static final int THRESHOLD = 1000;
+function AnimatedFlow() {
+  const [arr, setArr] = useState([38, 27, 43, 3, 9, 82, 10, 19]);
+  const [isSorting, setIsSorting] = useState(false);
+  const [comparingIdxs, setComparingIdxs] = useState([]);
+  const [sorted, setSorted] = useState(false);
+  const [log, setLog] = useState('ForkJoinPool Parallel Merge Sort initialized with 8 elements.');
 
-  public static void sort(int[] arr) {
-    ForkJoinPool pool = ForkJoinPool.commonPool();
-    pool.invoke(new SortTask(arr, 0, arr.length - 1));
-  }
+  const runParallelSort = async () => {
+    setIsSorting(true);
+    setSorted(false);
+    setLog('⚡ ForkJoinPool.commonPool().invoke(SortTask) -> Splitting array into subtasks...');
 
-  static class SortTask extends RecursiveAction {
-    private final int[] arr;
-    private final int left, right;
+    let current = [...arr];
 
-    SortTask(int[] arr, int left, int right) {
-      this.arr = arr; this.left = left; this.right = right;
-    }
+    // Simulated steps showing divide & merge
+    await new Promise(r => setTimeout(r, 600));
+    setComparingIdxs([0, 1, 2, 3]);
+    setLog('Subtask-1 (ForkJoin Worker 1): Sorting Left Half [38, 27, 43, 3]');
 
-    @Override
-    protected void compute() {
-      if (left >= right) return;
-      if (right - left < THRESHOLD) {
-        Arrays.sort(arr, left, right + 1);
-        return;
-      }
-      int mid = left + (right - left) / 2;
-      SortTask leftTask = new SortTask(arr, left, mid);
-      SortTask rightTask = new SortTask(arr, mid + 1, right);
-      invokeAll(leftTask, rightTask);
-      merge(arr, left, mid, right);
-    }
+    await new Promise(r => setTimeout(r, 800));
+    setComparingIdxs([4, 5, 6, 7]);
+    setLog('Subtask-2 (ForkJoin Worker 2): Sorting Right Half [9, 82, 10, 19]');
 
-    private void merge(int[] arr, int left, int mid, int right) {
-      int[] temp = Arrays.copyOfRange(arr, left, right + 1);
-      int i = 0, j = mid - left + 1, k = left;
-      int leftEnd = mid - left;
-      int rightEnd = right - left;
-      while (i <= leftEnd && j <= rightEnd)
-        arr[k++] = temp[i] <= temp[j] ? temp[i++] : temp[j++];
-      while (i <= leftEnd) arr[k++] = temp[i++];
-    }
-  }
-}`;
+    await new Promise(r => setTimeout(r, 800));
+    setComparingIdxs([]);
+
+    // Sort final
+    current.sort((a, b) => a - b);
+    setArr(current);
+    setSorted(true);
+    setIsSorting(false);
+    setLog('🎉 Parallel Merge complete! Array sorted in O(N log N) time.');
+  };
+
+  const shuffle = () => {
+    setArr([38, 27, 43, 3, 9, 82, 10, 19].sort(() => Math.random() - 0.5));
+    setSorted(false);
+    setComparingIdxs([]);
+    setLog('Array reset.');
+  };
+
+  return (
+    <div className="ms-container">
+      <style>{CSS}</style>
+
+      <div className="ms-stage">
+        <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 8 }}>
+          DIVIDE & CONQUER FORK-JOIN PARALLEL MERGE SORT
+        </div>
+
+        <div className="bar-container">
+          {arr.map((val, idx) => {
+            const isComp = comparingIdxs.includes(idx);
+            return (
+              <div key={idx} className={`bar-element ${sorted ? 'sorted' : isComp ? 'comparing' : ''}`} style={{ height: `${val * 2}px` }}>
+                {val}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="forkjoin-tree">
+          <div className="tree-node">Worker-1: [left...mid]</div>
+          <div style={{ alignSelf: 'center', color: 'var(--accent)' }}>invokeAll() ⚡</div>
+          <div className="tree-node">Worker-2: [mid+1...right]</div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, justify: 'center' }}>
+        <button onClick={runParallelSort} disabled={isSorting} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--accent-gradient)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+          ⚡ Start Parallel ForkJoin Sort
+        </button>
+
+        <button onClick={shuffle} disabled={isSorting} style={{ padding: '10px 20px', borderRadius: 8, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', cursor: 'pointer', fontWeight: 600 }}>
+          🎲 Shuffle Array
+        </button>
+      </div>
+
+      <div style={{ marginTop: 16, background: 'var(--bg-primary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 12, color: 'var(--info)', textAlign: 'center', fontWeight: 600 }}>
+        {log}
+      </div>
+    </div>
+  );
+}
 
 export default function MergeSortPage() {
   return (
-    <div className="app">
-      <style>{styles}</style>
-      <Link to="/" className="back-home" style={{ color: '#667eea', textDecoration: 'none' }}>← Back to Home</Link>
-      <div className="header">
-        <h1 style={{ fontSize: 24, marginBottom: 4 }}>{TITLE}</h1>
-        <p style={{ color: '#888', fontSize: 14 }}>Concurrency & Multi-threading</p>
-      </div>
-      <main>
-        <div className="content-section">
-          <div className="desc">{DESC}</div>
-          <div className="code-block">{CODE}</div>
-        </div>
-      </main>
-    </div>
+    <LldPage module="merge-sort" title="Multi-threaded Merge Sort" icon="🔀" tabs={['app', 'simulation', 'diagram', 'design']}>
+      {(activeTab) => (
+        <>
+          {activeTab === 'simulation' && <AnimatedFlow />}
+          {activeTab === 'app' && <AnimatedFlow />}
+        </>
+      )}
+    </LldPage>
   );
 }

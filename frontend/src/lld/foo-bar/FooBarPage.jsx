@@ -1,55 +1,104 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import LldPage from '../../components/LldPage';
 
-const styles = `
-.app { max-width: 900px; margin: 0 auto; padding: 20px; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #667eea; border-radius: 6px; color: #667eea; text-decoration: none; font-size: 14px; font-weight: 600; }
-.header { text-align: center; margin-bottom: 24px; }
-.content-section { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
-.code-block { background: #0d0d1a; border: 1px solid #333; border-radius: 8px; padding: 16px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.6; color: #b5e890; white-space: pre; }
-.desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 12px; }
+const CSS = `
+.fb-container { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 12px; padding: 20px; }
+.threads-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.thread-card { background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: 10px; padding: 14px; text-align: center; transition: all 0.3s; }
+.thread-card.active { border-color: var(--accent); box-shadow: 0 0 14px rgba(102,126,234,0.4); transform: scale(1.03); }
+
+.foobar-stream { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 16px; min-height: 120px; font-family: monospace; font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
+.foobar-tag { padding: 6px 12px; border-radius: 6px; font-weight: 700; }
+.foobar-tag.foo { background: rgba(102,126,234,0.2); color: var(--accent); border: 1px solid var(--accent); }
+.foobar-tag.bar { background: rgba(63,185,80,0.2); color: var(--success); border: 1px solid var(--success); }
 `;
 
-const TITLE = 'Print FooBar Alternately';
-const DESC = 'Print "foo" and "bar" alternately using two threads. Thread A prints "foo", thread B prints "bar". Use semaphores or wait/notify.';
-const CODE = `class FooBar {
-  private int n;
-  private Semaphore fooSema = new Semaphore(1);
-  private Semaphore barSema = new Semaphore(0);
+function AnimatedFlow() {
+  const [turn, setTurn] = useState('FOO'); // FOO or BAR
+  const [output, setOutput] = useState([]);
+  const [log, setLog] = useState('Semaphore fooSema(1), barSema(0) initialized. Thread-A ready.');
 
-  public FooBar(int n) { this.n = n; }
-
-  public void foo(Runnable printFoo) throws InterruptedException {
-    for (int i = 0; i < n; i++) {
-      fooSema.acquire();
-      printFoo.run();
-      barSema.release();
+  const handlePingPong = () => {
+    if (turn === 'FOO') {
+      setOutput(prev => [...prev, { text: 'Foo', type: 'foo' }]);
+      setTurn('BAR');
+      setLog('🔵 Thread-A acquired fooSema -> printed "Foo" -> released barSema.');
+    } else {
+      setOutput(prev => [...prev, { text: 'Bar', type: 'bar' }]);
+      setTurn('FOO');
+      setLog('🟢 Thread-B acquired barSema -> printed "Bar" -> released fooSema.');
     }
-  }
+  };
 
-  public void bar(Runnable printBar) throws InterruptedException {
-    for (int i = 0; i < n; i++) {
-      barSema.acquire();
-      printBar.run();
-      fooSema.release();
-    }
-  }
-}`;
+  const reset = () => {
+    setTurn('FOO');
+    setOutput([]);
+    setLog('Reset semaphores.');
+  };
+
+  return (
+    <div className="fb-container">
+      <style>{CSS}</style>
+
+      <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 16 }}>
+        SEMAPHORE PING-PONG SYNCHRONIZATION
+      </div>
+
+      <div className="threads-pair">
+        <div className={`thread-card ${turn === 'FOO' ? 'active' : ''}`}>
+          <div style={{ fontSize: 24 }}>🔵</div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Thread-A (Foo)</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            fooSema permits: {turn === 'FOO' ? 1 : 0}
+          </div>
+        </div>
+
+        <div className={`thread-card ${turn === 'BAR' ? 'active' : ''}`}>
+          <div style={{ fontSize: 24 }}>🟢</div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Thread-B (Bar)</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+            barSema permits: {turn === 'BAR' ? 1 : 0}
+          </div>
+        </div>
+      </div>
+
+      <div className="foobar-stream">
+        {output.length === 0 ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>Click "Ping-Pong Step" to trigger alternate execution.</div>
+        ) : (
+          output.map((item, idx) => (
+            <div key={idx} className={`foobar-tag ${item.type}`}>
+              {item.text}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16 }}>
+        <button onClick={handlePingPong} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--accent-gradient)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+          🏓 Ping-Pong Step ({turn === 'FOO' ? 'Foo' : 'Bar'})
+        </button>
+        <button onClick={reset} style={{ padding: '10px 20px', borderRadius: 8, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', cursor: 'pointer', fontWeight: 600 }}>
+          🔄 Reset
+        </button>
+      </div>
+
+      <div style={{ marginTop: 16, background: 'var(--bg-primary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 12, color: 'var(--info)', textAlign: 'center', fontWeight: 600 }}>
+        {log}
+      </div>
+    </div>
+  );
+}
 
 export default function FooBarPage() {
   return (
-    <div className="app">
-      <style>{styles}</style>
-      <Link to="/" className="back-home" style={{ color: '#667eea', textDecoration: 'none' }}>← Back to Home</Link>
-      <div className="header">
-        <h1 style={{ fontSize: 24, marginBottom: 4 }}>{TITLE}</h1>
-        <p style={{ color: '#888', fontSize: 14 }}>Concurrency & Multi-threading</p>
-      </div>
-      <main>
-        <div className="content-section">
-          <div className="desc">{DESC}</div>
-          <div className="code-block">{CODE}</div>
-        </div>
-      </main>
-    </div>
+    <LldPage module="foo-bar" title="Print FooBar Alternately" icon="🏓" tabs={['app', 'simulation', 'diagram', 'design']}>
+      {(activeTab) => (
+        <>
+          {activeTab === 'simulation' && <AnimatedFlow />}
+          {activeTab === 'app' && <AnimatedFlow />}
+        </>
+      )}
+    </LldPage>
   );
 }

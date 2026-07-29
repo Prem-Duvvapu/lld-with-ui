@@ -3,7 +3,7 @@ import LldPage from '../../components/LldPage';
 import { createTask, updateStatus, updatePriority, getAllTasks, deleteTask } from './api';
 
 const TASK_CSS = `
-.kanban-container { display: flex; gap: 16px; overflow-x: auto; padding: 8px 0; min-height: 600px; }
+.kanban-container { display: flex; gap: 16px; overflow-x: auto; padding: 8px 0; min-height: 500px; }
 .kanban-column { flex: 1; min-width: 220px; background: var(--bg-secondary); border-radius: 12px; padding: 12px; border: 1px solid var(--border-primary); }
 .kanban-column-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border-primary); }
 .kanban-column-header h3 { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -28,24 +28,76 @@ const TASK_CSS = `
 .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 .btn-primary:hover { opacity: 0.9; }
 .btn-danger { background: #ef4444; color: #fff; border-color: #ef4444; }
-.btn-danger:hover { opacity: 0.9; }
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal { background: var(--bg-secondary); border-radius: 12px; padding: 24px; width: 90%; max-width: 480px; border: 1px solid var(--border-primary); }
 .modal h2 { margin: 0 0 16px 0; font-size: 20px; color: var(--text-primary); }
 .form-group { margin-bottom: 14px; }
 .form-group label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border-primary); border-radius: 6px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); box-sizing: border-box; }
-.form-group textarea { min-height: 80px; resize: vertical; }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
 .form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 .empty-col { text-align: center; color: var(--text-muted); font-size: 13px; padding: 24px 0; }
 .add-task-bar { display: flex; justify-content: center; margin-bottom: 16px; }
-.add-task-bar .btn { padding: 10px 24px; font-size: 14px; }
 `;
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'];
 const STATUS_LABELS = { TODO: 'To Do', IN_PROGRESS: 'In Progress', REVIEW: 'Review', DONE: 'Done' };
 const STATUS_COLORS = { TODO: '#6b7280', IN_PROGRESS: '#3b82f6', REVIEW: '#f97316', DONE: '#22c55e' };
+
+function AnimatedFlow() {
+  const [simStep, setSimStep] = useState(0);
+  const [activeTask, setActiveTask] = useState({ id: 'TASK-101', title: 'Implement Auth Strategy', priority: 'HIGH', assignee: 'Prem' });
+
+  const steps = ['TODO (Backlog)', 'IN_PROGRESS (Coding)', 'REVIEW (Pull Request)', 'DONE (Merged & Deployed)'];
+
+  const advanceSim = () => {
+    setSimStep(prev => (prev + 1) % steps.length);
+  };
+
+  return (
+    <div style={{ background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '1px solid var(--border-primary)' }}>
+      <style>{TASK_CSS}</style>
+      <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 16 }}>
+        KANBAN STATE MACHINE SIMULATION WIZARD
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, justify: 'center', marginBottom: 20 }}>
+        {steps.map((s, idx) => (
+          <div key={s} style={{ padding: '6px 14px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: idx === simStep ? 'var(--accent)' : 'var(--bg-tertiary)', color: idx === simStep ? '#fff' : 'var(--text-muted)' }}>
+            {s}
+          </div>
+        ))}
+      </div>
+
+      <div className="kanban-container" style={{ minHeight: 320 }}>
+        {STATUSES.map((status, idx) => (
+          <div key={status} className="kanban-column" style={{ borderTop: idx === simStep ? '3px solid var(--accent)' : '1px solid var(--border-primary)' }}>
+            <div className="kanban-column-header">
+              <h3 style={{ color: STATUS_COLORS[status] }}>{STATUS_LABELS[status]}</h3>
+            </div>
+            {idx === simStep ? (
+              <div className="task-card selected" style={{ transform: 'scale(1.03)', transition: 'all 0.4s' }}>
+                <div className="task-card-title">{activeTask.title}</div>
+                <span className={`priority-badge priority-${activeTask.priority}`}>{activeTask.priority}</span>
+                <div className="task-card-meta" style={{ marginTop: 8 }}>
+                  <span>👤 {activeTask.assignee}</span>
+                  <span>ID: {activeTask.id}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="empty-col">No task in state</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: 16 }}>
+        <button onClick={advanceSim} className="btn btn-primary" style={{ padding: '10px 24px', fontSize: 14 }}>
+          ▶ Advance Task to Next State ({steps[(simStep + 1) % steps.length]})
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function AddTaskModal({ open, onClose, onCreated }) {
   const [title, setTitle] = useState('');
@@ -175,67 +227,70 @@ export default function TaskManagementPage() {
     if (grouped[t.status]) grouped[t.status].push(t);
   });
 
-  const app = (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
-      <style>{TASK_CSS}</style>
-
-      <div className="add-task-bar">
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Task</button>
-      </div>
-
-      {error && <div style={{ textAlign: 'center', color: '#ef4444', marginBottom: 12, fontSize: 13 }}>{error}</div>}
-
-      {selected && (
-        <div className="detail-panel">
-          <h2>{selected.title}</h2>
-          {selected.description && <div className="desc">{selected.description}</div>}
-          <div className="meta">
-            <span>Priority: <strong>{selected.priority}</strong></span>
-            <span>Assignee: <strong>{selected.assignee || 'Unassigned'}</strong></span>
-            <span>Status: <strong style={{ color: STATUS_COLORS[selected.status] }}>{STATUS_LABELS[selected.status]}</strong></span>
-            <span>Created: {new Date(selected.createdAt).toLocaleString()}</span>
-          </div>
-          <div className="actions">
-            {prevStatus(selected.status) && (
-              <button className="btn" onClick={() => handleMoveStatus(selected.id, prevStatus(selected.status))}>
-                ← Move to {STATUS_LABELS[prevStatus(selected.status)]}
-              </button>
-            )}
-            {nextStatus(selected.status) && (
-              <button className="btn btn-primary" onClick={() => handleMoveStatus(selected.id, nextStatus(selected.status))}>
-                Move to {STATUS_LABELS[nextStatus(selected.status)]} →
-              </button>
-            )}
-            <button className="btn btn-danger" onClick={() => handleDelete(selected.id)}>Delete</button>
-          </div>
-        </div>
-      )}
-
-      <div className="kanban-container">
-        {STATUSES.map((status) => (
-          <div key={status} className="kanban-column">
-            <div className="kanban-column-header" style={{ borderBottomColor: STATUS_COLORS[status] }}>
-              <h3 style={{ color: STATUS_COLORS[status] }}>{STATUS_LABELS[status]}</h3>
-              <span className="count">{grouped[status].length}</span>
-            </div>
-            {grouped[status].length === 0 ? (
-              <div className="empty-col">No tasks</div>
-            ) : (
-              grouped[status].map((task) => (
-                <TaskCard key={task.id} task={task} selected={selected?.id === task.id} onClick={setSelected} />
-              ))
-            )}
-          </div>
-        ))}
-      </div>
-
-      <AddTaskModal open={showModal} onClose={() => setShowModal(false)} onCreated={fetchTasks} />
-    </div>
-  );
-
   return (
-    <LldPage module="task-management" title="Task Management" icon="✅" tabs={['app', 'design', 'diagram']}>
-      {app}
+    <LldPage module="task-management" title="Task Management System" icon="✅" tabs={['app', 'simulation', 'diagram', 'design']}>
+      {(activeTab) => (
+        <>
+          <style>{TASK_CSS}</style>
+          {activeTab === 'simulation' && <AnimatedFlow />}
+
+          {activeTab === 'app' && (
+            <div style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
+              <div className="add-task-bar">
+                <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Task</button>
+              </div>
+
+              {error && <div style={{ textAlign: 'center', color: '#ef4444', marginBottom: 12, fontSize: 13 }}>{error}</div>}
+
+              {selected && (
+                <div className="detail-panel">
+                  <h2>{selected.title}</h2>
+                  {selected.description && <div className="desc">{selected.description}</div>}
+                  <div className="meta">
+                    <span>Priority: <strong>{selected.priority}</strong></span>
+                    <span>Assignee: <strong>{selected.assignee || 'Unassigned'}</strong></span>
+                    <span>Status: <strong style={{ color: STATUS_COLORS[selected.status] }}>{STATUS_LABELS[selected.status]}</strong></span>
+                    <span>Created: {new Date(selected.createdAt).toLocaleString()}</span>
+                  </div>
+                  <div className="actions">
+                    {prevStatus(selected.status) && (
+                      <button className="btn" onClick={() => handleMoveStatus(selected.id, prevStatus(selected.status))}>
+                        ← Move to {STATUS_LABELS[prevStatus(selected.status)]}
+                      </button>
+                    )}
+                    {nextStatus(selected.status) && (
+                      <button className="btn btn-primary" onClick={() => handleMoveStatus(selected.id, nextStatus(selected.status))}>
+                        Move to {STATUS_LABELS[nextStatus(selected.status)]} →
+                      </button>
+                    )}
+                    <button className="btn btn-danger" onClick={() => handleDelete(selected.id)}>Delete</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="kanban-container">
+                {STATUSES.map((status) => (
+                  <div key={status} className="kanban-column">
+                    <div className="kanban-column-header" style={{ borderBottomColor: STATUS_COLORS[status] }}>
+                      <h3 style={{ color: STATUS_COLORS[status] }}>{STATUS_LABELS[status]}</h3>
+                      <span className="count">{grouped[status].length}</span>
+                    </div>
+                    {grouped[status].length === 0 ? (
+                      <div className="empty-col">No tasks</div>
+                    ) : (
+                      grouped[status].map((task) => (
+                        <TaskCard key={task.id} task={task} selected={selected?.id === task.id} onClick={setSelected} />
+                      ))
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <AddTaskModal open={showModal} onClose={() => setShowModal(false)} onCreated={fetchTasks} />
+            </div>
+          )}
+        </>
+      )}
     </LldPage>
   );
 }

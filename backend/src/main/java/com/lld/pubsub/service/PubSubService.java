@@ -21,20 +21,20 @@ public class PubSubService {
     }
 
     public Topic createTopic(String name) {
-        if (repository.getTopic(name) != null) {
+        if (repository.findTopic(name) != null) {
             throw new IllegalArgumentException("Topic already exists: " + name);
         }
         Topic topic = new Topic(name);
-        repository.createTopic(topic);
+        repository.saveTopic(topic);
         return topic;
     }
 
     public String subscribe(String topicName, String subscriberId) {
-        Topic topic = repository.getTopic(topicName);
+        Topic topic = repository.findTopic(topicName);
         if (topic == null) {
             throw new IllegalArgumentException("Topic not found: " + topicName);
         }
-        Subscriber subscriber = repository.getSubscriber(subscriberId);
+        Subscriber subscriber = repository.findSubscriber(subscriberId);
         if (subscriber == null) {
             throw new IllegalArgumentException("Subscriber not found: " + subscriberId);
         }
@@ -43,7 +43,7 @@ public class PubSubService {
     }
 
     public Message publish(String topicName, String publisherName, String content) {
-        Topic topic = repository.getTopic(topicName);
+        Topic topic = repository.findTopic(topicName);
         if (topic == null) {
             throw new IllegalArgumentException("Topic not found: " + topicName);
         }
@@ -56,35 +56,35 @@ public class PubSubService {
         );
         topic.getMessages().add(message);
         for (Subscriber sub : topic.getSubscribers().values()) {
-            sub.getMessages().add(message);
+            sub.getInbox().add(message);
         }
         return message;
     }
 
     public List<Message> poll(String subscriberId) {
-        Subscriber subscriber = repository.getSubscriber(subscriberId);
+        Subscriber subscriber = repository.findSubscriber(subscriberId);
         if (subscriber == null) {
             throw new IllegalArgumentException("Subscriber not found: " + subscriberId);
         }
-        List<Message> unread = new ArrayList<>(subscriber.getMessages());
-        subscriber.getMessages().clear();
+        List<Message> unread = new ArrayList<>(subscriber.getInbox());
+        subscriber.getInbox().clear();
         return unread;
     }
 
     public List<Topic> getTopics() {
-        return repository.getAllTopics();
+        return new ArrayList<>(repository.findAllTopics().values());
     }
 
     public List<Subscriber> getSubscribers() {
-        return repository.getAllSubscribers();
+        return new ArrayList<>(repository.findAllSubscribers().values());
     }
 
     public Subscriber createSubscriber(String id, String name) {
-        if (repository.getSubscriber(id) != null) {
+        if (repository.findSubscriber(id) != null) {
             throw new IllegalArgumentException("Subscriber already exists: " + id);
         }
         Subscriber subscriber = new Subscriber(id, name);
-        repository.createSubscriber(subscriber);
+        repository.saveSubscriber(subscriber);
         return subscriber;
     }
 }

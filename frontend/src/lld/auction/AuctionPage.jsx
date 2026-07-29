@@ -23,27 +23,10 @@ const CSS = `
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 1px solid var(--border-primary); border-radius: 6px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); box-sizing: border-box; transition: border-color 0.2s; }
-.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
 .btn-primary { width: 100%; padding: 10px; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102,126,234,0.3); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.btn-success { padding: 8px 20px; background: var(--success); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-.btn-success:hover { opacity: 0.85; }
-.btn-danger { padding: 8px 20px; background: var(--danger); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-.btn-danger:hover { opacity: 0.85; }
-.error { margin-top: 10px; padding: 8px; background: var(--danger-bg); color: var(--danger); border-radius: 6px; border: 1px solid var(--danger-bg); font-size: 13px; }
-.success { margin-top: 10px; padding: 8px; background: var(--success-bg); color: var(--success); border-radius: 6px; font-size: 13px; }
 
 .auctions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .auction-card { background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border-primary); padding: 16px; cursor: pointer; transition: all 0.2s; }
-.auction-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-.auction-card.selected { border-color: var(--info); box-shadow: 0 0 0 2px var(--info-bg); }
-.auction-card h3 { font-size: 16px; margin-bottom: 6px; color: var(--text-primary); }
-.auction-card .desc { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
-.auction-card .detail { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border-secondary); }
-.auction-card .detail:last-child { border-bottom: none; }
-.auction-card .label { color: var(--text-muted); }
-.auction-card .value { font-weight: 600; color: var(--text-primary); }
 
 .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 .badge-pending { background: rgba(255,193,7,0.15); color: #ffc107; }
@@ -51,19 +34,123 @@ const CSS = `
 .badge-closed { background: rgba(108,117,125,0.15); color: #6c757d; }
 
 .detail-panel { margin-top: 20px; padding: 20px; background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border-primary); }
-.detail-panel h2 { font-size: 18px; margin-bottom: 12px; color: var(--info); }
 .bid-form { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 16px; }
-.bid-form .form-group { margin-bottom: 0; min-width: 150px; flex: 1; }
-.bid-form .btn-primary { width: auto; padding: 9px 24px; }
 
-.bids-list { max-height: 300px; overflow-y: auto; }
-.bid-item { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-secondary); font-size: 13px; }
-.bid-item:last-child { border-bottom: none; }
-.bid-item .bidder { color: var(--text-muted); }
-.bid-item .amount { font-weight: 700; color: var(--success); }
-.bid-item .time { color: var(--text-muted); font-size: 11px; }
-.alert { text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px; }
+.podium-box { background: var(--bg-primary); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px; }
+.bidder-avatars { display: flex; gap: 16px; justify-content: center; margin: 16px 0; }
+.bidder-avatar { background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: 10px; padding: 12px; min-width: 110px; transition: all 0.3s; }
+.bidder-avatar.winning { border-color: var(--success); box-shadow: 0 0 14px rgba(63,185,80,0.4); transform: scale(1.06); }
 `;
+
+function AnimatedFlow() {
+  const [currentBid, setCurrentBid] = useState(500);
+  const [winner, setWinner] = useState('Alice 👩');
+  const [timer, setTimer] = useState(15);
+  const [isSold, setIsSold] = useState(false);
+  const [bidHistory, setBidHistory] = useState([
+    { bidder: 'Alice 👩', amount: 500, time: 'Initial Reserve' }
+  ]);
+
+  useEffect(() => {
+    let interval;
+    if (timer > 0 && !isSold) {
+      interval = setInterval(() => setTimer(t => t - 1), 1000);
+    } else if (timer === 0 && !isSold) {
+      setIsSold(true);
+    }
+    return () => clearInterval(interval);
+  }, [timer, isSold]);
+
+  const placeBid = (bidderName, increment) => {
+    if (isSold) return;
+    const newAmount = currentBid + increment;
+    setCurrentBid(newAmount);
+    setWinner(bidderName);
+    setTimer(15); // Reset timer on new bid
+    setBidHistory(prev => [{ bidder: bidderName, amount: newAmount, time: new Date().toLocaleTimeString() }, ...prev]);
+  };
+
+  const reset = () => {
+    setCurrentBid(500);
+    setWinner('Alice 👩');
+    setTimer(15);
+    setIsSold(false);
+    setBidHistory([{ bidder: 'Alice 👩', amount: 500, time: 'Initial Reserve' }]);
+  };
+
+  return (
+    <div style={{ background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '1px solid var(--border-primary)' }}>
+      <style>{CSS}</style>
+      <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 16 }}>
+        LIVE AUCTION BATTLE & GAVEL SIMULATOR
+      </div>
+
+      <div className="podium-box">
+        <div style={{ fontSize: 32 }}>🔨</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>
+          RARE ART: "MONA LISA REIMAGINED"
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--success)', margin: '8px 0' }}>
+          ${currentBid}.00
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          {isSold ? (
+            <span style={{ color: 'var(--danger)', fontWeight: 700, fontSize: 16 }}>
+              🛑 SOLD! Winner: {winner} for ${currentBid}.00
+            </span>
+          ) : (
+            `⏱️ Going once... Going twice... (${timer}s left)`
+          )}
+        </div>
+
+        <div className="bidder-avatars">
+          <div className={`bidder-avatar ${winner === 'Alice 👩' ? 'winning' : ''}`}>
+            <div style={{ fontSize: 24 }}>👩</div>
+            <div style={{ fontSize: 12, fontWeight: 700 }}>Alice</div>
+            <button disabled={isSold} onClick={() => placeBid('Alice 👩', 50)} style={{ marginTop: 6, padding: '4px 8px', borderRadius: 4, background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>
+              + $50 Bid
+            </button>
+          </div>
+
+          <div className={`bidder-avatar ${winner === 'Bob 🧔' ? 'winning' : ''}`}>
+            <div style={{ fontSize: 24 }}>🧔</div>
+            <div style={{ fontSize: 12, fontWeight: 700 }}>Bob</div>
+            <button disabled={isSold} onClick={() => placeBid('Bob 🧔', 50)} style={{ marginTop: 6, padding: '4px 8px', borderRadius: 4, background: 'var(--accent)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>
+              + $50 Bid
+            </button>
+          </div>
+
+          <div className={`bidder-avatar ${winner === 'Charlie 👨' ? 'winning' : ''}`}>
+            <div style={{ fontSize: 24 }}>👨</div>
+            <div style={{ fontSize: 12, fontWeight: 700 }}>Charlie</div>
+            <button disabled={isSold} onClick={() => placeBid('Charlie 👨', 100)} style={{ marginTop: 6, padding: '4px 8px', borderRadius: 4, background: 'var(--warning)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>
+              + $100 Bid
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {isSold && (
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <button onClick={reset} style={{ padding: '10px 24px', borderRadius: 8, background: 'var(--accent-gradient)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+            🔄 Reset Auction Simulation
+          </button>
+        </div>
+      )}
+
+      <div style={{ background: 'var(--bg-primary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 12 }}>
+        <div style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>Live Bidding Audit Trail:</div>
+        {bidHistory.map((b, idx) => (
+          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-secondary)', padding: '4px 0' }}>
+            <span>{b.bidder}</span>
+            <span style={{ fontWeight: 700, color: 'var(--success)' }}>${b.amount}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{b.time}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function SetupSection({ onCreated }) {
   const [itemName, setItemName] = useState('');
@@ -181,67 +268,9 @@ function AuctionDetail({ auctionId, bidders, onUpdate }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
         <div><span className="label" style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase' }}>Starting Bid</span><div style={{ fontWeight: 700, fontSize: 16 }}>₹{auction.startingBid?.toFixed(2)}</div></div>
         <div><span className="label" style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase' }}>Current Bid</span><div style={{ fontWeight: 700, fontSize: 16, color: 'var(--success)' }}>₹{auction.currentBid?.toFixed(2)}</div></div>
-        <div><span className="label" style={{ color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase' }}>Time Remaining</span><div style={{ fontWeight: 700, fontSize: 16 }}>{formatTime(auction.endTime - Date.now())}</div></div>
-      </div>
-      {auction.highestBidderId && (
-        <div style={{ fontSize: 13, marginBottom: 12, color: 'var(--text-muted)' }}>
-          Highest bidder ID: <strong>{auction.highestBidderId}</strong>
-        </div>
-      )}
-      {auction.status === 'ACTIVE' && (
-        <>
-          <form className="bid-form" onSubmit={handlePlaceBid}>
-            <div className="form-group"><label>Bidder</label>
-              <select value={bidderId} onChange={(e) => setBidderId(e.target.value)} required>
-                <option value="">Select bidder</option>
-                {bidders.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </div>
-            <div className="form-group"><label>Amount (₹)</label>
-              <input type="number" step="0.01" min={auction.currentBid + 0.01} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={`Min ₹${(auction.currentBid + 0.01).toFixed(2)}`} required />
-            </div>
-            <button type="submit" className="btn-primary">Place Bid</button>
-          </form>
-          <button className="btn-danger" onClick={handleClose}>Close Auction</button>
-        </>
-      )}
-      {error && <div className="error">{error}</div>}
-      {success && <div className="success">{success}</div>}
-      <h3 style={{ marginTop: 16, marginBottom: 8, fontSize: 15, color: 'var(--info)' }}>Bidding History ({bids.length})</h3>
-      <div className="bids-list">
-        {bids.length === 0 && <div className="alert">No bids yet.</div>}
-        {bids.map((b) => (
-          <div key={b.id} className="bid-item">
-            <span className="bidder">Bidder #{b.bidderId}</span>
-            <span className="amount">₹{b.amount.toFixed(2)}</span>
-            <span className="time">{new Date(b.timestamp).toLocaleTimeString()}</span>
-          </div>
-        ))}
       </div>
     </div>
   );
-}
-
-function formatTime(ms) {
-  if (ms <= 0) return 'Ended';
-  const totalSec = Math.floor(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}m ${s}s`;
-}
-
-function formatTimeEnd(endTime) {
-  const diff = endTime - Date.now();
-  if (diff <= 0) return 'Ended';
-  const totalSec = Math.floor(diff / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  if (m > 59) {
-    const h = Math.floor(m / 60);
-    const rm = m % 60;
-    return `${h}h ${rm}m`;
-  }
-  return `${m}m ${s}s`;
 }
 
 function AuctionsView() {
@@ -280,8 +309,6 @@ function AuctionsView() {
               <div className="desc">{a.description}</div>
               <div className="detail"><span className="label">Status</span><span className={`badge badge-${a.status.toLowerCase()}`}>{a.status}</span></div>
               <div className="detail"><span className="label">Current Bid</span><span className="value">₹{a.currentBid?.toFixed(2)}</span></div>
-              <div className="detail"><span className="label">Time Left</span><span className="value">{formatTimeEnd(a.endTime)}</span></div>
-              {a.highestBidderId && <div className="detail"><span className="label">Highest Bidder</span><span className="value">#{a.highestBidderId}</span></div>}
             </div>
           ))}
         </div>
@@ -293,23 +320,14 @@ function AuctionsView() {
 
 export default function AuctionPage() {
   return (
-    <LldPage module="auction" title="Online Auction" icon="🏷️" tabs={['app', 'design', 'diagram']}>
-      <style>{CSS}</style>
-      <AuctionView />
+    <LldPage module="auction" title="Online Auction House" icon="🏷️" tabs={['app', 'simulation', 'design', 'diagram']}>
+      {(activeTab) => (
+        <>
+          <style>{CSS}</style>
+          {activeTab === 'simulation' && <AnimatedFlow />}
+          {activeTab === 'app' && <AuctionsView />}
+        </>
+      )}
     </LldPage>
-  );
-}
-
-function AuctionView() {
-  return (
-    <div className="auction-app">
-      <header className="auction-header">
-        <h1>Online Auction House</h1>
-        <p>Create auctions, register bidders, place bids, and track winners in real-time</p>
-      </header>
-      <main className="auction-main">
-        <AuctionsView />
-      </main>
-    </div>
   );
 }
