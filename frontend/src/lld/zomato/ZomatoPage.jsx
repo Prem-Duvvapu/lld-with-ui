@@ -73,6 +73,35 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 .result-card .value { font-weight: 600; }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #e23744; border-radius: 6px; color: #e23744; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #e23744; color: white; }
+.zomato-scene { position: relative; width: 100%; height: 380px; background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-primary); margin-bottom: 12px; }
+.zomato-sky { position: absolute; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(180deg, #87ceeb, #e8f4f8); }
+.zomato-restaurant { position: absolute; left: 20px; top: 20px; width: 180px; background: var(--bg-card); border: 2px solid #e23744; border-radius: 10px; padding: 10px; z-index: 2; transition: all 0.6s ease-out; opacity: 0; transform: translateX(-30px); }
+.zomato-restaurant.visible { opacity: 1; transform: translateX(0); }
+.zomato-restaurant .name { font-size: 14px; font-weight: 700; color: #e23744; }
+.zomato-restaurant .cuisine { font-size: 11px; color: var(--text-muted); }
+.zomato-menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 8px; }
+.zomato-menu-item { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 4px; padding: 6px; text-align: center; font-size: 10px; opacity: 0; transform: scale(0.5); transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.zomato-menu-item.visible { opacity: 1; transform: scale(1); }
+.zomato-menu-item .emoji { font-size: 20px; }
+.zomato-menu-item .price { color: #e23744; font-weight: 700; font-size: 11px; }
+.zomato-house { position: absolute; right: 30px; top: 25px; font-size: 40px; z-index: 2; opacity: 0; transition: all 0.6s ease-out; }
+.zomato-house.visible { opacity: 1; }
+.zomato-kitchen { position: absolute; left: 20px; bottom: 90px; font-size: 24px; opacity: 0; transition: all 0.5s; }
+.zomato-kitchen.visible { opacity: 1; }
+.zomato-road { position: absolute; bottom: 30px; left: 0; right: 0; height: 50px; background: #2d2d2d; border-top: 3px solid #555; border-bottom: 3px solid #555; }
+.zomato-road-line { position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: repeating-linear-gradient(90deg, #fff 0px, #fff 20px, transparent 20px, transparent 40px); opacity: 0.3; transform: translateY(-50%); }
+.zomato-bike { position: absolute; bottom: 42px; font-size: 28px; transition: left 2.5s cubic-bezier(0.4, 0, 0.2, 1); z-index: 5; }
+.zomato-chef { position: absolute; left: 60px; bottom: 108px; font-size: 32px; opacity: 0; transition: all 0.5s; }
+.zomato-chef.visible { opacity: 1; }
+.zomato-food-tray { position: absolute; left: 100px; bottom: 108px; font-size: 24px; opacity: 0; transition: all 0.5s; }
+.zomato-food-tray.visible { opacity: 1; }
+.zomato-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid #e23744; border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: popIn 0.4s ease-out; min-width: 180px; }
+.zomato-popup.done { border-color: #3fb950; }
+@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.zomato-status-badge { position: absolute; top: 10px; right: 10px; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600; transition: all 0.3s; z-index: 3; }
+.status-CONFIRMED { background: #fff3e0; color: #e65100; }
+.status-PREPARING { background: #fce4ec; color: #c62828; }
+.status-OUT_FOR_DELIVERY { background: #e8f5e9; color: #2e7d32; }
 .step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
 .step-dot.active { background: #e23744; box-shadow: 0 0 8px rgba(226,55,68,0.5); }
@@ -244,43 +273,69 @@ function AnimatedFlow() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [bikeLeft, setBikeLeft] = useState(-60);
+  const [showRestaurant, setShowRestaurant] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(0);
+  const [showChef, setShowChef] = useState(false);
+  const [showFood, setShowFood] = useState(false);
+  const [showHouse, setShowHouse] = useState(false);
+  const [statusBadge, setStatusBadge] = useState('');
   const mountedRef = useRef(true);
-  const steps = ['Browse', 'Order', 'Preparing', 'Delivering', 'Done'];
+  const steps = ['Browse', 'Order', 'Prepare', 'Deliver', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  const reset = () => { setStep(0); setOrder(null); setLoading(false); setError(''); };
+  const reset = () => {
+    setStep(0); setOrder(null); setLoading(false); setError('');
+    setBikeLeft(-60); setShowRestaurant(false); setMenuVisible(0);
+    setShowChef(false); setShowFood(false); setShowHouse(false); setStatusBadge('');
+  };
+
+  const menuItems = [
+    { name: 'Margherita 🍕', price: 299 },
+    { name: 'Garlic 🥖', price: 149 },
+    { name: 'Pasta 🍝', price: 399 },
+    { name: 'Tiramisu 🍰', price: 199 },
+  ];
 
   const startSim = async () => {
-    setError(''); setLoading(true); setStep(1); setOrder(null);
-    try {
-      await new Promise(r => setTimeout(r, 1500));
+    setError(''); setStep(1); setShowRestaurant(true); setShowHouse(true);
+    for (let i = 0; i <= menuItems.length; i++) {
+      await new Promise(r => setTimeout(r, 400));
       if (!mountedRef.current) return;
-      setStep(2);
-      setLoading(true);
-
-      const data = await placeOrder('R1', 'user1', [{ menuItemId: 'M1', name: 'Margherita Pizza', quantity: 2, price: 299 }]);
+      setMenuVisible(i);
+    }
+    await new Promise(r => setTimeout(r, 600));
+    if (!mountedRef.current) return;
+    setStep(2); setLoading(true);
+    try {
+      const data = await placeOrder('R1', 'user1', [
+        { menuItemId: 'M1', name: 'Margherita Pizza', quantity: 2, price: 299 }
+      ]);
       if (!mountedRef.current) return;
       if (data.error) { setError(data.error); setLoading(false); return; }
-      setOrder(data);
-      setLoading(false);
-      setStep(3);
-
-      await new Promise(r => setTimeout(r, 2000));
+      setOrder(data); setLoading(false);
+      await new Promise(r => setTimeout(r, 1200));
       if (!mountedRef.current) return;
+      setStep(3); setShowChef(true);
+      setStatusBadge('CONFIRMED');
       await updateOrderStatus(data.id, 'CONFIRMED');
-      if (!mountedRef.current) return;
       await new Promise(r => setTimeout(r, 1500));
       if (!mountedRef.current) return;
+      setStatusBadge('PREPARING');
       await updateOrderStatus(data.id, 'PREPARING');
+      await new Promise(r => setTimeout(r, 800));
       if (!mountedRef.current) return;
-      setStep(4);
-
-      await new Promise(r => setTimeout(r, 2000));
+      setShowFood(true);
+      await new Promise(r => setTimeout(r, 1200));
       if (!mountedRef.current) return;
+      setStep(4); setShowChef(false); setShowFood(false);
+      setStatusBadge('OUT_FOR_DELIVERY');
       await updateOrderStatus(data.id, 'OUT_FOR_DELIVERY');
+      await new Promise(r => setTimeout(r, 500));
       if (!mountedRef.current) return;
-      await new Promise(r => setTimeout(r, 2000));
+      setBikeLeft(200);
+      await new Promise(r => setTimeout(r, 2800));
       if (!mountedRef.current) return;
       await updateOrderStatus(data.id, 'DELIVERED');
       if (!mountedRef.current) return;
@@ -297,28 +352,87 @@ function AnimatedFlow() {
         <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      {error && <div className="error">{error}<button className="btn-back" style={{ marginLeft: 12 }} onClick={reset}>↺ Reset</button></div>}
+      <div className="zomato-scene">
+        <div className="zomato-sky" />
 
-      {step === 0 && <button className="btn-checkout" onClick={startSim} disabled={loading}>▶ Start Simulation</button>}
-
-      {step >= 1 && !error && (
-        <div style={{ textAlign: 'center', padding: 20 }}>
-          {step === 1 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div><div style={{ color: '#e23744', fontWeight: 600 }}>Browsing Pizza Paradise...</div></div>}
-          {step === 2 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>{loading ? '⏳' : '✅'}</div><div style={{ fontWeight: 600 }}>{loading ? 'Placing order...' : 'Order placed!'}</div></div>}
-          {step === 3 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>👨‍🍳</div><div style={{ fontWeight: 600 }}>Preparing your Margherita Pizza...</div></div>}
-          {step === 4 && order && <div><div style={{ fontSize: 40, marginBottom: 12 }}>🛵</div><div style={{ fontWeight: 600 }}>{order.deliveryPartnerName || 'Partner'} is delivering your order!</div></div>}
-          {step === 5 && order && (
-            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: 16, maxWidth: 300, margin: '0 auto' }}>
-              <div style={{ fontSize: 40, marginBottom: 8 }}>🍕</div>
-              <div style={{ fontWeight: 700, color: '#e23744' }}>Delivered!</div>
-              <div style={{ margin: '8px 0', fontSize: 13 }}>Order: {order.id}</div>
-              <div style={{ margin: '8px 0', fontSize: 13 }}>Total: ₹{order.totalAmount?.toFixed(2)}</div>
-              <div style={{ margin: '8px 0', fontSize: 13 }}>Delivered by: {order.deliveryPartnerName}</div>
-              <button className="btn-checkout" style={{ marginTop: 12, padding: '8px 20px', fontSize: 13 }} onClick={reset}>🔄 New Simulation</button>
+        {/* Restaurant Building */}
+        <div className={`zomato-restaurant ${showRestaurant ? 'visible' : ''}`}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 20 }}>🏪</span>
+            <div>
+              <div className="name">Pizza Paradise</div>
+              <div className="cuisine">Italian • ⭐4.5</div>
             </div>
-          )}
+          </div>
+          <div className="zomato-menu-grid">
+            {menuItems.map((item, i) => (
+              <div key={i} className={`zomato-menu-item ${i < menuVisible ? 'visible' : ''}`}
+                style={{ transitionDelay: `${i * 0.1}s` }}>
+                <div className="emoji">{item.name.split(' ').pop()}</div>
+                <div style={{ fontSize: 10 }}>{item.name.split(' ').slice(0, -1).join(' ')}</div>
+                <div className="price">₹{item.price}</div>
+              </div>
+            ))}
+          </div>
         </div>
-      )}
+
+        {/* Customer House */}
+        <div className={`zomato-house ${showHouse ? 'visible' : ''}`}>🏠</div>
+        {step >= 4 && <div style={{ position: 'absolute', right: 30, top: 65, fontSize: 20, zIndex: 2 }}>🙋</div>}
+
+        {/* Kitchen Area */}
+        <div className={`zomato-chef ${showChef ? 'visible' : ''}`}>👨‍🍳</div>
+        <div className={`zomato-food-tray ${showFood ? 'visible' : ''}`}>🍕</div>
+
+        {/* Road */}
+        <div className="zomato-road">
+          <div className="zomato-road-line" />
+        </div>
+
+        {/* Delivery Bike */}
+        <div className="zomato-bike" style={{ left: bikeLeft }}>🛵</div>
+
+        {/* Status Badge */}
+        {statusBadge && (
+          <div className={`zomato-status-badge status-${statusBadge}`}>
+            {statusBadge.replace(/_/g, ' ')}
+          </div>
+        )}
+
+        {/* Loading popup */}
+        {loading && step === 2 && (
+          <div className="zomato-popup">
+            <div style={{ fontSize: 36, marginBottom: 4 }}>⏳</div>
+            <div style={{ fontWeight: 600 }}>Placing order...</div>
+          </div>
+        )}
+
+        {/* Order Confirmed popup */}
+        {step === 2 && !loading && order && (
+          <div className="zomato-popup">
+            <div style={{ fontSize: 36, marginBottom: 4 }}>✅</div>
+            <div style={{ fontWeight: 700, color: '#e23744' }}>Order Placed!</div>
+            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{order.id}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>₹{order.totalAmount?.toFixed(2)}</div>
+            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>2 items</div>
+          </div>
+        )}
+
+        {/* Done popup */}
+        {step === 5 && order && (
+          <div className="zomato-popup done">
+            <div style={{ fontSize: 36, marginBottom: 4 }}>🎉</div>
+            <div style={{ fontWeight: 700, color: '#3fb950' }}>Delivered!</div>
+            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>by {order.deliveryPartnerName || 'Rahul'}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>₹{order.totalAmount?.toFixed(2)}</div>
+            <button onClick={reset} style={{ marginTop: 8, padding: '6px 16px', background: '#3fb950', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>🔄 New</button>
+          </div>
+        )}
+      </div>
+
+      {error && <div className="error" style={{ marginTop: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
     </div>
   );
 }
