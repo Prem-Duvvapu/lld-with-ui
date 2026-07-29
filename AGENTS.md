@@ -1,0 +1,49 @@
+# LLD-with-UI — Context
+
+## Architecture
+- **Backend**: Java 17 + Spring Boot 3.2 (port 9090). Single JAR, all modules under `com.lld.*`
+- **Frontend**: React 19 + Vite + React Router 7. Single SPA, dynamically loads LLD pages
+- **Data**: In-memory only (no DB). State resets on restart.
+
+## Patterns
+- Backend owns ALL business logic. Frontend is a thin API-calling shell.
+- All modules use in-memory `ConcurrentHashMap` + `ReentrantLock` for thread safety.
+- CORS: `@CrossOrigin(origins = "*")` on every controller.
+- Frontend: one folder per LLD in `src/lld/`, each with `{Name}Page.jsx` + `api.js`.
+
+## Parking Lot Module
+### Backend
+- `ParkingLotInitializer`: 3 floors, 10 spots each (4 CAR + 4 BIKE + 2 TRUCK). Gates: G1/G2=ENTRY, G3/G4=EXIT.
+- `ParkingLotService`: entry( gateId, vehicleNumber, vehicleType ) → creates ticket + assigns spot; exit( gateId, ticketNumber ) → calculates amount, releases spot.
+- Pricing: CAR=₹20/hr, BIKE=₹10/hr, TRUCK=₹40/hr. Min 1hr charge.
+
+#### Theme
+- Light/dark themes via CSS custom properties (`data-theme` attribute on `<html>`).
+- `ThemeContext` + `ThemeToggle` in every page top-right corner. Default: light.
+- Theme persisted in localStorage under `lld-theme`.
+
+### Frontend
+- 7 tabs: Entry, Exit, Spots, Tickets, Animated Demo, Class Diagram, Design Details.
+- AnimatedDemo flow: Start → Entry → Ticket → Park → Away(simulated activity) → Return → Exit → Done.
+- SpotGrid polls `/floors` every 5s. ActiveTickets polls `/tickets/active` every 5s.
+- `DesignDetails` component renders requirements, entities, design patterns, SOLID, OOP concepts, extensibility.
+- All pages use CSS variables (`var(--bg-primary)`, `var(--text-primary)`, etc.) from `src/styles/theme.css`.
+
+### Files
+- `src/styles/theme.css` — CSS variables for light + dark themes, global resets.
+- `src/context/ThemeContext.jsx` — React context for theme state + toggle.
+- `src/components/ThemeToggle.jsx` — Sun/moon toggle button.
+- `src/components/DesignDetails.jsx` — Renders detailed design breakdown from data.
+- `src/data/designDetails.js` — Content for each module's design details.
+
+## Running
+```bash
+cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar
+cd frontend && npm run dev
+```
+
+## Testing
+```bash
+cd backend && mvn test
+cd frontend && npx vitest run
+```

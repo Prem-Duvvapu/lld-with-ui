@@ -1,0 +1,688 @@
+import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { vehicleEntry, getGates, vehicleExit, getFloors, getActiveTickets } from './api';
+import ClassDiagram from '../../components/ClassDiagram';
+import DesignDetails from '../../components/DesignDetails';
+
+const PARKING_CSS = `
+.parking-app { max-width: 1100px; margin: 0 auto; padding: 20px; }
+.parking-header { text-align: center; margin-bottom: 20px; }
+.parking-header h1 { font-size: 28px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.parking-header p { color: var(--text-muted); font-size: 14px; }
+.parking-nav { display: flex; gap: 6px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
+.parking-nav button { padding: 8px 18px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+.parking-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.parking-nav button:hover:not(.active) { background: var(--border-primary); }
+.parking-main { background: var(--bg-secondary); border-radius: 12px; padding: 24px; border: 1px solid var(--border-primary); }
+.form-card { max-width: 400px; margin: 0 auto; }
+.form-card h2 { margin-bottom: 16px; font-size: 18px; color: var(--info); }
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid var(--border-primary); border-radius: 6px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); transition: border-color 0.2s; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+.btn-primary { width: 100%; padding: 12px; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102,126,234,0.3); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.result-card { margin-top: 16px; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-primary); }
+.result-card h3 { margin-bottom: 10px; font-size: 15px; color: var(--info); }
+.result-card .detail { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border-secondary); }
+.result-card .detail:last-child { border-bottom: none; }
+.result-card .label { color: var(--text-muted); } .result-card .value { font-weight: 600; color: var(--text-primary); }
+.error { margin-top: 12px; padding: 10px; background: var(--danger-bg); color: var(--danger); border-radius: 8px; border: 1px solid var(--danger-bg); font-size: 13px; }
+.spots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+.spot-card { padding: 12px; border-radius: 8px; border: 1px solid var(--border-primary); text-align: center; transition: all 0.3s; background: var(--bg-card); }
+.spot-card.available { border-color: var(--success); background: var(--success-bg); }
+.spot-card.occupied { border-color: var(--danger); background: var(--danger-bg); }
+.spot-card .spot-id { font-weight: 700; font-size: 16px; color: var(--text-primary); }
+.spot-card .spot-type { font-size: 11px; color: var(--text-muted); }
+.spot-card .spot-status { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.spot-card.available .spot-status { color: var(--success); }
+.spot-card.occupied .spot-status { color: var(--danger); }
+.floor-section { margin-bottom: 20px; }
+.floor-section h3 { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-primary); font-size: 16px; color: var(--info); }
+.alert { text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px; }
+.ticket-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text-secondary); }
+.ticket-table th { background: var(--bg-tertiary); color: var(--text-primary); padding: 8px 10px; text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.ticket-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-secondary); }
+.ticket-table tr:hover { background: rgba(128,128,128,0.03); }
+.ticket-table .status-active { color: var(--success); font-weight: 600; }
+.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; transition: all 0.2s; }
+.back-home:hover { border-color: var(--accent); color: var(--accent); }
+
+.flow-section { display: flex; flex-direction: column; align-items: center; }
+.scene { position: relative; width: 100%; height: 320px; background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-primary); margin-bottom: 16px; }
+.road { position: absolute; bottom: 30px; left: 0; right: 0; height: 60px; background: #2d2d2d; border-top: 3px solid #555; border-bottom: 3px solid #555; }
+.road-line { position: absolute; bottom: 57px; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #fff 0px, #fff 20px, transparent 20px, transparent 40px); opacity: 0.3; }
+.entry-gate { position: absolute; left: 30px; bottom: 18px; width: 20px; height: 80px; background: var(--accent); border-radius: 4px; z-index: 3; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; }
+.entry-gate .bar { position: absolute; top: 20px; left: 18px; width: 50px; height: 6px; background: #f0c040; border-radius: 3px; transform-origin: left center; transition: transform 0.5s; }
+.entry-gate .bar.up { transform: rotate(-90deg); }
+.exit-gate { position: absolute; right: 30px; bottom: 18px; width: 20px; height: 80px; background: var(--danger); border-radius: 4px; z-index: 3; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; }
+.exit-gate .bar { position: absolute; top: 20px; left: 18px; width: 50px; height: 6px; background: #f0c040; border-radius: 3px; transform-origin: left center; transition: transform 0.5s; }
+.exit-gate .bar.up { transform: rotate(-90deg); }
+.parking-area { position: absolute; left: 80px; right: 80px; bottom: 90px; top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; }
+.parking-cell { background: rgba(128,128,128,0.05); border: 1px dashed rgba(128,128,128,0.2); border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted); transition: all 0.5s; position: relative; min-height: 40px; }
+.parking-cell.occupied-sim { background: var(--danger-bg); border-color: var(--danger); border-style: solid; }
+.parking-cell .car-icon { font-size: 20px; transition: all 0.3s; }
+.car-animated { position: absolute; bottom: 40px; font-size: 28px; z-index: 5; transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.ticket-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: var(--shadow-lg); min-width: 220px; text-align: center; animation: ticketIn 0.5s ease-out; }
+@keyframes ticketIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.ticket-popup h3 { color: var(--info); margin-bottom: 8px; font-size: 16px; }
+.ticket-popup .ticket-detail { font-size: 12px; color: var(--text-secondary); padding: 3px 0; }
+.away-timer { text-align: center; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-primary); margin: 8px 0; }
+.away-timer .timer { font-size: 36px; font-weight: 700; color: var(--info); font-family: var(--code-font); }
+.away-timer .activity { font-size: 14px; color: var(--text-muted); margin: 8px 0; }
+.flow-controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.flow-btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+.flow-btn:hover { transform: translateY(-2px); }
+.flow-btn.primary { background: var(--accent-gradient); color: #fff; }
+.flow-btn.success { background: var(--success); color: #fff; }
+.flow-btn.danger { background: var(--danger); color: #fff; }
+.flow-btn.warning { background: var(--warning); color: #fff; }
+.flow-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.receipt-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--danger); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: var(--shadow-lg); min-width: 250px; text-align: center; animation: ticketIn 0.5s ease-out; }
+.receipt-popup h3 { color: var(--danger); margin-bottom: 8px; font-size: 16px; }
+.activity-selector { display: flex; gap: 8px; justify-content: center; margin: 8px 0; }
+.activity-selector button { padding: 8px 16px; border: 1px solid var(--border-primary); background: var(--bg-card); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+.activity-selector button:hover { border-color: var(--accent); }
+.activity-selector button.active { border-color: var(--info); background: var(--info-bg); color: var(--info); }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-primary); transition: all 0.3s; }
+.step-dot.active { background: var(--accent); box-shadow: 0 0 8px rgba(102,126,234,0.5); }
+.step-dot.done { background: var(--success); }
+`;
+
+function EntryForm() {
+  const [gates, setGates] = useState([]);
+  const [gateId, setGateId] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
+  const [vehicleType, setVehicleType] = useState('CAR');
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    getGates().then((all) => {
+      const entryGates = all.filter((g) => g.type === 'ENTRY');
+      setGates(entryGates);
+      if (entryGates.length > 0) setGateId(entryGates[0].id);
+    });
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(''); setResult(null); setLoading(true);
+    try {
+      const data = await vehicleEntry(gateId, vehicleNumber, vehicleType);
+      if (data.error) setError(data.error);
+      else { setResult(data); setVehicleNumber(''); }
+    } catch { setError('Failed to connect to server'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="form-card">
+      <h2>Vehicle Entry</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group"><label>Entry Gate</label>
+          <select value={gateId} onChange={(e) => setGateId(e.target.value)} required>
+            {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </div>
+        <div className="form-group"><label>Vehicle Number</label>
+          <input type="text" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="e.g. KA-01-AB-1234" required />
+        </div>
+        <div className="form-group"><label>Vehicle Type</label>
+          <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
+            <option value="CAR">Car</option><option value="BIKE">Bike</option><option value="TRUCK">Truck</option>
+          </select>
+        </div>
+        <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Processing...' : 'Park Vehicle'}</button>
+      </form>
+      {error && <div className="error">{error}</div>}
+      {result && (
+        <div className="result-card">
+          <h3>Ticket Issued</h3>
+          <div className="detail"><span className="label">Ticket #</span><span className="value">{result.ticketNumber}</span></div>
+          <div className="detail"><span className="label">Vehicle</span><span className="value">{result.vehicleNumber}</span></div>
+          <div className="detail"><span className="label">Type</span><span className="value">{result.vehicleType}</span></div>
+          <div className="detail"><span className="label">Spot</span><span className="value">{result.spotId}</span></div>
+          <div className="detail"><span className="label">Entry Time</span><span className="value">{new Date(result.entryTime).toLocaleTimeString()}</span></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExitForm() {
+  const [gates, setGates] = useState([]);
+  const [gateId, setGateId] = useState('');
+  const [ticketNumber, setTicketNumber] = useState('');
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    getGates().then((all) => {
+      const exitGates = all.filter((g) => g.type === 'EXIT');
+      setGates(exitGates);
+      if (exitGates.length > 0) setGateId(exitGates[0].id);
+    });
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(''); setResult(null); setLoading(true);
+    try {
+      const data = await vehicleExit(gateId, ticketNumber);
+      if (data.error) setError(data.error);
+      else { setResult(data); setTicketNumber(''); }
+    } catch { setError('Failed to connect to server'); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="form-card">
+      <h2>Vehicle Exit</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group"><label>Exit Gate</label>
+          <select value={gateId} onChange={(e) => setGateId(e.target.value)} required>
+            {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </div>
+        <div className="form-group"><label>Ticket Number</label>
+          <input type="text" value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)} placeholder="e.g. TKT-00001" required />
+        </div>
+        <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Processing...' : 'Exit Vehicle'}</button>
+      </form>
+      {error && <div className="error">{error}</div>}
+      {result && (
+        <div className="result-card">
+          <h3>Payment Receipt</h3>
+          <div className="detail"><span className="label">Ticket #</span><span className="value">{result.ticketNumber}</span></div>
+          <div className="detail"><span className="label">Vehicle</span><span className="value">{result.vehicleNumber}</span></div>
+          <div className="detail"><span className="label">Entry</span><span className="value">{new Date(result.entryTime).toLocaleString()}</span></div>
+          <div className="detail"><span className="label">Exit</span><span className="value">{new Date(result.exitTime).toLocaleString()}</span></div>
+          <div className="detail"><span className="label">Spot</span><span className="value">{result.spotId}</span></div>
+          <div className="detail"><span className="label">Amount</span><span className="value">₹{result.amount.toFixed(2)}</span></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SpotGrid() {
+  const [floors, setFloors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+  const [filter, setFilter] = useState('ALL');
+
+  const fetchData = async () => {
+    try { const data = await getFloors(); setFloors(data); setFetchError(''); }
+    catch { setFetchError('Failed to load spot data'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); const i = setInterval(fetchData, 5000); return () => clearInterval(i); }, []);
+
+  if (loading && floors.length === 0) return <div className="alert">Loading...</div>;
+  if (fetchError && floors.length === 0) return <div className="alert">{fetchError}</div>;
+
+  const total = floors.reduce((s, f) => s + f.spots.length, 0);
+  const occupied = floors.reduce((s, f) => s + f.spots.filter(sp => sp.occupied).length, 0);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ color: '#4ecdc4', fontSize: 18 }}>Parking Lot Layout</h2>
+        <span style={{ fontSize: 13, color: '#888' }}>{occupied}/{total} occupied</span>
+        <select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #2a2a4a', fontSize: 13, background: '#0d1117', color: '#eee' }}>
+          <option value="ALL">All Spots</option><option value="AVAILABLE">Available Only</option>
+        </select>
+      </div>
+      {floors.map((floor) => (
+        <div key={floor.floorNumber} className="floor-section">
+          <h3>Floor {floor.floorNumber}</h3>
+          <div className="spots-grid">
+            {(filter === 'ALL' ? floor.spots : floor.spots.filter((s) => !s.occupied)).map((spot) => (
+              <div key={spot.id} className={`spot-card ${spot.occupied ? 'occupied' : 'available'}`}>
+                <div className="spot-id">{spot.id}</div>
+                <div className="spot-type">{spot.vehicleType}</div>
+                <div className="spot-status">{spot.occupied ? 'Occupied' : 'Available'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 12, fontSize: 13, color: '#888' }}>
+        <span style={{ color: '#3fb950' }}>● Available</span><span style={{ color: '#f85149' }}>● Occupied</span>
+      </div>
+    </div>
+  );
+}
+
+function ActiveTickets() {
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
+
+  const fetchTickets = async () => {
+    try { const data = await getActiveTickets(); setTickets(data); setFetchError(''); }
+    catch { setFetchError('Failed to load tickets'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchTickets(); const i = setInterval(fetchTickets, 5000); return () => clearInterval(i); }, []);
+
+  if (loading) return <div className="alert">Loading...</div>;
+  if (fetchError) return <div className="alert">{fetchError}</div>;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 style={{ color: '#4ecdc4', fontSize: 18 }}>Active Tickets ({tickets.length})</h2>
+      </div>
+      {tickets.length === 0 ? <div className="alert">No active tickets.</div> : (
+        <table className="ticket-table">
+          <thead><tr><th>Ticket</th><th>Vehicle</th><th>Type</th><th>Spot</th><th>Entry</th><th>Duration</th></tr></thead>
+          <tbody>
+            {tickets.map((t) => {
+              const entry = new Date(t.entryTime);
+              const mins = Math.floor((Date.now() - entry.getTime()) / 60000);
+              const h = Math.floor(mins / 60);
+              const m = mins % 60;
+              const label = h > 0 ? `${h}h ${m}m` : `${m}m`;
+              return (
+                <tr key={t.ticketNumber}>
+                  <td><strong style={{ color: '#eee' }}>{t.ticketNumber}</strong></td>
+                  <td>{t.vehicleNumber}</td>
+                  <td>{t.vehicleType}</td>
+                  <td style={{ fontFamily: 'monospace' }}>{t.spotId}</td>
+                  <td>{entry.toLocaleString()}</td>
+                  <td className="status-active">{label}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+const ACTIVITIES = [
+  { icon: '🛍️', label: 'Shopping', emoji: '🛒' },
+  { icon: '🎬', label: 'Movie', emoji: '🍿' },
+  { icon: '🍕', label: 'Eating', emoji: '🍕' },
+];
+
+function AnimatedFlow() {
+  const [step, setStep] = useState(0);
+  const [carLeft, setCarLeft] = useState(-60);
+  const [carBottom, setCarBottom] = useState(40);
+  const [sceneWidth, setSceneWidth] = useState(900);
+  const [showTicket, setShowTicket] = useState(false);
+  const [ticketData, setTicketData] = useState(null);
+  const [occupiedCells, setOccupiedCells] = useState([]);
+  const [timer, setTimer] = useState(0);
+  const [away, setAway] = useState(false);
+  const [activity, setActivity] = useState(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
+  const [gateBarUp, setGateBarUp] = useState(false);
+  const [exitGateBarUp, setExitGateBarUp] = useState(false);
+  const [entryLoading, setEntryLoading] = useState(false);
+  const [simError, setSimError] = useState('');
+  const intervalRef = useRef(null);
+  const timerRef = useRef(null);
+  const mountedRef = useRef(true);
+  const sceneRef = useRef(null);
+  const entryGateRef = useRef('');
+  const exitGateRef = useRef('');
+
+  useEffect(() => {
+    getGates()
+      .then((all) => {
+        if (!Array.isArray(all)) return;
+        const eg = all.find((g) => g.type === 'ENTRY');
+        const xg = all.find((g) => g.type === 'EXIT');
+        if (eg) entryGateRef.current = eg.id;
+        if (xg) exitGateRef.current = xg.id;
+        setSimError('');
+      })
+      .catch(() => {
+        setSimError('⚠️ Backend not reachable — start the server on port 9090');
+      });
+  }, []);
+
+  useEffect(() => {
+    if (sceneRef.current) {
+      setSceneWidth(sceneRef.current.offsetWidth);
+    }
+  }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; if (intervalRef.current) clearInterval(intervalRef.current); if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  const PARK_LEFT = 80;
+  const PARK_RIGHT = 80;
+  const PARK_PAD = 8;
+  const PARK_GAP = 6;
+  const COLS = 4;
+  const ROWS = 3;
+  const CELL_MIN_W = (sceneWidth - PARK_LEFT - PARK_RIGHT - PARK_PAD * 2 - PARK_GAP * (COLS - 1)) / COLS;
+  const CELL_H = 50;
+
+  const cellCenter = (cellIdx) => {
+    const col = cellIdx % COLS;
+    const row = Math.floor(cellIdx / COLS);
+    return {
+      left: PARK_LEFT + PARK_PAD + col * (CELL_MIN_W + PARK_GAP) + CELL_MIN_W / 2,
+      bottom: 90 + PARK_PAD + (ROWS - 1 - row) * (CELL_H + PARK_GAP) + CELL_H / 2,
+    };
+  };
+
+  const resetFlow = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setStep(0);
+    setCarLeft(-60);
+    setCarBottom(40);
+    setShowTicket(false);
+    setTicketData(null);
+    setOccupiedCells([]);
+    setTimer(0);
+    setAway(false);
+    setActivity(null);
+    setShowReceipt(false);
+    setReceiptData(null);
+    setGateBarUp(false);
+    setExitGateBarUp(false);
+    setEntryLoading(false);
+    setSimError('');
+  };
+
+  const steps = ['Entry', 'Ticket', 'Park', 'Away', 'Return', 'Exit', 'Done'];
+
+  const findEmptyCell = () => {
+    const used = new Set(occupiedCells);
+    for (let i = 0; i < 12; i++) {
+      if (!used.has(i)) return i;
+    }
+    return -1;
+  };
+
+  const loadGates = async () => {
+    if (entryGateRef.current) return entryGateRef.current;
+    const all = await getGates();
+    if (!Array.isArray(all)) throw new Error('Invalid response');
+    const eg = all.find((g) => g.type === 'ENTRY');
+    const xg = all.find((g) => g.type === 'EXIT');
+    if (!eg) throw new Error('No entry gate in response');
+    entryGateRef.current = eg.id;
+    if (xg) exitGateRef.current = xg.id;
+    return eg.id;
+  };
+
+  const startFlow = async () => {
+    let eid;
+    try {
+      eid = await loadGates();
+    } catch (e) {
+      setSimError('⚠️ ' + e.message);
+      return;
+    }
+    setSimError('');
+    setStep(1);
+    setGateBarUp(true);
+    setShowTicket(false);
+    setShowReceipt(false);
+    setAway(false);
+    setTimer(0);
+    setActivity(null);
+
+    setTimeout(() => setCarLeft(50), 500);
+
+    setTimeout(() => setGateBarUp(false), 1500);
+
+    setTimeout(() => {
+      setEntryLoading(true);
+      vehicleEntry(eid, 'KA-01-AB-1234', 'CAR').then((data) => {
+        if (!mountedRef.current) return;
+        setEntryLoading(false);
+        if (data.error) {
+          setSimError(data.error);
+        } else {
+          setTicketData(data);
+          setShowTicket(true);
+          setStep(2);
+        }
+      }).catch(() => {
+        if (mountedRef.current) { setEntryLoading(false); setSimError('API call failed'); }
+      });
+    }, 2000);
+  };
+
+  const parkVehicle = () => {
+    setShowTicket(false);
+    const cellIdx = findEmptyCell();
+    if (cellIdx === -1) return;
+    const pos = cellCenter(cellIdx);
+    setCarLeft(pos.left);
+    setCarBottom(pos.bottom);
+
+    setTimeout(() => {
+      setOccupiedCells([...occupiedCells, cellIdx]);
+      setStep(3);
+      setAway(true);
+      let secs = 0;
+      timerRef.current = setInterval(() => {
+        secs++;
+        setTimer(secs);
+      }, 1000);
+    }, 1500);
+  };
+
+  const startAway = (act) => {
+    setActivity(act);
+    setCarLeft(-60);
+    setCarBottom(40);
+    setStep(4);
+  };
+
+  const returnToCar = () => {
+    setAway(false);
+    if (timerRef.current) clearInterval(timerRef.current);
+    const cellIdx = occupiedCells[occupiedCells.length - 1];
+    const pos = cellCenter(cellIdx);
+    setCarLeft(pos.left);
+    setCarBottom(pos.bottom);
+
+    setTimeout(() => {
+      setStep(5);
+      setTimeout(() => {
+        setExitGateBarUp(true);
+        setCarLeft(sceneWidth + 30);
+        setCarBottom(40);
+      }, 500);
+      setTimeout(() => {
+        setExitGateBarUp(false);
+        setStep(6);
+      }, 2000);
+    }, 1800);
+  };
+
+  const completeExit = () => {
+    setSimError('');
+    if (!exitGateRef.current) { setSimError('No exit gate found'); return; }
+    setEntryLoading(true);
+    const tktNo = ticketData?.ticketNumber || 'TKT-00001';
+    vehicleExit(exitGateRef.current, tktNo).then((data) => {
+      if (!mountedRef.current) return;
+      setEntryLoading(false);
+      if (data.error) {
+        setSimError(data.error);
+      } else {
+        setReceiptData(data);
+        setShowReceipt(true);
+        setTimeout(() => {
+          if (!mountedRef.current) return;
+          setShowReceipt(false);
+          setCarLeft(sceneWidth + 80);
+          setTimeout(() => {
+            if (!mountedRef.current) return;
+            resetFlow();
+          }, 800);
+        }, 2500);
+      }
+    }).catch(() => {
+      if (mountedRef.current) { setEntryLoading(false); setSimError('API call failed'); }
+    });
+  };
+
+  const fmtTimer = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  };
+
+  return (
+    <div className="flow-section">
+      <div className="step-indicator">
+        {steps.map((s, i) => (
+          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>
+          {steps[step] || 'Idle'}
+        </span>
+      </div>
+
+      <div className="scene" ref={sceneRef}>
+        <div className="road" />
+        <div className="road-line" />
+
+        <div className="entry-gate">
+          🚧
+          <div className={`bar ${gateBarUp ? 'up' : ''}`} />
+        </div>
+
+        <div className="exit-gate">
+          🚧
+          <div className={`bar ${exitGateBarUp ? 'up' : ''}`} />
+        </div>
+
+        <div className="parking-area">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className={`parking-cell ${occupiedCells.includes(i) ? 'occupied-sim' : ''}`}>
+              {occupiedCells.includes(i) && <span className="car-icon">🚗</span>}
+              <span>P{i + 1}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="car-animated" style={{ left: carLeft, bottom: carBottom }}>🚗</div>
+
+        {showTicket && ticketData && (
+          <div className="ticket-popup">
+            <h3>🎟️ Ticket Issued</h3>
+            <div className="ticket-detail"><strong>{ticketData.ticketNumber}</strong></div>
+            <div className="ticket-detail">{ticketData.vehicleNumber}</div>
+            <div className="ticket-detail">Spot: {ticketData.spotId}</div>
+            <div className="ticket-detail">{new Date(ticketData.entryTime).toLocaleTimeString()}</div>
+          </div>
+        )}
+
+        {showReceipt && receiptData && (
+          <div className="receipt-popup">
+            <h3>🧾 Payment Receipt</h3>
+            <div className="ticket-detail">{receiptData.ticketNumber}</div>
+            <div className="ticket-detail">Duration: {fmtTimer(timer)}</div>
+            <div className="ticket-detail" style={{ fontSize: 18, color: '#ff6b6b', fontWeight: 700 }}>₹{receiptData.amount?.toFixed(2) || '0.00'}</div>
+          </div>
+        )}
+      </div>
+
+      {simError && (
+        <div style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>
+          {simError}
+          <button className="flow-btn" style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={resetFlow}>↺ Reset</button>
+        </div>
+      )}
+
+      {(step === 0 || (simError && step > 0)) && (
+        <button className="flow-btn primary" onClick={startFlow}>▶ Start Simulation</button>
+      )}
+
+      {step === 2 && (
+        <button className="flow-btn success" onClick={parkVehicle}>🅿 Park Vehicle</button>
+      )}
+
+      {(step === 3 || step === 4) && away && (
+        <div className="away-timer">
+          {!activity ? (
+            <div className="activity-selector">
+              {ACTIVITIES.map((a) => (
+                <button key={a.label} className={activity?.label === a.label ? 'active' : ''} onClick={() => startAway(a)}>
+                  {a.icon} {a.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="activity">{activity.emoji} {activity.label} in progress...</div>
+              <div className="timer">{fmtTimer(timer)}</div>
+              <button className="flow-btn warning" onClick={returnToCar}>🔑 Return to Vehicle</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {step === 6 && (
+        <button className="flow-btn danger" onClick={completeExit} disabled={entryLoading}>
+          {entryLoading ? 'Processing...' : '💰 Pay & Exit'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export default function ParkingLotPage() {
+  const [activeTab, setActiveTab] = useState('entry');
+
+  const tabs = [
+    { key: 'entry', label: 'Entry' },
+    { key: 'exit', label: 'Exit' },
+    { key: 'spots', label: 'Spots' },
+    { key: 'tickets', label: 'Tickets' },
+    { key: 'demo', label: 'Animated Demo' },
+    { key: 'diagram', label: 'Class Diagram' },
+    { key: 'design', label: 'Design Details' },
+  ];
+
+  return (
+    <div className="parking-app">
+      <style>{PARKING_CSS}</style>
+      <Link to="/" className="back-home">← Back to Home</Link>
+      <header className="parking-header">
+        <h1>Parking Lot System</h1>
+        <p>Multi-level parking with entry/exit gates, spot tracking, and ticket-based pricing</p>
+      </header>
+      <nav className="parking-nav">
+        {tabs.map((tab) => (
+          <button key={tab.key} className={activeTab === tab.key ? 'active' : ''} onClick={() => setActiveTab(tab.key)}>
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+      <main className="parking-main">
+        {activeTab === 'entry' && <EntryForm />}
+        {activeTab === 'exit' && <ExitForm />}
+        {activeTab === 'spots' && <SpotGrid />}
+        {activeTab === 'tickets' && <ActiveTickets />}
+        {activeTab === 'demo' && <AnimatedFlow />}
+        {activeTab === 'diagram' && <ClassDiagram module="parking" />}
+        {activeTab === 'design' && <DesignDetails module="parking" />}
+      </main>
+    </div>
+  );
+}

@@ -20,29 +20,34 @@ SDE-2 interview preparation (2+ years experience). 9 LLD projects in a **single 
 
 ```
 lld-with-ui/
-├── backend/          ← Single Spring Boot app (port 9090)
+├── backend/              ← Spring Boot app (port 9090)
 │   └── src/main/java/com/lld/
-│       ├── atm/           ← ATM module
-│       ├── elevator/      ← Elevator module
-│       ├── parkinglot/    ← Parking Lot module
-│       ├── snakeladders/  ← Snake & Ladders module
-│       ├── splitwise/     ← Splitwise module
-│       ├── stackoverflow/ ← Stack Overflow module
-│       ├── tictactoe/     ← Tic Tac Toe module
-│       ├── uber/          ← Uber module
-│       ├── zomato/        ← Zomato module
-│       └── config/        ← Shared config (CORS)
-├── frontend/         ← Single React + Vite SPA
-│   └── src/lld/
-│       ├── parking/       ← Parking Lot UI
-│       ├── zomato/        ← Zomato UI
-│       ├── uber/          ← Uber UI
-│       ├── stackoverflow/ ← Stack Overflow UI
-│       ├── tictactoe/     ← Tic Tac Toe UI
-│       ├── snakeladders/  ← Snake & Ladders UI
-│       ├── atm/           ← ATM UI
-│       ├── splitwise/     ← Splitwise UI
-│       └── elevator/      ← Elevator UI
+│       ├── atm/           ← ATM
+│       ├── elevator/      ← Elevator
+│       ├── parkinglot/    ← Parking Lot
+│       ├── snakeladders/  ← Snake & Ladders
+│       ├── splitwise/     ← Splitwise
+│       ├── stackoverflow/ ← Stack Overflow
+│       ├── tictactoe/     ← Tic Tac Toe
+│       ├── uber/          ← Uber
+│       ├── zomato/        ← Zomato
+│       └── config/        → CORS config
+├── frontend/              ← React + Vite SPA
+│   ├── src/
+│   │   ├── components/    → ClassDiagram (reusable)
+│   │   ├── data/          → classDiagrams.js (all 9 UMLs)
+│   │   ├── lld/           → one folder per project
+│   │   │   ├── parking/
+│   │   │   ├── zomato/
+│   │   │   ├── uber/
+│   │   │   ├── stackoverflow/
+│   │   │   ├── tictactoe/
+│   │   │   ├── snakeladders/
+│   │   │   ├── atm/
+│   │   │   ├── splitwise/
+│   │   │   └── elevator/
+│   │   └── pages/         → Home page
+│   └── public/
 └── README.md
 ```
 
