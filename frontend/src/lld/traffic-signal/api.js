@@ -1,25 +1,16 @@
-const BASE_URL = '/api/traffic';
+const BASE = '/api/traffic';
 
-export async function getStatus() {
-  const res = await fetch(`${BASE_URL}/status`);
+export const getStatus = async () => {
+  const res = await fetch(`${BASE}/status`);
   return res.json();
-}
+};
 
-export async function transition() {
-  const res = await fetch(`${BASE_URL}/transition`, { method: 'POST' });
+export const transition = async () => {
+  const res = await fetch(`${BASE}/transition`, { method: 'POST' });
   return res.json();
-}
+};
 
-export async function emergencyOverride(lightId) {
-  const res = await fetch(`${BASE_URL}/emergency?lightId=${lightId}`, { method: 'POST' });
+export const emergency = async (lightId) => {
+  const res = await fetch(`${BASE}/emergency?lightId=${lightId}`, { method: 'POST' });
   return res.json();
-}
-
-export async function setTimer(lightId, seconds) {
-  const res = await fetch(`${BASE_URL}/timer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lightId, seconds }),
-  });
-  return res.json();
-}
+};

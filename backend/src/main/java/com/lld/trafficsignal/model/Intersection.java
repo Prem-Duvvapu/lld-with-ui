@@ -15,8 +15,6 @@ public class Intersection {
         this.emergencyOverride = false;
     }
 
-    public int getId() { return id; }
-    public String getName() { return name; }
     public List<TrafficLight> getLights() { return lights; }
     public boolean isEmergencyOverride() { return emergencyOverride; }
     public void setEmergencyOverride(boolean emergencyOverride) { this.emergencyOverride = emergencyOverride; }

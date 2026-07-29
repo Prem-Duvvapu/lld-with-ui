@@ -1,44 +1,19 @@
 package com.lld.pubsub.repository;
 
-import com.lld.pubsub.model.Subscriber;
-import com.lld.pubsub.model.Topic;
+import com.lld.pubsub.model.*;
 import org.springframework.stereotype.Repository;
-
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class PubSubRepository {
+    private final Map<String, Topic> topics = new ConcurrentHashMap<>();
+    private final Map<String, Subscriber> subscribers = new ConcurrentHashMap<>();
 
-    private final ConcurrentHashMap<String, Topic> topics = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Subscriber> subscribers = new ConcurrentHashMap<>();
-
-    public void createTopic(Topic topic) {
-        topics.put(topic.getName(), topic);
-    }
-
-    public Topic getTopic(String name) {
-        return topics.get(name);
-    }
-
-    public List<Topic> getAllTopics() {
-        return new ArrayList<>(topics.values());
-    }
-
-    public void createSubscriber(Subscriber subscriber) {
-        subscribers.put(subscriber.getId(), subscriber);
-    }
-
-    public Subscriber getSubscriber(String id) {
-        return subscribers.get(id);
-    }
-
-    public List<Subscriber> getAllSubscribers() {
-        return new ArrayList<>(subscribers.values());
-    }
-
-    public void deleteTopic(String name) {
-        topics.remove(name);
-    }
+    public void saveTopic(Topic topic) { topics.put(topic.getName(), topic); }
+    public Topic findTopic(String name) { return topics.get(name); }
+    public Map<String, Topic> findAllTopics() { return topics; }
+    public void saveSubscriber(Subscriber sub) { subscribers.put(sub.getId(), sub); }
+    public Subscriber findSubscriber(String id) { return subscribers.get(id); }
+    public Map<String, Subscriber> findAllSubscribers() { return subscribers; }
 }

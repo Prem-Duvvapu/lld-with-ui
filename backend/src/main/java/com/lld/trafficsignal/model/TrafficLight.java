@@ -10,7 +10,7 @@ public class TrafficLight {
         this.id = id;
         this.position = position;
         this.currentState = LightState.RED;
-        this.timer = 0;
+        this.timer = 10;
     }
 
     public int getId() { return id; }
