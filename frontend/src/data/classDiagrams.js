@@ -342,6 +342,307 @@ const classDiagrams = {
       { from: 'VendingMachineService', to: 'VendingRepository', label: 'uses' },
       { from: 'VendingMachineService', to: 'VendingState', label: 'has state' },
     ]
+  },
+
+  loggingFramework: {
+    title: 'Logging Framework — Class Diagram',
+    classes: [
+      { name: 'Logger', stereotype: 'singleton', fields: ['- instance: Logger', '- appenders: List<LogAppender>', '- defaultFormatter: LogFormatter'], methods: ['+ getInstance(): Logger', '+ addAppender(appender): void', '+ removeAppender(appender): void', '+ info(msg): void', '+ error(msg): void', '+ debug(msg): void'] },
+      { name: 'LogLevel', stereotype: 'enum', fields: ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'], methods: [] },
+      { name: 'LogAppender', stereotype: 'interface', fields: [], methods: ['+ append(message, level): void'] },
+      { name: 'ConsoleAppender', fields: ['- formatter: LogFormatter'], methods: ['+ append(message, level): void'] },
+      { name: 'FileAppender', fields: ['- filePath: String', '- formatter: LogFormatter', '- maxSize: long'], methods: ['+ append(message, level): void', '+ rotateFile(): void'] },
+      { name: 'LogFormatter', fields: ['- pattern: String'], methods: ['+ format(message, level, timestamp): String'] },
+    ],
+    relationships: [
+      { from: 'Logger', to: 'LogLevel', label: 'uses' },
+      { from: 'Logger', to: 'LogAppender', label: 'sends to' },
+      { from: 'LogAppender', to: 'LogFormatter', label: 'uses' },
+      { from: 'ConsoleAppender', to: 'LogAppender', label: 'implements', dashed: true },
+      { from: 'FileAppender', to: 'LogAppender', label: 'implements', dashed: true },
+    ]
+  },
+
+  trafficSignal: {
+    title: 'Traffic Signal — Class Diagram',
+    classes: [
+      { name: 'TrafficLight', fields: ['- id: String', '- currentState: LightState', '- timer: Timer'], methods: ['+ changeState(newState): void', '+ getState(): LightState'] },
+      { name: 'Intersection', fields: ['- id: String', '- lights: List<TrafficLight>', '- controller: SignalController'], methods: ['+ getLights(): List<TrafficLight>', '+ startCycle(): void'] },
+      { name: 'SignalController', fields: ['- intersections: Map<String, Intersection>', '- activePattern: String'], methods: ['+ controlIntersection(id): void', '+ handleEmergency(id): void', '+ setTimings(green, yellow, red): void'] },
+      { name: 'Timer', fields: ['- duration: int', '- remaining: int'], methods: ['+ start(): void', '+ tick(): void', '+ reset(): void', '+ isExpired(): boolean'] },
+      { name: 'LightState', stereotype: 'enum', fields: ['RED', 'YELLOW', 'GREEN'], methods: [] },
+    ],
+    relationships: [
+      { from: 'TrafficLight', to: 'LightState', label: 'has state' },
+      { from: 'TrafficLight', to: 'Timer', label: 'has timer' },
+      { from: 'Intersection', to: 'TrafficLight', label: 'contains' },
+      { from: 'Intersection', to: 'SignalController', label: 'controlled by' },
+      { from: 'SignalController', to: 'Intersection', label: 'monitors' },
+    ]
+  },
+
+  taskManagement: {
+    title: 'Task Management — Class Diagram',
+    classes: [
+      { name: 'Task', fields: ['- id: String', '- title: String', '- description: String', '- status: TaskStatus', '- priority: Priority', '- assignee: User', '- dueDate: LocalDate'], methods: ['+ updateStatus(status): void', '+ setPriority(priority): void', '+ assignTo(user): void'] },
+      { name: 'User', fields: ['- id: String', '- name: String', '- email: String', '- boards: List<Board>'], methods: ['+ createBoard(name): Board', '+ getAssignedTasks(): List<Task>'] },
+      { name: 'Board', fields: ['- id: String', '- title: String', '- lists: List<TaskList>'], methods: ['+ addList(name): TaskList', '+ removeList(list): void'] },
+      { name: 'TaskList', fields: ['- id: String', '- name: String', '- tasks: List<Task>', '- board: Board'], methods: ['+ addTask(task): void', '+ removeTask(task): void', '+ reorderTasks(order): void'] },
+      { name: 'TaskStatus', stereotype: 'enum', fields: ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'], methods: [] },
+      { name: 'Priority', stereotype: 'enum', fields: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Board', to: 'TaskList', label: 'contains' },
+      { from: 'TaskList', to: 'Task', label: 'contains' },
+      { from: 'Task', to: 'User', label: 'assigned to' },
+      { from: 'Task', to: 'TaskStatus', label: 'has state' },
+      { from: 'Task', to: 'Priority', label: 'has priority' },
+      { from: 'User', to: 'Board', label: 'owns' },
+    ]
+  },
+
+  linkedin: {
+    title: 'LinkedIn — Class Diagram',
+    classes: [
+      { name: 'User', fields: ['- id: String', '- name: String', '- headline: String', '- connections: List<Connection>', '- posts: List<Post>'], methods: ['+ sendConnectionRequest(to): void', '+ acceptConnection(from): void', '+ createPost(content): Post', '+ getFeed(): List<Post>'] },
+      { name: 'Profile', fields: ['- user: User', '- summary: String', '- experience: List<Experience>', '- education: List<Education>', '- skills: List<String>'], methods: ['+ addExperience(exp): void', '+ addSkill(skill): void'] },
+      { name: 'Connection', fields: ['- fromUser: User', '- toUser: User', '- status: String', '- createdAt: LocalDateTime'], methods: [] },
+      { name: 'Post', fields: ['- id: String', '- author: User', '- content: String', '- likes: int', '- comments: List<Comment>', '- createdAt: LocalDateTime'], methods: ['+ like(): void', '+ addComment(comment): void'] },
+      { name: 'Notification', fields: ['- id: String', '- user: User', '- type: String', '- message: String', '- isRead: boolean'], methods: ['+ markRead(): void'] },
+      { name: 'FeedService', fields: ['- users: Map<String, User>'], methods: ['+ generateFeed(user): List<Post>', '+ getConnectionUpdates(user): List<Post>'] },
+    ],
+    relationships: [
+      { from: 'User', to: 'Profile', label: 'has' },
+      { from: 'User', to: 'Connection', label: 'has many' },
+      { from: 'User', to: 'Post', label: 'creates' },
+      { from: 'Connection', to: 'User', label: 'links (from/to)' },
+      { from: 'FeedService', to: 'User', label: 'reads' },
+      { from: 'User', to: 'Notification', label: 'receives' },
+    ]
+  },
+
+  lruCache: {
+    title: 'LRU Cache — Class Diagram',
+    classes: [
+      { name: 'Cache', stereotype: 'interface', fields: [], methods: ['+ get(key): V', '+ put(key, value): void', '+ evict(): void', '+ size(): int'] },
+      { name: 'LRUCacheImpl', fields: ['- capacity: int', '- cache: Map<K, Node<K,V>>', '- list: DoublyLinkedList<K,V>'], methods: ['+ get(key): V', '+ put(key, value): void', '+ evict(): void'] },
+      { name: 'Node', fields: ['- key: K', '- value: V', '- prev: Node', '- next: Node'], methods: [] },
+      { name: 'DoublyLinkedList', fields: ['- head: Node', '- tail: Node'], methods: ['+ addToFront(node): void', '+ removeNode(node): void', '+ moveToFront(node): void', '+ removeLast(): Node'] },
+      { name: 'EvictionStrategy', stereotype: 'interface', fields: [], methods: ['+ evict(list, cache): void'] },
+    ],
+    relationships: [
+      { from: 'LRUCacheImpl', to: 'Cache', label: 'implements', dashed: true },
+      { from: 'LRUCacheImpl', to: 'DoublyLinkedList', label: 'uses' },
+      { from: 'DoublyLinkedList', to: 'Node', label: 'contains' },
+      { from: 'LRUCacheImpl', to: 'Node', label: 'references' },
+      { from: 'LRUCacheImpl', to: 'EvictionStrategy', label: 'uses' },
+    ]
+  },
+
+  pubSub: {
+    title: 'Pub-Sub System — Class Diagram',
+    classes: [
+      { name: 'Broker', stereotype: 'singleton', fields: ['- instance: Broker', '- topics: Map<String, Topic>', '- executor: ExecutorService'], methods: ['+ getInstance(): Broker', '+ createTopic(name): Topic', '+ subscribe(topic, subscriber): void', '+ unsubscribe(topic, subscriber): void', '+ publish(topic, message): void'] },
+      { name: 'Topic', fields: ['- name: String', '- subscribers: List<Subscriber>', '- messages: List<Message>'], methods: ['+ addSubscriber(sub): void', '+ removeSubscriber(sub): void', '+ publish(msg): void'] },
+      { name: 'Publisher', fields: ['- id: String', '- topics: List<Topic>'], methods: ['+ publish(topic, content): void'] },
+      { name: 'Subscriber', stereotype: 'interface', fields: [], methods: ['+ onMessage(topic, message): void', '+ getId(): String'] },
+      { name: 'Message', fields: ['- id: String', '- content: String', '- timestamp: LocalDateTime', '- publisherId: String'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Broker', to: 'Topic', label: 'manages' },
+      { from: 'Topic', to: 'Subscriber', label: 'notifies' },
+      { from: 'Publisher', to: 'Topic', label: 'publishes to' },
+      { from: 'Topic', to: 'Message', label: 'contains' },
+      { from: 'Broker', to: 'Publisher', label: 'registers' },
+    ]
+  },
+
+  carRental: {
+    title: 'Car Rental — Class Diagram',
+    classes: [
+      { name: 'Vehicle', fields: ['- id: String', '- make: String', '- model: String', '- year: int', '- type: VehicleType', '- licensePlate: String', '- hourlyRate: double', '- available: boolean'], methods: ['+ setAvailable(avail): void', '+ getRate(): double'] },
+      { name: 'Customer', fields: ['- id: String', '- name: String', '- licenseNo: String', '- phone: String', '- reservations: List<Reservation>'], methods: ['+ makeReservation(vehicle, hours): Reservation', '+ cancelReservation(id): void'] },
+      { name: 'Reservation', fields: ['- id: String', '- customer: Customer', '- vehicle: Vehicle', '- startTime: LocalDateTime', '- endTime: LocalDateTime', '- totalAmount: double', '- status: String'], methods: ['+ calculateAmount(): double', '+ complete(): void'] },
+      { name: 'RentalBranch', fields: ['- id: String', '- name: String', '- location: String', '- vehicles: List<Vehicle>'], methods: ['+ addVehicle(vehicle): void', '+ getAvailableVehicles(type): List<Vehicle>'] },
+      { name: 'Payment', fields: ['- id: String', '- reservation: Reservation', '- amount: double', '- method: String', '- status: String', '- timestamp: LocalDateTime'], methods: ['+ process(): boolean', '+ refund(): void'] },
+      { name: 'VehicleType', stereotype: 'enum', fields: ['SEDAN', 'SUV', 'HATCHBACK', 'TRUCK', 'VAN'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Customer', to: 'Reservation', label: 'makes' },
+      { from: 'Reservation', to: 'Vehicle', label: 'books' },
+      { from: 'Reservation', to: 'Payment', label: 'has' },
+      { from: 'RentalBranch', to: 'Vehicle', label: 'contains' },
+      { from: 'Vehicle', to: 'VehicleType', label: 'has type' },
+      { from: 'Customer', to: 'RentalBranch', label: 'visits' },
+    ]
+  },
+
+  auction: {
+    title: 'Auction System — Class Diagram',
+    classes: [
+      { name: 'Auction', fields: ['- id: String', '- item: Item', '- startingBid: double', '- currentBid: Bid', '- status: AuctionStatus', '- bids: List<Bid>', '- auctioneer: Auctioneer', '- startTime: LocalDateTime', '- endTime: LocalDateTime'], methods: ['+ placeBid(bidder, amount): boolean', '+ close(): Bid', '+ getWinner(): Bidder'] },
+      { name: 'Item', fields: ['- id: String', '- name: String', '- description: String', '- reservePrice: double', '- seller: Bidder'], methods: [] },
+      { name: 'Bidder', fields: ['- id: String', '- name: String', '- email: String', '- bids: List<Bid>', '- notifications: List<String>'], methods: ['+ placeBid(auction, amount): Bid', '+ getWonAuctions(): List<Auction>'] },
+      { name: 'Bid', fields: ['- id: String', '- bidder: Bidder', '- auction: Auction', '- amount: double', '- timestamp: LocalDateTime'], methods: [] },
+      { name: 'Auctioneer', fields: ['- id: String', '- name: String', '- auctions: List<Auction>'], methods: ['+ createAuction(item, startBid, duration): Auction', '+ startAuction(auctionId): void', '+ endAuction(auctionId): void'] },
+      { name: 'AuctionStatus', stereotype: 'enum', fields: ['PENDING', 'ACTIVE', 'SOLD', 'UNSOLD', 'CANCELLED'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Auction', to: 'Item', label: 'sells' },
+      { from: 'Auction', to: 'Bid', label: 'contains' },
+      { from: 'Auction', to: 'Bidder', label: 'has winner' },
+      { from: 'Auction', to: 'Auctioneer', label: 'managed by' },
+      { from: 'Auction', to: 'AuctionStatus', label: 'has state' },
+      { from: 'Bid', to: 'Bidder', label: 'placed by' },
+    ]
+  },
+
+  restaurant: {
+    title: 'Restaurant — Class Diagram',
+    classes: [
+      { name: 'Restaurant', fields: ['- id: String', '- name: String', '- location: String', '- menu: Menu'], methods: ['+ open(): void', '+ close(): void', '+ addMenuItem(item): void'] },
+      { name: 'Menu', fields: ['- items: List<MenuItem>', '- categories: List<String>'], methods: ['+ addItem(item): void', '+ getItemsByCategory(cat): List<MenuItem>'] },
+      { name: 'Order', fields: ['- id: String', '- items: List<MenuItem>', '- tableNo: int', '- status: OrderStatus', '- chef: Chef', '- waiter: Waiter', '- totalAmount: double'], methods: ['+ addItem(item): void', '+ nextStatus(): void', '+ calculateTotal(): double'] },
+      { name: 'Chef', fields: ['- id: String', '- name: String', '- specialization: String', '- orders: List<Order>'], methods: ['+ prepareOrder(order): void', '+ completeOrder(order): void'] },
+      { name: 'Waiter', fields: ['- id: String', '- name: String', '- assignedTables: List<Integer>'], methods: ['+ takeOrder(table, items): Order', '+ serveOrder(order): void'] },
+      { name: 'Payment', fields: ['- id: String', '- order: Order', '- amount: double', '- method: String', '- tip: double', '- timestamp: LocalDateTime'], methods: ['+ process(): boolean', '+ split(numPeople): List<Double>'] },
+      { name: 'OrderStatus', stereotype: 'enum', fields: ['PLACED', 'PREPARING', 'READY', 'SERVED', 'PAID'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Restaurant', to: 'Menu', label: 'has' },
+      { from: 'Order', to: 'Menu', label: 'references' },
+      { from: 'Order', to: 'Chef', label: 'assigned to' },
+      { from: 'Order', to: 'Waiter', label: 'served by' },
+      { from: 'Order', to: 'OrderStatus', label: 'has state' },
+      { from: 'Order', to: 'Payment', label: 'generates' },
+    ]
+  },
+
+  socialNetwork: {
+    title: 'Social Network — Class Diagram',
+    classes: [
+      { name: 'User', fields: ['- id: String', '- name: String', '- email: String', '- friends: List<User>', '- posts: List<Post>', '- pendingRequests: List<FriendRequest>'], methods: ['+ sendFriendRequest(to): void', '+ acceptRequest(from): void', '+ createPost(content): Post', '+ getNewsFeed(): List<Post>'] },
+      { name: 'Post', fields: ['- id: String', '- author: User', '- content: String', '- likes: Set<String>', '- comments: List<Comment>', '- timestamp: LocalDateTime'], methods: ['+ like(userId): void', '+ addComment(comment): void'] },
+      { name: 'FriendRequest', fields: ['- from: User', '- to: User', '- status: FriendRequestStatus', '- timestamp: LocalDateTime'], methods: ['+ accept(): void', '+ reject(): void'] },
+      { name: 'NewsFeed', fields: ['- user: User', '- posts: List<Post>'], methods: ['+ generate(user): NewsFeed', '+ refresh(): void'] },
+      { name: 'Notification', fields: ['- id: String', '- user: User', '- type: String (LIKE/COMMENT/REQUEST)', '- message: String', '- isRead: boolean'], methods: ['+ markRead(): void'] },
+      { name: 'FriendRequestStatus', stereotype: 'enum', fields: ['PENDING', 'ACCEPTED', 'REJECTED'], methods: [] },
+    ],
+    relationships: [
+      { from: 'User', to: 'User', label: 'friends with' },
+      { from: 'User', to: 'Post', label: 'creates' },
+      { from: 'User', to: 'FriendRequest', label: 'sends/receives' },
+      { from: 'FriendRequest', to: 'FriendRequestStatus', label: 'has status' },
+      { from: 'User', to: 'NewsFeed', label: 'has' },
+      { from: 'User', to: 'Notification', label: 'receives' },
+    ]
+  },
+
+  concertTicket: {
+    title: 'Concert Ticket Booking — Class Diagram',
+    classes: [
+      { name: 'Event', fields: ['- id: String', '- name: String', '- artist: String', '- date: LocalDateTime', '- venue: Venue', '- seats: Map<SeatType, List<Seat>>'], methods: ['+ getAvailableSeats(type): List<Seat>', '+ bookSeats(user, seats): Booking', '+ cancelSeats(booking): void'] },
+      { name: 'Venue', fields: ['- id: String', '- name: String', '- location: String', '- capacity: int', '- seatLayout: Map<SeatType, Integer>'], methods: ['+ getSeatMap(): Map'] },
+      { name: 'Seat', fields: ['- id: String', '- row: String', '- number: int', '- type: SeatType', '- price: double', '- isBooked: boolean'], methods: ['+ book(): void', '+ release(): void'] },
+      { name: 'Booking', fields: ['- id: String', '- user: User', '- event: Event', '- seats: List<Seat>', '- totalAmount: double', '- status: BookingStatus', '- timestamp: LocalDateTime'], methods: ['+ confirm(): void', '+ cancel(): void', '+ calculateTotal(): double'] },
+      { name: 'User', fields: ['- id: String', '- name: String', '- email: String', '- bookings: List<Booking>'], methods: ['+ bookEvent(event, seats): Booking', '+ cancelBooking(id): void', '+ getBookingHistory(): List<Booking>'] },
+      { name: 'BookingStatus', stereotype: 'enum', fields: ['PENDING', 'CONFIRMED', 'CANCELLED', 'REFUNDED'], methods: [] },
+      { name: 'SeatType', stereotype: 'enum', fields: ['VIP', 'GOLD', 'SILVER', 'GENERAL'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Event', to: 'Venue', label: 'hosted at' },
+      { from: 'Event', to: 'Seat', label: 'has' },
+      { from: 'Seat', to: 'SeatType', label: 'has type' },
+      { from: 'Booking', to: 'Event', label: 'references' },
+      { from: 'Booking', to: 'User', label: 'belongs to' },
+      { from: 'Booking', to: 'Seat', label: 'contains' },
+      { from: 'Booking', to: 'BookingStatus', label: 'has state' },
+    ]
+  },
+
+  cricinfo: {
+    title: 'CricInfo — Class Diagram',
+    classes: [
+      { name: 'Match', fields: ['- id: String', '- teams: Team[2]', '- venue: String', '- date: LocalDateTime', '- status: MatchStatus', '- innings: List<Inning>', '- scorecard: Scorecard'], methods: ['+ start(): void', '+ end(result): void', '+ getCurrentScore(): String'] },
+      { name: 'Team', fields: ['- id: String', '- name: String', '- players: List<Player>', '- captain: Player'], methods: ['+ addPlayer(player): void', '+ selectCaptain(player): void'] },
+      { name: 'Player', fields: ['- id: String', '- name: String', '- role: String (BATSMAN/BOWLER/ALLROUNDER)', '- stats: Map<String, Object>'], methods: ['+ updateStats(ball): void', '+ getAverage(): double'] },
+      { name: 'Inning', fields: ['- id: String', '- battingTeam: Team', '- bowlingTeam: Team', '- balls: List<Ball>', '- totalRuns: int', '- wickets: int', '- overs: double'], methods: ['+ addBall(ball): void', '+ isComplete(): boolean'] },
+      { name: 'Scorecard', fields: ['- match: Match', '- batsmanStats: Map<Player, BattingStats>', '- bowlerStats: Map<Player, BowlingStats>'], methods: ['+ updateBatsmanStats(player, ball): void', '+ updateBowlerStats(player, ball): void'] },
+      { name: 'Ball', fields: ['- ballNumber: int', '- bowler: Player', '- batsman: Player', '- runs: int', '- isWicket: boolean', '- wicketType: String'], methods: [] },
+      { name: 'MatchStatus', stereotype: 'enum', fields: ['NOT_STARTED', 'LIVE', 'COMPLETED', 'DRAWN', 'ABANDONED'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Match', to: 'Team', label: 'has 2' },
+      { from: 'Team', to: 'Player', label: 'contains' },
+      { from: 'Match', to: 'Inning', label: 'contains' },
+      { from: 'Match', to: 'Scorecard', label: 'has' },
+      { from: 'Inning', to: 'Ball', label: 'contains' },
+      { from: 'Match', to: 'MatchStatus', label: 'has state' },
+    ]
+  },
+
+  courseRegistration: {
+    title: 'Course Registration — Class Diagram',
+    classes: [
+      { name: 'Student', fields: ['- id: String', '- name: String', '- email: String', '- enrolledCourses: List<Registration>', '- schedule: Schedule'], methods: ['+ registerForCourse(course): Registration', '+ dropCourse(registration): void', '+ viewSchedule(): Schedule'] },
+      { name: 'Course', fields: ['- id: String', '- code: String', '- title: String', '- credits: int', '- capacity: int', '- enrolledCount: int', '- professor: Professor', '- schedule: Schedule'], methods: ['+ isFull(): boolean', '+ incrementEnrollment(): void', '+ decrementEnrollment(): void'] },
+      { name: 'Professor', fields: ['- id: String', '- name: String', '- email: String', '- department: String', '- courses: List<Course>'], methods: ['+ assignCourse(course): void', '+ getCourseList(): List<Course>'] },
+      { name: 'Schedule', fields: ['- slots: List<TimeSlot>', '- semester: String'], methods: ['+ addSlot(day, start, end): void', '+ conflictsWith(other): boolean'] },
+      { name: 'Registration', fields: ['- id: String', '- student: Student', '- course: Course', '- status: RegistrationStatus', '- grade: String', '- timestamp: LocalDateTime'], methods: ['+ confirm(): void', '+ cancel(): void', '+ assignGrade(grade): void'] },
+      { name: 'RegistrationStatus', stereotype: 'enum', fields: ['PENDING', 'ENROLLED', 'DROPPED', 'COMPLETED'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Student', to: 'Registration', label: 'has' },
+      { from: 'Registration', to: 'Course', label: 'enrolls in' },
+      { from: 'Course', to: 'Professor', label: 'taught by' },
+      { from: 'Course', to: 'Schedule', label: 'has' },
+      { from: 'Student', to: 'Schedule', label: 'has' },
+      { from: 'Registration', to: 'RegistrationStatus', label: 'has state' },
+    ]
+  },
+
+  stockBrokerage: {
+    title: 'Stock Brokerage — Class Diagram',
+    classes: [
+      { name: 'Account', fields: ['- id: String', '- username: String', '- email: String', '- balance: double', '- portfolio: Portfolio', '- orders: List<Order>'], methods: ['+ deposit(amount): void', '+ withdraw(amount): void', '+ placeOrder(stock, qty, type): Order'] },
+      { name: 'Stock', fields: ['- symbol: String', '- name: String', '- currentPrice: double', '- market: String'], methods: ['+ updatePrice(newPrice): void'] },
+      { name: 'Order', fields: ['- id: String', '- account: Account', '- stock: Stock', '- quantity: int', '- price: double', '- type: OrderType', '- status: OrderStatus', '- timestamp: LocalDateTime'], methods: ['+ execute(): void', '+ cancel(): void', '+ getTotalValue(): double'] },
+      { name: 'Portfolio', fields: ['- account: Account', '- holdings: Map<Stock, Integer>', '- totalValue: double'], methods: ['+ addStock(stock, qty): void', '+ removeStock(stock, qty): void', '+ getNetWorth(): double'] },
+      { name: 'MarketData', stereotype: 'singleton', fields: ['- stocks: Map<String, Stock>', '- priceHistory: Map<String, List<Double>>'], methods: ['+ getPrice(symbol): double', '+ updatePrice(symbol, price): void', '+ getHistory(symbol): List<Double>'] },
+      { name: 'OrderType', stereotype: 'enum', fields: ['BUY', 'SELL', 'LIMIT_BUY', 'LIMIT_SELL', 'STOP_LOSS'], methods: [] },
+      { name: 'OrderStatus', stereotype: 'enum', fields: ['PENDING', 'EXECUTED', 'PARTIALLY_FILLED', 'CANCELLED', 'REJECTED'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Account', to: 'Portfolio', label: 'has' },
+      { from: 'Account', to: 'Order', label: 'places' },
+      { from: 'Order', to: 'Stock', label: 'trades' },
+      { from: 'Order', to: 'OrderType', label: 'has type' },
+      { from: 'Order', to: 'OrderStatus', label: 'has status' },
+      { from: 'Portfolio', to: 'Stock', label: 'holds' },
+      { from: 'MarketData', to: 'Stock', label: 'tracks' },
+    ]
+  },
+
+  musicStreaming: {
+    title: 'Music Streaming — Class Diagram',
+    classes: [
+      { name: 'Song', fields: ['- id: String', '- title: String', '- duration: int', '- album: Album', '- artists: List<Artist>', '- genre: String', '- playCount: int'], methods: ['+ play(): void', '+ addToPlaylist(playlist): void'] },
+      { name: 'Album', fields: ['- id: String', '- title: String', '- artist: Artist', '- releaseYear: int', '- songs: List<Song>', '- coverArt: String'], methods: ['+ addSong(song): void', '+ getDuration(): int'] },
+      { name: 'Artist', fields: ['- id: String', '- name: String', '- bio: String', '- albums: List<Album>', '- monthlyListeners: int'], methods: ['+ releaseAlbum(title, songs): Album', '+ getTopSongs(n): List<Song>'] },
+      { name: 'Playlist', fields: ['- id: String', '- name: String', '- owner: User', '- songs: List<Song>', '- isPublic: boolean'], methods: ['+ addSong(song): void', '+ removeSong(song): void', '+ shuffle(): void'] },
+      { name: 'User', fields: ['- id: String', '- name: String', '- email: String', '- subscription: Subscription', '- playlists: List<Playlist>', '- likedSongs: List<Song>'], methods: ['+ createPlaylist(name): Playlist', '+ likeSong(song): void', '+ getRecommendedSongs(): List<Song>'] },
+      { name: 'Subscription', fields: ['- id: String', '- user: User', '- plan: SubscriptionPlan', '- startDate: LocalDate', '- renewalDate: LocalDate', '- isActive: boolean'], methods: ['+ activate(): void', '+ cancel(): void', '+ upgrade(newPlan): void'] },
+      { name: 'SubscriptionPlan', stereotype: 'enum', fields: ['FREE', 'PREMIUM', 'FAMILY', 'STUDENT'], methods: [] },
+    ],
+    relationships: [
+      { from: 'Album', to: 'Song', label: 'contains' },
+      { from: 'Album', to: 'Artist', label: 'by' },
+      { from: 'Song', to: 'Artist', label: 'performed by' },
+      { from: 'Playlist', to: 'Song', label: 'contains' },
+      { from: 'Playlist', to: 'User', label: 'owned by' },
+      { from: 'User', to: 'Subscription', label: 'has' },
+      { from: 'Subscription', to: 'SubscriptionPlan', label: 'has plan' },
+    ]
   }
 };
 

@@ -26,6 +26,30 @@ const LLD_ROUTES = [
   { path: 'shopping-cart', title: 'Shopping Cart', module: './lld/shoppingcart/ShoppingCartPage.jsx' },
   { path: 'minesweeper', title: 'Minesweeper', module: './lld/minesweeper/MinesweeperPage.jsx' },
   { path: 'vending-machine', title: 'Vending Machine', module: './lld/vendingmachine/VendingMachinePage.jsx' },
+  { path: 'logging-framework', title: 'Logging Framework', module: './lld/logging-framework/LoggingFrameworkPage.jsx' },
+  { path: 'traffic-signal', title: 'Traffic Signal', module: './lld/traffic-signal/TrafficSignalPage.jsx' },
+  { path: 'task-management', title: 'Task Management', module: './lld/task-management/TaskManagementPage.jsx' },
+  { path: 'linkedin', title: 'LinkedIn', module: './lld/linkedin/LinkedInPage.jsx' },
+  { path: 'lru-cache', title: 'LRU Cache', module: './lld/lru-cache/LruCachePage.jsx' },
+  { path: 'pub-sub', title: 'Pub Sub System', module: './lld/pub-sub/PubSubPage.jsx' },
+  { path: 'car-rental', title: 'Car Rental', module: './lld/car-rental/CarRentalPage.jsx' },
+  { path: 'auction', title: 'Online Auction', module: './lld/auction/AuctionPage.jsx' },
+  { path: 'restaurant', title: 'Restaurant Management', module: './lld/restaurant/RestaurantPage.jsx' },
+  { path: 'social-network', title: 'Social Network', module: './lld/social-network/SocialNetworkPage.jsx' },
+  { path: 'concert-ticket', title: 'Concert Ticket', module: './lld/concert-ticket/ConcertTicketPage.jsx' },
+  { path: 'cricinfo', title: 'CricInfo', module: './lld/cricinfo/CricInfoPage.jsx' },
+  { path: 'course-registration', title: 'Course Registration', module: './lld/course-registration/CourseRegistrationPage.jsx' },
+  { path: 'stock-brokerage', title: 'Stock Brokerage', module: './lld/stock-brokerage/StockBrokeragePage.jsx' },
+  { path: 'music-streaming', title: 'Music Streaming', module: './lld/music-streaming/MusicStreamingPage.jsx' },
+  { path: 'foo-bar', title: 'FooBar Alternately', module: './lld/foo-bar/FooBarPage.jsx' },
+  { path: 'zero-even-odd', title: 'Zero Even Odd', module: './lld/zero-even-odd/ZeroEvenOddPage.jsx' },
+  { path: 'fizz-buzz', title: 'Fizz Buzz Multithreaded', module: './lld/fizz-buzz/FizzBuzzPage.jsx' },
+  { path: 'h2o', title: 'Building H2O', module: './lld/h2o/H2OPage.jsx' },
+  { path: 'ttl-cache', title: 'Thread-Safe TTL Cache', module: './lld/ttl-cache/TtlCachePage.jsx' },
+  { path: 'concurrent-hashmap', title: 'Concurrent HashMap', module: './lld/concurrent-hashmap/ConcurrentHashMapPage.jsx' },
+  { path: 'blocking-queue', title: 'Blocking Queue', module: './lld/blocking-queue/BlockingQueuePage.jsx' },
+  { path: 'bloom-filter', title: 'Concurrent Bloom Filter', module: './lld/bloom-filter/BloomFilterPage.jsx' },
+  { path: 'merge-sort', title: 'Multi-threaded Merge Sort', module: './lld/merge-sort/MergeSortPage.jsx' },
 ]
 
 function Layout({ children }) {
@@ -46,7 +70,7 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Home llds={LLD_ROUTES} />} />
+        <Route path="/" element={<Home />} />
         {LLD_ROUTES.map(({ path, module }) => {
           const Page = lldModules[module]?.default
           return Page ? <Route key={path} path={`/${path}`} element={<Page />} /> : null
