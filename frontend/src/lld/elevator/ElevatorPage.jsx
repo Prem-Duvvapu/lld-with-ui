@@ -68,6 +68,16 @@ body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Seg
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a5a; transition: all 0.3s; }
 .step-dot.active { background: var(--accent); box-shadow: 0 0 8px rgba(102,126,234,0.5); }
 .step-dot.done { background: #3fb950; }
+.el-scene { width: 100%; min-height: 400px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 16px; margin-bottom: 12px; overflow: hidden; }
+.el-building { display: flex; gap: 8px; justify-content: center; align-items: flex-end; height: 320px; padding: 8px; background: linear-gradient(180deg, var(--bg-secondary), var(--bg-primary)); border-radius: 8px; border: 1px solid var(--border-primary); position: relative; }
+.el-floor { display: flex; align-items: center; gap: 4px; position: absolute; left: 8px; right: 8px; height: 28px; border-bottom: 1px solid var(--border-primary); font-size: 10px; color: var(--text-muted); }
+.el-shaft { position: relative; width: 40px; height: 100%; background: rgba(128,128,128,0.05); border: 1px solid var(--border-primary); border-radius: 4px; }
+.el-car { position: absolute; left: 2px; right: 2px; height: 26px; background: #667eea; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; font-weight: 700; transition: bottom 1s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2; }
+.el-car.arriving { background: #4facfe; }
+.el-car.moving { background: #f093fb; }
+.el-info { text-align: center; margin-top: 8px; padding: 8px; background: var(--bg-card); border-radius: 8px; font-size: 13px; color: var(--text-secondary); }
+.el-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: popIn 0.4s ease-out; min-width: 200px; }
+@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 `;
 
 const FLOOR_HEIGHT = 70;
@@ -147,94 +157,105 @@ function Floor({ floorNum, onCall }) {
 
 function AnimatedFlow() {
   const [step, setStep] = useState(0);
-  const [request, setRequest] = useState(null);
   const [elevators, setElevators] = useState([]);
+  const [request, setRequest] = useState(null);
+  const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
-  const steps = ['Call', 'Arriving', 'Boarding', 'Moving', 'Arrived'];
+  const steps = ['Call', 'Arrive', 'Board', 'Move', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  
+  useEffect(() => {
+    getElevators().then(setElevators).catch(() => {});
+  }, []);
 
-  const reset = () => { setStep(0); setRequest(null); setElevators([]); setError(''); setLoading(false); };
+  const reset = () => { setStep(0); setRequest(null); setMsg(''); setError(''); };
+
+  const floorY = (floor) => (floor - 1) * 28;
 
   const startSim = async () => {
-    setError(''); setLoading(true); setStep(1);
+    setError(''); setStep(1); setMsg('Calling elevator from Floor 1 → Floor 5...');
     try {
       const req = await requestElevator(1, 5);
       if (!mountedRef.current) return;
-      if (req.error) { setError(req.error); setLoading(false); return; }
+      if (req.error) { setError(req.error); return; }
       setRequest(req);
-      setLoading(false);
       await new Promise(r => setTimeout(r, 1000));
       if (!mountedRef.current) return;
-      setStep(2);
-
-      for (let i = 0; i < 8; i++) {
-        await new Promise(r => setTimeout(r, 1000));
+      setStep(2); setMsg('Elevator arriving...');
+      for (let i = 0; i < 6; i++) {
+        await new Promise(r => setTimeout(r, 1200));
         if (!mountedRef.current) return;
         const evs = await tick();
         if (!mountedRef.current) return;
         setElevators(evs);
-
-        const assigned = evs.find(e => e.id === req.assignedElevatorId);
-        if (assigned && assigned.currentFloor === 1 && i >= 2) {
-          setStep(3);
-          await new Promise(r => setTimeout(r, 1200));
-          if (!mountedRef.current) return;
-          setStep(4);
-        }
-        if (assigned && assigned.currentFloor >= 5) {
-          setStep(5);
-          break;
-        }
+        const e = evs.find(x => x.id === req.assignedElevatorId);
+        if (e && (i >= 3 || e.currentFloor === 1)) { break; }
+      }
+      await new Promise(r => setTimeout(r, 800));
+      if (!mountedRef.current) return;
+      setStep(3); setMsg('Boarding passengers...');
+      await new Promise(r => setTimeout(r, 1500));
+      if (!mountedRef.current) return;
+      setStep(4); setMsg('Moving to Floor 5...');
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 1200));
+        if (!mountedRef.current) return;
+        const evs = await tick();
+        if (!mountedRef.current) return;
+        setElevators(evs);
+        const e = evs.find(x => x.id === req.assignedElevatorId);
+        if (e && e.currentFloor >= 5 && e.direction === 'IDLE') { break; }
+        if (e && e.currentFloor >= 5) { await new Promise(r => setTimeout(r, 1200)); if (!mountedRef.current) return; const evs2 = await tick(); if (!mountedRef.current) return; setElevators(evs2); break; }
       }
       if (!mountedRef.current) return;
-      setStep(5);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+      setStep(5); setMsg('Arrived at Floor 5! 🎉');
+    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
   };
 
-  const assignedElevator = elevators.find(e => e.id === request?.assignedElevatorId);
+  const maxFloor = 10;
+  const assignedEl = elevators.find(e => e.id === request?.assignedElevatorId);
 
   return (
     <div>
-      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+      <div className="step-indicator">
         {steps.map((s, i) => (
           <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
-
-      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
-
-      {step >= 1 && !error && (
-        <div style={{ textAlign: 'center', padding: 20 }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>
-            {step === 1 && '🛗'}
-            {step === 2 && '⬇️'}
-            {step === 3 && '🚶'}
-            {step === 4 && '⬆️'}
-            {step === 5 && '✅'}
-          </div>
-          <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 8 }}>
-            {step === 1 && (loading ? 'Calling elevator...' : 'Elevator called from Floor 1 → 5')}
-            {step === 2 && 'Elevator arriving...'}
-            {step === 3 && 'Boarding passengers...'}
-            {step === 4 && 'Moving to Floor 5...'}
-            {step === 5 && 'Arrived at Floor 5!'}
-          </div>
-          {assignedElevator && (
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-              Elevator {assignedElevator.name} • Floor {assignedElevator.currentFloor} • {assignedElevator.direction}
+      <div className="el-scene">
+        <div className="el-building" style={{ height: maxFloor * 28 + 20 }}>
+          {Array.from({ length: maxFloor }).map((_, i) => {
+            const fl = maxFloor - i;
+            return <div key={fl} className="el-floor" style={{ bottom: (fl - 1) * 28 }}><span>F{fl}</span></div>;
+          })}
+          {elevators.map((el, i) => (
+            <div key={el.id} className="el-shaft" style={{ marginLeft: i * 44 + 50 }}>
+              <div className={`el-car ${step === 4 ? 'moving' : step >= 2 ? 'arriving' : ''}`} style={{ bottom: floorY(el.currentFloor) }}>
+                {el.name}
+              </div>
             </div>
-          )}
-          {step === 5 && (
-            <button style={{ marginTop: 16, padding: '8px 20px', fontSize: 13, background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>🔄 New Trip</button>
-          )}
+          ))}
         </div>
-      )}
+
+        <div className="el-info">{msg}</div>
+
+        {step === 5 && (
+          <div className="el-popup" style={{ borderColor: '#3fb950' }}>
+            <div style={{ fontSize: 36 }}>✅</div>
+            <div style={{ fontWeight: 700, color: '#3fb950' }}>Trip Complete!</div>
+            {assignedEl && <div style={{ fontSize: 13, color: '#666', marginTop: 6 }}>Elevator {assignedEl.name} • Floor {assignedEl.currentFloor}</div>}
+            <button onClick={reset} style={{ marginTop: 10, padding: '6px 16px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄 New</button>
+          </div>
+        )}
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
     </div>
   );
 }

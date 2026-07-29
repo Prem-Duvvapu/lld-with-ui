@@ -61,6 +61,20 @@ body { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-heigh
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #33ff33; border-radius: 6px; color: #33ff33; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
 .back-home:hover { background: #33ff33; color: #0a1a0a; }
+.atm-scene { position: relative; width: 100%; min-height: 400px; background: linear-gradient(180deg, #0a3d2e 0%, #0d2818 100%); border-radius: 12px; padding: 20px; margin-bottom: 12px; overflow: hidden; border: 2px solid #00ff41; }
+.atm-machine-visual { max-width: 340px; margin: 0 auto; background: #1a3a2a; border-radius: 12px; padding: 20px; border: 3px solid #2a5a3a; position: relative; }
+.atm-screen-visual { background: #0a1a10; border: 2px solid #00ff41; border-radius: 6px; padding: 16px; min-height: 120px; color: #00ff41; font-family: monospace; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.5s; }
+.atm-keypad-visual { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-width: 180px; margin: 12px auto; }
+.atm-key { padding: 10px; background: #1a3a2a; border: 1px solid #2a5a3a; border-radius: 4px; color: #00ff41; font-size: 16px; font-weight: 700; text-align: center; font-family: monospace; transition: all 0.2s; }
+.atm-key.pressed { background: #00ff41; color: #0a1a10; }
+.atm-card-slot { position: relative; height: 20px; background: #0a1a10; border-radius: 2px; margin-top: 8px; border: 1px solid #2a5a3a; overflow: hidden; }
+.atm-card { position: absolute; right: -60px; top: 50%; transform: translateY(-50%); font-size: 20px; transition: right 1s ease-out; }
+.atm-card.inserted { right: 10px; }
+.atm-dispenser { position: relative; height: 40px; margin-top: 8px; display: flex; align-items: center; justify-content: center; }
+.atm-cash { font-size: 24px; opacity: 0; transform: translateY(20px); transition: all 0.8s ease-out; }
+.atm-cash.visible { opacity: 1; transform: translateY(0); }
+.atm-receipt { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #fff; color: #333; padding: 12px 20px; border-radius: 4px; font-family: monospace; font-size: 11px; text-align: center; transition: all 0.5s; opacity: 0; z-index: 5; }
+.atm-receipt.visible { opacity: 1; bottom: 20px; }
 .step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #1a5a3a; transition: all 0.3s; }
 .step-dot.active { background: #00ff41; box-shadow: 0 0 8px rgba(0,255,65,0.5); }
@@ -295,82 +309,110 @@ function AtmScreen({ screen, setScreen, cardNumber, setCardNumber, account, onAu
 function AnimatedFlow() {
   const [step, setStep] = useState(0);
   const [account, setAccount] = useState(null);
-  const [receipt, setReceipt] = useState(null);
+  const [tx, setTx] = useState(null);
   const [error, setError] = useState('');
+  const [cardInserted, setCardInserted] = useState(false);
+  const [cashVisible, setCashVisible] = useState(false);
+  const [receiptVisible, setReceiptVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
-  const steps = ['Insert Card', 'Verify PIN', 'Menu', 'Withdraw', 'Receipt'];
+  const steps = ['Insert', 'PIN', 'Menu', 'Withdraw', 'Receipt'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  const reset = () => { setStep(0); setAccount(null); setReceipt(null); setError(''); setLoading(false); };
+  const reset = () => {
+    setStep(0); setAccount(null); setTx(null); setError(''); setLoading(false);
+    setCardInserted(false); setCashVisible(false); setReceiptVisible(false);
+  };
 
   const startSim = async () => {
-    setError(''); setLoading(true); setStep(1);
+    setError(''); setStep(1);
+    setCardInserted(true);
+    await new Promise(r => setTimeout(r, 1200));
+    if (!mountedRef.current) return;
+    setStep(2);
     try {
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
-      setStep(2);
-
       const auth = await authenticate('1234567890', '1234');
       if (!mountedRef.current) return;
-      if (auth.error) { setError(auth.error); setLoading(false); return; }
+      if (auth.error) { setError(auth.error); return; }
       setAccount(auth);
-      setLoading(false);
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
-      setStep(3);
-
       await new Promise(r => setTimeout(r, 1200));
       if (!mountedRef.current) return;
-      setStep(4);
-      setLoading(true);
-
-      const tx = await withdraw(auth.accountNumber, 500);
+      setStep(3);
+      await new Promise(r => setTimeout(r, 1200));
       if (!mountedRef.current) return;
-      if (tx.error) { setError(tx.error); setLoading(false); return; }
-      setReceipt(tx);
-      setLoading(false);
+      setStep(4); setLoading(true);
+      const transaction = await withdraw(auth.accountNumber, 500);
+      if (!mountedRef.current) return;
+      if (transaction.error) { setError(transaction.error); setLoading(false); return; }
+      setTx(transaction); setLoading(false);
+      await new Promise(r => setTimeout(r, 500));
+      if (!mountedRef.current) return;
+      setCashVisible(true);
       await new Promise(r => setTimeout(r, 1500));
       if (!mountedRef.current) return;
+      setReceiptVisible(true);
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
       setStep(5);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
   };
+
+  const screenText = () => {
+    if (step === 1) return { icon: '💳', text: 'INSERT CARD', sub: cardInserted ? 'Card detected...' : '' };
+    if (step === 2) return { icon: '🔐', text: 'ENTER PIN', sub: '****' };
+    if (step === 3) return { icon: '📋', text: 'WELCOME ' + (account?.holderName || 'User').toUpperCase(), sub: '1.Withdraw  2.Balance' };
+    if (step === 4) return { icon: loading ? '⏳' : '💰', text: loading ? 'PROCESSING...' : 'DISPENSING', sub: loading ? '' : '₹500.00' };
+    if (step === 5) return { icon: '✅', text: 'TRANSACTION COMPLETE', sub: 'Take your card' };
+    return { icon: '🏦', text: 'INSERT CARD', sub: '' };
+  };
+  const s = screenText();
 
   return (
     <div>
-      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+      <div className="step-indicator">
         {steps.map((s, i) => (
           <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+        <span style={{ fontSize: 11, color: '#1a5a3a', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
-
-      {step === 0 && <button className="btn-primary" onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
-
-      {step >= 1 && !error && (
-        <div style={{ textAlign: 'center', padding: 20, background: '#0a3d2e', borderRadius: 12, maxWidth: 360, margin: '0 auto', color: '#00ff41', fontFamily: 'monospace', border: '2px solid #00ff41' }}>
-          {step === 1 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>💳</div><div style={{ fontWeight: 600 }}>Inserting card...</div></div>}
-          {step === 2 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>🔐</div><div>{loading ? 'Verifying PIN...' : '✅ PIN Verified'}</div>{account && <div style={{ fontSize: 12, marginTop: 8 }}>Welcome, {account.holderName}</div>}</div>}
-          {step === 3 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>📋</div><div style={{ fontWeight: 600 }}>Selecting Withdrawal...</div></div>}
-          {step === 4 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>{loading ? '⏳' : '💰'}</div><div>{loading ? 'Dispensing cash...' : 'Withdrawal successful!'}</div></div>}
-          {step === 5 && receipt && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🧾</div>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>TRANSACTION RECEIPT</div>
-              <div style={{ fontSize: 12, borderTop: '1px dashed #00ff41', paddingTop: 8 }}>
-                <div>Amount: ₹{receipt.amount?.toFixed(2)}</div>
-                <div>Type: {receipt.transactionType}</div>
-                <div>Status: {receipt.status}</div>
-                {account && <div>Balance: ₹{account.balance?.toFixed(2)}</div>}
-              </div>
-              <button style={{ marginTop: 12, padding: '8px 20px', fontSize: 13, background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }} onClick={reset}>🔄 New Transaction</button>
-            </div>
+      <div className="atm-scene">
+        <div className="atm-machine-visual">
+          <div className="atm-screen-visual">
+            <div style={{ fontSize: 28, marginBottom: 4 }}>{s.icon}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1 }}>{s.text}</div>
+            {s.sub && <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>{s.sub}</div>}
+          </div>
+          <div className="atm-keypad-visual">
+            {[1,2,3,4,5,6,7,8,9,'',0,''].map((k, i) => (
+              <div key={i} className={`atm-key ${k !== '' && step <= 2 ? 'pressed' : ''}`}>{k}</div>
+            ))}
+          </div>
+          <div className="atm-card-slot">
+            <div className={`atm-card ${cardInserted ? 'inserted' : ''}`}>💳</div>
+          </div>
+          <div className="atm-dispenser">
+            <div className={`atm-cash ${cashVisible ? 'visible' : ''}`}>💵💵💵</div>
+          </div>
+        </div>
+        <div className={`atm-receipt ${receiptVisible ? 'visible' : ''}`}>
+          {tx && (
+            <>
+              <div style={{ fontWeight: 700, fontSize: 12 }}>🧾 RECEIPT</div>
+              <div>WITHDRAWAL: ₹{tx.amount?.toFixed(2)}</div>
+              <div>BALANCE: ₹{account?.balance?.toFixed(2)}</div>
+              <div>STATUS: {tx.status}</div>
+            </>
           )}
         </div>
-      )}
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>▶ Start Simulation</button>}
+
+      {step === 5 && <div style={{ textAlign: 'center', marginTop: 8 }}><button onClick={reset} style={{ padding: '8px 20px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>🔄 New Transaction</button></div>}
     </div>
   );
 }

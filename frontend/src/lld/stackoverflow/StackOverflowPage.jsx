@@ -75,8 +75,26 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 .back-home:hover { background: #f48024; color: white; }
 .step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
-.step-dot.active { background: #2196f3; box-shadow: 0 0 8px rgba(33,150,243,0.5); }
+.step-dot.active { background: #f48024; box-shadow: 0 0 8px rgba(244,128,36,0.5); }
 .step-dot.done { background: #3fb950; }
+.so-scene { position: relative; width: 100%; min-height: 360px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 16px; margin-bottom: 12px; overflow: hidden; }
+.so-question-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; padding: 16px; margin-bottom: 12px; opacity: 0; transform: translateY(-20px); transition: all 0.6s ease-out; }
+.so-question-card.visible { opacity: 1; transform: translateY(0); }
+.so-question-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.so-question-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
+.so-tag { display: inline-block; padding: 2px 8px; background: rgba(33,150,243,0.1); color: #2196f3; border-radius: 3px; font-size: 11px; margin-right: 4px; }
+.so-vote-display { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.so-vote-arrow { font-size: 20px; cursor: pointer; transition: all 0.2s; }
+.so-vote-arrow:hover { transform: scale(1.2); }
+.so-vote-count { font-size: 18px; font-weight: 700; color: var(--text-primary); min-width: 30px; text-align: center; }
+.so-answer-card { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 14px; margin-bottom: 8px; opacity: 0; transform: translateX(-20px); transition: all 0.5s ease-out; }
+.so-answer-card.visible { opacity: 1; transform: translateX(0); }
+.so-answer-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
+.so-accepted-badge { display: inline-block; padding: 2px 10px; background: #3fb950; color: #fff; border-radius: 4px; font-size: 11px; font-weight: 600; }
+.so-rep-card { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--text-secondary); transition: all 0.5s; opacity: 0; }
+.so-rep-card.visible { opacity: 1; }
+.so-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid #2196f3; border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: popIn 0.4s ease-out; min-width: 200px; }
+@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 `;
 
 const USER_ID = 'U1';
@@ -332,43 +350,47 @@ function AnimatedFlow() {
   const [question, setQuestion] = useState(null);
   const [answer, setAnswer] = useState(null);
   const [error, setError] = useState('');
+  const [voteCount, setVoteCount] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+  const [showAccepted, setShowAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
   const steps = ['Question', 'Answer', 'Vote', 'Accept', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  const reset = () => { setStep(0); setQuestion(null); setAnswer(null); setError(''); setLoading(false); };
+  const reset = () => {
+    setStep(0); setQuestion(null); setAnswer(null); setError('');
+    setVoteCount(0); setShowAnswer(false); setShowAccepted(false); setLoading(false);
+  };
 
   const startSim = async () => {
-    setError(''); setLoading(true); setStep(1);
+    setError(''); setStep(1); setLoading(true);
     try {
-      const q = await postQuestion('How does Java garbage collection work?', 'Can someone explain how GC works in Java?', 'U1', ['Java']);
+      const q = await postQuestion('How does Java garbage collection work?', 'Can someone explain how garbage collection works in Java? I am confused about the different GC algorithms.', 'U1', ['Java', 'JVM']);
       if (!mountedRef.current) return;
       if (q.error) { setError(q.error); setLoading(false); return; }
-      setQuestion(q);
-      setLoading(false);
+      setQuestion(q); setLoading(false);
       await new Promise(r => setTimeout(r, 1000));
       if (!mountedRef.current) return;
       setStep(2);
-
-      const a = await postAnswer(q.id, 'Java GC automatically manages memory by removing unreachable objects.', 'U2');
+      const a = await postAnswer(q.id, 'Java GC automatically manages memory by removing unreachable objects. The main algorithms are Serial, Parallel, G1, and ZGC. The JVM decides which to use based on your configuration.', 'U2');
       if (!mountedRef.current) return;
-      if (a.error) { setError(a.error); setLoading(false); return; }
-      setAnswer(a);
+      if (a.error) { setError(a.error); return; }
+      setAnswer(a); setShowAnswer(true);
       await new Promise(r => setTimeout(r, 800));
       if (!mountedRef.current) return;
       setStep(3);
-
       await voteAnswer(a.id, 'U1', 'UPVOTE');
       if (!mountedRef.current) return;
+      setVoteCount(1);
       await new Promise(r => setTimeout(r, 800));
       if (!mountedRef.current) return;
       setStep(4);
-
       await acceptAnswer(q.id, a.id, 'U1');
       if (!mountedRef.current) return;
-      await new Promise(r => setTimeout(r, 800));
+      setShowAccepted(true);
+      await new Promise(r => setTimeout(r, 1000));
       if (!mountedRef.current) return;
       setStep(5);
     } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
@@ -376,34 +398,66 @@ function AnimatedFlow() {
 
   return (
     <div>
-      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+      <div className="step-indicator">
         {steps.map((s, i) => (
           <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      {error && <div className="error" style={{ color: '#d32f2f', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button className="btn-back" style={{ marginLeft: 12 }} onClick={reset}>↺ Reset</button></div>}
-
-      {step === 0 && <button className="btn-primary" onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
-
-      {step >= 1 && !error && (
-        <div style={{ textAlign: 'center', padding: 20 }}>
-          {step === 1 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>❓</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{loading ? 'Posting question...' : 'Question posted!'}</div>{question && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>{question.title}</div>}</div>}
-          {step === 2 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>✍️</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Submitting answer...</div></div>}
-          {step === 3 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>👍</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Voting up the answer!</div></div>}
-          {step === 4 && <div><div style={{ fontSize: 36, marginBottom: 12 }}>✅</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Accepting best answer...</div></div>}
-          {step === 5 && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 16, maxWidth: 350, margin: '0 auto', border: '1px solid var(--border-primary)' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🏆</div>
-              <div style={{ fontWeight: 700, color: 'var(--info)', fontSize: 16 }}>Q&A Complete!</div>
-              {question && <div style={{ margin: '8px 0', fontSize: 13, color: 'var(--text-secondary)' }}>Question: {question.title}</div>}
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Score: +1 upvote • Answer accepted ✓</div>
-              <button className="btn-primary" style={{ marginTop: 12, padding: '8px 20px', fontSize: 13 }} onClick={reset}>🔄 New Simulation</button>
-            </div>
-          )}
+      <div className="so-scene">
+        {/* Question Card */}
+        <div className={`so-question-card ${step >= 1 ? 'visible' : ''}`}>
+          <div style={{ fontSize: 18, marginBottom: 8 }}>❓</div>
+          <div className="so-question-title">{question?.title || 'How does Java garbage collection work?'}</div>
+          <div className="so-question-body">{question?.body || 'Can someone explain how garbage collection works in Java?'}</div>
+          <div><span className="so-tag">Java</span><span className="so-tag">JVM</span></div>
+          <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 12, color: '#888' }}>
+            <span>👍 {voteCount}</span>
+            <span>💬 {showAnswer ? '1 answer' : '0 answers'}</span>
+            <span>👁️ 42 views</span>
+          </div>
         </div>
-      )}
+
+        {/* Answer Card */}
+        {showAnswer && answer && (
+          <div className="so-answer-card visible">
+            <div className="so-vote-display">
+              <span className="so-vote-arrow">👍</span>
+              <span className="so-vote-count">{voteCount}</span>
+              <span className="so-vote-arrow">👎</span>
+            </div>
+            <div className="so-answer-body">{answer.body}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: '#888' }}>Answered by U2</span>
+              {showAccepted && <span className="so-accepted-badge">✓ Accepted</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && step === 1 && (
+          <div className="so-popup">
+            <div style={{ fontSize: 36 }}>⏳</div>
+            <div style={{ fontWeight: 600 }}>Posting question...</div>
+          </div>
+        )}
+
+        {/* Done popup */}
+        {step === 5 && (
+          <div className="so-popup" style={{ borderColor: '#3fb950' }}>
+            <div style={{ fontSize: 36 }}>🏆</div>
+            <div style={{ fontWeight: 700, color: '#3fb950', fontSize: 16 }}>Q&A Complete!</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: '#666' }}>Score: +1 upvote</div>
+            <div style={{ fontSize: 12, color: '#888' }}>Answer accepted ✓</div>
+            <button onClick={reset} style={{ marginTop: 10, padding: '6px 16px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>🔄 New</button>
+          </div>
+        )}
+      </div>
+
+      {error && <div style={{ color: '#d32f2f', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
     </div>
   );
 }

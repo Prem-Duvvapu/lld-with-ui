@@ -57,6 +57,21 @@ body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
 .step-dot.active { background: #667eea; box-shadow: 0 0 8px rgba(102,126,234,0.5); }
 .step-dot.done { background: #3fb950; }
+.sw-scene { width: 100%; min-height: 380px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 16px; margin-bottom: 12px; overflow: hidden; position: relative; }
+.sw-users { display: flex; gap: 16px; justify-content: center; margin: 16px 0; flex-wrap: wrap; }
+.sw-user-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #fff; transition: all 0.5s; opacity: 0; transform: scale(0); }
+.sw-user-avatar.visible { opacity: 1; transform: scale(1); }
+.sw-user-name { font-size: 12px; text-align: center; margin-top: 4px; color: var(--text-secondary); }
+.sw-expense-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; padding: 14px; max-width: 300px; margin: 0 auto; transition: all 0.5s; opacity: 0; transform: translateY(20px); }
+.sw-expense-card.visible { opacity: 1; transform: translateY(0); }
+.sw-expense-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+.sw-split-bar { display: flex; height: 24px; border-radius: 12px; overflow: hidden; margin: 8px 0; }
+.sw-split-segment { display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; font-weight: 600; transition: width 0.8s ease-out; width: 0; }
+.sw-split-user { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; font-size: 12px; color: var(--text-secondary); margin: 4px 0; }
+.sw-arrow { font-size: 24px; text-align: center; margin: 8px 0; opacity: 0; transition: all 0.5s; }
+.sw-arrow.visible { opacity: 1; }
+.sw-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid #667eea; border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: popIn 0.4s ease-out; min-width: 200px; }
+@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 `;
 
 function UserList({ onUserSelect, onUserCreated }) {
@@ -387,92 +402,126 @@ function SettleUp({ user, onBack, onSettled }) {
 
 function AnimatedFlow() {
   const [step, setStep] = useState(0);
-  const [result, setResult] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [group, setGroup] = useState(null);
+  const [expense, setExpense] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
-  const steps = ['Users', 'Group', 'Expense', 'Split', 'Settle'];
+  const steps = ['Users', 'Group', 'Expense', 'Split', 'Done'];
+  const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  const reset = () => { setStep(0); setResult(null); setError(''); setLoading(false); };
+  const reset = () => { setStep(0); setUsers([]); setGroup(null); setExpense(null); setError(''); setLoading(false); };
 
   const startSim = async () => {
     setError(''); setLoading(true); setStep(1);
     try {
-      const users = await getUsers();
+      const existing = await getUsers();
       let u1, u2;
-      if (users.length >= 2) { u1 = users[0]; u2 = users[1]; }
+      if (existing.length >= 2) { u1 = existing[0]; u2 = existing[1]; }
       else {
         u1 = await createUser('Alice', 'alice@test.com');
         u2 = await createUser('Bob', 'bob@test.com');
       }
       if (!mountedRef.current) return;
       if (u1.error || u2.error) { setError('Failed to create users'); setLoading(false); return; }
-      await new Promise(r => setTimeout(r, 800));
-      if (!mountedRef.current) return;
-      setStep(2);
-
-      const group = await createGroup('Trip to Goa', [u1.id, u2.id]);
-      if (!mountedRef.current) return;
-      if (group.error) { setError(group.error); setLoading(false); return; }
-      await new Promise(r => setTimeout(r, 800));
-      if (!mountedRef.current) return;
-      setStep(3);
-
-      const expense = await addExpense('Hotel Booking', 5000, u1.id, group.id, [
-        { userId: u1.id, type: 'EQUAL' },
-        { userId: u2.id, type: 'EQUAL' }
-      ]);
-      if (!mountedRef.current) return;
-      if (expense.error) { setError(expense.error); setLoading(false); return; }
-      await new Promise(r => setTimeout(r, 800));
-      if (!mountedRef.current) return;
-      setStep(4);
-
+      setUsers([u1, u2]);
       await new Promise(r => setTimeout(r, 1000));
       if (!mountedRef.current) return;
-      setStep(5);
-      setLoading(false);
-
+      setStep(2);
+      const g = await createGroup('Trip to Goa', [u1.id, u2.id]);
+      if (!mountedRef.current) return;
+      if (g.error) { setError(g.error); setLoading(false); return; }
+      setGroup(g);
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(3); setLoading(false);
+      const exp = await addExpense('Hotel Booking', 5000, u1.id, g.id, [{ userId: u1.id, type: 'EQUAL' }, { userId: u2.id, type: 'EQUAL' }]);
+      if (!mountedRef.current) return;
+      if (exp.error) { setError(exp.error); return; }
+      setExpense(exp);
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mountedRef.current) return;
+      setStep(4);
       await new Promise(r => setTimeout(r, 1500));
       if (!mountedRef.current) return;
-      setResult({ group: group.name, expense: expense.description, amount: expense.amount, paidBy: expense.paidBy?.name || 'Alice', totalUsers: 2 });
-    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+      setStep(5);
+    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
   };
 
   return (
     <div>
-      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+      <div className="step-indicator">
         {steps.map((s, i) => (
           <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
-
-      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
-
-      {step >= 1 && !error && (
-        <div style={{ textAlign: 'center', padding: 20 }}>
-          {step === 1 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>👥</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Creating users...</div></div>}
-          {step === 2 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>📁</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Creating group...</div></div>}
-          {step === 3 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>💰</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{loading ? 'Adding expense...' : 'Expense added!'}</div></div>}
-          {step === 4 && <div><div style={{ fontSize: 36, marginBottom: 8 }}>➗</div><div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Splitting equally...</div></div>}
-          {step === 5 && result && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 16, maxWidth: 320, margin: '0 auto', border: '1px solid var(--border-primary)' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
-              <div style={{ fontWeight: 700, color: 'var(--info)', fontSize: 16, marginBottom: 12 }}>Expense Split!</div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Group: {result.group}</div>
-              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Expense: {result.expense}</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: '8px 0' }}>₹{result.amount?.toFixed(2)}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Paid by {result.paidBy} • Split across {result.totalUsers} people</div>
-              <button style={{ marginTop: 12, padding: '8px 20px', fontSize: 13, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>🔄 New Simulation</button>
+      <div className="sw-scene">
+        <div className="sw-users">
+          {users.map((u, i) => (
+            <div key={u.id}>
+              <div className={`sw-user-avatar ${step >= 1 ? 'visible' : ''}`} style={{ background: colors[i % colors.length], transitionDelay: `${i * 0.3}s` }}>
+                {u.name[0]}
+              </div>
+              <div className="sw-user-name">{u.name}</div>
             </div>
-          )}
+          ))}
         </div>
-      )}
+
+        {step >= 2 && group && (
+          <div className={`sw-expense-card ${step >= 2 ? 'visible' : ''}`}>
+            <div className="sw-expense-title">📁 {group.name}</div>
+            <div style={{ fontSize: 12, color: '#888' }}>{group.members?.length || users.length} members</div>
+          </div>
+        )}
+
+        {step >= 3 && expense && (
+          <div className={`sw-expense-card ${step >= 3 ? 'visible' : ''}`} style={{ marginTop: 8 }}>
+            <div className="sw-expense-title">💰 {expense.description}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#667eea', margin: '8px 0' }}>₹{expense.amount?.toFixed(2)}</div>
+            <div style={{ fontSize: 12, color: '#888' }}>Paid by {expense.paidBy?.name || users[0]?.name}</div>
+          </div>
+        )}
+
+        {step >= 4 && expense && (
+          <>
+            <div className="sw-split-bar" style={{ maxWidth: 280, margin: '12px auto' }}>
+              {users.map((u, i) => {
+                const share = expense.splits?.find(s => s.user?.id === u.id || s.userId === u.id);
+                const pct = share ? (share.percentage || (100 / users.length)) : (100 / users.length);
+                return <div key={u.id} className="sw-split-segment" style={{ width: `${pct}%`, background: colors[i % colors.length] }}>{pct}%</div>;
+              })}
+            </div>
+            {users.map((u, i) => {
+              const share = expense.splits?.find(s => s.user?.id === u.id || s.userId === u.id);
+              const amt = share?.amount || (expense.amount / users.length);
+              return (
+                <div key={u.id} className="sw-split-user" style={{ justifyContent: 'center', gap: 16 }}>
+                  <span style={{ color: colors[i % colors.length], fontWeight: 700 }}>{u.name}</span>
+                  <span>owes ₹{amt?.toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {step === 5 && (
+          <div className="sw-popup" style={{ borderColor: '#3fb950' }}>
+            <div style={{ fontSize: 36 }}>✅</div>
+            <div style={{ fontWeight: 700, color: '#3fb950' }}>Split Complete!</div>
+            <div style={{ marginTop: 8, fontSize: 13, color: '#666' }}>{expense?.description} • ₹{expense?.amount?.toFixed(2)}</div>
+            <button onClick={reset} style={{ marginTop: 10, padding: '6px 16px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>🔄 New</button>
+          </div>
+        )}
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
     </div>
   );
 }

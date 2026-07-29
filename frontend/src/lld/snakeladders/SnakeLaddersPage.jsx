@@ -68,6 +68,21 @@ main { background: rgba(22, 33, 62, 0.95); border-radius: 16px; padding: 24px; b
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a5a; transition: all 0.3s; }
 .step-dot.active { background: #667eea; box-shadow: 0 0 8px rgba(102,126,234,0.5); }
 .step-dot.done { background: #3fb950; }
+.sl-scene { width: 100%; min-height: 400px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 16px; margin-bottom: 12px; overflow: hidden; }
+.sl-dice-area { text-align: center; padding: 20px; }
+.sl-dice { font-size: 64px; display: inline-block; transition: transform 0.1s; }
+.sl-dice.rolling { animation: diceRoll 0.8s ease-out; }
+@keyframes diceRoll { 0% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(90deg) scale(1.2); } 50% { transform: rotate(180deg) scale(1); } 75% { transform: rotate(270deg) scale(1.2); } 100% { transform: rotate(360deg) scale(1); } }
+.sl-mini-board { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; max-width: 380px; margin: 0 auto; }
+.sl-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; background: rgba(128,128,128,0.05); border: 1px solid rgba(128,128,128,0.2); border-radius: 2px; position: relative; font-weight: 600; color: var(--text-muted); }
+.sl-cell.snake { background: rgba(255,107,107,0.15); border-color: #ff6b6b; color: #ff6b6b; }
+.sl-cell.ladder { background: rgba(78,205,196,0.15); border-color: #4ecdc4; color: #4ecdc4; }
+.sl-cell.goal { background: rgba(255,215,0,0.2); border-color: gold; color: gold; }
+.sl-player-token { position: absolute; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.3); font-size: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+.sl-player-card { display: flex; gap: 12px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+.sl-player-stat { padding: 8px 14px; border-radius: 8px; background: var(--bg-card); border: 2px solid var(--border-primary); font-size: 12px; text-align: center; transition: all 0.3s; min-width: 80px; }
+.sl-player-stat.active { border-color: #667eea; box-shadow: 0 0 12px rgba(102,126,234,0.3); }
+.sl-msg { text-align: center; font-size: 14px; color: var(--text-secondary); margin: 8px 0; font-weight: 500; }
 `;
 
 const COLORS = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
@@ -292,44 +307,46 @@ function AnimatedFlow() {
   const [step, setStep] = useState(0);
   const [game, setGame] = useState(null);
   const [diceValue, setDiceValue] = useState(null);
-  const [message, setMessage] = useState('');
+  const [msg, setMsg] = useState('');
+  const [rolling, setRolling] = useState(false);
   const [error, setError] = useState('');
   const mountedRef = useRef(true);
-  const steps = ['Setup', 'Playing...', 'Winner!'];
   const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#ffa502'];
+  const steps = ['Start', 'Play', 'Win'];
+
+  const snakeCells = [99, 95, 89, 62, 46, 34];
+  const ladderCells = [2, 7, 8, 15, 21, 28, 36, 51, 71, 78, 87];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  const reset = () => { setStep(0); setGame(null); setDiceValue(null); setMessage(''); setError(''); };
+  const reset = () => { setStep(0); setGame(null); setDiceValue(null); setMsg(''); setError(''); setRolling(false); };
 
   const startSim = async () => {
     setError(''); setStep(1);
     try {
-      const g = await createGame(['Alice', 'Bob']);
+      const g = await createGame(['Player 1', 'Player 2']);
       if (!mountedRef.current) return;
       if (g.error) { setError(g.error); return; }
-      setGame(g);
-      setMessage('Game started! Alice goes first.');
-
+      setGame(g); setMsg('Game started! 🎲');
+      
       let currentGame = g;
       while (currentGame.state !== 'FINISHED' && currentGame.state !== 'COMPLETED') {
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, 1800));
         if (!mountedRef.current) return;
-
+        setRolling(true);
+        await new Promise(r => setTimeout(r, 600));
+        if (!mountedRef.current) return;
         const rolled = await rollDice(currentGame.id);
         if (!mountedRef.current) return;
         if (rolled.error) { setError(rolled.error); return; }
-
+        setRolling(false);
         setDiceValue(rolled.lastDiceValue);
-        if (rolled.message) setMessage(rolled.message);
-
         currentGame = rolled;
         setGame(rolled);
-
-        if (rolled.winner) {
-          setMessage(`🎉 ${rolled.winner} wins!`);
-          break;
-        }
+        const prevIdx = (rolled.currentPlayerIndex - 1 + rolled.players.length) % rolled.players.length;
+        const playerName = rolled.players[prevIdx]?.name || '';
+        setMsg(`${playerName} rolled a ${rolled.lastDiceValue}!`);
+        if (rolled.winner) { setMsg(`🎉 ${rolled.winner?.name || rolled.winner} wins!`); break; }
       }
       if (!mountedRef.current) return;
       setStep(2);
@@ -338,46 +355,72 @@ function AnimatedFlow() {
 
   const players = game?.players || [];
   const winner = game?.winner;
+  const diceFace = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+  const cellNum = (idx) => {
+    const row = Math.floor(idx / 10);
+    const col = idx % 10;
+    return row % 2 === 0 ? (row * 10) + col + 1 : (row * 10) + (9 - col) + 1;
+  };
 
   return (
     <div>
-      <div className="step-indicator" style={{ display: 'flex', gap: 4, justifyContent: 'center', marginBottom: 12 }}>
+      <div className="step-indicator">
         {steps.map((s, i) => (
           <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
-
-      {step === 0 && <button className="btn-primary" onClick={startSim} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Auto-Play Game</button>}
-
-      {step >= 1 && !error && (
-        <div style={{ textAlign: 'center', padding: 20 }}>
-          <div style={{ fontSize: 48, marginBottom: 12, transition: 'all 0.3s' }}>{diceValue ? ['⚀','⚁','⚂','⚃','⚄','⚅'][diceValue - 1] : '🎲'}</div>
-
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 16, fontWeight: 500 }}>{message}</div>
-
-          {players.length > 0 && (
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              {players.map((p, i) => (
-                <div key={p.name} style={{ padding: '8px 16px', background: 'var(--bg-card)', border: `2px solid ${colors[i % colors.length]}`, borderRadius: 8, fontSize: 13, color: 'var(--text-primary)' }}>
-                  <div style={{ fontWeight: 600, color: colors[i % colors.length] }}>{p.name}</div>
-                  <div>Cell: {p.position || p.currentCell || 1}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {step === 2 && winner && (
-            <div style={{ background: 'var(--bg-card)', borderRadius: 8, padding: 16, maxWidth: 300, margin: '16px auto', border: '1px solid var(--border-primary)' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🏆</div>
-              <div style={{ fontWeight: 700, color: 'var(--info)', fontSize: 16 }}>{winner} Wins!</div>
-              <button style={{ marginTop: 12, padding: '8px 20px', fontSize: 13, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>🔄 New Game</button>
-            </div>
-          )}
+      <div className="sl-scene">
+        <div className="sl-dice-area">
+          <div className={`sl-dice ${rolling ? 'rolling' : ''}`}>
+            {diceValue ? diceFace[diceValue - 1] : '🎲'}
+          </div>
         </div>
-      )}
+
+        <div className="sl-msg">{msg}</div>
+
+        <div className="sl-mini-board">
+          {Array.from({ length: 100 }).map((_, i) => {
+            const num = cellNum(i);
+            let cls = 'sl-cell';
+            if (snakeCells.includes(num)) cls += ' snake';
+            if (ladderCells.includes(num)) cls += ' ladder';
+            if (num === 100) cls += ' goal';
+            return (
+              <div key={num} className={cls}>
+                {num}
+                {players.map((p, pi) => (p.position || p.currentCell) === num && (
+                  <div key={p.name} className="sl-player-token" style={{ background: colors[pi % colors.length], bottom: pi * 14 + 2, right: 2, fontSize: 7 }}>
+                    {p.name[0]}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="sl-player-card">
+          {players.map((p, i) => (
+            <div key={p.name} className={`sl-player-stat ${game?.players?.[game?.currentPlayerIndex]?.name === p.name ? 'active' : ''}`}>
+              <div style={{ color: colors[i % colors.length], fontWeight: 700 }}>{p.name}</div>
+              <div>Cell: {p.position || p.currentCell || 1}</div>
+            </div>
+          ))}
+        </div>
+
+        {step === 2 && winner && (
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🏆</div>
+            <div style={{ fontWeight: 700, fontSize: 18, color: '#667eea' }}>{winner?.name || winner} Wins!</div>
+            <button onClick={reset} style={{ marginTop: 10, padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>🔄 New Game</button>
+          </div>
+        )}
+      </div>
+
+      {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+
+      {step === 0 && <button onClick={startSim} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Auto-Play Game</button>}
     </div>
   );
 }
