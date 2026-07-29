@@ -316,7 +316,7 @@ function AnimatedFlow() {
   const [receiptVisible, setReceiptVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
-  const steps = ['Insert', 'PIN', 'Menu', 'Withdraw', 'Receipt'];
+  const steps = ['Insert', 'PIN', 'Menu', 'Withdraw', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
@@ -325,46 +325,52 @@ function AnimatedFlow() {
     setCardInserted(false); setCashVisible(false); setReceiptVisible(false);
   };
 
-  const startSim = async () => {
-    setError(''); setStep(1);
+  const handleInsertCard = async () => {
+    setLoading(true); setError('');
     setCardInserted(true);
-    await new Promise(r => setTimeout(r, 1200));
-    if (!mountedRef.current) return;
-    setStep(2);
     try {
       const auth = await authenticate('1234567890', '1234');
       if (!mountedRef.current) return;
-      if (auth.error) { setError(auth.error); return; }
+      if (auth.error) { setError(auth.error); setLoading(false); return; }
       setAccount(auth);
-      await new Promise(r => setTimeout(r, 1200));
-      if (!mountedRef.current) return;
-      setStep(3);
-      await new Promise(r => setTimeout(r, 1200));
-      if (!mountedRef.current) return;
-      setStep(4); setLoading(true);
-      const transaction = await withdraw(auth.accountNumber, 500);
+      setStep(2);
+    } catch { if (mountedRef.current) setError('Card authentication failed'); }
+    finally { setLoading(false); }
+  };
+
+  const handleEnterPin = () => {
+    setStep(3);
+  };
+
+  const handleWithdraw = async () => {
+    setLoading(true); setError('');
+    try {
+      const transaction = await withdraw(account.accountNumber, 500);
       if (!mountedRef.current) return;
       if (transaction.error) { setError(transaction.error); setLoading(false); return; }
-      setTx(transaction); setLoading(false);
-      await new Promise(r => setTimeout(r, 500));
-      if (!mountedRef.current) return;
-      setCashVisible(true);
-      await new Promise(r => setTimeout(r, 1500));
-      if (!mountedRef.current) return;
-      setReceiptVisible(true);
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
-      setStep(5);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
+      setTx(transaction);
+      setStep(4);
+    } catch { if (mountedRef.current) setError('Withdrawal failed'); }
+    finally { setLoading(false); }
+  };
+
+  const handleDispenseCash = () => {
+    setCashVisible(true);
+    setTimeout(() => {
+      if (mountedRef.current) {
+        setReceiptVisible(true);
+        setStep(5);
+      }
+    }, 800);
   };
 
   const screenText = () => {
     if (step === 1) return { icon: '💳', text: 'INSERT CARD', sub: cardInserted ? 'Card detected...' : '' };
     if (step === 2) return { icon: '🔐', text: 'ENTER PIN', sub: '****' };
-    if (step === 3) return { icon: '📋', text: 'WELCOME ' + (account?.holderName || 'User').toUpperCase(), sub: '1.Withdraw  2.Balance' };
-    if (step === 4) return { icon: loading ? '⏳' : '💰', text: loading ? 'PROCESSING...' : 'DISPENSING', sub: loading ? '' : '₹500.00' };
+    if (step === 3) return { icon: '💰', text: 'WELCOME ' + (account?.holderName || account?.accountHolder || 'User').toUpperCase(), sub: 'Ready for withdrawal' };
+    if (step === 4) return { icon: cashVisible ? '💵' : '🧾', text: 'DISPENSING', sub: '₹500.00' };
     if (step === 5) return { icon: '✅', text: 'TRANSACTION COMPLETE', sub: 'Take your card' };
-    return { icon: '🏦', text: 'INSERT CARD', sub: '' };
+    return { icon: '🏦', text: 'ATM SIMULATION', sub: 'Press start to begin' };
   };
   const s = screenText();
 
@@ -372,9 +378,9 @@ function AnimatedFlow() {
     <div>
       <div className="step-indicator">
         {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+          <div key={s} className={`step-dot ${i + 1 === step ? 'active' : ''} ${i + 1 < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: '#1a5a3a', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+        <span style={{ fontSize: 11, color: '#1a5a3a', marginLeft: 8 }}>{steps[step - 1] || 'Idle'}</span>
       </div>
 
       <div className="atm-scene">
@@ -410,9 +416,17 @@ function AnimatedFlow() {
 
       {error && <div style={{ color: '#f85149', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
 
-      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>▶ Start Simulation</button>}
+      {step === 0 && <button onClick={() => setStep(1)} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'Courier New, monospace' }}>▶ Start Simulation</button>}
 
-      {step === 5 && <div style={{ textAlign: 'center', marginTop: 8 }}><button onClick={reset} style={{ padding: '8px 20px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700 }}>🔄 New Transaction</button></div>}
+      {step === 1 && <button onClick={handleInsertCard} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '8px 20px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Courier New, monospace' }}>💳 Insert Card {loading ? '...' : ''}</button>}
+
+      {step === 2 && <button onClick={handleEnterPin} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '8px 20px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Courier New, monospace' }}>🔑 Enter PIN</button>}
+
+      {step === 3 && <button onClick={handleWithdraw} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '8px 20px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Courier New, monospace' }}>💰 Withdraw ₹500 {loading ? '...' : ''}</button>}
+
+      {step === 4 && <button onClick={handleDispenseCash} disabled={cashVisible} style={{ display: 'block', margin: '12px auto', padding: '8px 20px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'Courier New, monospace' }}>🧾 Dispense Cash</button>}
+
+      {step === 5 && <div style={{ textAlign: 'center', marginTop: 8 }}><button onClick={reset} style={{ padding: '8px 20px', background: '#00ff41', color: '#0a3d2e', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontFamily: 'Courier New, monospace' }}>🔄 New Transaction</button></div>}
     </div>
   );
 }

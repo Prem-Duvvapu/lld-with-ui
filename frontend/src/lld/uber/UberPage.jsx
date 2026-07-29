@@ -74,6 +74,57 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
 .step-dot.active { background: #2196f3; box-shadow: 0 0 8px rgba(33,150,243,0.5); }
 .step-dot.done { background: #3fb950; }
+.uber-flow-scene {
+  position: relative; width: 100%; height: 280px;
+  background: linear-gradient(180deg, #e8f4fd 0%, #b3d9f2 100%);
+  border-radius: 12px; overflow: hidden; border: 1px solid #ddd;
+  margin-bottom: 16px;
+}
+.uber-flow-map {
+  position: relative; width: 100%; height: 100%; padding: 20px;
+}
+.uber-flow-marker {
+  padding: 6px 12px; border-radius: 16px; font-size: 11px;
+  font-weight: 700; color: white; position: absolute;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2;
+}
+.uber-flow-marker.pickup { background: #4caf50; }
+.uber-flow-marker.drop { background: #f44336; }
+.uber-flow-route {
+  position: absolute; height: 3px; background: #2196f3;
+  border-radius: 2px; z-index: 1; transition: width 1s ease;
+  box-shadow: 0 0 8px rgba(33,150,243,0.4);
+}
+.uber-flow-car {
+  position: absolute; font-size: 32px; z-index: 3;
+  transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+.uber-flow-driver-card {
+  background: white; border-radius: 12px; padding: 12px 16px;
+  margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex; align-items: center; gap: 12px;
+  max-width: 320px; margin: 0 auto 12px auto;
+}
+.uber-flow-status {
+  text-align: center; margin-bottom: 8px;
+}
+.uber-flow-status .status-text {
+  padding: 4px 14px; border-radius: 12px; font-size: 11px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.uber-flow-eta {
+  text-align: center; font-size: 12px; color: #666; margin: 4px 0;
+}
+.uber-flow-fare-popup {
+  background: white; border: 2px solid #4CAF50; border-radius: 12px;
+  padding: 16px 24px; text-align: center; margin: 0 auto 12px auto;
+  max-width: 300px; animation: fadeIn 0.4s ease-out;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.uber-flow-fare-popup .fare-amount {
+  font-size: 28px; font-weight: 800; color: #4CAF50; margin: 4px 0;
+}
 `;
 
 const USER_ID = 'user1';
@@ -238,46 +289,59 @@ function AnimatedFlow() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const mountedRef = useRef(true);
-  const steps = ['Pickup', 'Estimate', 'Booking', 'Driver', 'Complete'];
+  const steps = ['Request', 'Booked', 'Arrived', 'Riding', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const reset = () => { setStep(0); setRide(null); setLoading(false); setError(''); };
 
-  const startSim = async () => {
-    setError(''); setLoading(true); setStep(1);
+  const startSim = () => { setStep(1); };
+
+  const requestRideAction = async () => {
+    setError(''); setLoading(true);
     try {
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
-      setStep(2);
-
-      const est = await getEstimate(12.9716, 77.5946, 12.9344, 77.6101, 'UBER_GO');
-      if (!mountedRef.current) return;
-      setStep(3);
-
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
       const data = await requestRide('user1', 12.9716, 77.5946, 'MG Road', 12.9344, 77.6101, 'Koramangala', 'UBER_GO');
       if (!mountedRef.current) return;
       if (data.error) { setError(data.error); setLoading(false); return; }
       setRide(data);
-      setLoading(false);
-      setStep(4);
+      setStep(2);
+    } catch { if (mountedRef.current) setError('Failed to request ride'); }
+    finally { if (mountedRef.current) setLoading(false); }
+  };
 
-      await new Promise(r => setTimeout(r, 2000));
+  const driverArrivedAction = async () => {
+    if (!ride) return;
+    setError(''); setLoading(true);
+    try {
+      await updateRideStatus(ride.id, 'ACCEPTED');
       if (!mountedRef.current) return;
-      await updateRideStatus(data.id, 'ARRIVED');
+      await updateRideStatus(ride.id, 'ARRIVED');
       if (!mountedRef.current) return;
-      await new Promise(r => setTimeout(r, 1500));
+      setStep(3);
+    } catch { if (mountedRef.current) setError('Failed to update status'); }
+    finally { if (mountedRef.current) setLoading(false); }
+  };
+
+  const startRideAction = async () => {
+    if (!ride) return;
+    setError(''); setLoading(true);
+    try {
+      await updateRideStatus(ride.id, 'STARTED');
       if (!mountedRef.current) return;
-      await updateRideStatus(data.id, 'STARTED');
-      if (!mountedRef.current) return;
-      await new Promise(r => setTimeout(r, 2000));
-      if (!mountedRef.current) return;
-      await updateRideStatus(data.id, 'COMPLETED');
+      setStep(4);
+    } catch { if (mountedRef.current) setError('Failed to start ride'); }
+    finally { if (mountedRef.current) setLoading(false); }
+  };
+
+  const completeRideAction = async () => {
+    if (!ride) return;
+    setError(''); setLoading(true);
+    try {
+      await updateRideStatus(ride.id, 'COMPLETED');
       if (!mountedRef.current) return;
       setStep(5);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+    } catch { if (mountedRef.current) setError('Failed to complete ride'); }
+    finally { if (mountedRef.current) setLoading(false); }
   };
 
   return (
@@ -291,22 +355,61 @@ function AnimatedFlow() {
 
       {error && <div className="error" style={{ color: '#d32f2f', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12 }} onClick={reset}>↺ Reset</button></div>}
 
-      {step === 0 && <button className="btn-primary" onClick={startSim} disabled={loading}>▶ Start Simulation</button>}
+      {step === 0 && <button className="btn-primary" onClick={startSim}>▶ Start Simulation</button>}
 
       {step >= 1 && !error && (
         <div style={{ textAlign: 'center', padding: 20 }}>
-          {step === 1 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>📍</div><div style={{ fontWeight: 600 }}>Pickup: MG Road → Drop: Koramangala</div></div>}
-          {step === 2 && <div><div style={{ fontSize: 40, marginBottom: 12 }}>💰</div><div style={{ fontWeight: 600 }}>Getting fare estimate...</div></div>}
-          {step === 3 && loading && <div><div style={{ fontSize: 40, marginBottom: 12 }}>📱</div><div style={{ fontWeight: 600 }}>Booking your ride...</div></div>}
-          {step === 4 && ride && <div><div style={{ fontSize: 40, marginBottom: 12 }}>🚗</div><div style={{ fontWeight: 600 }}>{ride.driverName} is on the way!</div><div style={{ fontSize: 13, color: '#666', marginTop: 8 }}>{ride.vehicleNumber} • {ride.vehicleType}</div></div>}
-          {step === 5 && ride && (
-            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: 16, maxWidth: 300, margin: '0 auto' }}>
-              <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
-              <div style={{ fontWeight: 700, color: '#4CAF50' }}>Ride Complete!</div>
-              <div style={{ margin: '8px 0', fontSize: 13 }}>Driver: {ride.driverName}</div>
-              <div style={{ fontSize: 13 }}>Distance: {ride.distanceKm?.toFixed(1)} km</div>
-              <div style={{ fontSize: 16, fontWeight: 700, margin: '8px 0' }}>Fare: ₹{ride.fare?.toFixed(2)}</div>
-              <button className="btn-primary" style={{ marginTop: 12, padding: '8px 20px', fontSize: 13 }} onClick={reset}>🔄 New Ride</button>
+          <div className="uber-flow-scene">
+            <div className="uber-flow-map">
+              <div className="uber-flow-marker pickup" style={{ top: '30%', left: '20%' }}>📍 MG Road</div>
+              <div className="uber-flow-marker drop" style={{ top: '60%', left: '70%' }}>🏁 Koramangala</div>
+              <div className="uber-flow-route" style={{ top: '45%', left: '25%', width: step >= 3 ? '65%' : '20%' }}></div>
+              <div className="uber-flow-car" style={{ top: step >= 3 ? '55%' : '35%', left: step >= 3 ? '60%' : '25%' }}>🚗</div>
+            </div>
+          </div>
+
+          {ride && (
+            <div className="uber-flow-driver-card">
+              <div style={{ fontSize: 32 }}>👨‍✈️</div>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{ride.driverName || 'Rahul'}</div>
+                <div style={{ fontSize: 12, color: '#666' }}>{ride.vehicleNumber || 'KA-01-1234'} • {ride.vehicleType?.replace(/_/g, ' ')}</div>
+              </div>
+            </div>
+          )}
+
+          <div className="uber-flow-status">
+            <span className="status-text" style={{ background: step === 5 ? '#e8f5e9' : step === 4 ? '#fff3e0' : step === 3 ? '#e3f2fd' : '#fce4ec', color: step === 5 ? '#2e7d32' : step === 4 ? '#e65100' : step === 3 ? '#1565c0' : '#c62828' }}>
+              {step === 1 ? 'REQUESTING' : step === 2 ? 'DRIVER ARRIVING' : step === 3 ? 'ON THE WAY' : step === 4 ? 'ARRIVING NOW' : 'COMPLETED'}
+            </span>
+          </div>
+
+          {step >= 2 && step <= 4 && (
+            <div className="uber-flow-eta">
+              ⏱ {step === 2 ? '2 min away' : step === 3 ? '5 min away' : 'Arriving now'}
+            </div>
+          )}
+
+          {step === 1 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 40, marginBottom: 8 }}>📍</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>MG Road → Koramangala</div>
+              <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>Uber Go • ~6.2 km</div>
+            </div>
+          )}
+
+          {step === 1 && <button onClick={requestRideAction} disabled={loading} style={{ padding: '8px 20px', background: '#2196f3', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>📱 Request Ride {loading ? '...' : ''}</button>}
+          {step === 2 && <button onClick={driverArrivedAction} disabled={loading} style={{ padding: '8px 20px', background: '#ff9800', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🚗 Driver Arrived {loading ? '...' : ''}</button>}
+          {step === 3 && <button onClick={startRideAction} disabled={loading} style={{ padding: '8px 20px', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>🏁 Start Ride {loading ? '...' : ''}</button>}
+          {step === 4 && <button onClick={completeRideAction} disabled={loading} style={{ padding: '8px 20px', background: '#9c27b0', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✅ Complete Ride {loading ? '...' : ''}</button>}
+          {step === 5 && (
+            <div className="uber-flow-fare-popup">
+              <div style={{ fontSize: 32, marginBottom: 4 }}>✅</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Ride Complete!</div>
+              <div className="fare-amount">₹{ride?.fare?.toFixed(2)}</div>
+              <div style={{ fontSize: 13, color: '#666', margin: '4px 0' }}>{ride?.distanceKm?.toFixed(1)} km • {ride?.driverName || 'Rahul'}</div>
+              <div style={{ fontSize: 11, color: '#999', marginBottom: 8 }}>{ride?.vehicleNumber || 'KA-01-1234'} • {ride?.vehicleType?.replace(/_/g, ' ')}</div>
+              <button className="btn-primary" style={{ marginTop: 8, padding: '8px 20px', fontSize: 13 }} onClick={reset}>🔄 New Ride</button>
             </div>
           )}
         </div>

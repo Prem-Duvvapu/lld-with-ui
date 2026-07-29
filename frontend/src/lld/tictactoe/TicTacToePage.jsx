@@ -51,6 +51,65 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 nav { display: flex; gap: 8px; margin-bottom: 24px; justify-content: center; }
 nav button { padding: 8px 20px; border: 2px solid #333; border-radius: 8px; background: white; color: #333; cursor: pointer; font-weight: 600; font-size: 13px; }
 nav button.active { background: #333; color: white; }
+.ttt-flow-scene {
+  background: white; border-radius: 12px; padding: 20px;
+  border: 1px solid #e0e0e0; margin-bottom: 16px; position: relative;
+}
+.ttt-flow-players {
+  display: flex; justify-content: center; gap: 24px; margin-bottom: 16px;
+}
+.ttt-flow-player-card {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 10px;
+  border: 2px solid #e0e0e0; background: #fafafa;
+  transition: all 0.3s ease;
+}
+.ttt-flow-player-card.active-x { border-color: #2196f3; background: #e3f2fd; }
+.ttt-flow-player-card.active-o { border-color: #f44336; background: #fce4ec; }
+.ttt-flow-player-symbol {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: white;
+}
+.ttt-flow-player-symbol.x { background: #2196f3; }
+.ttt-flow-player-symbol.o { background: #f44336; }
+.ttt-flow-player-name { font-size: 13px; font-weight: 600; color: #333; }
+.ttt-flow-turn-badge { font-size: 11px; color: #888; margin-top: 2px; }
+
+.ttt-flow-board {
+  display: grid; grid-template-columns: repeat(3, 72px);
+  gap: 6px; justify-content: center; margin: 16px auto;
+}
+.ttt-flow-cell {
+  width: 72px; height: 72px; display: flex; align-items: center;
+  justify-content: center; font-size: 28px; font-weight: 700;
+  border-radius: 10px; cursor: default; transition: all 0.3s;
+  background: #f5f5f5; border: 2px solid #e0e0e0;
+}
+.ttt-flow-cell.x { background: #e3f2fd; border-color: #2196f3; color: #2196f3; }
+.ttt-flow-cell.o { background: #fce4ec; border-color: #f44336; color: #f44336; }
+.ttt-flow-cell.filled { animation: cellPop 0.3s ease-out; }
+@keyframes cellPop {
+  0% { transform: scale(0.3); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.ttt-flow-move-info {
+  text-align: center; font-size: 12px; color: #888; margin: 8px 0;
+  padding: 8px; background: #fafafa; border-radius: 8px;
+}
+.ttt-flow-btn-wrap {
+  display: flex; justify-content: center; gap: 8px; margin-top: 12px;
+}
+.ttt-flow-popup {
+  background: white; border-radius: 12px; padding: 20px 28px;
+  text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  border: 2px solid #e0e0e0; margin: 16px auto; max-width: 320px;
+}
+.ttt-flow-result-icon { font-size: 40px; margin-bottom: 8px; }
+.ttt-flow-result-text { font-size: 18px; font-weight: 700; }
+.ttt-flow-result-text.win { color: #4caf50; }
+.ttt-flow-result-text.draw { color: #ff9800; }
 `;
 
 function Game({ gameId, player1, player2, onNewGame }) {
@@ -120,8 +179,9 @@ function AnimatedFlow() {
   const [game, setGame] = useState(null);
   const [board, setBoard] = useState(Array(9).fill(null));
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
-  const steps = ['Start', 'Playing...', 'Done'];
+  const steps = ['Create', 'Turn 1', 'Turn 2', 'Turn 3', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
@@ -132,42 +192,59 @@ function AnimatedFlow() {
 
   const reset = () => { setStep(0); setGame(null); setBoard(Array(9).fill(null)); setError(''); };
 
-  const startSim = async () => {
-    setError(''); setStep(1);
+  const createGameAction = async () => {
+    setLoading(true);
+    setError('');
     try {
-      let g = await createGame('Xavier (AI)', 'Olivia (AI)');
+      const g = await createGame('Xavier (AI)', 'Olivia (AI)');
       if (!mountedRef.current) return;
       if (g.error) { setError(g.error); return; }
       setGame(g);
       setBoard(flatten(g.board));
+      setStep(2);
+    } catch {
+      if (mountedRef.current) setError('Failed to create game');
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  };
 
-      for (let i = 0; i < 9; i++) {
-        await new Promise(r => setTimeout(r, 800));
-        if (!mountedRef.current) return;
-        if (g.state === 'FINISHED' || g.winner || g.state === 'DRAW') break;
-
-        const b = g.board || [[null,null,null],[null,null,null],[null,null,null]];
-        let found = false;
-        for (let r = 0; r < 3 && !found; r++) {
-          for (let c = 0; c < 3 && !found; c++) {
-            if (b[r][c] === null) {
-              const player = g.currentTurn?.name;
-              const updated = await makeMove(g.id, r, c, player);
-              if (!mountedRef.current) return;
-              if (updated.error) { setError(updated.error); return; }
-              g = updated;
-              setGame(updated);
-              setBoard(flatten(updated.board));
-              found = true;
-            }
+  const makeMoveAction = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const b = game.board || [[null, null, null], [null, null, null], [null, null, null]];
+      let found = false;
+      let g = game;
+      for (let r = 0; r < 3 && !found; r++) {
+        for (let c = 0; c < 3 && !found; c++) {
+          if (b[r][c] === null) {
+            const player = g.currentTurn?.name || g.currentPlayer?.name;
+            const updated = await makeMove(g.id, r, c, player);
+            if (!mountedRef.current) return;
+            if (updated.error) { setError(updated.error); return; }
+            g = updated;
+            setGame(updated);
+            setBoard(flatten(updated.board));
+            found = true;
           }
         }
       }
       if (!mountedRef.current) return;
-      setStep(2);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
+      if (g.state === 'FINISHED' || g.state === 'DRAW') {
+        setStep(5);
+      } else {
+        setStep(s => Math.min(s + 1, 4));
+      }
+    } catch {
+      if (mountedRef.current) setError('Failed to make move');
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   };
 
+  const totalMoves = board.filter(c => c !== null).length;
+  const movesRemaining = 9 - totalMoves;
   const winner = game?.winner?.name;
   const isDraw = game?.state === 'DRAW';
 
@@ -177,31 +254,108 @@ function AnimatedFlow() {
         {steps.map((s, i) => (
           <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || (step === 1 ? `Move ${board.filter(c => c !== null).length + 1}` : 'Idle')}</span>
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>
+          {step >= 2 && step <= 4 ? `Move ${totalMoves + 1}` : step === 0 ? 'Start' : step === 1 ? 'Create Game' : 'Done'}
+        </span>
       </div>
 
       {error && <div style={{ color: '#d32f2f', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button style={{ marginLeft: 12, padding: '4px 12px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>↺ Reset</button></div>}
 
-      {step === 0 && <button className="btn-primary" onClick={startSim} style={{ display: 'block', margin: '0 auto', padding: '12px 32px', background: '#2196f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Auto-Play Game</button>}
+      {step === 0 && (
+        <div className="ttt-flow-btn-wrap">
+          <button onClick={() => setStep(1)} style={{ padding: '12px 32px', background: '#2196f3', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+            ▶ Start Simulation
+          </button>
+        </div>
+      )}
 
-      {step >= 1 && !error && (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 60px)', gap: 4, justifyContent: 'center', margin: '16px auto' }}>
+      {step === 1 && (
+        <div className="ttt-flow-btn-wrap">
+          <button onClick={createGameAction} disabled={loading} style={{ padding: '8px 20px', background: '#2196f3', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            🎮 Create Game {loading ? '...' : ''}
+          </button>
+        </div>
+      )}
+
+      {step >= 2 && step <= 4 && game && !error && (
+        <div className="ttt-flow-scene">
+          <div className="ttt-flow-players">
+            <div className={`ttt-flow-player-card ${game.currentTurn?.name === 'Xavier (AI)' ? 'active-x' : ''}`}>
+              <div className="ttt-flow-player-symbol x">X</div>
+              <div>
+                <div className="ttt-flow-player-name">Xavier (AI)</div>
+                {game.currentTurn?.name === 'Xavier (AI)' && <div className="ttt-flow-turn-badge">● Your turn</div>}
+              </div>
+            </div>
+            <div className={`ttt-flow-player-card ${game.currentTurn?.name === 'Olivia (AI)' ? 'active-o' : ''}`}>
+              <div className="ttt-flow-player-symbol o">O</div>
+              <div>
+                <div className="ttt-flow-player-name">Olivia (AI)</div>
+                {game.currentTurn?.name === 'Olivia (AI)' && <div className="ttt-flow-turn-badge">● Your turn</div>}
+              </div>
+            </div>
+          </div>
+
+          <div className="ttt-flow-board">
             {board.map((cell, i) => (
-              <div key={i} style={{ width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, background: cell ? '#e3f2fd' : '#f5f5f5', border: '2px solid #ddd', borderRadius: 4, color: cell === 'X' ? '#2196f3' : '#f44336' }}>
+              <div key={i} className={`ttt-flow-cell ${cell === 'X' ? 'x' : cell === 'O' ? 'o' : ''} ${cell ? 'filled' : ''}`}>
                 {cell}
               </div>
             ))}
           </div>
 
-          {step === 2 && (
-            <div style={{ background: '#f8f9fa', borderRadius: 8, padding: 16, maxWidth: 300, margin: '16px auto' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>{winner ? '🏆' : '🤝'}</div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{winner ? `${winner} wins!` : isDraw ? 'Draw!' : 'Game Over'}</div>
-              <button style={{ marginTop: 12, padding: '8px 20px', fontSize: 13, background: '#2196f3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }} onClick={reset}>🔄 New Game</button>
+          {game.state === 'IN_PROGRESS' && (
+            <div className="ttt-flow-move-info">
+              {game.currentTurn?.name}'s turn ({game.currentTurn?.symbol}) — {movesRemaining} move{movesRemaining !== 1 ? 's' : ''} remaining
             </div>
           )}
-          {step === 1 && <div style={{ fontSize: 13, color: '#666' }}>Auto-playing moves...</div>}
+
+          {game.state === 'IN_PROGRESS' && (
+            <div className="ttt-flow-btn-wrap">
+              <button onClick={makeMoveAction} disabled={loading} style={{ padding: '8px 20px', background: '#4caf50', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                🎯 Make Move {loading ? '...' : ''}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === 5 && (
+        <div className="ttt-flow-scene">
+          <div className="ttt-flow-players">
+            <div className={`ttt-flow-player-card ${game?.currentTurn?.name === 'Xavier (AI)' ? 'active-x' : ''}`}>
+              <div className="ttt-flow-player-symbol x">X</div>
+              <div>
+                <div className="ttt-flow-player-name">Xavier (AI)</div>
+              </div>
+            </div>
+            <div className={`ttt-flow-player-card ${game?.currentTurn?.name === 'Olivia (AI)' ? 'active-o' : ''}`}>
+              <div className="ttt-flow-player-symbol o">O</div>
+              <div>
+                <div className="ttt-flow-player-name">Olivia (AI)</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="ttt-flow-board">
+            {board.map((cell, i) => (
+              <div key={i} className={`ttt-flow-cell ${cell === 'X' ? 'x' : cell === 'O' ? 'o' : ''} ${cell ? 'filled' : ''}`}>
+                {cell}
+              </div>
+            ))}
+          </div>
+
+          <div className="ttt-flow-popup">
+            <div className="ttt-flow-result-icon">{winner ? '🏆' : '🤝'}</div>
+            <div className={`ttt-flow-result-text ${winner ? 'win' : 'draw'}`}>
+              {winner ? `${winner} wins!` : isDraw ? "It's a Draw!" : 'Game Over'}
+            </div>
+            <div className="ttt-flow-btn-wrap">
+              <button onClick={reset} style={{ padding: '8px 20px', background: '#2196f3', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                🔄 New Game
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

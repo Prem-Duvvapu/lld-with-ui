@@ -312,7 +312,7 @@ function AnimatedFlow() {
   const [error, setError] = useState('');
   const mountedRef = useRef(true);
   const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#ffa502'];
-  const steps = ['Start', 'Play', 'Win'];
+  const steps = ['Create', 'Roll', 'Roll', 'Win'];
 
   const snakeCells = [99, 95, 89, 62, 46, 34];
   const ladderCells = [2, 7, 8, 15, 21, 28, 36, 51, 71, 78, 87];
@@ -321,36 +321,36 @@ function AnimatedFlow() {
 
   const reset = () => { setStep(0); setGame(null); setDiceValue(null); setMsg(''); setError(''); setRolling(false); };
 
-  const startSim = async () => {
-    setError(''); setStep(1);
+  const createGameAction = async () => {
+    setError('');
     try {
       const g = await createGame(['Player 1', 'Player 2']);
       if (!mountedRef.current) return;
       if (g.error) { setError(g.error); return; }
-      setGame(g); setMsg('Game started! 🎲');
-      
-      let currentGame = g;
-      while (currentGame.state !== 'FINISHED' && currentGame.state !== 'COMPLETED') {
-        await new Promise(r => setTimeout(r, 1800));
-        if (!mountedRef.current) return;
-        setRolling(true);
-        await new Promise(r => setTimeout(r, 600));
-        if (!mountedRef.current) return;
-        const rolled = await rollDice(currentGame.id);
-        if (!mountedRef.current) return;
-        if (rolled.error) { setError(rolled.error); return; }
-        setRolling(false);
-        setDiceValue(rolled.lastDiceValue);
-        currentGame = rolled;
-        setGame(rolled);
-        const prevIdx = (rolled.currentPlayerIndex - 1 + rolled.players.length) % rolled.players.length;
-        const playerName = rolled.players[prevIdx]?.name || '';
-        setMsg(`${playerName} rolled a ${rolled.lastDiceValue}!`);
-        if (rolled.winner) { setMsg(`🎉 ${rolled.winner?.name || rolled.winner} wins!`); break; }
-      }
-      if (!mountedRef.current) return;
+      setGame(g);
       setStep(2);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
+      setMsg('Game started! 🎲 Player 1 goes first');
+    } catch { if (mountedRef.current) setError('Failed to create game'); }
+  };
+
+  const rollDiceAction = async () => {
+    if (rolling || !game) return;
+    setRolling(true);
+    await new Promise(r => setTimeout(r, 500));
+    if (!mountedRef.current) return;
+    const rolled = await rollDice(game.id);
+    if (!mountedRef.current) return;
+    if (rolled.error) { setError(rolled.error); setRolling(false); return; }
+    setRolling(false);
+    setDiceValue(rolled.lastDiceValue);
+    setGame(rolled);
+    const prevIdx = (rolled.currentPlayerIndex - 1 + rolled.players.length) % rolled.players.length;
+    const playerName = rolled.players[prevIdx]?.name || '';
+    setMsg(`${playerName} rolled a ${rolled.lastDiceValue}!`);
+    if (rolled.state === 'FINISHED' || rolled.winner) {
+      setMsg(`🎉 ${rolled.winner?.name || rolled.winner} wins!`);
+      setStep(3);
+    }
   };
 
   const players = game?.players || [];
@@ -409,7 +409,29 @@ function AnimatedFlow() {
           ))}
         </div>
 
-        {step === 2 && winner && (
+        {step === 0 && (
+          <button onClick={() => setStep(1)} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+            ▶ Start Simulation
+          </button>
+        )}
+
+        {step === 1 && (
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <button onClick={createGameAction} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              🎲 Create Game
+            </button>
+          </div>
+        )}
+
+        {step >= 2 && !winner && step < 3 && (
+          <div style={{ textAlign: 'center', marginTop: 12 }}>
+            <button onClick={rollDiceAction} disabled={rolling} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+              🎲 Roll Dice {rolling ? '🎲' : ''}
+            </button>
+          </div>
+        )}
+
+        {step === 3 && winner && (
           <div style={{ textAlign: 'center', marginTop: 12 }}>
             <div style={{ fontSize: 36, marginBottom: 8 }}>🏆</div>
             <div style={{ fontWeight: 700, fontSize: 18, color: '#667eea' }}>{winner?.name || winner} Wins!</div>
@@ -419,8 +441,6 @@ function AnimatedFlow() {
       </div>
 
       {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
-
-      {step === 0 && <button onClick={startSim} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Auto-Play Game</button>}
     </div>
   );
 }

@@ -77,24 +77,82 @@ main { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: all 0.3s; }
 .step-dot.active { background: #f48024; box-shadow: 0 0 8px rgba(244,128,36,0.5); }
 .step-dot.done { background: #3fb950; }
-.so-scene { position: relative; width: 100%; min-height: 360px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 16px; margin-bottom: 12px; overflow: hidden; }
-.so-question-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; padding: 16px; margin-bottom: 12px; opacity: 0; transform: translateY(-20px); transition: all 0.6s ease-out; }
-.so-question-card.visible { opacity: 1; transform: translateY(0); }
-.so-question-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
-.so-question-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
-.so-tag { display: inline-block; padding: 2px 8px; background: rgba(33,150,243,0.1); color: #2196f3; border-radius: 3px; font-size: 11px; margin-right: 4px; }
-.so-vote-display { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.so-vote-arrow { font-size: 20px; cursor: pointer; transition: all 0.2s; }
-.so-vote-arrow:hover { transform: scale(1.2); }
-.so-vote-count { font-size: 18px; font-weight: 700; color: var(--text-primary); min-width: 30px; text-align: center; }
-.so-answer-card { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 14px; margin-bottom: 8px; opacity: 0; transform: translateX(-20px); transition: all 0.5s ease-out; }
-.so-answer-card.visible { opacity: 1; transform: translateX(0); }
-.so-answer-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 8px; }
-.so-accepted-badge { display: inline-block; padding: 2px 10px; background: #3fb950; color: #fff; border-radius: 4px; font-size: 11px; font-weight: 600; }
-.so-rep-card { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 16px; font-size: 12px; color: var(--text-secondary); transition: all 0.5s; opacity: 0; }
-.so-rep-card.visible { opacity: 1; }
-.so-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid #2196f3; border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: popIn 0.4s ease-out; min-width: 200px; }
+.so-flow-scene {
+  position: relative; min-height: 300px;
+  background: white; border-radius: 12px;
+  border: 1px solid #e0e0e0; padding: 20px;
+  margin-bottom: 16px; overflow: hidden;
+}
+.so-flow-question {
+  background: #fafafa; border-radius: 10px;
+  border: 1px solid #e8e8e8; padding: 16px;
+  margin-bottom: 12px; transition: all 0.5s ease;
+}
+.so-flow-question.visible { opacity: 1; transform: translateY(0); }
+.so-flow-question:not(.visible) { opacity: 0; transform: translateY(20px); }
+.so-flow-q-title {
+  font-size: 16px; font-weight: 700; color: #333; margin-bottom: 8px;
+}
+.so-flow-q-body {
+  font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 10px;
+}
+.so-flow-tag {
+  display: inline-block; padding: 3px 8px; margin: 2px;
+  background: #fff4e6; color: #f48024; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+}
+.so-flow-stats {
+  display: flex; gap: 16px; font-size: 12px; color: #999;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;
+}
+.so-flow-stats span { display: flex; align-items: center; gap: 4px; }
+.so-flow-answer {
+  background: #f8fffa; border-radius: 10px;
+  border: 1px solid #c8e6c9; padding: 16px;
+  margin-bottom: 12px; transition: all 0.5s ease;
+}
+.so-flow-answer.visible { opacity: 1; transform: translateY(0); }
+.so-flow-answer:not(.visible) { opacity: 0; transform: translateY(20px); }
+.so-flow-answer-body { font-size: 13px; color: #444; line-height: 1.5; margin-bottom: 8px; }
+.so-flow-answer-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #888; }
+.so-flow-accepted {
+  background: #4caf50; color: white; padding: 2px 10px;
+  border-radius: 12px; font-size: 11px; font-weight: 700;
+  animation: acceptPulse 0.5s ease-out;
+}
+@keyframes acceptPulse {
+  0% { transform: scale(0.5); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.so-flow-vote {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0;
+}
+.so-flow-vote-btn {
+  width: 32px; height: 32px; border: 1px solid #ddd;
+  border-radius: 50%; background: white; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; transition: all 0.2s;
+}
+.so-flow-vote-btn:hover { background: #f0f0f0; border-color: #bbb; }
+.so-flow-vote-btn.upvoted { background: #e3f2fd; border-color: #2196f3; color: #2196f3; }
+.so-flow-vote-count {
+  font-size: 20px; font-weight: 700; color: #333;
+  min-width: 24px; text-align: center;
+}
+.so-flow-popup {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: white; border-radius: 12px; padding: 20px 28px;
+  text-align: center; z-index: 10;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  animation: popIn 0.4s ease-out;
+}
 @keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.so-flow-loading {
+  text-align: center; padding: 16px; font-size: 36px;
+}
 `;
 
 const USER_ID = 'U1';
@@ -355,7 +413,7 @@ function AnimatedFlow() {
   const [showAccepted, setShowAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const mountedRef = useRef(true);
-  const steps = ['Question', 'Answer', 'Vote', 'Accept', 'Done'];
+  const steps = ['Ask', 'Answer', 'Vote', 'Accept', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
@@ -364,36 +422,44 @@ function AnimatedFlow() {
     setVoteCount(0); setShowAnswer(false); setShowAccepted(false); setLoading(false);
   };
 
-  const startSim = async () => {
-    setError(''); setStep(1); setLoading(true);
+  const postQuestionAction = async () => {
+    setLoading(true); setError('');
     try {
       const q = await postQuestion('How does Java garbage collection work?', 'Can someone explain how garbage collection works in Java? I am confused about the different GC algorithms.', 'U1', ['Java', 'JVM']);
       if (!mountedRef.current) return;
       if (q.error) { setError(q.error); setLoading(false); return; }
-      setQuestion(q); setLoading(false);
-      await new Promise(r => setTimeout(r, 1000));
+      setQuestion(q); setStep(2); setLoading(false);
+    } catch { if (mountedRef.current) { setError('Failed to post question'); setLoading(false); } }
+  };
+
+  const postAnswerAction = async () => {
+    setLoading(true); setError('');
+    try {
+      const a = await postAnswer(question.id, 'Java GC automatically manages memory by removing unreachable objects. The main algorithms are Serial, Parallel, G1, and ZGC. The JVM decides which to use based on your configuration.', 'U2');
       if (!mountedRef.current) return;
-      setStep(2);
-      const a = await postAnswer(q.id, 'Java GC automatically manages memory by removing unreachable objects. The main algorithms are Serial, Parallel, G1, and ZGC. The JVM decides which to use based on your configuration.', 'U2');
+      if (a.error) { setError(a.error); setLoading(false); return; }
+      setAnswer(a); setShowAnswer(true); setStep(3); setLoading(false);
+    } catch { if (mountedRef.current) { setError('Failed to post answer'); setLoading(false); } }
+  };
+
+  const voteAnswerAction = async () => {
+    setLoading(true); setError('');
+    try {
+      const v = await voteAnswer(answer.id, 'U1', 'UPVOTE');
       if (!mountedRef.current) return;
-      if (a.error) { setError(a.error); return; }
-      setAnswer(a); setShowAnswer(true);
-      await new Promise(r => setTimeout(r, 800));
+      if (v.error) { setError(v.error); setLoading(false); return; }
+      setVoteCount(1); setStep(4); setLoading(false);
+    } catch { if (mountedRef.current) { setError('Failed to vote'); setLoading(false); } }
+  };
+
+  const acceptAnswerAction = async () => {
+    setLoading(true); setError('');
+    try {
+      const ac = await acceptAnswer(question.id, answer.id, 'U1');
       if (!mountedRef.current) return;
-      setStep(3);
-      await voteAnswer(a.id, 'U1', 'UPVOTE');
-      if (!mountedRef.current) return;
-      setVoteCount(1);
-      await new Promise(r => setTimeout(r, 800));
-      if (!mountedRef.current) return;
-      setStep(4);
-      await acceptAnswer(q.id, a.id, 'U1');
-      if (!mountedRef.current) return;
-      setShowAccepted(true);
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
-      setStep(5);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+      if (ac.error) { setError(ac.error); setLoading(false); return; }
+      setShowAccepted(true); setStep(5); setLoading(false);
+    } catch { if (mountedRef.current) { setError('Failed to accept'); setLoading(false); } }
   };
 
   return (
@@ -405,49 +471,46 @@ function AnimatedFlow() {
         <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      <div className="so-scene">
-        {/* Question Card */}
-        <div className={`so-question-card ${step >= 1 ? 'visible' : ''}`}>
+      <div className="so-flow-scene">
+        {/* Step 1: Question Card */}
+        <div className={`so-flow-question ${step >= 1 ? 'visible' : ''}`}>
           <div style={{ fontSize: 18, marginBottom: 8 }}>❓</div>
-          <div className="so-question-title">{question?.title || 'How does Java garbage collection work?'}</div>
-          <div className="so-question-body">{question?.body || 'Can someone explain how garbage collection works in Java?'}</div>
-          <div><span className="so-tag">Java</span><span className="so-tag">JVM</span></div>
-          <div style={{ marginTop: 8, display: 'flex', gap: 12, fontSize: 12, color: '#888' }}>
+          <div className="so-flow-q-title">{question?.title || 'How does Java garbage collection work?'}</div>
+          <div className="so-flow-q-body">{question?.body || 'Can someone explain how garbage collection works in Java?'}</div>
+          <div><span className="so-flow-tag">Java</span><span className="so-flow-tag">JVM</span></div>
+          <div className="so-flow-stats">
             <span>👍 {voteCount}</span>
             <span>💬 {showAnswer ? '1 answer' : '0 answers'}</span>
             <span>👁️ 42 views</span>
           </div>
         </div>
 
-        {/* Answer Card */}
+        {/* Step 2: Answer Card */}
         {showAnswer && answer && (
-          <div className="so-answer-card visible">
-            <div className="so-vote-display">
-              <span className="so-vote-arrow">👍</span>
-              <span className="so-vote-count">{voteCount}</span>
-              <span className="so-vote-arrow">👎</span>
+          <div className="so-flow-answer visible">
+            <div className="so-flow-vote">
+              <span className="so-flow-vote-btn">▲</span>
+              <span className="so-flow-vote-count">{voteCount}</span>
+              <span className="so-flow-vote-btn">▼</span>
             </div>
-            <div className="so-answer-body">{answer.body}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: '#888' }}>Answered by U2</span>
-              {showAccepted && <span className="so-accepted-badge">✓ Accepted</span>}
+            <div className="so-flow-answer-body">{answer.body}</div>
+            <div className="so-flow-answer-meta">
+              <span>Answered by U2</span>
+              {showAccepted && <span className="so-flow-accepted">✓ Accepted</span>}
             </div>
           </div>
         )}
 
         {/* Loading */}
-        {loading && step === 1 && (
-          <div className="so-popup">
-            <div style={{ fontSize: 36 }}>⏳</div>
-            <div style={{ fontWeight: 600 }}>Posting question...</div>
-          </div>
+        {loading && (
+          <div className="so-flow-loading">⏳</div>
         )}
 
-        {/* Done popup */}
+        {/* Step 5: Done popup */}
         {step === 5 && (
-          <div className="so-popup" style={{ borderColor: '#3fb950' }}>
+          <div className="so-flow-popup" style={{ borderColor: '#4caf50' }}>
             <div style={{ fontSize: 36 }}>🏆</div>
-            <div style={{ fontWeight: 700, color: '#3fb950', fontSize: 16 }}>Q&A Complete!</div>
+            <div style={{ fontWeight: 700, color: '#4caf50', fontSize: 16 }}>Q&A Complete!</div>
             <div style={{ marginTop: 8, fontSize: 13, color: '#666' }}>Score: +1 upvote</div>
             <div style={{ fontSize: 12, color: '#888' }}>Answer accepted ✓</div>
             <button onClick={reset} style={{ marginTop: 10, padding: '6px 16px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>🔄 New</button>
@@ -457,7 +520,13 @@ function AnimatedFlow() {
 
       {error && <div style={{ color: '#d32f2f', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
 
-      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 12 }}>
+        {step === 0 && <button onClick={() => { setStep(1); }} style={{ padding: '8px 20px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+        {step === 1 && <button onClick={postQuestionAction} disabled={loading} style={{ padding: '8px 20px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>📝 Post Question {loading ? '...' : ''}</button>}
+        {step === 2 && <button onClick={postAnswerAction} disabled={loading} style={{ padding: '8px 20px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>✍️ Post Answer {loading ? '...' : ''}</button>}
+        {step === 3 && <button onClick={voteAnswerAction} disabled={loading} style={{ padding: '8px 20px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>👍 Upvote {loading ? '...' : ''}</button>}
+        {step === 4 && <button onClick={acceptAnswerAction} disabled={loading} style={{ padding: '8px 20px', background: '#f48024', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer' }}>✅ Accept Answer {loading ? '...' : ''}</button>}
+      </div>
     </div>
   );
 }

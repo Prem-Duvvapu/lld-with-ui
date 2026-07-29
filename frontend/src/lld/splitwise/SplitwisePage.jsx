@@ -407,16 +407,13 @@ function AnimatedFlow() {
   const [expense, setExpense] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const mountedRef = useRef(true);
   const steps = ['Users', 'Group', 'Expense', 'Split', 'Done'];
   const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe'];
 
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
   const reset = () => { setStep(0); setUsers([]); setGroup(null); setExpense(null); setError(''); setLoading(false); };
 
-  const startSim = async () => {
-    setError(''); setLoading(true); setStep(1);
+  const createUsersAction = async () => {
+    setError(''); setLoading(true);
     try {
       const existing = await getUsers();
       let u1, u2;
@@ -425,31 +422,33 @@ function AnimatedFlow() {
         u1 = await createUser('Alice', 'alice@test.com');
         u2 = await createUser('Bob', 'bob@test.com');
       }
-      if (!mountedRef.current) return;
       if (u1.error || u2.error) { setError('Failed to create users'); setLoading(false); return; }
       setUsers([u1, u2]);
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
-      setStep(2);
-      const g = await createGroup('Trip to Goa', [u1.id, u2.id]);
-      if (!mountedRef.current) return;
+      setStep(2); setLoading(false);
+    } catch { setError('Failed to create users'); setLoading(false); }
+  };
+
+  const createGroupAction = async () => {
+    setError(''); setLoading(true);
+    try {
+      const g = await createGroup('Trip to Goa', [users[0].id, users[1].id]);
       if (g.error) { setError(g.error); setLoading(false); return; }
       setGroup(g);
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
       setStep(3); setLoading(false);
-      const exp = await addExpense('Hotel Booking', 5000, u1.id, g.id, [{ userId: u1.id, type: 'EQUAL' }, { userId: u2.id, type: 'EQUAL' }]);
-      if (!mountedRef.current) return;
-      if (exp.error) { setError(exp.error); return; }
-      setExpense(exp);
-      await new Promise(r => setTimeout(r, 1000));
-      if (!mountedRef.current) return;
-      setStep(4);
-      await new Promise(r => setTimeout(r, 1500));
-      if (!mountedRef.current) return;
-      setStep(5);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); } }
+    } catch { setError('Failed to create group'); setLoading(false); }
   };
+
+  const addExpenseAction = async () => {
+    setError(''); setLoading(true);
+    try {
+      const exp = await addExpense('Hotel Booking', 5000, users[0].id, group.id, [{ userId: users[0].id, type: 'EQUAL' }, { userId: users[1].id, type: 'EQUAL' }]);
+      if (exp.error) { setError(exp.error); setLoading(false); return; }
+      setExpense(exp);
+      setStep(4); setLoading(false);
+    } catch { setError('Failed to add expense'); setLoading(false); }
+  };
+
+  const settleUpAction = () => { setStep(5); };
 
   return (
     <div>
@@ -519,9 +518,15 @@ function AnimatedFlow() {
         )}
       </div>
 
-      {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12 }}>
+        {step === 0 && <button onClick={() => setStep(1)} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+        {step === 1 && <button onClick={createUsersAction} disabled={loading} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>👥 Create Users {loading ? '...' : ''}</button>}
+        {step === 2 && <button onClick={createGroupAction} disabled={loading} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>📁 Create Group {loading ? '...' : ''}</button>}
+        {step === 3 && <button onClick={addExpenseAction} disabled={loading} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>💸 Add Expense {loading ? '...' : ''}</button>}
+        {step === 4 && <button onClick={settleUpAction} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>✅ Settle Up</button>}
+      </div>
 
-      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+      {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
     </div>
   );
 }

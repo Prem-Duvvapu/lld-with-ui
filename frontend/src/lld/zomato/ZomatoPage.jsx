@@ -279,16 +279,18 @@ function AnimatedFlow() {
   const [showChef, setShowChef] = useState(false);
   const [showFood, setShowFood] = useState(false);
   const [showHouse, setShowHouse] = useState(false);
+  const [bikeArrived, setBikeArrived] = useState(false);
   const [statusBadge, setStatusBadge] = useState('');
   const mountedRef = useRef(true);
-  const steps = ['Browse', 'Order', 'Prepare', 'Deliver', 'Done'];
+  const steps = ['Browse', 'Placed', 'Cook', 'Dispatch', 'Deliver', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
   const reset = () => {
     setStep(0); setOrder(null); setLoading(false); setError('');
     setBikeLeft(-60); setShowRestaurant(false); setMenuVisible(0);
-    setShowChef(false); setShowFood(false); setShowHouse(false); setStatusBadge('');
+    setShowChef(false); setShowFood(false); setShowHouse(false);
+    setBikeArrived(false); setStatusBadge('');
   };
 
   const menuItems = [
@@ -305,42 +307,68 @@ function AnimatedFlow() {
       if (!mountedRef.current) return;
       setMenuVisible(i);
     }
-    await new Promise(r => setTimeout(r, 600));
-    if (!mountedRef.current) return;
-    setStep(2); setLoading(true);
+  };
+
+  const placeOrderAction = async () => {
+    setError(''); setLoading(true);
     try {
       const data = await placeOrder('R1', 'user1', [
         { menuItemId: 'M1', name: 'Margherita Pizza', quantity: 2, price: 299 }
       ]);
       if (!mountedRef.current) return;
       if (data.error) { setError(data.error); setLoading(false); return; }
-      setOrder(data); setLoading(false);
-      await new Promise(r => setTimeout(r, 1200));
+      setOrder(data); setLoading(false); setStep(2);
+    } catch { if (mountedRef.current) { setError('Failed to place order'); setLoading(false); } }
+  };
+
+  const acceptOrder = async () => {
+    if (!order) return; setLoading(true);
+    try {
+      await updateOrderStatus(order.id, 'CONFIRMED');
       if (!mountedRef.current) return;
-      setStep(3); setShowChef(true);
-      setStatusBadge('CONFIRMED');
-      await updateOrderStatus(data.id, 'CONFIRMED');
-      await new Promise(r => setTimeout(r, 1500));
+      setShowChef(true); setStatusBadge('CONFIRMED');
+      setLoading(false); setStep(3);
+    } catch { if (mountedRef.current) { setError('Failed to accept'); setLoading(false); } }
+  };
+
+  const markReady = async () => {
+    if (!order) return; setLoading(true);
+    try {
+      await updateOrderStatus(order.id, 'PREPARING');
       if (!mountedRef.current) return;
-      setStatusBadge('PREPARING');
-      await updateOrderStatus(data.id, 'PREPARING');
-      await new Promise(r => setTimeout(r, 800));
+      setShowFood(true); setStatusBadge('PREPARING');
+      setLoading(false); setStep(4);
+    } catch { if (mountedRef.current) { setError('Failed to update'); setLoading(false); } }
+  };
+
+  const dispatchOrder = async () => {
+    if (!order) return; setLoading(true);
+    try {
+      await updateOrderStatus(order.id, 'OUT_FOR_DELIVERY');
       if (!mountedRef.current) return;
-      setShowFood(true);
-      await new Promise(r => setTimeout(r, 1200));
-      if (!mountedRef.current) return;
-      setStep(4); setShowChef(false); setShowFood(false);
+      setShowChef(false); setShowFood(false);
       setStatusBadge('OUT_FOR_DELIVERY');
-      await updateOrderStatus(data.id, 'OUT_FOR_DELIVERY');
-      await new Promise(r => setTimeout(r, 500));
+      setBikeLeft(220);
+      setLoading(false); setStep(5);
+      setTimeout(() => {
+        if (mountedRef.current) setBikeArrived(true);
+      }, 2800);
+    } catch { if (mountedRef.current) { setError('Failed to dispatch'); setLoading(false); } }
+  };
+
+  const markDelivered = async () => {
+    if (!order) return; setLoading(true);
+    try {
+      await updateOrderStatus(order.id, 'DELIVERED');
       if (!mountedRef.current) return;
-      setBikeLeft(200);
-      await new Promise(r => setTimeout(r, 2800));
-      if (!mountedRef.current) return;
-      await updateOrderStatus(data.id, 'DELIVERED');
-      if (!mountedRef.current) return;
-      setStep(5);
-    } catch { if (mountedRef.current) { setError('Simulation failed'); setLoading(false); } }
+      setLoading(false); setStep(6);
+    } catch { if (mountedRef.current) { setError('Failed to confirm'); setLoading(false); } }
+  };
+
+  const btnStyle = {
+    padding: '8px 20px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600,
+    cursor: 'pointer', color: '#fff', transition: 'all 0.2s',
+    background: '#e23744', margin: '0 4px',
   };
 
   return (
@@ -363,6 +391,7 @@ function AnimatedFlow() {
               <div className="name">Pizza Paradise</div>
               <div className="cuisine">Italian • ⭐4.5</div>
             </div>
+            {step === 1 && <div className="zomato-cart-badge active">2</div>}
           </div>
           <div className="zomato-menu-grid">
             {menuItems.map((item, i) => (
@@ -374,11 +403,16 @@ function AnimatedFlow() {
               </div>
             ))}
           </div>
+          {step === 1 && (
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: '#e23744' }}>2 items selected</div>
+            </div>
+          )}
         </div>
 
         {/* Customer House */}
         <div className={`zomato-house ${showHouse ? 'visible' : ''}`}>🏠</div>
-        {step >= 4 && <div style={{ position: 'absolute', right: 30, top: 65, fontSize: 20, zIndex: 2 }}>🙋</div>}
+        {step >= 5 && <div style={{ position: 'absolute', right: 30, top: 65, fontSize: 20, zIndex: 2 }}>🙋</div>}
 
         {/* Kitchen Area */}
         <div className={`zomato-chef ${showChef ? 'visible' : ''}`}>👨‍🍳</div>
@@ -399,40 +433,48 @@ function AnimatedFlow() {
           </div>
         )}
 
-        {/* Loading popup */}
-        {loading && step === 2 && (
-          <div className="zomato-popup">
-            <div style={{ fontSize: 36, marginBottom: 4 }}>⏳</div>
-            <div style={{ fontWeight: 600 }}>Placing order...</div>
-          </div>
-        )}
-
-        {/* Order Confirmed popup */}
-        {step === 2 && !loading && order && (
-          <div className="zomato-popup">
+        {/* Order Placed popup */}
+        {step === 2 && order && (
+          <div className="zomato-popup" style={{ minWidth: 200 }}>
             <div style={{ fontSize: 36, marginBottom: 4 }}>✅</div>
-            <div style={{ fontWeight: 700, color: '#e23744' }}>Order Placed!</div>
-            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{order.id}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4 }}>₹{order.totalAmount?.toFixed(2)}</div>
-            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>2 items</div>
+            <div style={{ fontWeight: 700, color: '#e23744', fontSize: 15 }}>Order Placed!</div>
+            <div style={{ fontSize: 11, color: '#666', marginTop: 4 }}>{order.id}</div>
+            <div style={{ fontSize: 13 }}>🍕 Margherita Pizza ×2</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>₹{order.totalAmount?.toFixed(2)}</div>
           </div>
         )}
 
         {/* Done popup */}
-        {step === 5 && order && (
-          <div className="zomato-popup done">
+        {step === 6 && order && (
+          <div className="zomato-popup done" style={{ minWidth: 200 }}>
             <div style={{ fontSize: 36, marginBottom: 4 }}>🎉</div>
-            <div style={{ fontWeight: 700, color: '#3fb950' }}>Delivered!</div>
+            <div style={{ fontWeight: 700, color: '#3fb950', fontSize: 15 }}>Delivered!</div>
             <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>by {order.deliveryPartnerName || 'Rahul'}</div>
             <div style={{ fontSize: 14, fontWeight: 700, marginTop: 2 }}>₹{order.totalAmount?.toFixed(2)}</div>
-            <button onClick={reset} style={{ marginTop: 8, padding: '6px 16px', background: '#3fb950', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>🔄 New</button>
           </div>
         )}
       </div>
 
       {error && <div className="error" style={{ marginTop: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
 
-      {step === 0 && <button onClick={startSim} disabled={loading} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        {step === 0 && <button onClick={startSim} style={{ padding: '12px 32px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
+
+        {step === 1 && <button onClick={placeOrderAction} disabled={loading} style={btnStyle}>🛒 Place Order {loading ? '...' : ''}</button>}
+
+        {step === 2 && <button onClick={acceptOrder} disabled={loading} style={{ ...btnStyle, background: '#ff9800' }}>👨‍🍳 Accept Order {loading ? '...' : ''}</button>}
+
+        {step === 3 && <button onClick={markReady} disabled={loading} style={{ ...btnStyle, background: '#4caf50' }}>🍕 Ready to Pickup {loading ? '...' : ''}</button>}
+
+        {step === 4 && <button onClick={dispatchOrder} disabled={loading} style={{ ...btnStyle, background: '#2196f3' }}>🛵 Dispatch for Delivery {loading ? '...' : ''}</button>}
+
+        {step === 5 && bikeArrived && <button onClick={markDelivered} disabled={loading} style={{ ...btnStyle, background: '#3fb950' }}>📦 Mark Delivered {loading ? '...' : ''}</button>}
+
+        {step === 5 && !bikeArrived && <span style={{ fontSize: 13, color: '#888' }}>🛵 Delivery partner on the way...</span>}
+
+        {step === 6 && <button onClick={reset} style={{ ...btnStyle, background: '#e23744' }}>🔄 New Simulation</button>}
+      </div>
     </div>
   );
 }

@@ -179,6 +179,169 @@ const classDiagrams = {
       { from: 'Request', to: 'Elevator', label: 'assigned to' },
       { from: 'ElevatorService', to: 'ElevatorRepository', label: 'uses' },
     ]
+  },
+
+  chess: {
+    title: 'Chess — Class Diagram',
+    classes: [
+      { name: 'ChessService', fields: ['- repository: ChessRepository', '- lock: ReentrantLock'], methods: ['+ createGame(w, b): Game', '+ makeMove(id, fr, fc, tr, tc): Game', '+ getValidMoves(id, r, c): List<int[]>', '+ getGame(id): Game'] },
+      { name: 'Game', fields: ['- id: long', '- board: String[8][8]', '- players: Player[2]', '- currentPlayerIndex: int', '- status: GameStatus', '- winner: String', '- moveHistory: List<Move>'], methods: [] },
+      { name: 'Player', fields: ['- id: long', '- name: String', '- color: String (WHITE/BLACK)'], methods: [] },
+      { name: 'Move', fields: ['- fromRow/Col: int', '- toRow/Col: int', '- piece: String', '- capturedPiece: String', '- isCastling: boolean'], methods: [] },
+      { name: 'GameStatus', stereotype: 'enum', fields: ['ACTIVE', 'CHECK', 'CHECKMATE', 'DRAW', 'STALEMATE'], methods: [] },
+      { name: 'PieceType', stereotype: 'enum', fields: ['KING', 'QUEEN', 'ROOK', 'BISHOP', 'KNIGHT', 'PAWN'], methods: [] },
+      { name: 'ChessRepository', fields: ['- games: ConcurrentHashMap<Long, Game>'], methods: ['+ save(game): void', '+ get(id): Game', '+ nextId(): long'] },
+    ],
+    relationships: [
+      { from: 'ChessService', to: 'ChessRepository', label: 'uses' },
+      { from: 'ChessService', to: 'Game', label: 'manages' },
+      { from: 'Game', to: 'Player', label: 'has 2' },
+      { from: 'Game', to: 'GameStatus', label: 'has state' },
+      { from: 'Game', to: 'Move', label: 'has many' },
+    ]
+  },
+
+  ludo: {
+    title: 'Ludo — Class Diagram',
+    classes: [
+      { name: 'LudoService', fields: ['- repository: LudoRepository', '- lock: ReentrantLock'], methods: ['+ createGame(players): Game', '+ rollDice(id): Game', '+ moveToken(id, pi, ti): Game', '+ getGame(id): Game'] },
+      { name: 'Game', fields: ['- id: long', '- players: List<Player>', '- tokens: List<List<Token>>', '- currentPlayerIndex: int', '- diceValue: int', '- status: GameStatus', '- winner: String'], methods: [] },
+      { name: 'Player', fields: ['- index: int', '- name: String', '- color: String (RED/GREEN/BLUE/YELLOW)'], methods: [] },
+      { name: 'Token', fields: ['- id: int', '- color: String', '- position: int', '- isHome: boolean', '- isFinished: boolean'], methods: [] },
+      { name: 'GameStatus', stereotype: 'enum', fields: ['WAITING', 'PLAYING', 'FINISHED'], methods: [] },
+      { name: 'LudoRepository', fields: ['- games: ConcurrentHashMap<Long, Game>'], methods: ['+ save(game): void', '+ get(id): Game', '+ nextId(): long'] },
+    ],
+    relationships: [
+      { from: 'LudoService', to: 'LudoRepository', label: 'uses' },
+      { from: 'LudoService', to: 'Game', label: 'manages' },
+      { from: 'Game', to: 'Player', label: 'has 4' },
+      { from: 'Game', to: 'Token', label: 'has 16 (4x4)' },
+      { from: 'Game', to: 'GameStatus', label: 'has state' },
+    ]
+  },
+
+  coffee: {
+    title: 'Coffee Machine — Class Diagram',
+    classes: [
+      { name: 'CoffeeMachineService', fields: ['- repository: CoffeeRepository', '- lock: ReentrantLock'], methods: ['+ getMenu(): List<Beverage>', '+ selectBeverage(id): Map', '+ brew(id): Map', '+ getStatus(): Map', '+ refillIngredient(ing, amt): Map'] },
+      { name: 'Beverage', fields: ['- id: long', '- name: String', '- price: double', '- recipe: Map<Ingredient, Integer>', '- available: boolean'], methods: [] },
+      { name: 'Ingredient', stereotype: 'enum', fields: ['COFFEE_BEANS', 'MILK', 'WATER', 'SUGAR', 'CHOCOLATE', 'CREAM'], methods: [] },
+      { name: 'CoffeeMachine', fields: ['- id: long', '- status: String (IDLE/BREWING/COMPLETE/ERROR)', '- currentBeverage: String', '- ingredients: Map<Ingredient, Integer>'], methods: ['+ setStatus(s): void', '+ setCurrentBeverage(b): void'] },
+      { name: 'Order', fields: ['- id: long', '- beverageId: long', '- status: String (PREPARING/COMPLETED/FAILED)', '- timestamp: LocalDateTime'], methods: [] },
+      { name: 'CoffeeRepository', fields: ['- beverages: ConcurrentHashMap', '- machine: CoffeeMachine', '- orders: List<Order>'], methods: ['+ getBeverages(): List', '+ getMachine(): CoffeeMachine', '+ addOrder(o): void'] },
+    ],
+    relationships: [
+      { from: 'CoffeeMachineService', to: 'CoffeeRepository', label: 'uses' },
+      { from: 'CoffeeMachineService', to: 'Beverage', label: 'manages' },
+      { from: 'CoffeeMachineService', to: 'CoffeeMachine', label: 'controls' },
+      { from: 'CoffeeMachineService', to: 'Order', label: 'creates' },
+      { from: 'Beverage', to: 'Ingredient', label: 'uses' },
+      { from: 'CoffeeMachine', to: 'Ingredient', label: 'tracks' },
+    ]
+  },
+
+  wallet: {
+    title: 'Digital Wallet — Class Diagram',
+    classes: [
+      { name: 'WalletService', fields: ['- repository: WalletRepository', '- lock: ReentrantLock'], methods: ['+ createWallet(userId, name): Wallet', '+ getBalance(id): double', '+ addFunds(id, amt, method): Map', '+ sendMoney(from, to, amt, desc): Map', '+ getTransactions(id): List<Transaction>'] },
+      { name: 'Wallet', fields: ['- id: long', '- userId: String', '- userName: String', '- balance: double', '- currency: String', '- createdAt: LocalDateTime'], methods: ['+ setBalance(b): void'] },
+      { name: 'Transaction', fields: ['- id: long', '- fromWalletId: Long', '- toWalletId: Long', '- amount: double', '- type: String (CREDIT/DEBIT/TRANSFER)', '- status: String (PENDING/COMPLETED/FAILED)', '- timestamp: LocalDateTime', '- description: String'], methods: [] },
+      { name: 'PaymentMethod', stereotype: 'enum', fields: ['UPI', 'CARD', 'BANK_TRANSFER', 'WALLET_BALANCE'], methods: [] },
+      { name: 'WalletRepository', fields: ['- wallets: ConcurrentHashMap', '- transactions: ConcurrentHashMap', '- walletIdGen: AtomicLong', '- txnIdGen: AtomicLong'], methods: ['+ findWalletById(id): Wallet', '+ saveWallet(w): Wallet', '+ addTransaction(t): void', '+ getTransactionsByWalletId(id): List'] },
+    ],
+    relationships: [
+      { from: 'WalletService', to: 'WalletRepository', label: 'uses' },
+      { from: 'WalletService', to: 'Wallet', label: 'manages' },
+      { from: 'WalletService', to: 'Transaction', label: 'creates' },
+      { from: 'Transaction', to: 'Wallet', label: 'references (from/to)' },
+    ]
+  },
+
+  hotel: {
+    title: 'Hotel Management — Class Diagram',
+    classes: [
+      { name: 'HotelService', fields: ['- repository: HotelRepository', '- lock: ReentrantLock'], methods: ['+ getHotels(): List<Hotel>', '+ getAvailableRooms(hotelId, dates): List<Room>', '+ bookRoom(roomId, user, guest, dates): Booking', '+ checkIn(bookingId): Booking', '+ checkOut(bookingId): Booking', '+ cancelBooking(bookingId): Booking'] },
+      { name: 'Hotel', fields: ['- id: String', '- name: String', '- location: String', '- rating: double', '- amenities: List<String>'], methods: [] },
+      { name: 'Room', fields: ['- id: String', '- roomNumber: String', '- type: RoomType (SINGLE/DOUBLE/SUITE/DELUXE)', '- price: double', '- status: RoomStatus'], methods: ['+ setStatus(s): void'] },
+      { name: 'Booking', fields: ['- id: String', '- guestName: String', '- checkIn: LocalDate', '- checkOut: LocalDate', '- status: BookingStatus', '- totalAmount: double'], methods: [] },
+      { name: 'RoomType', stereotype: 'enum', fields: ['SINGLE', 'DOUBLE', 'SUITE', 'DELUXE'], methods: [] },
+      { name: 'RoomStatus', stereotype: 'enum', fields: ['AVAILABLE', 'BOOKED', 'OCCUPIED', 'MAINTENANCE'], methods: [] },
+      { name: 'BookingStatus', stereotype: 'enum', fields: ['CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'], methods: [] },
+      { name: 'HotelRepository', fields: ['- hotels: Map<String, Hotel>', '- rooms: ConcurrentHashMap', '- bookings: ConcurrentHashMap', '- lock: ReentrantLock'], methods: ['+ getAvailableRooms(hotelId): List<Room>', '+ saveBooking(b): void', '+ getActiveBookings(): List<Booking>'] },
+    ],
+    relationships: [
+      { from: 'HotelService', to: 'HotelRepository', label: 'uses' },
+      { from: 'HotelService', to: 'Booking', label: 'manages' },
+      { from: 'HotelRepository', to: 'Hotel', label: 'contains' },
+      { from: 'HotelRepository', to: 'Room', label: 'contains' },
+      { from: 'Booking', to: 'Room', label: 'references' },
+      { from: 'Room', to: 'RoomType', label: 'has type' },
+      { from: 'Room', to: 'RoomStatus', label: 'has status' },
+      { from: 'Booking', to: 'BookingStatus', label: 'has state' },
+    ]
+  },
+
+  airline: {
+    title: 'Airline Reservation — Class Diagram',
+    classes: [
+      { name: 'AirlineService', fields: ['- repository: AirlineRepository', '- lock: ReentrantLock'], methods: ['+ searchFlights(src, dest, date): List<Flight>', '+ getSeats(flightId): List<Seat>', '+ bookFlight(flightId, seats, user, pax): Booking', '+ checkIn(bookingId): Booking', '+ cancelBooking(bookingId): Booking'] },
+      { name: 'Flight', fields: ['- id: String', '- flightNumber: String', '- source: String', '- destination: String', '- departureTime: LocalDateTime', '- totalSeats: int', '- availableSeats: int', '- fare: double'], methods: [] },
+      { name: 'Seat', fields: ['- id: String', '- row: String', '- col: String', '- classType: SeatClass', '- price: double', '- status: SeatStatus'], methods: ['+ setStatus(s): void'] },
+      { name: 'Booking', fields: ['- id: String', '- flightId: String', '- seatIds: List<String>', '- passengerName: String', '- status: BookingStatus', '- totalAmount: double'], methods: [] },
+      { name: 'SeatClass', stereotype: 'enum', fields: ['ECONOMY', 'BUSINESS', 'FIRST'], methods: [] },
+      { name: 'SeatStatus', stereotype: 'enum', fields: ['AVAILABLE', 'BOOKED'], methods: [] },
+      { name: 'BookingStatus', stereotype: 'enum', fields: ['CONFIRMED', 'CHECKED_IN', 'CANCELLED'], methods: [] },
+      { name: 'AirlineRepository', fields: ['- flights: Map<String, Flight>', '- seats: ConcurrentHashMap', '- bookings: ConcurrentHashMap', '- lock: ReentrantLock'], methods: ['+ getAvailableSeats(flightId): List<Seat>', '+ saveBooking(b): void', '+ getActiveBookings(): List<Booking>'] },
+    ],
+    relationships: [
+      { from: 'AirlineService', to: 'AirlineRepository', label: 'uses' },
+      { from: 'AirlineService', to: 'Booking', label: 'manages' },
+      { from: 'AirlineRepository', to: 'Flight', label: 'contains' },
+      { from: 'AirlineRepository', to: 'Seat', label: 'contains' },
+      { from: 'Flight', to: 'Seat', label: 'has many' },
+      { from: 'Booking', to: 'Seat', label: 'references' },
+      { from: 'Booking', to: 'Flight', label: 'belongs to' },
+      { from: 'Seat', to: 'SeatClass', label: 'has class' },
+      { from: 'Seat', to: 'SeatStatus', label: 'has status' },
+      { from: 'Booking', to: 'BookingStatus', label: 'has state' },
+    ]
+  },
+
+  minesweeper: {
+    title: 'Minesweeper — Class Diagram',
+    classes: [
+      { name: 'MinesweeperService', methods: ['+ createGame(rows, cols, mines): Game', '+ revealCell(gameId, row, col): Game', '+ flagCell(gameId, row, col): Game', '+ getGame(id): Game'] },
+      { name: 'Game', fields: ['- id: long', '- board: Cell[][]', '- rows: int', '- cols: int', '- totalMines: int', '- status: GameStatus', '- flagsUsed: int', '- revealedCount: int'], methods: [] },
+      { name: 'Cell', fields: ['- row: int', '- col: int', '- isMine: boolean', '- isRevealed: boolean', '- isFlagged: boolean', '- adjacentMines: int'], methods: [] },
+      { name: 'GameStatus', stereotype: 'enum', fields: ['PLAYING', 'WON', 'LOST'], methods: [] },
+      { name: 'MinesweeperRepository', fields: ['- games: ConcurrentHashMap<Long, Game>'], methods: ['+ save(game): void', '+ get(id): Game'] },
+    ],
+    relationships: [
+      { from: 'MinesweeperService', to: 'Game', label: 'manages' },
+      { from: 'Game', to: 'Cell', label: 'contains' },
+      { from: 'Game', to: 'GameStatus', label: 'has state' },
+      { from: 'MinesweeperService', to: 'MinesweeperRepository', label: 'uses' },
+    ]
+  },
+
+  vendingmachine: {
+    title: 'Vending Machine — Class Diagram',
+    classes: [
+      { name: 'VendingMachineService', methods: ['+ getProducts(): List', '+ selectProduct(productId, qty): Transaction', '+ insertCoin(txnId, amount): Transaction', '+ dispense(txnId): Transaction', '+ cancelTransaction(txnId): Transaction'] },
+      { name: 'Transaction', fields: ['- id: long', '- selectedProductIds: List', '- totalAmount: double', '- insertedAmount: double', '- change: double', '- status: String (PENDING/PAID/COMPLETED/CANCELLED)'], methods: [] },
+      { name: 'Product', fields: ['- id: long', '- name: String', '- price: double', '- quantity: int', '- category: String'], methods: [] },
+      { name: 'Slot', fields: ['- id: long', '- productId: long', '- row: int', '- col: int', '- capacity: int', '- currentStock: int'], methods: [] },
+      { name: 'VendingState', stereotype: 'enum', fields: ['IDLE', 'SELECTING', 'DISPENSING', 'COMPLETE'], methods: [] },
+      { name: 'VendingRepository', fields: ['- products: ConcurrentHashMap', '- slots: ConcurrentHashMap', '- transactions: ConcurrentHashMap'], methods: ['+ getAllProducts(): List', '+ findSlotByProductId(id): Slot', '+ saveTransaction(txn): void'] },
+    ],
+    relationships: [
+      { from: 'VendingMachineService', to: 'Transaction', label: 'creates' },
+      { from: 'VendingMachineService', to: 'Product', label: 'manages' },
+      { from: 'Transaction', to: 'Product', label: 'references' },
+      { from: 'Product', to: 'Slot', label: 'assigned to' },
+      { from: 'VendingMachineService', to: 'VendingRepository', label: 'uses' },
+      { from: 'VendingMachineService', to: 'VendingState', label: 'has state' },
+    ]
   }
 };
 
