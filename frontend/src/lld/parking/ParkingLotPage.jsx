@@ -7,46 +7,46 @@ import DesignDetails from '../../components/DesignDetails';
 const PARKING_CSS = `
 .parking-app { max-width: 1100px; margin: 0 auto; padding: 20px; }
 .parking-header { text-align: center; margin-bottom: 20px; }
-.parking-header h1 { font-size: 28px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.parking-header p { color: var(--text-muted); font-size: 14px; }
+.parking-header h1 { font-size: 28px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; }
+.parking-header p { color: var(--text-secondary); font-size: 14px; font-weight: 500; }
 .parking-nav { display: flex; gap: 6px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
-.parking-nav button { padding: 8px 18px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-.parking-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.parking-nav button:hover:not(.active) { background: var(--border-primary); }
-.parking-main { background: var(--bg-secondary); border-radius: 12px; padding: 24px; border: 1px solid var(--border-primary); }
-.form-card { max-width: 400px; margin: 0 auto; }
-.form-card h2 { margin-bottom: 16px; font-size: 18px; color: var(--info); }
+.parking-nav button { padding: 8px 18px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-primary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+.parking-nav button.active { background: var(--accent); color: #ffffff; border-color: var(--accent); }
+.parking-nav button:hover:not(.active) { background: var(--border-primary); color: var(--text-primary); }
+.parking-main { background: var(--bg-secondary); border-radius: 12px; padding: 24px; border: 1px solid var(--border-primary); box-shadow: var(--shadow-sm); }
+.form-card { max-width: 440px; margin: 0 auto; }
+.form-card h2 { margin-bottom: 16px; font-size: 18px; color: var(--info); font-weight: 700; }
 .form-group { margin-bottom: 14px; }
-.form-group label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid var(--border-primary); border-radius: 6px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); transition: border-color 0.2s; }
+.form-group label { display: block; margin-bottom: 4px; font-weight: 700; font-size: 12px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; }
+.form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid var(--border-primary); border-radius: 6px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); font-weight: 500; transition: border-color 0.2s; }
 .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
 .btn-primary { width: 100%; padding: 12px; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
 .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102,126,234,0.3); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.result-card { margin-top: 16px; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-primary); }
-.result-card h3 { margin-bottom: 10px; font-size: 15px; color: var(--info); }
-.result-card .detail { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border-secondary); }
+.result-card { margin-top: 16px; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-primary); box-shadow: var(--shadow-sm); }
+.result-card h3 { margin-bottom: 10px; font-size: 15px; color: var(--info); font-weight: 700; }
+.result-card .detail { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border-secondary); color: var(--text-primary); }
 .result-card .detail:last-child { border-bottom: none; }
-.result-card .label { color: var(--text-muted); } .result-card .value { font-weight: 600; color: var(--text-primary); }
-.error { margin-top: 12px; padding: 10px; background: var(--danger-bg); color: var(--danger); border-radius: 8px; border: 1px solid var(--danger-bg); font-size: 13px; }
+.result-card .label { color: var(--text-secondary); font-weight: 600; } .result-card .value { font-weight: 700; color: var(--text-primary); }
+.error { margin-top: 12px; padding: 10px; background: var(--danger-bg); color: var(--danger); border-radius: 8px; border: 1px solid var(--danger-bg); font-size: 13px; font-weight: 600; }
 .spots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
-.spot-card { padding: 12px; border-radius: 8px; border: 1px solid var(--border-primary); text-align: center; transition: all 0.3s; background: var(--bg-card); }
+.spot-card { padding: 12px; border-radius: 8px; border: 1px solid var(--border-primary); text-align: center; transition: all 0.3s; background: var(--bg-card); box-shadow: var(--shadow-sm); }
 .spot-card.available { border-color: var(--success); background: var(--success-bg); }
 .spot-card.occupied { border-color: var(--danger); background: var(--danger-bg); }
 .spot-card .spot-id { font-weight: 700; font-size: 16px; color: var(--text-primary); }
-.spot-card .spot-type { font-size: 11px; color: var(--text-muted); }
-.spot-card .spot-status { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.spot-card .spot-type { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+.spot-card .spot-status { font-size: 11px; font-weight: 700; margin-top: 4px; }
 .spot-card.available .spot-status { color: var(--success); }
 .spot-card.occupied .spot-status { color: var(--danger); }
 .floor-section { margin-bottom: 20px; }
-.floor-section h3 { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-primary); font-size: 16px; color: var(--info); }
-.alert { text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px; }
-.ticket-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text-secondary); }
-.ticket-table th { background: var(--bg-tertiary); color: var(--text-primary); padding: 8px 10px; text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-.ticket-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-secondary); }
-.ticket-table tr:hover { background: rgba(128,128,128,0.03); }
-.ticket-table .status-active { color: var(--success); font-weight: 600; }
-.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; transition: all 0.2s; }
+.floor-section h3 { margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-primary); font-size: 16px; color: var(--info); font-weight: 700; }
+.alert { text-align: center; padding: 24px; color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.ticket-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text-primary); }
+.ticket-table th { background: var(--bg-tertiary); color: var(--text-primary); padding: 10px; text-align: left; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-primary); }
+.ticket-table td { padding: 10px; border-bottom: 1px solid var(--border-secondary); color: var(--text-primary); font-weight: 500; }
+.ticket-table tr:hover { background: var(--bg-tertiary); }
+.ticket-table .status-active { color: var(--success); font-weight: 700; }
+.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-primary); text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s; background: var(--bg-tertiary); }
 .back-home:hover { border-color: var(--accent); color: var(--accent); }
 
 .flow-section { display: flex; flex-direction: column; align-items: center; }
@@ -60,18 +60,18 @@ const PARKING_CSS = `
 .exit-gate .bar { position: absolute; top: 20px; left: 18px; width: 50px; height: 6px; background: #f0c040; border-radius: 3px; transform-origin: left center; transition: transform 0.5s; }
 .exit-gate .bar.up { transform: rotate(-90deg); }
 .parking-area { position: absolute; left: 80px; right: 80px; bottom: 90px; top: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px; }
-.parking-cell { background: rgba(128,128,128,0.05); border: 1px dashed rgba(128,128,128,0.2); border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted); transition: all 0.5s; position: relative; min-height: 40px; }
-.parking-cell.occupied-sim { background: var(--danger-bg); border-color: var(--danger); border-style: solid; }
+.parking-cell { background: rgba(128,128,128,0.08); border: 1px dashed var(--border-primary); border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--text-primary); transition: all 0.5s; position: relative; min-height: 40px; }
+.parking-cell.occupied-sim { background: var(--danger-bg); border-color: var(--danger); border-style: solid; color: var(--danger); }
 .parking-cell .car-icon { font-size: 20px; transition: all 0.3s; }
 .car-animated { position: absolute; bottom: 40px; font-size: 28px; z-index: 5; transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
 .person-animated { position: absolute; font-size: 26px; z-index: 6; transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
-.ticket-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: var(--shadow-lg); min-width: 220px; text-align: center; animation: ticketIn 0.5s ease-out; }
+.ticket-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: var(--shadow-lg); min-width: 220px; text-align: center; animation: ticketIn 0.5s ease-out; color: var(--text-primary); }
 @keyframes ticketIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-.ticket-popup h3 { color: var(--info); margin-bottom: 8px; font-size: 16px; }
-.ticket-popup .ticket-detail { font-size: 12px; color: var(--text-secondary); padding: 3px 0; }
-.away-timer { text-align: center; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-primary); margin: 8px 0; }
+.ticket-popup h3 { color: var(--info); margin-bottom: 8px; font-size: 16px; font-weight: 700; }
+.ticket-popup .ticket-detail { font-size: 12px; color: var(--text-primary); padding: 3px 0; font-weight: 500; }
+.away-timer { text-align: center; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-primary); margin: 8px 0; color: var(--text-primary); }
 .away-timer .timer { font-size: 36px; font-weight: 700; color: var(--info); font-family: var(--code-font); }
-.away-timer .activity { font-size: 14px; color: var(--text-muted); margin: 8px 0; }
+.away-timer .activity { font-size: 14px; color: var(--text-primary); margin: 8px 0; font-weight: 600; }
 .flow-controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
 .flow-btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
 .flow-btn:hover { transform: translateY(-2px); }
@@ -80,10 +80,10 @@ const PARKING_CSS = `
 .flow-btn.danger { background: var(--danger); color: #fff; }
 .flow-btn.warning { background: var(--warning); color: #fff; }
 .flow-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-.receipt-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--danger); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: var(--shadow-lg); min-width: 250px; text-align: center; animation: ticketIn 0.5s ease-out; }
-.receipt-popup h3 { color: var(--danger); margin-bottom: 8px; font-size: 16px; }
+.receipt-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--success); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: var(--shadow-lg); min-width: 250px; text-align: center; animation: ticketIn 0.5s ease-out; color: var(--text-primary); }
+.receipt-popup h3 { color: var(--success); margin-bottom: 8px; font-size: 16px; font-weight: 700; }
 .activity-selector { display: flex; gap: 8px; justify-content: center; margin: 8px 0; }
-.activity-selector button { padding: 8px 16px; border: 1px solid var(--border-primary); background: var(--bg-card); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+.activity-selector button { padding: 8px 16px; border: 1px solid var(--border-primary); background: var(--bg-card); color: var(--text-primary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
 .activity-selector button:hover { border-color: var(--accent); }
 .activity-selector button.active { border-color: var(--info); background: var(--info-bg); color: var(--info); }
 .step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }

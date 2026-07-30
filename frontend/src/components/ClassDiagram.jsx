@@ -1,6 +1,6 @@
 import classDiagrams from '../data/classDiagrams';
 
-const COLORS = ['#4ecdc4', '#ff6b6b', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9', '#a29bfe', '#fd79a8', '#00b894', '#e17055'];
+const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
 
 export default function ClassDiagram({ module }) {
   const data = classDiagrams[module];
@@ -50,10 +50,10 @@ export default function ClassDiagram({ module }) {
             return (
               <g key={i}>
                 <path d={`M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`}
-                      fill="none" stroke="#667eea" strokeWidth="1.5"
-                      strokeDasharray={rel.dashed ? '5,4' : 'none'} opacity="0.6" />
+                      fill="none" stroke="var(--accent)" strokeWidth="1.5"
+                      strokeDasharray={rel.dashed ? '5,4' : 'none'} opacity="0.7" />
                 {rel.label && (
-                  <text x={(x1 + x2) / 2} y={midY - 4} textAnchor="middle" fill="#667eea" fontSize="10" fontWeight="500">
+                  <text x={(x1 + x2) / 2} y={midY - 4} textAnchor="middle" fill="var(--accent)" fontSize="10" fontWeight="600">
                     {rel.label}
                   </text>
                 )}
@@ -69,13 +69,13 @@ export default function ClassDiagram({ module }) {
 
 const cdStyles = `
 .class-diagram-section { margin: 32px 0; padding: 20px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); overflow: hidden; }
-.cd-title { font-size: 16px; color: var(--info); margin-bottom: 20px; text-align: center; font-weight: 600; letter-spacing: 0.5px; }
-.cd-class-box { width: 200px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-primary); border-top: 3px solid; background: var(--bg-secondary); box-shadow: var(--shadow-md); transition: transform 0.2s; }
+.cd-title { font-size: 16px; color: var(--info); margin-bottom: 20px; text-align: center; font-weight: 700; letter-spacing: 0.5px; }
+.cd-class-box { width: 210px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-primary); border-top: 4px solid; background: var(--bg-card); box-shadow: var(--shadow-md); transition: transform 0.2s; }
 .cd-class-box:hover { transform: translateY(-2px); }
-.cd-class-header { padding: 8px 10px; color: #fff; text-align: center; font-weight: 700; font-size: 13px; }
-.cd-stereotype { display: block; font-size: 10px; font-weight: 400; font-style: italic; opacity: 0.8; }
-.cd-class-section { padding: 6px 10px; border-top: 1px solid var(--border-primary); font-size: 11px; color: var(--text-secondary); }
-.cd-field { font-family: var(--code-font); padding: 2px 0; color: #8ab4f8; font-size: 11px; }
-.cd-method { font-family: var(--code-font); padding: 2px 0; color: #b5e890; font-size: 11px; }
+.cd-class-header { padding: 8px 10px; color: #ffffff; text-align: center; font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+.cd-stereotype { display: block; font-size: 10px; font-weight: 400; font-style: italic; opacity: 0.9; }
+.cd-class-section { padding: 8px 10px; border-top: 1px solid var(--border-primary); font-size: 11px; color: var(--text-primary); }
+.cd-field { font-family: var(--code-font); padding: 2px 0; color: var(--code-field); font-size: 11px; font-weight: 600; }
+.cd-method { font-family: var(--code-font); padding: 2px 0; color: var(--code-method); font-size: 11px; font-weight: 600; }
 .cd-empty { color: var(--text-muted); font-style: italic; font-size: 10px; text-align: center; }
 `;

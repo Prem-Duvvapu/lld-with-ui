@@ -14,61 +14,61 @@ const bulletList = {
 };
 
 const bulletItem = {
-  padding: '6px 0', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5,
+  padding: '6px 0', fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5,
 };
 
 const bulletDot = {
-  color: 'var(--accent)', marginRight: 8,
+  color: 'var(--accent)', marginRight: 8, fontWeight: 'bold',
 };
 
 const entityCard = {
-  background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 12,
+  background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 12,
 };
 
 const entityName = {
-  fontSize: 14, fontWeight: 700, color: '#8ab4f8', marginBottom: 4,
+  fontSize: 14, fontWeight: 700, color: 'var(--code-field)', marginBottom: 4,
 };
 
 const entityDesc = {
-  fontSize: 12, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.5,
+  fontSize: 13, color: 'var(--text-primary)', marginBottom: 8, lineHeight: 1.5,
 };
 
 const table = {
-  width: '100%', borderCollapse: 'collapse', fontSize: 12, color: 'var(--text-secondary)',
+  width: '100%', borderCollapse: 'collapse', fontSize: 12, color: 'var(--text-primary)',
 };
 
 const th = {
-  textAlign: 'left', padding: '6px 8px', background: 'var(--bg-tertiary)', fontWeight: 600, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase',
+  textAlign: 'left', padding: '8px 10px', background: 'var(--bg-tertiary)', fontWeight: 700, color: 'var(--text-primary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px',
 };
 
 const td = {
-  padding: '6px 8px', borderBottom: '1px solid var(--border-secondary)', verticalAlign: 'top',
+  padding: '8px 10px', borderBottom: '1px solid var(--border-secondary)', verticalAlign: 'top', color: 'var(--text-primary)',
 };
 
 const tagGreen = {
-  display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-  background: 'var(--success-bg)', color: 'var(--success)', marginRight: 6,
+  display: 'inline-block', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+  background: 'var(--success-bg)', color: 'var(--success)', marginRight: 8,
 };
 
 const tagRed = {
-  display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-  background: 'var(--danger-bg)', color: 'var(--danger)', marginRight: 6,
+  display: 'inline-block', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+  background: 'var(--danger-bg)', color: 'var(--danger)', marginRight: 8,
 };
 
 const principleCard = {
-  background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 10,
+  background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 10,
 };
 
 const principleName = {
-  fontSize: 13, fontWeight: 700, color: '#b5e890', marginBottom: 4,
+  fontSize: 13, fontWeight: 700, color: 'var(--code-method)', marginBottom: 4,
 };
 
 const principleDesc = {
-  fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5,
+  fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5,
 };
 
 const extensibilityCard = {
-  background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 10,
+  background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 10,
 };
 
 const extensibilityArea = {
@@ -76,42 +76,42 @@ const extensibilityArea = {
 };
 
 const extensibilityDesc = {
-  fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 4,
+  fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: 4,
 };
 
 const difficultyTag = {
-  display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+  display: 'inline-block', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, marginRight: 8,
 };
 
 const oopCard = {
-  background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 10,
+  background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 14, marginBottom: 10,
 };
 
 const oopName = {
-  fontSize: 13, fontWeight: 700, color: '#a29bfe', marginBottom: 4,
+  fontSize: 13, fontWeight: 700, color: 'var(--accent)', marginBottom: 4,
 };
 
 const oopDesc = {
-  fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 4,
+  fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.5, marginBottom: 4,
 };
 
 const altLabel = {
-  fontSize: 11, color: 'var(--warning)', fontWeight: 600, marginTop: 4, marginBottom: 2,
+  fontSize: 11, color: 'var(--warning)', fontWeight: 700, marginTop: 6, marginBottom: 2,
 };
 
 export default function DesignDetails({ module }) {
   const data = designDetails[module];
-  if (!data) return <div style={{ color: '#888', textAlign: 'center', padding: 24, fontSize: 14 }}>Design details not available for this module yet.</div>;
+  if (!data) return <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: 14 }}>Design details not available for this module yet.</div>;
 
   const diffColor = (d) => {
-    if (d === 'Easy') return { background: 'rgba(46,160,67,0.15)', color: '#3fb950' };
-    if (d === 'Medium') return { background: 'rgba(210,153,34,0.15)', color: '#d29922' };
-    return { background: 'rgba(218,54,51,0.15)', color: '#f85149' };
+    if (d === 'Easy') return { background: 'var(--success-bg)', color: 'var(--success)' };
+    if (d === 'Medium') return { background: 'var(--warning-bg)', color: 'var(--warning)' };
+    return { background: 'var(--danger-bg)', color: 'var(--danger)' };
   };
 
   return (
     <div>
-      <h3 style={{ fontSize: 16, color: '#4ecdc4', textAlign: 'center', marginBottom: 20, fontWeight: 600 }}>{data.title}</h3>
+      <h3 style={{ fontSize: 16, color: 'var(--info)', textAlign: 'center', marginBottom: 20, fontWeight: 700 }}>{data.title}</h3>
 
       {/* Requirements */}
       <div style={sectionStyle}>
@@ -134,8 +134,8 @@ export default function DesignDetails({ module }) {
                 <tbody>
                   {e.fields.map((f, i) => (
                     <tr key={i}>
-                      <td style={{ ...td, fontFamily: 'monospace', color: '#8ab4f8' }}>{f.name}</td>
-                      <td style={{ ...td, color: '#b5e890' }}>{f.type}</td>
+                      <td style={{ ...td, fontFamily: 'var(--code-font)', color: 'var(--code-field)', fontWeight: 600 }}>{f.name}</td>
+                      <td style={{ ...td, color: 'var(--code-method)', fontWeight: 600 }}>{f.type}</td>
                       <td style={td}>{f.description}</td>
                     </tr>
                   ))}
@@ -148,8 +148,8 @@ export default function DesignDetails({ module }) {
                 <tbody>
                   {e.methods.map((m, i) => (
                     <tr key={i}>
-                      <td style={{ ...td, fontFamily: 'monospace', color: '#b5e890' }}>{m.name}</td>
-                      <td style={{ ...td, color: '#8ab4f8' }}>{m.returns}</td>
+                      <td style={{ ...td, fontFamily: 'var(--code-font)', color: 'var(--code-method)', fontWeight: 600 }}>{m.name}</td>
+                      <td style={{ ...td, color: 'var(--code-field)', fontWeight: 600 }}>{m.returns}</td>
                       <td style={td}>{m.description}</td>
                     </tr>
                   ))}
@@ -193,7 +193,7 @@ export default function DesignDetails({ module }) {
             <div style={oopName}>{o.name}</div>
             <div style={oopDesc}>{o.description}</div>
             <div style={altLabel}>Alternative considered:</div>
-            <div style={{ fontSize: 12, color: '#aaa', lineHeight: 1.5 }}>{o.alternative}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{o.alternative}</div>
           </div>
         ))}
       </div>
