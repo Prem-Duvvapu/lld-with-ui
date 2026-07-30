@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { vehicleEntry, getGates, vehicleExit, getFloors, getActiveTickets } from './api';
+import { vehicleEntry, getGates, scanVehicleExit, payVehicleExit, vehicleExit, getFloors, getActiveTickets } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
@@ -158,7 +158,13 @@ function ExitForm() {
   const [gates, setGates] = useState([]);
   const [gateId, setGateId] = useState('');
   const [ticketNumber, setTicketNumber] = useState('');
-  const [result, setResult] = useState(null);
+  const [pricingStrategy, setPricingStrategy] = useState('HOURLY');
+  const [paymentMethod, setPaymentMethod] = useState('UPI');
+
+  const [step, setStep] = useState('SCAN'); // SCAN | PREVIEW | COMPLETED
+  const [previewTicket, setPreviewTicket] = useState(null);
+  const [paidReceipt, setPaidReceipt] = useState(null);
+
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -170,43 +176,128 @@ function ExitForm() {
     });
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleScanTicket = async (e) => {
     e.preventDefault();
-    setError(''); setResult(null); setLoading(true);
+    setError(''); setPreviewTicket(null); setLoading(true);
     try {
-      const data = await vehicleExit(gateId, ticketNumber);
+      const data = await scanVehicleExit(gateId, ticketNumber, pricingStrategy);
       if (data.error) setError(data.error);
-      else { setResult(data); setTicketNumber(''); }
-    } catch { setError('Failed to connect to server'); }
-    finally { setLoading(false); }
+      else {
+        setPreviewTicket(data);
+        setStep('PREVIEW');
+      }
+    } catch {
+      setError('Failed to connect to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePayAndExit = async () => {
+    setError(''); setLoading(true);
+    try {
+      const data = await payVehicleExit(gateId, ticketNumber, pricingStrategy, paymentMethod);
+      if (data.error) setError(data.error);
+      else {
+        setPaidReceipt(data);
+        setStep('COMPLETED');
+      }
+    } catch {
+      setError('Failed to process payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setStep('SCAN');
+    setPreviewTicket(null);
+    setPaidReceipt(null);
+    setTicketNumber('');
+    setError('');
   };
 
   return (
     <div className="form-card">
-      <h2>Vehicle Exit</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group"><label>Exit Gate</label>
-          <select value={gateId} onChange={(e) => setGateId(e.target.value)} required>
-            {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-        </div>
-        <div className="form-group"><label>Ticket Number</label>
-          <input type="text" value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)} placeholder="e.g. TKT-00001" required />
-        </div>
-        <button type="submit" className="btn-primary" disabled={loading}>{loading ? 'Processing...' : 'Exit Vehicle'}</button>
-      </form>
-      {error && <div className="error">{error}</div>}
-      {result && (
-        <div className="result-card">
-          <h3>Payment Receipt</h3>
-          <div className="detail"><span className="label">Ticket #</span><span className="value">{result.ticketNumber}</span></div>
-          <div className="detail"><span className="label">Vehicle</span><span className="value">{result.vehicleNumber}</span></div>
-          <div className="detail"><span className="label">Entry</span><span className="value">{new Date(result.entryTime).toLocaleString()}</span></div>
-          <div className="detail"><span className="label">Exit</span><span className="value">{new Date(result.exitTime).toLocaleString()}</span></div>
-          <div className="detail"><span className="label">Spot</span><span className="value">{result.spotId}</span></div>
-          <div className="detail"><span className="label">Amount</span><span className="value">₹{result.amount.toFixed(2)}</span></div>
+      <h2>Vehicle Exit & Payment</h2>
+
+      {step === 'SCAN' && (
+        <form onSubmit={handleScanTicket}>
+          <div className="form-group">
+            <label>Exit Gate</label>
+            <select value={gateId} onChange={(e) => setGateId(e.target.value)} required>
+              {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Ticket Number</label>
+            <input type="text" value={ticketNumber} onChange={(e) => setTicketNumber(e.target.value)} placeholder="e.g. TKT-00001" required />
+          </div>
+          <div className="form-group">
+            <label>Pricing Strategy</label>
+            <select value={pricingStrategy} onChange={(e) => setPricingStrategy(e.target.value)}>
+              <option value="HOURLY">Hourly Pricing (Standard)</option>
+              <option value="FLAT">Flat Rate Pricing</option>
+              <option value="DYNAMIC">Dynamic Surge Pricing (1.5x)</option>
+            </select>
+          </div>
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Scanning Ticket...' : 'Go to Exit / Calculate Price'}
+          </button>
+        </form>
+      )}
+
+      {step === 'PREVIEW' && previewTicket && (
+        <div className="result-card" style={{ marginTop: 0 }}>
+          <h3 style={{ color: 'var(--accent)' }}>🎟️ Ticket Details & Calculated Amount</h3>
+          <div className="detail"><span className="label">Ticket #</span><span className="value">{previewTicket.ticketNumber}</span></div>
+          <div className="detail"><span className="label">Vehicle</span><span className="value">{previewTicket.vehicleNumber}</span></div>
+          <div className="detail"><span className="label">Vehicle Type</span><span className="value">{previewTicket.vehicleType}</span></div>
+          <div className="detail"><span className="label">Assigned Spot</span><span className="value">{previewTicket.spotId}</span></div>
+          <div className="detail"><span className="label">Entry Time</span><span className="value">{new Date(previewTicket.entryTime).toLocaleString()}</span></div>
+          <div className="detail"><span className="label">Pricing Applied</span><span className="value">{pricingStrategy}</span></div>
+          <div className="detail" style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 8 }}>
+            <span className="label" style={{ fontWeight: 700, fontSize: 16 }}>Total Amount Due</span>
+            <span className="value" style={{ fontWeight: 700, fontSize: 18, color: '#e5c07b' }}>₹{previewTicket.amount.toFixed(2)}</span>
+          </div>
+
+          <div className="form-group" style={{ marginTop: 16 }}>
+            <label>Select Payment Method</label>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+              <option value="UPI">UPI / QR Code</option>
+              <option value="CARD">Credit / Debit Card</option>
+              <option value="CASH">Cash</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+            <button onClick={handlePayAndExit} className="btn-primary" disabled={loading} style={{ flex: 1 }}>
+              {loading ? 'Processing Payment...' : `Pay ₹${previewTicket.amount.toFixed(2)} & Exit`}
+            </button>
+            <button onClick={handleReset} className="btn-secondary" style={{ padding: '8px 16px' }}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
+
+      {step === 'COMPLETED' && paidReceipt && (
+        <div className="result-card" style={{ marginTop: 0 }}>
+          <h3 style={{ color: '#98c379' }}>✅ Payment Successful! Exit Gate Opened</h3>
+          <div className="detail"><span className="label">Ticket #</span><span className="value">{paidReceipt.ticketNumber}</span></div>
+          <div className="detail"><span className="label">Vehicle</span><span className="value">{paidReceipt.vehicleNumber}</span></div>
+          <div className="detail"><span className="label">Spot Released</span><span className="value">{paidReceipt.spotId}</span></div>
+          <div className="detail"><span className="label">Exit Time</span><span className="value">{new Date(paidReceipt.exitTime).toLocaleString()}</span></div>
+          <div className="detail"><span className="label">Amount Paid</span><span className="value">₹{paidReceipt.amount.toFixed(2)} ({paidReceipt.paymentMethod})</span></div>
+          <div className="detail"><span className="label">Payment Status</span><span className="value" style={{ color: '#98c379', fontWeight: 700 }}>{paidReceipt.paymentStatus}</span></div>
+
+          <button onClick={handleReset} className="btn-primary" style={{ marginTop: 16, width: '100%' }}>
+            Process Another Vehicle Exit
+          </button>
+        </div>
+      )}
+
+      {error && <div className="error" style={{ marginTop: 12 }}>{error}</div>}
     </div>
   );
 }
@@ -407,7 +498,11 @@ function AnimatedFlow() {
     setPersonVisible(false);
   };
 
-  const steps = ['Entry', 'Ticket', 'Park', 'Away', 'Return', 'Exit', 'Done'];
+  const steps = ['Entry', 'Ticket', 'Park', 'Away', 'Return', 'At Exit', 'Scan Ticket', 'Payment', 'Done'];
+
+  const [scanPreview, setScanPreview] = useState(null);
+  const [selectedPayMethod, setSelectedPayMethod] = useState('UPI');
+  const [selectedStrategy, setSelectedStrategy] = useState('HOURLY');
 
   const findEmptyCell = () => {
     const used = new Set(occupiedCells);
@@ -442,12 +537,12 @@ function AnimatedFlow() {
     setGateBarUp(true);
     setShowTicket(false);
     setShowReceipt(false);
+    setScanPreview(null);
     setAway(false);
     setTimer(0);
     setActivity(null);
 
     setTimeout(() => setCarLeft(50), 500);
-
     setTimeout(() => setGateBarUp(false), 1500);
 
     setTimeout(() => {
@@ -525,49 +620,73 @@ function AnimatedFlow() {
     }, 1200);
   };
 
-  const completeExit = () => {
-    setSimError('');
-    if (!exitGateRef.current) { setSimError('No exit gate found'); return; }
-    setEntryLoading(true);
-    setStep(6);
+  const driveToExitGate = () => {
+    setStep(5);
     const cellIdx = occupiedCells.length > 0 ? occupiedCells[occupiedCells.length - 1] : -1;
     const pos = cellIdx >= 0 ? cellCenter(cellIdx) : { left: 50, bottom: 40 };
-
     setCarLeft(pos.left);
     setCarBottom(40);
 
     setTimeout(() => {
-      setCarLeft(sceneWidth + 30);
+      setCarLeft(sceneWidth - 120);
       setCarBottom(40);
-      setExitGateBarUp(true);
-    }, 1500);
+      setStep(6);
+    }, 1200);
+  };
 
-    setTimeout(() => {
-      setExitGateBarUp(false);
-      const tktNo = ticketData?.ticketNumber || 'TKT-00001';
-      vehicleExit(exitGateRef.current, tktNo).then((data) => {
-        if (!mountedRef.current) return;
-        setEntryLoading(false);
-        if (data.error) {
-          setSimError(data.error);
-        } else {
-          setReceiptData(data);
-          setShowReceipt(true);
+  const scanTicketAtExit = () => {
+    setSimError('');
+    if (!exitGateRef.current) { setSimError('No exit gate found'); return; }
+    setEntryLoading(true);
+    const tktNo = ticketData?.ticketNumber || 'TKT-00001';
+
+    scanVehicleExit(exitGateRef.current, tktNo, selectedStrategy).then((data) => {
+      if (!mountedRef.current) return;
+      setEntryLoading(false);
+      if (data.error) {
+        setSimError(data.error);
+      } else {
+        setScanPreview(data);
+        setStep(7);
+      }
+    }).catch(() => {
+      if (mountedRef.current) { setEntryLoading(false); setSimError('Failed to scan ticket'); }
+    });
+  };
+
+  const payAndExitVehicle = () => {
+    setSimError('');
+    if (!exitGateRef.current) { setSimError('No exit gate found'); return; }
+    setEntryLoading(true);
+    const tktNo = ticketData?.ticketNumber || 'TKT-00001';
+
+    payVehicleExit(exitGateRef.current, tktNo, selectedStrategy, selectedPayMethod).then((data) => {
+      if (!mountedRef.current) return;
+      setEntryLoading(false);
+      if (data.error) {
+        setSimError(data.error);
+      } else {
+        setScanPreview(null);
+        setReceiptData(data);
+        setShowReceipt(true);
+        setExitGateBarUp(true);
+        setStep(8);
+
+        setTimeout(() => {
+          if (!mountedRef.current) return;
+          setExitGateBarUp(false);
+          setCarLeft(sceneWidth + 60);
           setTimeout(() => {
             if (!mountedRef.current) return;
             setShowReceipt(false);
-            setCarLeft(sceneWidth + 80);
-            setTimeout(() => {
-              if (!mountedRef.current) return;
-              setOccupiedCells([]);
-              resetFlow();
-            }, 800);
-          }, 2500);
-        }
-      }).catch(() => {
-        if (mountedRef.current) { setEntryLoading(false); setSimError('API call failed'); }
-      });
-    }, 3000);
+            setOccupiedCells([]);
+            resetFlow();
+          }, 1500);
+        }, 2000);
+      }
+    }).catch(() => {
+      if (mountedRef.current) { setEntryLoading(false); setSimError('Payment failed'); }
+    });
   };
 
   const fmtTimer = (s) => {
@@ -623,12 +742,27 @@ function AnimatedFlow() {
           </div>
         )}
 
+        {scanPreview && (
+          <div className="ticket-popup" style={{ background: 'rgba(20, 24, 38, 0.95)', border: '1px solid var(--accent)', width: 220 }}>
+            <h3>🎟️ Ticket Scanned</h3>
+            <div className="ticket-detail"><strong>{scanPreview.ticketNumber}</strong></div>
+            <div className="ticket-detail">Spot: {scanPreview.spotId}</div>
+            <div className="ticket-detail">Duration: {fmtTimer(timer)}</div>
+            <div className="ticket-detail" style={{ fontSize: 16, color: '#e5c07b', fontWeight: 700, marginTop: 4 }}>
+              Due: ₹{scanPreview.amount?.toFixed(2)}
+            </div>
+            <div className="ticket-detail" style={{ color: '#ff6b6b', fontSize: 11, fontWeight: 700 }}>
+              Status: {scanPreview.paymentStatus}
+            </div>
+          </div>
+        )}
+
         {showReceipt && receiptData && (
           <div className="receipt-popup">
-            <h3>🧾 Payment Receipt</h3>
+            <h3>🧾 Payment Receipt ({receiptData.paymentMethod || 'PAID'})</h3>
             <div className="ticket-detail">{receiptData.ticketNumber}</div>
             <div className="ticket-detail">Duration: {fmtTimer(timer)}</div>
-            <div className="ticket-detail" style={{ fontSize: 18, color: '#ff6b6b', fontWeight: 700 }}>₹{receiptData.amount?.toFixed(2) || '0.00'}</div>
+            <div className="ticket-detail" style={{ fontSize: 18, color: '#98c379', fontWeight: 700 }}>Paid ₹{receiptData.amount?.toFixed(2) || '0.00'}</div>
           </div>
         )}
       </div>
@@ -670,15 +804,41 @@ function AnimatedFlow() {
 
       {step === 5 && (
         <div style={{ textAlign: 'center' }}>
-          <button className="flow-btn danger" onClick={completeExit} disabled={entryLoading}>
-            🚗 Drive to Exit
+          <button className="flow-btn danger" onClick={driveToExitGate}>
+            🚗 Drive to Exit Gate
           </button>
         </div>
       )}
 
-      {step === 6 && entryLoading && (
-        <div style={{ textAlign: 'center', padding: 12, color: 'var(--text-muted)', fontSize: 14 }}>
-          🚗 Exiting...
+      {step === 6 && (
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Pricing Strategy:</label>
+            <select value={selectedStrategy} onChange={(e) => setSelectedStrategy(e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--bg-tertiary)', color: '#fff', border: '1px solid var(--border-primary)' }}>
+              <option value="HOURLY">Hourly (Standard)</option>
+              <option value="FLAT">Flat Rate</option>
+              <option value="DYNAMIC">Dynamic Surge (1.5x)</option>
+            </select>
+          </div>
+          <button className="flow-btn warning" onClick={scanTicketAtExit} disabled={entryLoading}>
+            🎟️ 1. Scan Ticket & Calculate Price
+          </button>
+        </div>
+      )}
+
+      {step === 7 && scanPreview && (
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <label style={{ fontSize: 12, color: 'var(--text-muted)' }}>Payment Method:</label>
+            <select value={selectedPayMethod} onChange={(e) => setSelectedPayMethod(e.target.value)} style={{ padding: '4px 8px', borderRadius: 6, background: 'var(--bg-tertiary)', color: '#fff', border: '1px solid var(--border-primary)' }}>
+              <option value="UPI">UPI / QR Code</option>
+              <option value="CARD">Credit / Debit Card</option>
+              <option value="CASH">Cash</option>
+            </select>
+          </div>
+          <button className="flow-btn success" onClick={payAndExitVehicle} disabled={entryLoading}>
+            💳 2. Pay ₹{scanPreview.amount?.toFixed(2)} & Open Gate
+          </button>
         </div>
       )}
     </div>

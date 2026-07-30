@@ -62,18 +62,46 @@ public class ParkingLotService {
         return ticket;
     }
 
-    public Ticket exit(String gateId, String ticketNumber) {
-        return exit(gateId, ticketNumber, "HOURLY");
-    }
-
-    public Ticket exit(String gateId, String ticketNumber, String pricingStrategyName) {
+    // Step 1: Scan Ticket at Exit Gate (Calculates & shows price preview, spot NOT released yet)
+    public Ticket scanTicket(String gateId, String ticketNumber, String pricingStrategyName) {
         Gate gate = repository.getGate(gateId);
         if (gate == null) throw new IllegalArgumentException("Invalid gate: " + gateId);
         if (gate.getType() != Gate.GateType.EXIT) throw new IllegalArgumentException("Not an exit gate");
 
         Ticket ticket = repository.getTicket(ticketNumber);
         if (ticket == null) throw new IllegalArgumentException("Invalid ticket: " + ticketNumber);
-        if (ticket.getExitTime() != null) throw new IllegalStateException("Ticket already used for exit");
+        if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
+            throw new IllegalStateException("Ticket already used for exit / paid");
+        }
+
+        Ticket previewTicket = new Ticket(
+                ticket.getTicketNumber(),
+                ticket.getVehicleNumber(),
+                ticket.getVehicleType(),
+                ticket.getSpotId(),
+                ticket.getEntryTime()
+        );
+        previewTicket.setExitTime(LocalDateTime.now());
+
+        PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
+        double amount = pricingStrategy.calculatePrice(previewTicket);
+        previewTicket.setAmount(amount);
+        previewTicket.setPaymentStatus(Ticket.PaymentStatus.UNPAID);
+
+        return previewTicket;
+    }
+
+    // Step 2: Pay Price and Complete Exit (Releases spot and marks paid)
+    public Ticket payAndExit(String gateId, String ticketNumber, String pricingStrategyName, String paymentMethod) {
+        Gate gate = repository.getGate(gateId);
+        if (gate == null) throw new IllegalArgumentException("Invalid gate: " + gateId);
+        if (gate.getType() != Gate.GateType.EXIT) throw new IllegalArgumentException("Not an exit gate");
+
+        Ticket ticket = repository.getTicket(ticketNumber);
+        if (ticket == null) throw new IllegalArgumentException("Invalid ticket: " + ticketNumber);
+        if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
+            throw new IllegalStateException("Ticket already used for exit");
+        }
 
         LocalDateTime exitTime = LocalDateTime.now();
         ticket.setExitTime(exitTime);
@@ -81,11 +109,22 @@ public class ParkingLotService {
         PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
         double amount = pricingStrategy.calculatePrice(ticket);
         ticket.setAmount(amount);
+        ticket.setPaymentStatus(Ticket.PaymentStatus.PAID);
+        ticket.setPaymentMethod(paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "CASH");
 
         repository.updateTicket(ticket);
         repository.releaseSpot(ticket.getSpotId());
 
         return ticket;
+    }
+
+    // Single-step Exit for backwards compatibility
+    public Ticket exit(String gateId, String ticketNumber) {
+        return exit(gateId, ticketNumber, "HOURLY");
+    }
+
+    public Ticket exit(String gateId, String ticketNumber, String pricingStrategyName) {
+        return payAndExit(gateId, ticketNumber, pricingStrategyName, "CASH");
     }
 
     public List<Gate> getGates() {

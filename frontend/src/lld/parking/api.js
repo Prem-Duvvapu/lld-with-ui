@@ -5,11 +5,29 @@ export async function getGates() {
   return res.json();
 }
 
-export async function vehicleEntry(gateId, vehicleNumber, vehicleType) {
+export async function vehicleEntry(gateId, vehicleNumber, vehicleType, strategy = 'NEAREST') {
   const res = await fetch(`${BASE_URL}/entry`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gateId, vehicleNumber, vehicleType }),
+    body: JSON.stringify({ gateId, vehicleNumber, vehicleType, strategy }),
+  });
+  return res.json();
+}
+
+export async function scanVehicleExit(gateId, ticketNumber, pricingStrategy = 'HOURLY') {
+  const res = await fetch(`${BASE_URL}/exit/scan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gateId, ticketNumber, pricingStrategy }),
+  });
+  return res.json();
+}
+
+export async function payVehicleExit(gateId, ticketNumber, pricingStrategy = 'HOURLY', paymentMethod = 'UPI') {
+  const res = await fetch(`${BASE_URL}/exit/pay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gateId, ticketNumber, pricingStrategy, paymentMethod }),
   });
   return res.json();
 }

@@ -20,11 +20,17 @@ public class Ticket {
     private LocalDateTime exitTime;
     private double amount;
 
+    public enum PaymentStatus { UNPAID, PAID }
+
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
+    private String paymentMethod;
+
     public Ticket(String ticketNumber, String vehicleNumber, VehicleType vehicleType, String spotId, LocalDateTime entryTime) {
         this.ticketNumber = ticketNumber;
         this.vehicleNumber = vehicleNumber;
         this.vehicleType = vehicleType;
         this.spotId = spotId;
         this.entryTime = entryTime;
+        this.paymentStatus = PaymentStatus.UNPAID;
     }
 }

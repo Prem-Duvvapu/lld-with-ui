@@ -39,6 +39,33 @@ public class ParkingLotController {
         }
     }
 
+    @PostMapping("/exit/scan")
+    public ResponseEntity<?> scanExit(@RequestBody Map<String, String> request) {
+        try {
+            String gateId = request.get("gateId");
+            String ticketNumber = request.get("ticketNumber");
+            String pricingStrategy = request.getOrDefault("pricingStrategy", "HOURLY");
+            Ticket preview = service.scanTicket(gateId, ticketNumber, pricingStrategy);
+            return ResponseEntity.ok(preview);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/exit/pay")
+    public ResponseEntity<?> payExit(@RequestBody Map<String, String> request) {
+        try {
+            String gateId = request.get("gateId");
+            String ticketNumber = request.get("ticketNumber");
+            String pricingStrategy = request.getOrDefault("pricingStrategy", "HOURLY");
+            String paymentMethod = request.getOrDefault("paymentMethod", "CASH");
+            Ticket ticket = service.payAndExit(gateId, ticketNumber, pricingStrategy, paymentMethod);
+            return ResponseEntity.ok(ticket);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/exit")
     public ResponseEntity<?> exit(@RequestBody Map<String, String> request) {
         try {
