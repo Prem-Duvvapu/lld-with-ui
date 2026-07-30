@@ -7,6 +7,7 @@ import com.lld.parkinglot.strategy.FarthestSpotStrategy;
 import com.lld.parkinglot.strategy.NearestSpotStrategy;
 import com.lld.parkinglot.strategy.SpotAssignmentStrategy;
 import com.lld.parkinglot.strategy.SpotAssignmentStrategyFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,7 @@ public class ParkingLotService {
     private final ParkingLotRepository repository;
     private final SpotAssignmentStrategyFactory strategyFactory;
 
+    @Autowired
     public ParkingLotService(ParkingLotRepository repository, SpotAssignmentStrategyFactory strategyFactory) {
         this.repository = repository;
         this.strategyFactory = strategyFactory;
