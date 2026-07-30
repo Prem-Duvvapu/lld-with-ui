@@ -3,36 +3,31 @@ package com.lld.parkinglot.service;
 import com.lld.parkinglot.dto.ParkingSpotRequestDto;
 import com.lld.parkinglot.model.*;
 import com.lld.parkinglot.repository.ParkingLotRepository;
-import com.lld.parkinglot.strategy.FarthestSpotStrategy;
-import com.lld.parkinglot.strategy.NearestSpotStrategy;
-import com.lld.parkinglot.strategy.SpotAssignmentStrategy;
-import com.lld.parkinglot.strategy.SpotAssignmentStrategyFactory;
+import com.lld.parkinglot.strategy.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
 public class ParkingLotService {
 
-    private static final double HOURLY_RATE_CAR = 20.0;
-    private static final double HOURLY_RATE_BIKE = 10.0;
-    private static final double HOURLY_RATE_TRUCK = 40.0;
-
     private final ParkingLotRepository repository;
-    private final SpotAssignmentStrategyFactory strategyFactory;
+    private final SpotAssignmentStrategyFactory spotStrategyFactory;
+    private final PricingStrategyFactory pricingStrategyFactory;
 
     @Autowired
-    public ParkingLotService(ParkingLotRepository repository, SpotAssignmentStrategyFactory strategyFactory) {
+    public ParkingLotService(ParkingLotRepository repository, SpotAssignmentStrategyFactory spotStrategyFactory, PricingStrategyFactory pricingStrategyFactory) {
         this.repository = repository;
-        this.strategyFactory = strategyFactory;
+        this.spotStrategyFactory = spotStrategyFactory;
+        this.pricingStrategyFactory = pricingStrategyFactory;
     }
 
-    // Default constructor for tests or simple instantiation
     public ParkingLotService(ParkingLotRepository repository) {
-        this(repository, new SpotAssignmentStrategyFactory(new NearestSpotStrategy(), new FarthestSpotStrategy()));
+        this(repository,
+             new SpotAssignmentStrategyFactory(new NearestSpotStrategy(), new FarthestSpotStrategy()),
+             new PricingStrategyFactory(new HourlyPricingStrategy(), new FlatRatePricingStrategy(), new DynamicPricingStrategy()));
     }
 
     public Ticket entry(ParkingSpotRequestDto dto) {
@@ -54,7 +49,7 @@ public class ParkingLotService {
         if (vehicleTypeStr == null) throw new IllegalArgumentException("Vehicle type cannot be null");
         VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr.toUpperCase());
 
-        SpotAssignmentStrategy strategy = strategyFactory.getStrategy(strategyName);
+        SpotAssignmentStrategy strategy = spotStrategyFactory.getStrategy(strategyName);
         ParkingSpot spot = repository.occupySpot(vehicleType, strategy);
         if (spot == null) {
             throw new IllegalStateException("No available spot for vehicle type: " + vehicleType);
@@ -68,6 +63,10 @@ public class ParkingLotService {
     }
 
     public Ticket exit(String gateId, String ticketNumber) {
+        return exit(gateId, ticketNumber, "HOURLY");
+    }
+
+    public Ticket exit(String gateId, String ticketNumber, String pricingStrategyName) {
         Gate gate = repository.getGate(gateId);
         if (gate == null) throw new IllegalArgumentException("Invalid gate: " + gateId);
         if (gate.getType() != Gate.GateType.EXIT) throw new IllegalArgumentException("Not an exit gate");
@@ -77,19 +76,13 @@ public class ParkingLotService {
         if (ticket.getExitTime() != null) throw new IllegalStateException("Ticket already used for exit");
 
         LocalDateTime exitTime = LocalDateTime.now();
-        long hours = ChronoUnit.HOURS.between(ticket.getEntryTime(), exitTime);
-        if (hours < 1) hours = 1;
-
-        double rate = switch (ticket.getVehicleType()) {
-            case CAR -> HOURLY_RATE_CAR;
-            case BIKE -> HOURLY_RATE_BIKE;
-            case TRUCK -> HOURLY_RATE_TRUCK;
-        };
-
         ticket.setExitTime(exitTime);
-        ticket.setAmount(hours * rate);
-        repository.updateTicket(ticket);
 
+        PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
+        double amount = pricingStrategy.calculatePrice(ticket);
+        ticket.setAmount(amount);
+
+        repository.updateTicket(ticket);
         repository.releaseSpot(ticket.getSpotId());
 
         return ticket;

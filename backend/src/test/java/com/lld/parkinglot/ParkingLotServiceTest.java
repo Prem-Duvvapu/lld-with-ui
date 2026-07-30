@@ -77,6 +77,20 @@ class ParkingLotServiceTest {
     }
 
     @Test
+    void exit_withFlatRatePricing_shouldCalculateFlatAmount() {
+        Ticket ticket = service.entry("G1", "CAR-FLAT", "CAR");
+        Ticket receipt = service.exit("G3", ticket.getTicketNumber(), "FLAT");
+        assertEquals(50.0, receipt.getAmount());
+    }
+
+    @Test
+    void exit_withDynamicPricing_shouldApplySurcharge() {
+        Ticket ticket = service.entry("G1", "CAR-DYNAMIC", "CAR");
+        Ticket receipt = service.exit("G3", ticket.getTicketNumber(), "DYNAMIC");
+        assertEquals(30.0, receipt.getAmount());
+    }
+
+    @Test
     void exit_shouldThrowForInvalidTicket() {
         Exception e = assertThrows(IllegalArgumentException.class, () -> service.exit("G3", "INVALID"));
         assertTrue(e.getMessage().contains("Invalid ticket"));

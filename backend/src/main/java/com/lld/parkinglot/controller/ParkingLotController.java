@@ -44,7 +44,8 @@ public class ParkingLotController {
         try {
             String gateId = request.get("gateId");
             String ticketNumber = request.get("ticketNumber");
-            Ticket ticket = service.exit(gateId, ticketNumber);
+            String pricingStrategy = request.getOrDefault("pricingStrategy", "HOURLY");
+            Ticket ticket = service.exit(gateId, ticketNumber, pricingStrategy);
             return ResponseEntity.ok(ticket);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
