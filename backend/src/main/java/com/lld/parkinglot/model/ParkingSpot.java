@@ -1,5 +1,14 @@
 package com.lld.parkinglot.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class ParkingSpot {
     private String id;
     private int floorNumber;
@@ -14,11 +23,4 @@ public class ParkingSpot {
         this.vehicleType = vehicleType;
         this.occupied = false;
     }
-
-    public String getId() { return id; }
-    public int getFloorNumber() { return floorNumber; }
-    public int getSpotNumber() { return spotNumber; }
-    public VehicleType getVehicleType() { return vehicleType; }
-    public boolean isOccupied() { return occupied; }
-    public void setOccupied(boolean occupied) { this.occupied = occupied; }
 }

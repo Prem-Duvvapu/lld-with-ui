@@ -1,7 +1,12 @@
 package com.lld.parkinglot.service;
 
+import com.lld.parkinglot.dto.ParkingSpotRequestDto;
 import com.lld.parkinglot.model.*;
 import com.lld.parkinglot.repository.ParkingLotRepository;
+import com.lld.parkinglot.strategy.FarthestSpotStrategy;
+import com.lld.parkinglot.strategy.NearestSpotStrategy;
+import com.lld.parkinglot.strategy.SpotAssignmentStrategy;
+import com.lld.parkinglot.strategy.SpotAssignmentStrategyFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -16,19 +21,39 @@ public class ParkingLotService {
     private static final double HOURLY_RATE_TRUCK = 40.0;
 
     private final ParkingLotRepository repository;
+    private final SpotAssignmentStrategyFactory strategyFactory;
 
-    public ParkingLotService(ParkingLotRepository repository) {
+    public ParkingLotService(ParkingLotRepository repository, SpotAssignmentStrategyFactory strategyFactory) {
         this.repository = repository;
+        this.strategyFactory = strategyFactory;
+    }
+
+    // Default constructor for tests or simple instantiation
+    public ParkingLotService(ParkingLotRepository repository) {
+        this(repository, new SpotAssignmentStrategyFactory(new NearestSpotStrategy(), new FarthestSpotStrategy()));
+    }
+
+    public Ticket entry(ParkingSpotRequestDto dto) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Request body cannot be null");
+        }
+        return entry(dto.getGateId(), dto.getVehicleNumber(), dto.getVehicleType(), dto.getStrategy());
     }
 
     public Ticket entry(String gateId, String vehicleNumber, String vehicleTypeStr) {
+        return entry(gateId, vehicleNumber, vehicleTypeStr, "NEAREST");
+    }
+
+    public Ticket entry(String gateId, String vehicleNumber, String vehicleTypeStr, String strategyName) {
         Gate gate = repository.getGate(gateId);
         if (gate == null) throw new IllegalArgumentException("Invalid gate: " + gateId);
         if (gate.getType() != Gate.GateType.ENTRY) throw new IllegalArgumentException("Not an entry gate");
 
+        if (vehicleTypeStr == null) throw new IllegalArgumentException("Vehicle type cannot be null");
         VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr.toUpperCase());
 
-        ParkingSpot spot = repository.occupySpot(vehicleType.name());
+        SpotAssignmentStrategy strategy = strategyFactory.getStrategy(strategyName);
+        ParkingSpot spot = repository.occupySpot(vehicleType, strategy);
         if (spot == null) {
             throw new IllegalStateException("No available spot for vehicle type: " + vehicleType);
         }

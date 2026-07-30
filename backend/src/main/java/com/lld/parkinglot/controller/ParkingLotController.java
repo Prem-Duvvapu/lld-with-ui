@@ -1,5 +1,6 @@
 package com.lld.parkinglot.controller;
 
+import com.lld.parkinglot.dto.ParkingSpotRequestDto;
 import com.lld.parkinglot.model.Floor;
 import com.lld.parkinglot.model.Gate;
 import com.lld.parkinglot.model.ParkingSpot;
@@ -8,6 +9,7 @@ import com.lld.parkinglot.service.ParkingLotService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
@@ -28,12 +30,9 @@ public class ParkingLotController {
     }
 
     @PostMapping("/entry")
-    public ResponseEntity<?> entry(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> entry(@Valid @RequestBody ParkingSpotRequestDto parkingSpotRequestDto) {
         try {
-            String gateId = request.get("gateId");
-            String vehicleNumber = request.get("vehicleNumber");
-            String vehicleType = request.get("vehicleType");
-            Ticket ticket = service.entry(gateId, vehicleNumber, vehicleType);
+            Ticket ticket = service.entry(parkingSpotRequestDto);
             return ResponseEntity.ok(ticket);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

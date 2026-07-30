@@ -4,6 +4,8 @@ import com.lld.parkinglot.model.Floor;
 import com.lld.parkinglot.model.Gate;
 import com.lld.parkinglot.model.ParkingSpot;
 import com.lld.parkinglot.model.Ticket;
+import com.lld.parkinglot.model.VehicleType;
+import com.lld.parkinglot.strategy.SpotAssignmentStrategy;
 import org.springframework.stereotype.Repository;
 
 import java.util.*;
@@ -57,13 +59,11 @@ public class ParkingLotRepository {
                 .collect(Collectors.toList());
     }
 
-    public ParkingSpot occupySpot(String vehicleTypeStr) {
+    public ParkingSpot occupySpot(VehicleType vehicleType, SpotAssignmentStrategy strategy) {
         spotLock.lock();
         try {
-            ParkingSpot spot = spots.values().stream()
-                    .filter(s -> !s.isOccupied() && s.getVehicleType().name().equalsIgnoreCase(vehicleTypeStr))
-                    .findFirst()
-                    .orElse(null);
+            List<ParkingSpot> available = getAvailableSpots();
+            ParkingSpot spot = strategy.findSpot(available, vehicleType);
             if (spot != null) {
                 spot.setOccupied(true);
             }

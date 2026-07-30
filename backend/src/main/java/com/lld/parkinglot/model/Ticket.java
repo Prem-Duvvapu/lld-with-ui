@@ -1,7 +1,16 @@
 package com.lld.parkinglot.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Ticket {
     private String ticketNumber;
     private String vehicleNumber;
@@ -18,14 +27,4 @@ public class Ticket {
         this.spotId = spotId;
         this.entryTime = entryTime;
     }
-
-    public String getTicketNumber() { return ticketNumber; }
-    public String getVehicleNumber() { return vehicleNumber; }
-    public VehicleType getVehicleType() { return vehicleType; }
-    public String getSpotId() { return spotId; }
-    public LocalDateTime getEntryTime() { return entryTime; }
-    public LocalDateTime getExitTime() { return exitTime; }
-    public void setExitTime(LocalDateTime exitTime) { this.exitTime = exitTime; }
-    public double getAmount() { return amount; }
-    public void setAmount(double amount) { this.amount = amount; }
 }

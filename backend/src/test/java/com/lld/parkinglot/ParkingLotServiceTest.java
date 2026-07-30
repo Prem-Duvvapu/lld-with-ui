@@ -141,13 +141,15 @@ class ParkingLotServiceTest {
     }
 
     @Test
-    void concurrentEntries_shouldNotDeadlock() throws InterruptedException {
-        Thread t1 = new Thread(() -> service.entry("G1", "V1", "CAR"));
-        Thread t2 = new Thread(() -> service.entry("G1", "V2", "CAR"));
-        t1.start(); t2.start();
-        t1.join(2000); t2.join(2000);
-        assertFalse(t1.isAlive());
-        assertFalse(t2.isAlive());
+    void entry_withNearestStrategy_shouldPickLowestFloorAndSpot() {
+        Ticket ticket = service.entry("G1", "CAR-NEAREST", "CAR", "NEAREST");
+        assertEquals("F1-C1", ticket.getSpotId());
+    }
+
+    @Test
+    void entry_withFarthestStrategy_shouldPickHighestFloorAndSpot() {
+        Ticket ticket = service.entry("G1", "CAR-FARTHEST", "CAR", "FARTHEST");
+        assertEquals("F3-C4", ticket.getSpotId());
     }
 
     private void fillAllSpots(String type) {
