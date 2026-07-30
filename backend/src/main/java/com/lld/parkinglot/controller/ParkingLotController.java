@@ -19,9 +19,21 @@ import java.util.Map;
 public class ParkingLotController {
 
     private final ParkingLotService service;
+    private final com.lld.parkinglot.service.ParkingLotDocumentationService docService;
 
-    public ParkingLotController(ParkingLotService service) {
+    public ParkingLotController(ParkingLotService service, com.lld.parkinglot.service.ParkingLotDocumentationService docService) {
         this.service = service;
+        this.docService = docService;
+    }
+
+    @GetMapping("/class-diagram")
+    public ResponseEntity<?> getClassDiagram() {
+        return ResponseEntity.ok(docService.getClassDiagram());
+    }
+
+    @GetMapping("/design-details")
+    public ResponseEntity<?> getDesignDetails() {
+        return ResponseEntity.ok(docService.getDesignDetails());
     }
 
     @GetMapping("/gates")

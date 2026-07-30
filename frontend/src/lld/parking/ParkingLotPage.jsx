@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { vehicleEntry, getGates, scanVehicleExit, payVehicleExit, vehicleExit, getFloors, getActiveTickets } from './api';
+import { vehicleEntry, getGates, scanVehicleExit, payVehicleExit, vehicleExit, getFloors, getActiveTickets, getParkingClassDiagram, getParkingDesignDetails } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
@@ -847,6 +847,25 @@ function AnimatedFlow() {
 
 export default function ParkingLotPage() {
   const [activeTab, setActiveTab] = useState('entry');
+  const [classDiagramData, setClassDiagramData] = useState(null);
+  const [designDetailsData, setDesignDetailsData] = useState(null);
+  const [loadingDoc, setLoadingDoc] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'diagram' && !classDiagramData) {
+      setLoadingDoc(true);
+      getParkingClassDiagram()
+        .then((data) => setClassDiagramData(data))
+        .catch((err) => console.error('Failed to load class diagram from backend API', err))
+        .finally(() => setLoadingDoc(false));
+    } else if (activeTab === 'design' && !designDetailsData) {
+      setLoadingDoc(true);
+      getParkingDesignDetails()
+        .then((data) => setDesignDetailsData(data))
+        .catch((err) => console.error('Failed to load design details from backend API', err))
+        .finally(() => setLoadingDoc(false));
+    }
+  }, [activeTab, classDiagramData, designDetailsData]);
 
   const tabs = [
     { key: 'entry', label: 'Entry' },
@@ -879,8 +898,20 @@ export default function ParkingLotPage() {
         {activeTab === 'spots' && <SpotGrid />}
         {activeTab === 'tickets' && <ActiveTickets />}
         {activeTab === 'demo' && <AnimatedFlow />}
-        {activeTab === 'diagram' && <ClassDiagram module="parking" />}
-        {activeTab === 'design' && <DesignDetails module="parking" />}
+        {activeTab === 'diagram' && (
+          loadingDoc && !classDiagramData ? (
+            <div style={{ textAlign: 'center', padding: 32, color: 'var(--info)', fontWeight: 600 }}>🔄 Loading Class Diagram from Backend API...</div>
+          ) : (
+            <ClassDiagram module="parking" customData={classDiagramData} />
+          )
+        )}
+        {activeTab === 'design' && (
+          loadingDoc && !designDetailsData ? (
+            <div style={{ textAlign: 'center', padding: 32, color: 'var(--info)', fontWeight: 600 }}>🔄 Loading Design Details from Backend API...</div>
+          ) : (
+            <DesignDetails module="parking" customData={designDetailsData} />
+          )
+        )}
       </main>
     </div>
   );

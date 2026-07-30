@@ -56,3 +56,13 @@ export async function getAvailableSpots(vehicleType) {
   const res = await fetch(`${BASE_URL}/spots/available${params}`);
   return res.json();
 }
+
+export async function getParkingClassDiagram() {
+  const res = await fetch(`${BASE_URL}/class-diagram`);
+  return res.json();
+}
+
+export async function getParkingDesignDetails() {
+  const res = await fetch(`${BASE_URL}/design-details`);
+  return res.json();
+}

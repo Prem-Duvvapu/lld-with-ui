@@ -2,8 +2,8 @@ import classDiagrams from '../data/classDiagrams';
 
 const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
 
-export default function ClassDiagram({ module }) {
-  const data = classDiagrams[module];
+export default function ClassDiagram({ module, customData }) {
+  const data = customData || classDiagrams[module];
   if (!data) return null;
 
   const { title, classes, relationships } = data;

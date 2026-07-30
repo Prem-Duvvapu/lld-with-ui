@@ -99,8 +99,8 @@ const altLabel = {
   fontSize: 11, color: 'var(--warning)', fontWeight: 700, marginTop: 6, marginBottom: 2,
 };
 
-export default function DesignDetails({ module }) {
-  const data = designDetails[module];
+export default function DesignDetails({ module, customData }) {
+  const data = customData || designDetails[module];
   if (!data) return <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: 14 }}>Design details not available for this module yet.</div>;
 
   const diffColor = (d) => {
