@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide, verifyOtp } from './api';
+import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide, verifyOtp, getUserRides } from './api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -181,11 +181,27 @@ function BookRide({ onRideBooked }) {
   const [dropoff, setDropoff] = useState(LOCATIONS[1].label);
   const [vehicleType, setVehicleType] = useState('UBER_GO');
   const [estimate, setEstimate] = useState(null);
-  const [result, setResult] = useState(null);
+  const [activeRide, setActiveRide] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const locMap = Object.fromEntries(LOCATIONS.map((l) => [l.label, l]));
+
+  // Poll active rides for rider
+  const fetchActiveRide = useCallback(async () => {
+    try {
+      const rides = await getUserRides(USER_ID);
+      if (Array.isArray(rides) && rides.length > 0) {
+        const ongoing = rides.find((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED');
+        if (ongoing) setActiveRide(ongoing);
+      }
+    } catch {
+      // silent polling
+    }
+  }, []);
+
+  usePolling(fetchActiveRide, 3000, []);
 
   const handleEstimate = async () => {
     setError('');
@@ -204,14 +220,15 @@ function BookRide({ onRideBooked }) {
   };
 
   const handleBook = async () => {
-    setError(''); setResult(null); setLoading(true);
+    setError(''); setLoading(true);
     const p = locMap[pickup]; const d = locMap[dropoff];
     try {
       const data = await requestRide(USER_ID, p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType);
       if (data.error) {
         setError(data.error); toast.error(data.error);
       } else {
-        setResult(data); if (onRideBooked) onRideBooked();
+        setActiveRide(data);
+        if (onRideBooked) onRideBooked();
         toast.success(`Trip Requested (${data.id})! Available for nearby drivers to Accept/Decline.`);
       }
     } catch (err) {
@@ -222,77 +239,189 @@ function BookRide({ onRideBooked }) {
     }
   };
 
+  const handlePay = async () => {
+    if (!activeRide) return;
+    try {
+      const res = await completeTrip(activeRide.id, paymentMethod);
+      setActiveRide(null);
+      setEstimate(null);
+      toast.success(`🎉 Payment of ₹${res.fare?.toFixed(2)} successful via ${paymentMethod}! Trip completed.`);
+    } catch (err) {
+      toast.error(err.message || 'Payment failed');
+    }
+  };
+
+  const getCarPos = (status) => {
+    switch (status) {
+      case 'REQUESTED': return 50;
+      case 'ACCEPTED': return 290;
+      case 'ONGOING': return 520;
+      case 'COMPLETED': return 740;
+      default: return 50;
+    }
+  };
+
   return (
-    <div style={{ maxWidth: 650, margin: '0 auto' }}>
+    <div style={{ maxWidth: 750, margin: '0 auto' }}>
+      {/* Live Map Scene if Active Ride exists */}
+      {activeRide && (
+        <div className="uber-flow-scene">
+          <div className="uber-city-skyline">
+            <span>🏢</span><span>🏬</span><span>🏫</span><span>🏦</span><span>🏪</span><span>🏢</span><span>🏥</span>
+          </div>
+          <div className="uber-street-lamps">
+            <span>💡</span><span>💡</span><span>💡</span><span>💡</span><span>💡</span><span>💡</span>
+          </div>
+          <div className="uber-road">
+            <div className="uber-road-line"></div>
+            <div className="uber-zebra-crossing" style={{ left: 290 }}></div>
+            <div className="uber-zebra-crossing" style={{ left: 740 }}></div>
+          </div>
+          <div className="uber-suburbs-bottom">
+            <span>🏡</span><span>🌳</span><span>🏠</span><span>🌲</span><span>🏡</span><span>🌳</span><span>🏢</span>
+          </div>
+
+          <div className="uber-flow-map">
+            <div className="uber-flow-marker pickup" style={{ left: 280, top: 95 }}>
+              📍 Pickup ({activeRide.pickup?.label || pickup})
+            </div>
+            <div className="uber-flow-marker drop" style={{ left: 730, top: 95 }}>
+              🏁 Dropoff ({activeRide.dropoff?.label || dropoff})
+            </div>
+            <div className="uber-flow-car" style={{ left: getCarPos(activeRide.status) }}>
+              🚘<div className="uber-car-beam"></div>
+            </div>
+          </div>
+
+          <div className="uber-hud-overlay">
+            <div style={{ fontWeight: 800, color: '#f59e0b', marginBottom: 2 }}>
+              TRIP #{activeRide.id} - {activeRide.status}
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.85 }}>
+              Driver: <strong>{activeRide.driverName || 'Matching...'}</strong> | Fare: <strong>₹{activeRide.fare?.toFixed(2)}</strong>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card>
-        <CardHeader title="🚗 Passenger Trip Request" subtitle="Distance-based fare estimation & proximity driver matching" />
+        <CardHeader title="🚗 Passenger Trip Booking & Real-time Tracking" subtitle="Full 8-step lifecycle: Request ➔ Accept/Decline ➔ Share OTP ➔ Trip ➔ Payment" />
         <CardBody>
-          <div className="form-row">
-            <div style={{ flex: 1 }}>
-              <Select label="Pickup Location" value={pickup} onChange={(e) => { setPickup(e.target.value); setEstimate(null); }}>
-                {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
-              </Select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <Select label="Dropoff Location" value={dropoff} onChange={(e) => { setDropoff(e.target.value); setEstimate(null); }}>
-                {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
-              </Select>
-            </div>
-          </div>
-
-          <label style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 8, color: 'var(--text-primary)' }}>
-            Select Ride Type
-          </label>
-
-          <div className="vehicle-types">
-            {VEHICLES.map((v) => (
-              <div key={v.type} className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`} onClick={() => { setVehicleType(v.type); setEstimate(null); }}>
-                <div className="v-icon">{v.icon}</div>
-                <div className="v-name">{v.label}</div>
-                <div className="v-rate">{v.rate}</div>
-              </div>
-            ))}
-          </div>
-
-          {!estimate ? (
-            <Button variant="secondary" onClick={handleEstimate} style={{ width: '100%' }}>
-              Calculate Fare & Check Available Drivers
-            </Button>
-          ) : (
+          {!activeRide ? (
             <div>
-              <div className="estimate-card">
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>Trip Fare & Driver Proximity</h3>
-                <div className="estimate-detail"><span>Distance</span><strong>{estimate.distanceKm?.toFixed(1)} km</strong></div>
-                <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.fare?.toFixed(2)}</strong></div>
-                <div className="estimate-detail">
-                  <span>Driver Availability</span>
-                  <strong>{estimate.driversAvailable ? `Nearest Driver: ${estimate.nearestDriverName || 'Available'} (${estimate.driverDistanceKm} km away)` : 'No Drivers Nearby'}</strong>
+              <div className="form-row">
+                <div style={{ flex: 1 }}>
+                  <Select label="Pickup Location" value={pickup} onChange={(e) => { setPickup(e.target.value); setEstimate(null); }}>
+                    {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
+                  </Select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Select label="Dropoff Location" value={dropoff} onChange={(e) => { setDropoff(e.target.value); setEstimate(null); }}>
+                    {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
+                  </Select>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                <Button variant="primary" loading={loading} onClick={handleBook} style={{ flex: 1 }}>
-                  Confirm & Send Request to Drivers
+              <label style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 8, color: 'var(--text-primary)' }}>
+                Select Ride Type
+              </label>
+
+              <div className="vehicle-types">
+                {VEHICLES.map((v) => (
+                  <div key={v.type} className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`} onClick={() => { setVehicleType(v.type); setEstimate(null); }}>
+                    <div className="v-icon">{v.icon}</div>
+                    <div className="v-name">{v.label}</div>
+                    <div className="v-rate">{v.rate}</div>
+                  </div>
+                ))}
+              </div>
+
+              {!estimate ? (
+                <Button variant="secondary" onClick={handleEstimate} style={{ width: '100%' }}>
+                  1. Calculate Fare Estimate
                 </Button>
-                <Button variant="secondary" onClick={() => setEstimate(null)}>
-                  Recalculate
-                </Button>
+              ) : (
+                <div>
+                  <div className="estimate-card">
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>Trip Summary</h3>
+                    <div className="estimate-detail"><span>Distance</span><strong>{estimate.distanceKm?.toFixed(1)} km</strong></div>
+                    <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.fare?.toFixed(2)}</strong></div>
+                    <div className="estimate-detail">
+                      <span>Nearest Driver</span>
+                      <strong>{estimate.driversAvailable ? `${estimate.nearestDriverName || 'Available'} (${estimate.driverDistanceKm} km away)` : 'No Drivers Nearby'}</strong>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                    <Button variant="primary" loading={loading} onClick={handleBook} style={{ flex: 1 }}>
+                      2. Confirm & Request Ride
+                    </Button>
+                    <Button variant="secondary" onClick={() => setEstimate(null)}>
+                      Recalculate
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              {/* Active Trip Tracker Card */}
+              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 12, border: '1px solid var(--border-primary)', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <span style={{ fontSize: 16, fontWeight: 800 }}>Trip #{activeRide.id}</span>
+                  <Badge variant={activeRide.status === 'ACCEPTED' ? 'success' : activeRide.status === 'ONGOING' ? 'warning' : 'info'}>
+                    {activeRide.status}
+                  </Badge>
+                </div>
+
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>
+                  📍 <strong>Pickup:</strong> {activeRide.pickup?.label} ➔ 🏁 <strong>Dropoff:</strong> {activeRide.dropoff?.label} ({activeRide.distanceKm?.toFixed(1)} km)
+                </div>
+
+                {activeRide.status === 'REQUESTED' && (
+                  <div style={{ padding: 12, background: 'var(--warning-bg)', borderRadius: 8, border: '1px solid var(--warning)', fontSize: 13, color: 'var(--warning)', marginTop: 8 }}>
+                    ⏳ <strong>Waiting for Driver Acceptance:</strong> Request broadcasted to nearby drivers. Switch to the <strong>Driver Dashboard</strong> tab to Accept or Decline this request!
+                    {activeRide.otp && <div style={{ fontSize: 14, marginTop: 6, fontWeight: 700 }}>🔑 Your Secret OTP: <span style={{ fontSize: 18, color: 'var(--accent)' }}>{activeRide.otp}</span></div>}
+                  </div>
+                )}
+
+                {activeRide.status === 'ACCEPTED' && (
+                  <div style={{ padding: 12, background: 'var(--success-bg)', borderRadius: 8, border: '1px solid var(--success)', fontSize: 13, color: 'var(--success)', marginTop: 8 }}>
+                    ✅ <strong>Driver Assigned:</strong> {activeRide.driverName} ({activeRide.vehicleNumber || 'KA-01-AB-1234'}). Driver is reaching pickup!
+                    {activeRide.otp && <div style={{ fontSize: 14, marginTop: 6, fontWeight: 700, color: 'var(--text-primary)' }}>🔑 Share OTP with Driver: <span style={{ fontSize: 20, color: 'var(--accent)' }}>{activeRide.otp}</span></div>}
+                  </div>
+                )}
+
+                {activeRide.status === 'ONGOING' && (
+                  <div style={{ padding: 12, background: 'var(--info-bg)', borderRadius: 8, border: '1px solid var(--info)', fontSize: 13, color: 'var(--info)', marginTop: 8 }}>
+                    🚕 <strong>Trip Ongoing:</strong> En route to {activeRide.dropoff?.label}. Driver: {activeRide.driverName}.
+                  </div>
+                )}
+
+                {/* Rider Checkout / Payment Section when Completed */}
+                {activeRide.status === 'COMPLETED' && (
+                  <div style={{ marginTop: 12, padding: 16, background: 'var(--bg-card)', borderRadius: 8, border: '2px solid var(--success)' }}>
+                    <h4 style={{ color: 'var(--success)', marginBottom: 8 }}>🏁 Arrived at Destination! Please Complete Payment</h4>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--success)', marginBottom: 12 }}>
+                      Total Fare Bill: ₹{activeRide.fare?.toFixed(2)}
+                    </div>
+                    <div className="form-row" style={{ alignItems: 'center' }}>
+                      <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }}>
+                        <option value="UPI">UPI / Google Pay</option>
+                        <option value="CARD">Credit / Debit Card</option>
+                        <option value="CASH">Cash</option>
+                      </select>
+                      <Button variant="success" style={{ flex: 1 }} onClick={handlePay}>
+                        💳 Pay ₹{activeRide.fare?.toFixed(2)} & Finish
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {error && <div style={{ marginTop: 12, padding: 10, background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 6 }}>{error}</div>}
-
-          {result && (
-            <div style={{ marginTop: 16, padding: 16, background: 'var(--success-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)' }}>
-              <h3 style={{ color: 'var(--success)', marginBottom: 8 }}>✅ Ride Requested Successfully!</h3>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Trip ID: <strong>{result.id}</strong></div>
-              {result.otp && <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>Secret OTP: <strong style={{ color: 'var(--accent)', fontSize: 16 }}>{result.otp}</strong></div>}
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
-                Status: <Badge variant={result.status === 'ACCEPTED' ? 'success' : 'info'}>{result.status}</Badge>
-              </div>
-            </div>
-          )}
         </CardBody>
       </Card>
     </div>
@@ -305,6 +434,7 @@ function DriverDashboard() {
   const [selectedDriverId, setSelectedDriverId] = useState('');
   const [availableRequests, setAvailableRequests] = useState([]);
   const [rides, setRides] = useState([]);
+  const [driverOtpInput, setDriverOtpInput] = useState({});
   const [loading, setLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('UPI');
 
@@ -335,8 +465,8 @@ function DriverDashboard() {
     }
   }, [selectedDriverId]);
 
-  usePolling(fetchData, 4000, []);
-  usePolling(fetchDriverRequests, 3000, [selectedDriverId]);
+  usePolling(fetchData, 3000, []);
+  usePolling(fetchDriverRequests, 2500, [selectedDriverId]);
 
   const handleStatusChange = async (driverId, status) => {
     try {
@@ -371,20 +501,26 @@ function DriverDashboard() {
     }
   };
 
-  const handleStartTrip = async (rideId) => {
+  const handleVerifyDriverOtp = async (rideId) => {
+    const input = (driverOtpInput[rideId] || '').trim();
+    if (!input) {
+      toast.error('Please enter the 4-digit OTP shared by rider');
+      return;
+    }
     try {
-      await startTrip(rideId);
-      toast.success('Trip started! ONGOING');
+      const res = await verifyOtp(rideId, input);
+      toast.success(`✅ OTP Verified! Trip #${res.id} is now ONGOING`);
       fetchData();
     } catch (err) {
-      toast.error(err.message || 'Failed to start trip');
+      const msg = typeof err === 'object' && err !== null ? (err.message || 'Invalid OTP verification') : String(err);
+      toast.error(`❌ ${msg}`);
     }
   };
 
   const handleCompleteTrip = async (rideId) => {
     try {
       const res = await completeTrip(rideId, paymentMethod);
-      toast.success(`Trip completed! Payment of ₹${res.fare?.toFixed(2)} processed via ${paymentMethod}`);
+      toast.success(`Trip #${res.id} marked COMPLETED! Payment of ₹${res.fare?.toFixed(2)} requested.`);
       fetchData();
     } catch (err) {
       toast.error(err.message || 'Failed to complete trip');
@@ -485,17 +621,8 @@ function DriverDashboard() {
 
       {/* Ongoing / Active Trips */}
       <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)' }}>
-        🚕 Active Trip Operations & Payment Processing
+        🚕 Active Trip Operations & OTP Verification
       </h3>
-
-      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Payment Method on Completion:</span>
-        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
-          <option value="UPI">UPI / GPay</option>
-          <option value="CARD">Credit / Debit Card</option>
-          <option value="CASH">Cash</option>
-        </select>
-      </div>
 
       {rides.filter((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED' && r.status !== 'REQUESTED').length === 0 ? (
         <EmptyState icon="🚕" title="No active ongoing trips" description="Accept an available request above to begin a trip" />
@@ -516,15 +643,30 @@ function DriverDashboard() {
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
               Assigned Driver: <strong>{r.driverName || 'Unassigned'}</strong> ({r.vehicleType})
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {r.status === 'ACCEPTED' && (
-                <Button size="sm" variant="primary" onClick={() => handleStartTrip(r.id)}>
-                  ▶️ Start Trip (ONGOING)
-                </Button>
-              )}
-              {(r.status === 'ONGOING' || r.status === 'ACCEPTED') && (
+
+            {/* OTP Verification Box for Driver when ACCEPTED */}
+            {r.status === 'ACCEPTED' && (
+              <div style={{ margin: '10px 0', padding: 12, background: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 6 }}>🔑 Verify Rider 4-Digit OTP to Start Ride:</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Enter 4-digit OTP"
+                    value={driverOtpInput[r.id] || ''}
+                    onChange={(e) => setDriverOtpInput({ ...driverOtpInput, [r.id]: e.target.value })}
+                    style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border-primary)', fontSize: 14, fontWeight: 700, width: 150, background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                  />
+                  <Button size="sm" variant="success" onClick={() => handleVerifyDriverOtp(r.id)}>
+                    Verify OTP & Start Trip
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              {r.status === 'ONGOING' && (
                 <Button size="sm" variant="success" onClick={() => handleCompleteTrip(r.id)}>
-                  💳 Process Payment & Complete
+                  🏁 Reached Destination & Request Payment
                 </Button>
               )}
               <Button size="sm" variant="danger" onClick={() => handleCancelTrip(r.id)}>
