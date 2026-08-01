@@ -5,10 +5,10 @@ export function getEstimate(pickupLat, pickupLng, pickupLabel, dropoffLat, dropo
   return apiFetch(`/uber/estimate?${params}`);
 }
 
-export function requestRide(userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType) {
+export function requestRide(userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType, fare, distanceKm) {
   return apiFetch('/uber/rides', {
     method: 'POST',
-    body: JSON.stringify({ userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType }),
+    body: JSON.stringify({ userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType, fare, distanceKm }),
   });
 }
 
@@ -24,8 +24,37 @@ export function getAllRides() {
   return apiFetch('/uber/rides');
 }
 
+export function getDriverRequests(driverId) {
+  return apiFetch(`/uber/drivers/${driverId}/requests`);
+}
+
+export function acceptRide(rideId, driverId) {
+  return apiFetch(`/uber/rides/${rideId}/accept`, {
+    method: 'PUT',
+    body: JSON.stringify({ driverId }),
+  });
+}
+
+export function declineRide(rideId, driverId) {
+  return apiFetch(`/uber/rides/${rideId}/decline`, {
+    method: 'PUT',
+    body: JSON.stringify({ driverId }),
+  });
+}
+
+export function verifyOtp(id, otp) {
+  return apiFetch(`/uber/rides/${id}/verify-otp`, {
+    method: 'PUT',
+    body: JSON.stringify({ otp }),
+  });
+}
+
 export function startTrip(id) {
   return apiFetch(`/uber/rides/${id}/start`, { method: 'PUT' });
+}
+
+export function arriveAtDestination(id) {
+  return apiFetch(`/uber/rides/${id}/arrive`, { method: 'PUT' });
 }
 
 export function completeTrip(id, paymentMethod = 'UPI') {

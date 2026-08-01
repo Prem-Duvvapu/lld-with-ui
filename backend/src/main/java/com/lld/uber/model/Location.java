@@ -1,8 +1,16 @@
 package com.lld.uber.model;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Location {
+    @JsonAlias({"lat"})
     private double latitude;
+
+    @JsonAlias({"lng"})
     private double longitude;
+
     private String label;
 
     public Location() {}
@@ -18,12 +26,6 @@ public class Location {
 
     public double getLongitude() { return longitude; }
     public void setLongitude(double longitude) { this.longitude = longitude; }
-
-    public double getLat() { return latitude; }
-    public void setLat(double lat) { this.latitude = lat; }
-
-    public double getLng() { return longitude; }
-    public void setLng(double lng) { this.longitude = lng; }
 
     public String getLabel() { return label; }
     public void setLabel(String label) { this.label = label; }

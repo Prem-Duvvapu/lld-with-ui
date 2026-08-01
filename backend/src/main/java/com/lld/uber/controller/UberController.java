@@ -2,6 +2,7 @@ package com.lld.uber.controller;
 
 import com.lld.uber.model.*;
 import com.lld.uber.service.UberService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -45,6 +46,11 @@ public class UberController {
         return service.updateDriverStatus(id, status);
     }
 
+    @GetMapping("/drivers/{driverId}/requests")
+    public List<Ride> getDriverRequests(@PathVariable String driverId) {
+        return service.getAvailableRideRequestsForDriver(driverId);
+    }
+
     @GetMapping("/estimate")
     public UberService.FareEstimate estimate(
             @RequestParam String pickupLat, @RequestParam String pickupLng, @RequestParam(defaultValue = "Pickup") String pickupLabel,
@@ -55,12 +61,26 @@ public class UberController {
 
     @PostMapping("/rides")
     public Ride requestRide(@RequestBody Map<String, String> req) {
+        Double fare = req.containsKey("fare") && req.get("fare") != null ? Double.parseDouble(req.get("fare")) : null;
+        Double distanceKm = req.containsKey("distanceKm") && req.get("distanceKm") != null ? Double.parseDouble(req.get("distanceKm")) : null;
         return service.requestRide(
                 req.getOrDefault("userId", "RIDER-001"),
                 req.get("pickupLat"), req.get("pickupLng"), req.getOrDefault("pickupLabel", "Pickup"),
                 req.get("dropoffLat"), req.get("dropoffLng"), req.getOrDefault("dropoffLabel", "Dropoff"),
-                req.getOrDefault("vehicleType", "UBER_GO")
+                req.getOrDefault("vehicleType", "UBER_GO"),
+                fare,
+                distanceKm
         );
+    }
+
+    @PutMapping("/rides/{id}/accept")
+    public Ride acceptRide(@PathVariable String id, @RequestBody Map<String, String> body) {
+        return service.acceptRide(id, body.get("driverId"));
+    }
+
+    @PutMapping("/rides/{id}/decline")
+    public Ride declineRide(@PathVariable String id, @RequestBody Map<String, String> body) {
+        return service.declineRide(id, body.get("driverId"));
     }
 
     @PutMapping("/rides/{id}/assign")
@@ -68,9 +88,24 @@ public class UberController {
         return service.assignDriver(id, body.get("driverId"));
     }
 
+    @PutMapping("/rides/{id}/verify-otp")
+    public ResponseEntity<?> verifyOtp(@PathVariable String id, @RequestBody Map<String, String> body) {
+        try {
+            Ride ride = service.verifyOtpAndStart(id, body.get("otp"));
+            return ResponseEntity.ok(ride);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PutMapping("/rides/{id}/start")
     public Ride startTrip(@PathVariable String id) {
         return service.startTrip(id);
+    }
+
+    @PutMapping("/rides/{id}/arrive")
+    public Ride arriveAtDestination(@PathVariable String id) {
+        return service.arriveAtDestination(id);
     }
 
     @PutMapping("/rides/{id}/complete")

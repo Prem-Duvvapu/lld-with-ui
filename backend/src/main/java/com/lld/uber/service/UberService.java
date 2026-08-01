@@ -72,33 +72,42 @@ public class UberService {
 
         double baseFare = 25;
         double fare = baseFare + distance * rate;
+        int estimatedMinutes = (int) Math.round(distance * 3.0);
 
-        List<Driver> available = repository.findNearestAvailableDrivers(pickup, vehicleType, 50.0);
-        Driver nearestDriver = available.isEmpty() ? null : available.get(0);
-        double driverDistance = (nearestDriver != null && nearestDriver.getCurrentLocation() != null)
-                ? nearestDriver.getCurrentLocation().distanceTo(pickup) : 0.0;
-
-        return new FareEstimate(distance, Math.round(fare * 100.0) / 100.0, vehicleType, !available.isEmpty(), nearestDriver != null ? nearestDriver.getName() : null, Math.round(driverDistance * 10.0) / 10.0);
+        return new FareEstimate(
+                Math.round(distance * 10.0) / 10.0,
+                Math.round(fare * 100.0) / 100.0,
+                estimatedMinutes,
+                vehicleType
+        );
     }
 
     public Ride requestRide(String userId, String pickupLat, String pickupLng, String pickupLabel,
                             String dropoffLat, String dropoffLng, String dropoffLabel,
-                            String vehicleTypeStr) {
+                            String vehicleTypeStr, Double preCalculatedFare, Double preCalculatedDistanceKm) {
         Location pickup = new Location(Double.parseDouble(pickupLat), Double.parseDouble(pickupLng), pickupLabel);
         Location dropoff = new Location(Double.parseDouble(dropoffLat), Double.parseDouble(dropoffLng), dropoffLabel);
         VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr.toUpperCase());
 
-        double distance = pickup.distanceTo(dropoff);
-        double rate = switch (vehicleType) {
-            case UBER_GO -> RATE_GO;
-            case UBER_XL -> RATE_XL;
-            case UBER_PREMIUM -> RATE_PREMIUM;
-        };
-        double fare = Math.round((25 + distance * rate) * 100.0) / 100.0;
+        // Use pre-calculated fare and distance from estimate if provided by UI
+        double distanceKm = (preCalculatedDistanceKm != null && preCalculatedDistanceKm > 0)
+                ? preCalculatedDistanceKm : pickup.distanceTo(dropoff);
+
+        double fare;
+        if (preCalculatedFare != null && preCalculatedFare > 0) {
+            fare = preCalculatedFare;
+        } else {
+            double rate = switch (vehicleType) {
+                case UBER_GO -> RATE_GO;
+                case UBER_XL -> RATE_XL;
+                case UBER_PREMIUM -> RATE_PREMIUM;
+            };
+            fare = Math.round((25 + distanceKm * rate) * 100.0) / 100.0;
+        }
 
         String rideId = repository.generateRideId();
-        Ride ride = new Ride(rideId, userId, pickup, dropoff, distance, fare, vehicleType);
-        
+        Ride ride = new Ride(rideId, userId, pickup, dropoff, distanceKm, fare, vehicleType);
+
         Rider rider = repository.getRider(userId);
         if (rider != null) {
             ride.setRider(rider);
@@ -106,14 +115,21 @@ public class UberService {
         }
 
         repository.saveRide(ride);
+        return ride;
+    }
 
-        // Proximity matching: assign nearest available driver
-        List<Driver> nearestDrivers = repository.findNearestAvailableDrivers(pickup, vehicleType, 50.0);
-        if (!nearestDrivers.isEmpty()) {
-            Driver driver = nearestDrivers.get(0);
-            assignDriverToRide(ride, driver);
-        }
+    public List<Ride> getAvailableRideRequestsForDriver(String driverId) {
+        return repository.getAvailableRideRequestsForDriver(driverId);
+    }
 
+    public Ride acceptRide(String rideId, String driverId) {
+        return assignDriver(rideId, driverId);
+    }
+
+    public Ride declineRide(String rideId, String driverId) {
+        Ride ride = getRide(rideId);
+        ride.addDeclinedDriver(driverId);
+        repository.updateRide(ride);
         return ride;
     }
 
@@ -138,6 +154,14 @@ public class UberService {
         repository.updateRide(ride);
     }
 
+    public Ride verifyOtpAndStart(String rideId, String otp) {
+        Ride ride = getRide(rideId);
+        if (!ride.verifyOtp(otp)) {
+            throw new IllegalArgumentException("Invalid OTP! Verification failed.");
+        }
+        return startTrip(rideId);
+    }
+
     public Ride startTrip(String rideId) {
         Ride ride = getRide(rideId);
         if (ride.getStatus() != RideStatus.ACCEPTED && ride.getStatus() != RideStatus.REQUESTED) {
@@ -148,9 +172,19 @@ public class UberService {
         return ride;
     }
 
-    public Ride completeTrip(String rideId, String paymentMethod) {
+    public Ride arriveAtDestination(String rideId) {
         Ride ride = getRide(rideId);
         if (ride.getStatus() != RideStatus.ONGOING && ride.getStatus() != RideStatus.ACCEPTED) {
+            throw new IllegalStateException("Ride cannot be marked arrived from status: " + ride.getStatus());
+        }
+        ride.setStatus(RideStatus.PAYMENT_PENDING);
+        repository.updateRide(ride);
+        return ride;
+    }
+
+    public Ride completeTrip(String rideId, String paymentMethod) {
+        Ride ride = getRide(rideId);
+        if (ride.getStatus() != RideStatus.ONGOING && ride.getStatus() != RideStatus.ACCEPTED && ride.getStatus() != RideStatus.DESTINATION_REACHED && ride.getStatus() != RideStatus.PAYMENT_PENDING && ride.getStatus() != RideStatus.PAYMENT_FAILED) {
             throw new IllegalStateException("Ride cannot be completed from status: " + ride.getStatus());
         }
 
@@ -161,18 +195,22 @@ public class UberService {
         repository.savePayment(payment);
 
         ride.setPayment(payment);
-        ride.setStatus(RideStatus.COMPLETED);
 
-        String driverId = ride.getDriverId();
-        if (driverId != null) {
-            Driver driver = repository.getDriver(driverId);
-            if (driver != null) {
-                if (ride.getDropoff() != null) {
-                    driver.setCurrentLocation(ride.getDropoff());
+        if (payment.getStatus() == com.lld.uber.payment.PaymentStatus.COMPLETED) {
+            ride.setStatus(RideStatus.COMPLETED);
+            String driverId = ride.getDriverId();
+            if (driverId != null) {
+                Driver driver = repository.getDriver(driverId);
+                if (driver != null) {
+                    if (ride.getDropoff() != null) {
+                        driver.setCurrentLocation(ride.getDropoff());
+                    }
+                    driver.setStatus(DriverStatus.AVAILABLE);
+                    repository.updateDriver(driver);
                 }
-                driver.setStatus(DriverStatus.AVAILABLE);
-                repository.updateDriver(driver);
             }
+        } else {
+            ride.setStatus(RideStatus.PAYMENT_FAILED);
         }
 
         repository.updateRide(ride);
@@ -210,5 +248,5 @@ public class UberService {
         return repository.getAllRides();
     }
 
-    public record FareEstimate(double distanceKm, double fare, VehicleType vehicleType, boolean driversAvailable, String nearestDriverName, double driverDistanceKm) {}
+    public record FareEstimate(double distanceKm, double fare, int estimatedMinutes, VehicleType vehicleType) {}
 }

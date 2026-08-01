@@ -2,6 +2,8 @@ package com.lld.uber.model;
 
 import com.lld.uber.payment.Payment;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Ride {
     private String id;
@@ -19,6 +21,8 @@ public class Ride {
     private RideStatus status;
     private Payment payment;
     private LocalDateTime createdAt;
+    private String otp;
+    private Set<String> declinedDriverIds = new HashSet<>();
 
     public Ride() {}
 
@@ -33,6 +37,7 @@ public class Ride {
         this.vehicleType = vehicleType;
         this.status = RideStatus.REQUESTED;
         this.createdAt = LocalDateTime.now();
+        this.otp = String.format("%04d", (int)(Math.random() * 9000) + 1000);
     }
 
     public String getId() { return id; }
@@ -65,4 +70,19 @@ public class Ride {
     public void setPayment(Payment payment) { this.payment = payment; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
+
+    public String getOtp() { return otp; }
+    public void setOtp(String otp) { this.otp = otp; }
+    public boolean verifyOtp(String inputOtp) {
+        return this.otp != null && this.otp.equals(inputOtp);
+    }
+
+    public Set<String> getDeclinedDriverIds() { return declinedDriverIds; }
+    public void addDeclinedDriver(String driverId) {
+        if (declinedDriverIds == null) declinedDriverIds = new HashSet<>();
+        declinedDriverIds.add(driverId);
+    }
+    public boolean isDeclinedBy(String driverId) {
+        return declinedDriverIds != null && declinedDriverIds.contains(driverId);
+    }
 }
