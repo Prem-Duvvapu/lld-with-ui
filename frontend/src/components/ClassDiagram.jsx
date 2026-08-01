@@ -1,10 +1,45 @@
+import React, { useState, useEffect, useRef } from 'react';
 import classDiagrams from '../data/classDiagrams';
 
 const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
 
+const ALIAS_MAP = {
+  'parking-lot': 'parking',
+  'coffee-machine': 'coffee',
+  'coffeemachine': 'coffee',
+  'digital-wallet': 'wallet',
+  'digitalwallet': 'wallet',
+  'movie-ticket': 'movieticket',
+  'snake-ladders': 'snakeladders',
+  'tic-tac-toe': 'tictactoe'
+};
+
 export default function ClassDiagram({ module, customData }) {
-  const data = customData || classDiagrams[module];
-  if (!data) return null;
+  const resolvedKey = ALIAS_MAP[module] || module;
+  const camelKey = resolvedKey ? resolvedKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null;
+  const noHyphenKey = resolvedKey ? resolvedKey.replace(/-/g, '') : null;
+
+  const data = customData
+    || classDiagrams[resolvedKey]
+    || (camelKey ? classDiagrams[camelKey] : null)
+    || (noHyphenKey ? classDiagrams[noHyphenKey] : null);
+
+  const containerRef = useRef(null);
+  const [, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Force re-render after DOM layout so SVGs align with class boxes
+    const timer = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(timer);
+  }, [module]);
+
+  if (!data) {
+    return (
+      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 32, fontSize: 14 }}>
+        Class diagram not available for this module yet.
+      </div>
+    );
+  }
 
   const { title, classes, relationships } = data;
   const classColors = {};
@@ -13,7 +48,7 @@ export default function ClassDiagram({ module, customData }) {
   return (
     <div className="class-diagram-section">
       <h3 className="cd-title">{title}</h3>
-      <div className="cd-container" style={{ position: 'relative', minHeight: 400 }}>
+      <div ref={containerRef} className="cd-container" style={{ position: 'relative', minHeight: 400 }}>
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
           {classes.map((cls) => (
             <div key={cls.name} data-class={cls.name} className="cd-class-box" style={{ borderTopColor: classColors[cls.name] }}>
@@ -34,19 +69,22 @@ export default function ClassDiagram({ module, customData }) {
         </div>
         <svg className="cd-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
           {relationships.map((rel, i) => {
-            const fromEl = document.querySelector(`[data-class="${rel.from}"]`);
-            const toEl = document.querySelector(`[data-class="${rel.to}"]`);
+            const container = containerRef.current || document.querySelector('.cd-container');
+            if (!container) return null;
+            const fromEl = container.querySelector(`[data-class="${rel.from}"]`);
+            const toEl = container.querySelector(`[data-class="${rel.to}"]`);
             if (!fromEl || !toEl) return null;
+
             const fromRect = fromEl.getBoundingClientRect();
             const toRect = toEl.getBoundingClientRect();
-            const container = document.querySelector('.cd-container');
-            if (!container) return null;
             const cRect = container.getBoundingClientRect();
+
             const x1 = fromRect.left + fromRect.width / 2 - cRect.left;
             const y1 = fromRect.bottom - cRect.top;
             const x2 = toRect.left + toRect.width / 2 - cRect.left;
             const y2 = toRect.top - cRect.top;
             const midY = (y1 + y2) / 2;
+
             return (
               <g key={i}>
                 <path d={`M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`}

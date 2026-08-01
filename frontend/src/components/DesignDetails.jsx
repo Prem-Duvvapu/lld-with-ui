@@ -6,9 +6,27 @@ import PatternsTab from './design/PatternsTab';
 import PrinciplesTab from './design/PrinciplesTab';
 import ExtensibilityTab from './design/ExtensibilityTab';
 
+const ALIAS_MAP = {
+  'parking-lot': 'parking',
+  'coffee-machine': 'coffee',
+  'coffeemachine': 'coffee',
+  'digital-wallet': 'wallet',
+  'digitalwallet': 'wallet',
+  'movie-ticket': 'movieticket',
+  'snake-ladders': 'snakeladders',
+  'tic-tac-toe': 'tictactoe'
+};
+
 export default function DesignDetails({ module, customData }) {
-  const camelKey = module ? module.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null;
-  const data = customData || designDetails[module] || (camelKey ? designDetails[camelKey] : null);
+  const resolvedKey = ALIAS_MAP[module] || module;
+  const camelKey = resolvedKey ? resolvedKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null;
+  const noHyphenKey = resolvedKey ? resolvedKey.replace(/-/g, '') : null;
+
+  const data = customData
+    || designDetails[resolvedKey]
+    || (camelKey ? designDetails[camelKey] : null)
+    || (noHyphenKey ? designDetails[noHyphenKey] : null);
+
   const [subTab, setSubTab] = useState('reqs');
 
   if (!data) {

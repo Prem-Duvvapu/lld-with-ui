@@ -1,7 +1,7 @@
 import { apiFetch } from '../../utils/api';
 
-export function getEstimate(pickupLat, pickupLng, dropoffLat, dropoffLng, vehicleType) {
-  const params = new URLSearchParams({ pickupLat, pickupLng, dropoffLat, dropoffLng, vehicleType });
+export function getEstimate(pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType) {
+  const params = new URLSearchParams({ pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType });
   return apiFetch(`/uber/estimate?${params}`);
 }
 
