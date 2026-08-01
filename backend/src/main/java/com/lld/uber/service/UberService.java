@@ -72,13 +72,14 @@ public class UberService {
 
         double baseFare = 25;
         double fare = baseFare + distance * rate;
+        int estimatedMinutes = (int) Math.round(distance * 3.0);
 
-        List<Driver> available = repository.findNearestAvailableDrivers(pickup, vehicleType, 50.0);
-        Driver nearestDriver = available.isEmpty() ? null : available.get(0);
-        double driverDistance = (nearestDriver != null && nearestDriver.getCurrentLocation() != null)
-                ? nearestDriver.getCurrentLocation().distanceTo(pickup) : 0.0;
-
-        return new FareEstimate(distance, Math.round(fare * 100.0) / 100.0, vehicleType, !available.isEmpty(), nearestDriver != null ? nearestDriver.getName() : null, Math.round(driverDistance * 10.0) / 10.0);
+        return new FareEstimate(
+                Math.round(distance * 10.0) / 10.0,
+                Math.round(fare * 100.0) / 100.0,
+                estimatedMinutes,
+                vehicleType
+        );
     }
 
     public Ride requestRide(String userId, String pickupLat, String pickupLng, String pickupLabel,
@@ -225,5 +226,5 @@ public class UberService {
         return repository.getAllRides();
     }
 
-    public record FareEstimate(double distanceKm, double fare, VehicleType vehicleType, boolean driversAvailable, String nearestDriverName, double driverDistanceKm) {}
+    public record FareEstimate(double distanceKm, double fare, int estimatedMinutes, VehicleType vehicleType) {}
 }

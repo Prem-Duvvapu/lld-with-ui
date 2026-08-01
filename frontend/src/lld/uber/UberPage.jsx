@@ -229,7 +229,7 @@ function BookRide({ onRideBooked }) {
       } else {
         setActiveRide(data);
         if (onRideBooked) onRideBooked();
-        toast.success(`Trip Requested (${data.id})! Available for nearby drivers to Accept/Decline.`);
+        toast.success(`Trip Requested (${data.id})! Sent to nearby drivers.`);
       }
     } catch (err) {
       const msg = err.message || 'Failed to book ride';
@@ -298,14 +298,14 @@ function BookRide({ onRideBooked }) {
               TRIP #{activeRide.id} - {activeRide.status}
             </div>
             <div style={{ fontSize: 11, opacity: 0.85 }}>
-              Driver: <strong>{activeRide.driverName || 'Matching...'}</strong> | Fare: <strong>₹{activeRide.fare?.toFixed(2)}</strong>
+              Driver: <strong>{activeRide.driverName || 'Finding Driver...'}</strong> | Fare: <strong>₹{activeRide.fare?.toFixed(2)}</strong>
             </div>
           </div>
         </div>
       )}
 
       <Card>
-        <CardHeader title="🚗 Passenger Trip Booking & Real-time Tracking" subtitle="Full 8-step lifecycle: Request ➔ Accept/Decline ➔ Share OTP ➔ Trip ➔ Payment" />
+        <CardHeader title="🚗 Passenger Trip Booking & Real-time Tracking" subtitle="Request ride ➔ Wait for driver ➔ Share OTP ➔ Trip ➔ Payment" />
         <CardBody>
           {!activeRide ? (
             <div>
@@ -338,18 +338,15 @@ function BookRide({ onRideBooked }) {
 
               {!estimate ? (
                 <Button variant="secondary" onClick={handleEstimate} style={{ width: '100%' }}>
-                  1. Calculate Fare Estimate
+                  1. Calculate Fare & Duration
                 </Button>
               ) : (
                 <div>
                   <div className="estimate-card">
-                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>Trip Summary</h3>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>Fare & Duration Estimate</h3>
                     <div className="estimate-detail"><span>Distance</span><strong>{estimate.distanceKm?.toFixed(1)} km</strong></div>
+                    <div className="estimate-detail"><span>Estimated Duration</span><strong>~{estimate.estimatedMinutes || Math.round(estimate.distanceKm * 3)} mins</strong></div>
                     <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.fare?.toFixed(2)}</strong></div>
-                    <div className="estimate-detail">
-                      <span>Nearest Driver</span>
-                      <strong>{estimate.driversAvailable ? `${estimate.nearestDriverName || 'Available'} (${estimate.driverDistanceKm} km away)` : 'No Drivers Nearby'}</strong>
-                    </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
@@ -379,21 +376,22 @@ function BookRide({ onRideBooked }) {
                 </div>
 
                 {activeRide.status === 'REQUESTED' && (
-                  <div style={{ padding: 12, background: 'var(--warning-bg)', borderRadius: 8, border: '1px solid var(--warning)', fontSize: 13, color: 'var(--warning)', marginTop: 8 }}>
-                    ⏳ <strong>Waiting for Driver Acceptance:</strong> Request broadcasted to nearby drivers. Switch to the <strong>Driver Dashboard</strong> tab to Accept or Decline this request!
-                    {activeRide.otp && <div style={{ fontSize: 14, marginTop: 6, fontWeight: 700 }}>🔑 Your Secret OTP: <span style={{ fontSize: 18, color: 'var(--accent)' }}>{activeRide.otp}</span></div>}
+                  <div style={{ padding: 14, background: 'var(--warning-bg)', borderRadius: 8, border: '1px solid var(--warning)', fontSize: 13, color: 'var(--warning)', marginTop: 8 }}>
+                    ⏳ <strong>REQUEST SENT — Finding & Waiting for Nearby Drivers to Accept...</strong>
+                    <div style={{ marginTop: 6, color: 'var(--text-primary)' }}>Your ride request is available in the <strong>Driver Dashboard</strong> for drivers to Accept or Decline.</div>
+                    {activeRide.otp && <div style={{ fontSize: 14, marginTop: 8, fontWeight: 700, color: 'var(--text-primary)' }}>🔑 Your Secret OTP: <span style={{ fontSize: 20, color: 'var(--accent)' }}>{activeRide.otp}</span></div>}
                   </div>
                 )}
 
                 {activeRide.status === 'ACCEPTED' && (
-                  <div style={{ padding: 12, background: 'var(--success-bg)', borderRadius: 8, border: '1px solid var(--success)', fontSize: 13, color: 'var(--success)', marginTop: 8 }}>
-                    ✅ <strong>Driver Assigned:</strong> {activeRide.driverName} ({activeRide.vehicleNumber || 'KA-01-AB-1234'}). Driver is reaching pickup!
-                    {activeRide.otp && <div style={{ fontSize: 14, marginTop: 6, fontWeight: 700, color: 'var(--text-primary)' }}>🔑 Share OTP with Driver: <span style={{ fontSize: 20, color: 'var(--accent)' }}>{activeRide.otp}</span></div>}
+                  <div style={{ padding: 14, background: 'var(--success-bg)', borderRadius: 8, border: '1px solid var(--success)', fontSize: 13, color: 'var(--success)', marginTop: 8 }}>
+                    ✅ <strong>Driver Assigned:</strong> {activeRide.driverName} ({activeRide.vehicleNumber || 'KA-01-AB-1234'}). Driver is en route to pickup!
+                    {activeRide.otp && <div style={{ fontSize: 14, marginTop: 8, fontWeight: 700, color: 'var(--text-primary)' }}>🔑 Share Secret OTP with Driver: <span style={{ fontSize: 20, color: 'var(--accent)' }}>{activeRide.otp}</span></div>}
                   </div>
                 )}
 
                 {activeRide.status === 'ONGOING' && (
-                  <div style={{ padding: 12, background: 'var(--info-bg)', borderRadius: 8, border: '1px solid var(--info)', fontSize: 13, color: 'var(--info)', marginTop: 8 }}>
+                  <div style={{ padding: 14, background: 'var(--info-bg)', borderRadius: 8, border: '1px solid var(--info)', fontSize: 13, color: 'var(--info)', marginTop: 8 }}>
                     🚕 <strong>Trip Ongoing:</strong> En route to {activeRide.dropoff?.label}. Driver: {activeRide.driverName}.
                   </div>
                 )}
@@ -1022,7 +1020,7 @@ function InteractiveAnimatedFlow() {
                 ))}
               </div>
               <Button variant="primary" style={{ width: '100%' }} onClick={handleStep1Estimate}>
-                1. Calculate Fare & Proceed ➔
+                1. Calculate Fare & Duration ➔
               </Button>
             </div>
           )}
@@ -1037,6 +1035,7 @@ function InteractiveAnimatedFlow() {
                 <div className="estimate-card" style={{ marginBottom: 16 }}>
                   <div className="estimate-detail"><span>Pickup ➔ Dropoff</span><strong>{pickupLabel} ➔ {dropoffLabel}</strong></div>
                   <div className="estimate-detail"><span>Distance</span><strong>{estimate.distanceKm?.toFixed(1)} km</strong></div>
+                  <div className="estimate-detail"><span>Estimated Duration</span><strong>~{estimate.estimatedMinutes || Math.round(estimate.distanceKm * 3)} mins</strong></div>
                   <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.fare?.toFixed(2)}</strong></div>
                 </div>
               )}
