@@ -28,7 +28,6 @@ export default function ClassDiagram({ module, customData }) {
   const [, setMounted] = useState(false);
 
   useEffect(() => {
-    // Force re-render after DOM layout so SVGs align with class boxes
     const timer = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(timer);
   }, [module]);
@@ -41,7 +40,10 @@ export default function ClassDiagram({ module, customData }) {
     );
   }
 
-  const { title, classes, relationships } = data;
+  const title = data.title || `${module} Class Diagram`;
+  const classes = data.classes || [];
+  const relationships = data.relationships || [];
+
   const classColors = {};
   classes.forEach((c, i) => { classColors[c.name] = COLORS[i % COLORS.length]; });
 
@@ -50,22 +52,26 @@ export default function ClassDiagram({ module, customData }) {
       <h3 className="cd-title">{title}</h3>
       <div ref={containerRef} className="cd-container" style={{ position: 'relative', minHeight: 400 }}>
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
-          {classes.map((cls) => (
-            <div key={cls.name} data-class={cls.name} className="cd-class-box" style={{ borderTopColor: classColors[cls.name] }}>
-              <div className="cd-class-header" style={{ background: classColors[cls.name] }}>
-                {cls.stereotype && <span className="cd-stereotype">&lt;&lt;{cls.stereotype}&gt;&gt;</span>}
-                <span className="cd-class-name">{cls.name}</span>
+          {classes.map((cls) => {
+            const fields = Array.isArray(cls.fields) ? cls.fields : [];
+            const methods = Array.isArray(cls.methods) ? cls.methods : [];
+            return (
+              <div key={cls.name} data-class={cls.name} className="cd-class-box" style={{ borderTopColor: classColors[cls.name] }}>
+                <div className="cd-class-header" style={{ background: classColors[cls.name] }}>
+                  {cls.stereotype && <span className="cd-stereotype">&lt;&lt;{cls.stereotype}&gt;&gt;</span>}
+                  <span className="cd-class-name">{cls.name}</span>
+                </div>
+                <div className="cd-class-section">
+                  {fields.map((f, i) => <div key={i} className="cd-field">{f}</div>)}
+                  {fields.length === 0 && <div className="cd-empty">—</div>}
+                </div>
+                <div className="cd-class-section">
+                  {methods.map((m, i) => <div key={i} className="cd-method">{m}</div>)}
+                  {methods.length === 0 && <div className="cd-empty">—</div>}
+                </div>
               </div>
-              <div className="cd-class-section">
-                {cls.fields.map((f, i) => <div key={i} className="cd-field">{f}</div>)}
-                {cls.fields.length === 0 && <div className="cd-empty">—</div>}
-              </div>
-              <div className="cd-class-section">
-                {cls.methods.map((m, i) => <div key={i} className="cd-method">{m}</div>)}
-                {cls.methods.length === 0 && <div className="cd-empty">—</div>}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         <svg className="cd-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
           {relationships.map((rel, i) => {
