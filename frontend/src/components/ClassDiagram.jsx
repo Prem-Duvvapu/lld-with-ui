@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import classDiagrams from '../data/classDiagrams';
 
 const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
@@ -25,15 +25,15 @@ export default function ClassDiagram({ module, customData }) {
     || (noHyphenKey ? classDiagrams[noHyphenKey] : null);
 
   const containerRef = useRef(null);
-  const [, setMounted] = useState(false);
-  const [activeClass, setActiveClass] = useState(null);
+  const [hoveredClass, setHoveredClass] = useState(null);
+  const [selectedClass, setSelectedClass] = useState(null);
   const [viewMode, setViewMode] = useState('graph'); // 'graph' or 'list'
   const [lineCoords, setLineCoords] = useState([]);
 
   const classes = data?.classes || [];
   const relationships = data?.relationships || [];
 
-  const updateLineCoords = () => {
+  const updateLineCoords = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
     const cRect = container.getBoundingClientRect();
@@ -86,20 +86,28 @@ export default function ClassDiagram({ module, customData }) {
     }).filter(Boolean);
 
     setLineCoords(newCoords);
-  };
+  }, [relationships]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setMounted(true);
       updateLineCoords();
-    }, 80);
+    }, 100);
+
+    const observer = new ResizeObserver(() => {
+      updateLineCoords();
+    });
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
+    }
 
     window.addEventListener('resize', updateLineCoords);
     return () => {
       clearTimeout(timer);
+      observer.disconnect();
       window.removeEventListener('resize', updateLineCoords);
     };
-  }, [module, viewMode]);
+  }, [module, viewMode, updateLineCoords]);
 
   if (!data) {
     return (
@@ -113,22 +121,43 @@ export default function ClassDiagram({ module, customData }) {
   const classColors = {};
   classes.forEach((c, i) => { classColors[c.name] = COLORS[i % COLORS.length]; });
 
+  const activeTarget = selectedClass || hoveredClass;
+
   const isClassHighlighted = (className) => {
-    if (!activeClass) return true;
-    if (activeClass === className) return true;
-    return relationships.some(r => (r.from === activeClass && r.to === className) || (r.to === activeClass && r.from === className));
+    if (!activeTarget) return true;
+    if (activeTarget === className) return true;
+    return relationships.some(r => (r.from === activeTarget && r.to === className) || (r.to === activeTarget && r.from === className));
   };
 
   const isRelHighlighted = (rel) => {
-    if (!activeClass) return true;
-    return rel.from === activeClass || rel.to === activeClass;
+    if (!activeTarget) return true;
+    return rel.from === activeTarget || rel.to === activeTarget;
+  };
+
+  const handleClassClick = (className) => {
+    if (selectedClass === className) {
+      setSelectedClass(null);
+    } else {
+      setSelectedClass(className);
+    }
   };
 
   return (
     <div className="class-diagram-section">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <h3 className="cd-title" style={{ margin: 0 }}>{title}</h3>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {selectedClass && (
+            <button
+              onClick={() => setSelectedClass(null)}
+              style={{
+                padding: '4px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                border: '1px solid var(--accent)', background: 'var(--bg-tertiary)', color: 'var(--accent)'
+              }}
+            >
+              Selected: <strong>{selectedClass}</strong> ✖ Clear
+            </button>
+          )}
           <button
             onClick={() => setViewMode('graph')}
             style={{
@@ -155,7 +184,7 @@ export default function ClassDiagram({ module, customData }) {
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 16 }}>
-        💡 <em>Hover or click any class box to highlight its specific connections.</em>
+        💡 <em>Hover or click any class box to isolate and highlight its specific connections.</em>
       </p>
 
       {viewMode === 'list' ? (
@@ -185,6 +214,8 @@ export default function ClassDiagram({ module, customData }) {
               const fields = Array.isArray(cls.fields) ? cls.fields : [];
               const methods = Array.isArray(cls.methods) ? cls.methods : [];
               const highlighted = isClassHighlighted(cls.name);
+              const isSelected = selectedClass === cls.name;
+              const isHovered = hoveredClass === cls.name;
 
               return (
                 <div
@@ -193,13 +224,16 @@ export default function ClassDiagram({ module, customData }) {
                   className={`cd-class-box ${highlighted ? 'highlighted' : 'dimmed'}`}
                   style={{
                     borderTopColor: classColors[cls.name],
-                    opacity: highlighted ? 1 : 0.25,
-                    transform: activeClass === cls.name ? 'scale(1.03)' : 'none',
-                    transition: 'all 0.25s ease'
+                    opacity: highlighted ? 1 : 0.18,
+                    transform: (isSelected || isHovered) ? 'scale(1.05)' : 'none',
+                    boxShadow: (isSelected || isHovered)
+                      ? `0 0 16px ${classColors[cls.name] || 'var(--accent)'}`
+                      : 'var(--shadow-md)',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
-                  onMouseEnter={() => setActiveClass(cls.name)}
-                  onMouseLeave={() => setActiveClass(null)}
-                  onClick={() => setActiveClass(activeClass === cls.name ? null : cls.name)}
+                  onMouseEnter={() => setHoveredClass(cls.name)}
+                  onMouseLeave={() => setHoveredClass(null)}
+                  onClick={() => handleClassClick(cls.name)}
                 >
                   <div className="cd-class-header" style={{ background: classColors[cls.name] }}>
                     {cls.stereotype && <span className="cd-stereotype">&lt;&lt;{cls.stereotype}&gt;&gt;</span>}
@@ -230,12 +264,12 @@ export default function ClassDiagram({ module, customData }) {
               const midY = (y1 + y2) / 2;
 
               return (
-                <g key={i} style={{ opacity: highlighted ? 1 : 0.15, transition: 'opacity 0.25s ease' }}>
+                <g key={i} style={{ opacity: highlighted ? 1 : 0.08, transition: 'opacity 0.2s ease' }}>
                   <path
                     d={`M${x1},${y1} Q${midX},${midY} ${x2},${y2}`}
                     fill="none"
-                    stroke={highlighted ? 'var(--accent)' : 'var(--border-primary)'}
-                    strokeWidth={highlighted ? '2' : '1.5'}
+                    stroke={highlighted ? (activeTarget ? 'var(--accent)' : 'var(--border-primary)') : 'var(--border-primary)'}
+                    strokeWidth={highlighted ? (activeTarget ? '3' : '1.5') : '1'}
                     strokeDasharray={rel.dashed ? '5,4' : 'none'}
                     markerEnd="url(#cd-arrow)"
                   />
@@ -248,7 +282,7 @@ export default function ClassDiagram({ module, customData }) {
                         height="18"
                         rx="9"
                         fill="var(--bg-card)"
-                        stroke="var(--accent)"
+                        stroke={highlighted && activeTarget ? 'var(--accent)' : 'var(--border-primary)'}
                         strokeWidth="1"
                       />
                       <text
@@ -278,7 +312,7 @@ export default function ClassDiagram({ module, customData }) {
 const cdStyles = `
 .class-diagram-section { margin: 32px 0; padding: 20px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); overflow: hidden; }
 .cd-title { font-size: 16px; color: var(--info); font-weight: 700; letter-spacing: 0.5px; }
-.cd-class-box { width: 215px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-primary); border-top: 4px solid; background: var(--bg-card); box-shadow: var(--shadow-md); cursor: pointer; }
+.cd-class-box { width: 215px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-primary); border-top: 4px solid; background: var(--bg-card); box-shadow: var(--shadow-md); cursor: pointer; user-select: none; }
 .cd-class-box.highlighted { box-shadow: 0 0 12px var(--focus-ring, rgba(37,99,235,0.4)); }
 .cd-class-header { padding: 8px 10px; color: #ffffff; text-align: center; font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 .cd-stereotype { display: block; font-size: 10px; font-weight: 400; font-style: italic; opacity: 0.9; }
