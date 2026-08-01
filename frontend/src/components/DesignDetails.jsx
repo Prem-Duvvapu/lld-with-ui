@@ -7,7 +7,8 @@ import PrinciplesTab from './design/PrinciplesTab';
 import ExtensibilityTab from './design/ExtensibilityTab';
 
 export default function DesignDetails({ module, customData }) {
-  const data = customData || designDetails[module];
+  const camelKey = module ? module.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null;
+  const data = customData || designDetails[module] || (camelKey ? designDetails[camelKey] : null);
   const [subTab, setSubTab] = useState('reqs');
 
   if (!data) {

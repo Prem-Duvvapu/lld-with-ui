@@ -1,45 +1,38 @@
-const API = '/api/coffee-machine';
+import { apiFetch } from '../../utils/api';
 
-export async function getMenu() {
-  const res = await fetch(`${API}/menu`);
-  return res.json();
+export function getMenu() {
+  return apiFetch('/coffee-machine/menu');
 }
 
-export async function getStatus() {
-  const res = await fetch(`${API}/status`);
-  return res.json();
+export function getStatus() {
+  return apiFetch('/coffee-machine/status');
 }
 
-export async function selectBeverage(beverageId) {
-  const res = await fetch(`${API}/select`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function selectBeverage(beverageId) {
+  return apiFetch('/coffee-machine/select', {
+    method: 'POST',
     body: JSON.stringify({ beverageId })
   });
-  return res.json();
 }
 
-export async function brew(beverageId) {
-  const res = await fetch(`${API}/brew`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function brew(beverageId) {
+  return apiFetch('/coffee-machine/brew', {
+    method: 'POST',
     body: JSON.stringify({ beverageId })
   });
-  return res.json();
 }
 
-export async function refillIngredient(ingredient, amount) {
-  const res = await fetch(`${API}/refill`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function refillIngredient(ingredient, amount) {
+  return apiFetch('/coffee-machine/refill', {
+    method: 'POST',
     body: JSON.stringify({ ingredient, amount })
   });
-  return res.json();
 }
 
-export async function resetMachine() {
-  const res = await fetch(`${API}/reset`, { method: 'POST' });
-  return res.json();
+export function resetMachine() {
+  return apiFetch('/coffee-machine/reset', { method: 'POST' });
 }
 
-export async function getOrders() {
-  const res = await fetch(`${API}/orders`);
-  return res.json();
+export function getOrders() {
+  return apiFetch('/coffee-machine/orders');
 }

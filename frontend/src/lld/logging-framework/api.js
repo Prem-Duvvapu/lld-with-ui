@@ -1,43 +1,20 @@
-const BASE = '/api/logging';
+import { apiFetch } from '../../utils/api';
 
-export const configure = async (level) => {
-  const res = await fetch(`${BASE}/configure`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level })
-  });
-  return res.json();
-};
+export const configure = (level) => apiFetch('/logging/configure', {
+  method: 'POST',
+  body: JSON.stringify({ level })
+});
 
-export const addAppender = async (name) => {
-  const res = await fetch(`${BASE}/appender`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name })
-  });
-  return res.json();
-};
+export const addAppender = (name) => apiFetch('/logging/appender', {
+  method: 'POST',
+  body: JSON.stringify({ name })
+});
 
-export const sendLog = async (loggerName, level, message) => {
-  const res = await fetch(`${BASE}/log`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ loggerName, level, message })
-  });
-  if (res.status === 204) return null;
-  return res.json();
-};
+export const sendLog = (loggerName, level, message) => apiFetch('/logging/log', {
+  method: 'POST',
+  body: JSON.stringify({ loggerName, level, message })
+});
 
-export const getLogs = async () => {
-  const res = await fetch(`${BASE}/logs`);
-  return res.json();
-};
-
-export const getConfig = async () => {
-  const res = await fetch(`${BASE}/config`);
-  return res.json();
-};
-
-export const clearLogs = async () => {
-  await fetch(`${BASE}/clear`, { method: 'POST' });
-};
+export const getLogs = () => apiFetch('/logging/logs');
+export const getConfig = () => apiFetch('/logging/config');
+export const clearLogs = () => apiFetch('/logging/clear', { method: 'POST' });

@@ -1,40 +1,31 @@
-const API = '/api/vending-machine';
+import { apiFetch } from '../../utils/api';
 
-export async function getProducts() {
-  const res = await fetch(`${API}/products`);
-  return res.json();
+export function getProducts() {
+  return apiFetch('/vending-machine/products');
 }
 
-export async function selectProduct(productId, quantity = 1) {
-  const res = await fetch(`${API}/select`, {
+export function selectProduct(productId, quantity = 1) {
+  return apiFetch('/vending-machine/select', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ productId, quantity })
   });
-  return res.json();
 }
 
-export async function insertCoin(transactionId, amount) {
-  const res = await fetch(`${API}/${transactionId}/insert-coin`, {
+export function insertCoin(transactionId, amount) {
+  return apiFetch(`/vending-machine/${transactionId}/insert-coin`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ amount })
   });
-  return res.json();
 }
 
-export async function dispense(transactionId) {
-  const res = await fetch(`${API}/${transactionId}/dispense`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
+export function dispense(transactionId) {
+  return apiFetch(`/vending-machine/${transactionId}/dispense`, {
+    method: 'POST'
   });
-  return res.json();
 }
 
-export async function cancelTransaction(transactionId) {
-  const res = await fetch(`${API}/${transactionId}/cancel`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' }
+export function cancelTransaction(transactionId) {
+  return apiFetch(`/vending-machine/${transactionId}/cancel`, {
+    method: 'POST'
   });
-  return res.json();
 }

@@ -1,58 +1,47 @@
-const BASE = '/api/hotel';
+import { apiFetch } from '../../utils/api';
 
-export async function getHotels() {
-  const res = await fetch(`${BASE}/hotels`);
-  return res.json();
+export function getHotels() {
+  return apiFetch('/hotel/hotels');
 }
 
-export async function getHotel(id) {
-  const res = await fetch(`${BASE}/hotels/${id}`);
-  return res.json();
+export function getHotel(id) {
+  return apiFetch(`/hotel/hotels/${id}`);
 }
 
-export async function getRooms(hotelId) {
-  const res = await fetch(`${BASE}/hotels/${hotelId}/rooms`);
-  return res.json();
+export function getRooms(hotelId) {
+  return apiFetch(`/hotel/hotels/${hotelId}/rooms`);
 }
 
-export async function getAvailableRooms(hotelId, checkIn, checkOut) {
+export function getAvailableRooms(hotelId, checkIn, checkOut) {
   const params = new URLSearchParams();
   if (checkIn) params.set('checkIn', checkIn);
   if (checkOut) params.set('checkOut', checkOut);
-  const res = await fetch(`${BASE}/hotels/${hotelId}/rooms/available?${params}`);
-  return res.json();
+  return apiFetch(`/hotel/hotels/${hotelId}/rooms/available?${params}`);
 }
 
-export async function bookRoom(roomId, userId, guestName, checkIn, checkOut) {
-  const res = await fetch(`${BASE}/bookings`, {
+export function bookRoom(roomId, userId, guestName, checkIn, checkOut) {
+  return apiFetch('/hotel/bookings', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ roomId, userId, guestName, checkIn, checkOut }),
   });
-  return res.json();
 }
 
-export async function checkInBooking(id) {
-  const res = await fetch(`${BASE}/bookings/${id}/check-in`, { method: 'POST' });
-  return res.json();
+export function checkInBooking(id) {
+  return apiFetch(`/hotel/bookings/${id}/check-in`, { method: 'POST' });
 }
 
-export async function checkOutBooking(id) {
-  const res = await fetch(`${BASE}/bookings/${id}/check-out`, { method: 'POST' });
-  return res.json();
+export function checkOutBooking(id) {
+  return apiFetch(`/hotel/bookings/${id}/check-out`, { method: 'POST' });
 }
 
-export async function cancelBooking(id) {
-  const res = await fetch(`${BASE}/bookings/${id}/cancel`, { method: 'POST' });
-  return res.json();
+export function cancelBooking(id) {
+  return apiFetch(`/hotel/bookings/${id}/cancel`, { method: 'POST' });
 }
 
-export async function getBooking(id) {
-  const res = await fetch(`${BASE}/bookings/${id}`);
-  return res.json();
+export function getBooking(id) {
+  return apiFetch(`/hotel/bookings/${id}`);
 }
 
-export async function getActiveBookings() {
-  const res = await fetch(`${BASE}/bookings/active`);
-  return res.json();
+export function getActiveBookings() {
+  return apiFetch('/hotel/bookings/active');
 }

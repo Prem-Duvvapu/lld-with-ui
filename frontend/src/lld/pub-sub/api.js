@@ -1,52 +1,41 @@
-const BASE = '/api/pubsub';
+import { apiFetch } from '../../utils/api';
 
-export async function createTopic(name) {
-  const res = await fetch(`${BASE}/topic`, {
+export function createTopic(name) {
+  return apiFetch('/pubsub/topic', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   });
-  return res.json();
 }
 
-export async function createSubscriber(id, name) {
-  const res = await fetch(`${BASE}/subscriber`, {
+export function createSubscriber(id, name) {
+  return apiFetch('/pubsub/subscriber', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, name }),
   });
-  return res.json();
 }
 
-export async function subscribe(topicName, subscriberId) {
-  const res = await fetch(`${BASE}/subscribe`, {
+export function subscribe(topicName, subscriberId) {
+  return apiFetch('/pubsub/subscribe', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topicName, subscriberId }),
   });
-  return res.json();
 }
 
-export async function publish(topicName, publisherName, content) {
-  const res = await fetch(`${BASE}/publish`, {
+export function publish(topicName, publisherName, content) {
+  return apiFetch('/pubsub/publish', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topicName, publisherName, content }),
   });
-  return res.json();
 }
 
-export async function getTopics() {
-  const res = await fetch(`${BASE}/topics`);
-  return res.json();
+export function getTopics() {
+  return apiFetch('/pubsub/topics');
 }
 
-export async function getSubscribers() {
-  const res = await fetch(`${BASE}/subscribers`);
-  return res.json();
+export function getSubscribers() {
+  return apiFetch('/pubsub/subscribers');
 }
 
-export async function poll(subscriberId) {
-  const res = await fetch(`${BASE}/poll/${subscriberId}`);
-  return res.json();
+export function poll(subscriberId) {
+  return apiFetch(`/pubsub/poll/${subscriberId}`);
 }

@@ -1,38 +1,32 @@
-const API = '/api/library';
+import { apiFetch } from '../../utils/api';
 
-export async function searchBooks(q) {
+export function searchBooks(q) {
   const params = q ? `?q=${encodeURIComponent(q)}` : '';
-  const res = await fetch(`${API}/books/search${params}`);
-  return res.json();
+  return apiFetch(`/library/books/search${params}`);
 }
 
-export async function getAvailableBooks() {
-  const res = await fetch(`${API}/books/available`);
-  return res.json();
+export function getAvailableBooks() {
+  return apiFetch('/library/books/available');
 }
 
-export async function borrowBook(memberId, bookId) {
-  const res = await fetch(`${API}/borrow`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function borrowBook(memberId, bookId) {
+  return apiFetch('/library/borrow', {
+    method: 'POST',
     body: JSON.stringify({ memberId, bookId })
   });
-  return res.json();
 }
 
-export async function returnBook(recordId) {
-  const res = await fetch(`${API}/return`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function returnBook(recordId) {
+  return apiFetch('/library/return', {
+    method: 'POST',
     body: JSON.stringify({ recordId })
   });
-  return res.json();
 }
 
-export async function getMemberHistory(memberId) {
-  const res = await fetch(`${API}/members/${memberId}/history`);
-  return res.json();
+export function getMemberHistory(memberId) {
+  return apiFetch(`/library/members/${memberId}/history`);
 }
 
-export async function getMembers() {
-  const res = await fetch(`${API}/members`);
-  return res.json();
+export function getMembers() {
+  return apiFetch('/library/members');
 }

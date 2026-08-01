@@ -1,4 +1,371 @@
 const designDetails = {
+  uber: {
+    title: 'Uber Cab Booking — Design Details',
+    tldr: [
+      'Ride-hailing system with fare estimation, driver matching by vehicle type (UBER_GO, UBER_XL, UBER_PREMIUM), and ride tracking',
+      'Geospatial distance calculation (Haversine formula) for fare calculation based on pickup/dropoff coordinates',
+      'Thread-safe driver availability management and ride lifecycle state transitions (REQUESTED → ACCEPTED → IN_PROGRESS → COMPLETED / CANCELLED)',
+      'Automatic driver relocation to dropoff point upon ride completion'
+    ],
+    tradeoffs: [
+      'Used geospatial coordinate distance over flat Euclidean distance for accurate real-world distance metrics.',
+      'Chose fine-grained driver status locking during assignment to prevent double-booking drivers across concurrent ride requests.',
+      'In-memory ConcurrentHashMap for ride storage provides instant lookups and high throughput.'
+    ],
+    requirements: [
+      'Multi-vehicle support: UBER_GO (Base ₹25 + ₹12/km), UBER_XL (Base ₹25 + ₹18/km), UBER_PREMIUM (Base ₹25 + ₹25/km)',
+      'Fare estimation: Calculate distance between pickup and dropoff coordinates and compute estimate before booking',
+      'Driver assignment: Automatically match first available driver of requested vehicle type',
+      'Ride lifecycle transitions: REQUESTED → ACCEPTED → IN_PROGRESS → COMPLETED or CANCELLED',
+      'Driver availability: Assigned driver becomes unavailable until ride finishes; location updates to dropoff upon completion',
+      'User ride history: Retrieve passenger ride history sorted by timestamp'
+    ],
+    entities: [
+      {
+        name: 'UberService',
+        description: 'Core domain service. Handles fare estimation, driver matching, ride creation, and status updates.',
+        fields: [
+          { name: 'repository', type: 'UberRepository', description: 'Injected data store' },
+          { name: 'RATE_GO', type: 'double', description: 'Per km rate for UBER_GO (12.0)' },
+          { name: 'RATE_XL', type: 'double', description: 'Per km rate for UBER_XL (18.0)' },
+          { name: 'RATE_PREMIUM', type: 'double', description: 'Per km rate for UBER_PREMIUM (25.0)' }
+        ],
+        methods: [
+          { name: 'estimate(...)', returns: 'FareEstimate', description: 'Computes distance and estimated fare based on pickup & dropoff coordinates' },
+          { name: 'requestRide(...)', returns: 'Ride', description: 'Creates ride, matches available driver of matching vehicle type, updates driver status' },
+          { name: 'updateStatus(rideId, status)', returns: 'Ride', description: 'Transitions ride status. On COMPLETED/CANCELLED, releases driver and updates location' },
+          { name: 'getUserRides(userId)', returns: 'List<Ride>', description: 'Returns all rides for a given passenger' }
+        ]
+      },
+      {
+        name: 'UberRepository',
+        description: 'In-memory repository managing Drivers and Rides state with thread safety.',
+        fields: [
+          { name: 'drivers', type: 'Map<String, Driver>', description: 'LinkedHashMap of drivers keyed by ID' },
+          { name: 'rides', type: 'ConcurrentHashMap<String, Ride>', description: 'ConcurrentHashMap of all rides keyed by rideId' }
+        ],
+        methods: [
+          { name: 'getAvailableDrivers(vehicleType)', returns: 'List<Driver>', description: 'Filters drivers where available == true and vehicleType matches' },
+          { name: 'saveRide(ride)', returns: 'void', description: 'Stores ride in repository' },
+          { name: 'updateDriver(driver)', returns: 'void', description: 'Updates driver availability and location' }
+        ]
+      },
+      {
+        name: 'Location',
+        description: 'Geospatial coordinate value object containing latitude, longitude, and label.',
+        fields: [
+          { name: 'lat', type: 'double', description: 'Latitude coordinate' },
+          { name: 'lng', type: 'double', description: 'Longitude coordinate' },
+          { name: 'label', type: 'String', description: 'Human-readable address label' }
+        ],
+        methods: [
+          { name: 'distanceTo(other)', returns: 'double', description: 'Calculates distance in kilometers using Haversine formula' }
+        ]
+      },
+      {
+        name: 'Ride',
+        description: 'Entity representing a ride booking session across its lifecycle.',
+        fields: [
+          { name: 'id', type: 'String', description: 'Unique ride ID (RIDE-00001)' },
+          { name: 'userId', type: 'String', description: 'Passenger ID' },
+          { name: 'driverId', type: 'String', description: 'Assigned driver ID' },
+          { name: 'pickup', type: 'Location', description: 'Pickup location' },
+          { name: 'dropoff', type: 'Location', description: 'Dropoff location' },
+          { name: 'fare', type: 'double', description: 'Total calculated fare' },
+          { name: 'status', type: 'RideStatus', description: 'REQUESTED, ACCEPTED, IN_PROGRESS, COMPLETED, CANCELLED' }
+        ],
+        methods: []
+      }
+    ],
+    designPatterns: [
+      {
+        name: 'State Pattern / State Machine',
+        used: true,
+        explanation: 'Rides progress through strict state transitions (REQUESTED → ACCEPTED → IN_PROGRESS → COMPLETED / CANCELLED). Side-effects like driver release and relocation trigger automatically on status changes.'
+      },
+      {
+        name: 'Strategy Pattern',
+        used: true,
+        explanation: 'Fare rates and driver matching vary dynamically based on VehicleType strategies (UBER_GO, UBER_XL, UBER_PREMIUM).'
+      },
+      {
+        name: 'Repository Pattern',
+        used: true,
+        explanation: 'UberRepository encapsulates data access and storage for drivers and rides.'
+      }
+    ],
+    principles: [
+      {
+        name: 'Single Responsibility Principle (SRP)',
+        description: 'Location handles coordinate math; Driver manages vehicle state; UberService handles business logic; UberRepository manages persistence.'
+      },
+      {
+        name: 'Open/Closed Principle (OCP)',
+        description: 'New vehicle types (e.g. UBER_POOL, UBER_BLACK) can be added to VehicleType enum with custom rates without altering core ride state logic.'
+      }
+    ],
+    oopConcepts: [
+      {
+        name: 'Encapsulation & Value Objects',
+        description: 'Location is an immutable value object encapsulating distance formula calculation (`distanceTo`).'
+      },
+      {
+        name: 'Enum-based State Management',
+        description: 'RideStatus and VehicleType enums provide type-safe states and configuration lookup.'
+      }
+    ],
+    extensibility: [
+      {
+        area: 'Surge Pricing (Dynamic Strategy)',
+        description: 'Add a SurgePricingStrategy multiplier based on demand/supply ratio in a geographic cluster.',
+        difficulty: 'Medium'
+      },
+      {
+        area: 'Real-time Driver GPS Tracking',
+        description: 'Stream driver GPS coordinates during IN_PROGRESS state via WebSockets.',
+        difficulty: 'Medium'
+      },
+      {
+        area: 'Driver Rating System',
+        description: 'Allow riders to rate drivers post COMPLETED status, updating driver average rating.',
+        difficulty: 'Easy'
+      }
+    ]
+  },
+
+  zomato: {
+    title: 'Zomato Food Delivery — Design Details',
+    tldr: [
+      'Food delivery platform with restaurant catalog, menu management, order placement, and delivery tracking',
+      'Strategy Pattern for delivery fee calculation based on distance and order total',
+      'Order lifecycle state machine: PLACED → CONFIRMED → PREPARING → OUT_FOR_DELIVERY → DELIVERED',
+      'Thread-safe order processing and delivery partner assignment using ConcurrentHashMap'
+    ],
+    tradeoffs: [
+      'Used in-memory menu and restaurant catalogs for sub-millisecond retrieval speeds.',
+      'Decoupled delivery partner matching from order creation to allow asynchronous assignment.',
+      'State pattern enforcement prevents invalid status jumps (e.g., DELIVERED before PREPARING).'
+    ],
+    requirements: [
+      'Browse restaurants and menu items with prices, categories, and dietary tags',
+      'Cart management: add items, update quantities, compute total order price with delivery fee',
+      'Order placement: create order with delivery address and payment method',
+      'Order tracking: track order progress through multi-step lifecycle',
+      'Delivery partner assignment: assign delivery partner to orders marked OUT_FOR_DELIVERY'
+    ],
+    entities: [
+      {
+        name: 'ZomatoService',
+        description: 'Core domain service layer managing restaurants, menus, orders, and delivery tracking.',
+        fields: [
+          { name: 'repository', type: 'ZomatoRepository', description: 'Data repository' }
+        ],
+        methods: [
+          { name: 'getRestaurants()', returns: 'List<Restaurant>', description: 'Returns list of registered restaurants' },
+          { name: 'placeOrder(...)', returns: 'Order', description: 'Validates cart, computes total fee, and creates new order in PLACED state' },
+          { name: 'updateOrderStatus(orderId, status)', returns: 'Order', description: 'Transitions order status through valid lifecycle states' }
+        ]
+      },
+      {
+        name: 'Order',
+        description: 'Entity representing a customer order and its current status.',
+        fields: [
+          { name: 'id', type: 'String', description: 'Order ID' },
+          { name: 'restaurantId', type: 'String', description: 'Restaurant ID' },
+          { name: 'items', type: 'List<OrderItem>', description: 'List of ordered items with quantities' },
+          { name: 'totalAmount', type: 'double', description: 'Calculated total' },
+          { name: 'status', type: 'OrderStatus', description: 'PLACED, CONFIRMED, PREPARING, OUT_FOR_DELIVERY, DELIVERED' }
+        ],
+        methods: []
+      }
+    ],
+    designPatterns: [
+      { name: 'State Pattern', used: true, explanation: 'Order state transitions strictly enforced via OrderStatus enum.' },
+      { name: 'Factory Pattern', used: true, explanation: 'Order creation delegates item price calculations to MenuItem factories.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility Principle', description: 'Separate classes for Restaurant, Menu, Cart, Order, and Delivery handling.' },
+      { name: 'Open/Closed Principle', description: 'New order status triggers or discount strategies can be added without modifying order models.' }
+    ],
+    oopConcepts: [
+      { name: 'Composition', description: 'Order composes OrderItems which reference MenuItems.' }
+    ],
+    extensibility: [
+      { area: 'Coupon & Discount System', description: 'Add CouponStrategy interface for percentage and flat discounts.', difficulty: 'Easy' },
+      { area: 'Live GPS Delivery Tracking', description: 'WebSockets for streaming delivery partner location.', difficulty: 'Medium' }
+    ]
+  },
+
+  elevator: {
+    title: 'Elevator Control System — Design Details',
+    tldr: [
+      'Multi-elevator control system optimizing passenger dispatch across floors',
+      'LOOK / SCAN Algorithm for directional elevator movement and request scheduling',
+      'State Machine for Elevator states: IDLE, MOVING_UP, MOVING_DOWN, STOPPED_DOOR_OPEN',
+      'Thread-safe request handling using ReentrantLock and ConcurrentHashMap'
+    ],
+    tradeoffs: [
+      'Used LOOK algorithm over FCFS to minimize elevator travel distance and wait times.',
+      'Scheduled background simulation ticks drive elevator state updates synchronously or on timer.'
+    ],
+    requirements: [
+      'Multi-elevator dispatch across N floors (e.g. 4 elevators, 10 floors)',
+      'External floor call buttons (Up / Down)',
+      'Internal elevator destination buttons',
+      'Optimal elevator selection based on proximity and current direction',
+      'Door opening and closing lifecycle transitions'
+    ],
+    entities: [
+      {
+        name: 'ElevatorService',
+        description: 'Core controller delegating floor requests to optimal elevators.',
+        fields: [
+          { name: 'elevators', type: 'List<Elevator>', description: 'List of elevator instances' }
+        ],
+        methods: [
+          { name: 'requestElevator(floor, direction)', returns: 'void', description: 'Dispatches optimal elevator to floor request' },
+          { name: 'step() / tick()', returns: 'void', description: 'Advances all elevator positions by 1 floor unit' }
+        ]
+      }
+    ],
+    designPatterns: [
+      { name: 'Strategy Pattern', used: true, explanation: 'Elevator dispatch strategies (Proximity, SCAN algorithm).' },
+      { name: 'State Pattern', used: true, explanation: 'Elevator state transitions between IDLE, MOVING, and STOPPED.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility', description: 'Elevator Car handles state/movement; Controller dispatches requests.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Elevator internal floor queues managed via encapsulated methods.' }
+    ],
+    extensibility: [
+      { area: 'Express Elevators', description: 'Add express elevator rules for high-rise buildings.', difficulty: 'Medium' }
+    ]
+  },
+
+  stackoverflow: {
+    title: 'Stack Overflow — Design Details',
+    tldr: [
+      'Q&A platform with questions, answers, comments, voting, and reputation system',
+      'Observer Pattern for notifying question authors on new answers/comments',
+      'Thread-safe voting and accept-answer operations'
+    ],
+    tradeoffs: [
+      'In-memory ConcurrentHashMap for questions and answers ensures high read throughput.'
+    ],
+    requirements: [
+      'Post questions with tags and body text',
+      'Post answers to questions',
+      'Upvote / Downvote questions and answers',
+      'Accept correct answer (only by question author)',
+      'Search questions by tag or keyword'
+    ],
+    entities: [
+      {
+        name: 'StackOverflowService',
+        description: 'Main service managing Q&A operations.',
+        fields: [],
+        methods: [
+          { name: 'askQuestion(...)', returns: 'Question', description: 'Creates new question' },
+          { name: 'answerQuestion(...)', returns: 'Answer', description: 'Adds answer to question' },
+          { name: 'vote(...)', returns: 'void', description: 'Updates vote count on question/answer' }
+        ]
+      }
+    ],
+    designPatterns: [
+      { name: 'Observer Pattern', used: true, explanation: 'Notifies users on answer posts or votes.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility', description: 'Separate Question, Answer, Comment, and User entities.' }
+    ],
+    oopConcepts: [
+      { name: 'Inheritance / Polymorphism', description: 'Votable interface implemented by Question and Answer.' }
+    ],
+    extensibility: [
+      { area: 'Reputation System', description: 'Add user reputation score calculation rules.', difficulty: 'Easy' }
+    ]
+  },
+
+  snakeladders: {
+    title: 'Snake & Ladders — Design Details',
+    tldr: [
+      'Turn-based board game with dice rolling, snake slides, ladder climbs, and win detection',
+      'Strategy Pattern for dice rolling (Standard 6-sided vs Custom dice)',
+      'Queue-based turn management for players'
+    ],
+    tradeoffs: [
+      'Used Map lookup for snake/ladder destination cells for O(1) position calculation.'
+    ],
+    requirements: [
+      '100-cell board with configurable snakes and ladders',
+      'Queue of players taking turns',
+      'Dice roll generates random integer 1-6',
+      'Token moves by roll count; if landing on snake head → slide to tail; if ladder base → climb to top',
+      'First player to reach exactly cell 100 wins'
+    ],
+    entities: [
+      {
+        name: 'SnakeLaddersService',
+        description: 'Game logic controller.',
+        fields: [],
+        methods: [
+          { name: 'rollAndMove(gameId)', returns: 'GameState', description: 'Rolls dice and advances current player' }
+        ]
+      }
+    ],
+    designPatterns: [
+      { name: 'Strategy Pattern', used: true, explanation: 'Dice strategy abstracts dice rolling logic.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility', description: 'Board manages cell mappings; GameController manages turn flow.' }
+    ],
+    oopConcepts: [
+      { name: 'Composition', description: 'Board composes Snakes, Ladders, and Cells.' }
+    ],
+    extensibility: [
+      { area: 'Multi-dice support', description: 'Support rolling 2 dice simultaneously.', difficulty: 'Easy' }
+    ]
+  },
+
+  tictactoe: {
+    title: 'Tic Tac Toe — Design Details',
+    tldr: [
+      '2-player 3x3 grid game with turn alternation, win condition checking (rows, cols, diagonals), and draw detection',
+      'Strategy Pattern for Win Checking'
+    ],
+    tradeoffs: [
+      'Used O(1) win checking using row, col, and diagonal count arrays.'
+    ],
+    requirements: [
+      '3x3 grid for X and O symbols',
+      'Turn alternation between Player 1 and Player 2',
+      'Detect win on 3 matching symbols in any row, column, or diagonal',
+      'Detect draw when grid is full with no winner'
+    ],
+    entities: [
+      {
+        name: 'TicTacToeService',
+        description: 'Game engine for Tic Tac Toe.',
+        fields: [],
+        methods: [
+          { name: 'makeMove(gameId, row, col)', returns: 'GameState', description: 'Executes move and checks win/draw condition' }
+        ]
+      }
+    ],
+    designPatterns: [
+      { name: 'Strategy Pattern', used: true, explanation: 'WinConditionStrategy for verifying winning lines.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility', description: 'Board manages cells; Service manages game rules.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Cell state encapsulated with symbol getters/setters.' }
+    ],
+    extensibility: [
+      { area: 'NxN Grid Support', description: 'Extend board size to N x N with N-in-a-row win condition.', difficulty: 'Easy' }
+    ]
+  },
+
   parking: {
     title: 'Parking Lot — Design Details',
     tldr: [

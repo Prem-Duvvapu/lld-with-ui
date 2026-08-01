@@ -1,29 +1,23 @@
-const BASE = '/api/chess';
+import { apiFetch } from '../../utils/api';
 
-export async function createGame(playerWhite, playerBlack) {
-  const res = await fetch(`${BASE}/games`, {
+export function createGame(playerWhite, playerBlack) {
+  return apiFetch('/chess/games', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ playerWhite, playerBlack }),
   });
-  return res.json();
 }
 
-export async function getGame(id) {
-  const res = await fetch(`${BASE}/games/${id}`);
-  return res.json();
+export function getGame(id) {
+  return apiFetch(`/chess/games/${id}`);
 }
 
-export async function makeMove(gameId, fromRow, fromCol, toRow, toCol) {
-  const res = await fetch(`${BASE}/games/${gameId}/move`, {
+export function makeMove(gameId, fromRow, fromCol, toRow, toCol) {
+  return apiFetch(`/chess/games/${gameId}/move`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ fromRow, fromCol, toRow, toCol }),
   });
-  return res.json();
 }
 
-export async function getValidMoves(gameId, row, col) {
-  const res = await fetch(`${BASE}/games/${gameId}/valid-moves?row=${row}&col=${col}`);
-  return res.json();
+export function getValidMoves(gameId, row, col) {
+  return apiFetch(`/chess/games/${gameId}/valid-moves?row=${row}&col=${col}`);
 }

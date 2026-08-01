@@ -1,33 +1,26 @@
-const API = '/api/minesweeper';
+import { apiFetch } from '../../utils/api';
 
-export async function createGame(rows = 9, cols = 9, mines = 10) {
-  const res = await fetch(`${API}/games`, {
+export function createGame(rows = 9, cols = 9, mines = 10) {
+  return apiFetch('/minesweeper/games', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows, cols, mines })
   });
-  return res.json();
 }
 
-export async function getGame(gameId) {
-  const res = await fetch(`${API}/games/${gameId}`);
-  return res.json();
+export function getGame(gameId) {
+  return apiFetch(`/minesweeper/games/${gameId}`);
 }
 
-export async function revealCell(gameId, row, col) {
-  const res = await fetch(`${API}/games/${gameId}/reveal`, {
+export function revealCell(gameId, row, col) {
+  return apiFetch(`/minesweeper/games/${gameId}/reveal`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ row, col })
   });
-  return res.json();
 }
 
-export async function flagCell(gameId, row, col) {
-  const res = await fetch(`${API}/games/${gameId}/flag`, {
+export function flagCell(gameId, row, col) {
+  return apiFetch(`/minesweeper/games/${gameId}/flag`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ row, col })
   });
-  return res.json();
 }

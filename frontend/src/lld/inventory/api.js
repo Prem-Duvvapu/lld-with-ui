@@ -1,46 +1,39 @@
-const API = '/api/inventory';
+import { apiFetch } from '../../utils/api';
 
-export async function getProducts(category) {
+export function getProducts(category) {
   const params = category ? `?category=${category}` : '';
-  const res = await fetch(`${API}/products${params}`);
-  return res.json();
+  return apiFetch(`/inventory/products${params}`);
 }
 
-export async function addProduct(product) {
-  const res = await fetch(`${API}/products`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function addProduct(product) {
+  return apiFetch('/inventory/products', {
+    method: 'POST',
     body: JSON.stringify(product)
   });
-  return res.json();
 }
 
-export async function updateStock(productId, quantity, type, reason) {
-  const res = await fetch(`${API}/products/${productId}/stock`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function updateStock(productId, quantity, type, reason) {
+  return apiFetch(`/inventory/products/${productId}/stock`, {
+    method: 'POST',
     body: JSON.stringify({ quantity, type, reason })
   });
-  return res.json();
 }
 
-export async function getLowStockItems(threshold) {
-  const res = await fetch(`${API}/products/low-stock?threshold=${threshold}`);
-  return res.json();
+export function getLowStockItems(threshold) {
+  return apiFetch(`/inventory/products/low-stock?threshold=${threshold}`);
 }
 
-export async function transferStock(productId, fromLocation, toLocation, quantity) {
-  const res = await fetch(`${API}/products/${productId}/transfer`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+export function transferStock(productId, fromLocation, toLocation, quantity) {
+  return apiFetch(`/inventory/products/${productId}/transfer`, {
+    method: 'POST',
     body: JSON.stringify({ fromLocation, toLocation, quantity: String(quantity) })
   });
-  return res.json();
 }
 
-export async function getStockMovements(productId) {
-  const res = await fetch(`${API}/products/${productId}/movements`);
-  return res.json();
+export function getStockMovements(productId) {
+  return apiFetch(`/inventory/products/${productId}/movements`);
 }
 
-export async function getSuppliers() {
-  const res = await fetch(`${API}/suppliers`);
-  return res.json();
+export function getSuppliers() {
+  return apiFetch('/inventory/suppliers');
 }

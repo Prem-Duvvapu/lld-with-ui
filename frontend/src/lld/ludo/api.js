@@ -1,29 +1,23 @@
-const BASE = '/api/ludo';
+import { apiFetch } from '../../utils/api';
 
-export async function createGame(players) {
-  const res = await fetch(`${BASE}/games`, {
+export function createGame(players) {
+  return apiFetch('/ludo/games', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ players }),
   });
-  return res.json();
 }
 
-export async function getGame(id) {
-  const res = await fetch(`${BASE}/games/${id}`);
-  return res.json();
+export function getGame(id) {
+  return apiFetch(`/ludo/games/${id}`);
 }
 
-export async function rollDice(gameId) {
-  const res = await fetch(`${BASE}/games/${gameId}/roll`, { method: 'POST' });
-  return res.json();
+export function rollDice(gameId) {
+  return apiFetch(`/ludo/games/${gameId}/roll`, { method: 'POST' });
 }
 
-export async function moveToken(gameId, playerIndex, tokenIndex) {
-  const res = await fetch(`${BASE}/games/${gameId}/move`, {
+export function moveToken(gameId, playerIndex, tokenIndex) {
+  return apiFetch(`/ludo/games/${gameId}/move`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ playerIndex, tokenIndex }),
   });
-  return res.json();
 }
