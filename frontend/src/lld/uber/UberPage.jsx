@@ -32,13 +32,130 @@ const UBER_CSS = `
 .driver-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
 .driver-card { border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 16px; background: var(--bg-card); }
 
-.uber-flow-scene { position: relative; width: 100%; height: 280px; background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border-primary); margin-bottom: 16px; }
-.uber-flow-map { position: relative; width: 100%; height: 100%; padding: 20px; }
-.uber-flow-marker { padding: 6px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; color: white; position: absolute; box-shadow: var(--shadow-md); z-index: 2; }
-.uber-flow-marker.pickup { background: var(--success); }
-.uber-flow-marker.drop { background: var(--danger); }
-.uber-flow-marker.driver-start { background: var(--info); }
-.uber-flow-car { position: absolute; font-size: 32px; z-index: 3; transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
+/* Enhanced City Map Graphic Scene */
+.uber-flow-scene {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 60%, #0f172a 100%);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+  margin-bottom: 16px;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+}
+.uber-city-skyline {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  font-size: 34px;
+  opacity: 0.85;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+  user-select: none;
+  z-index: 1;
+}
+.uber-road {
+  position: absolute;
+  top: 140px;
+  left: 0;
+  width: 100%;
+  height: 75px;
+  background: #334155;
+  border-top: 3px solid #64748b;
+  border-bottom: 3px solid #64748b;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.6);
+  z-index: 2;
+}
+.uber-road-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 0;
+  border-top: 3px dashed #f59e0b;
+  transform: translateY(-50%);
+}
+.uber-zebra-crossing {
+  position: absolute;
+  top: 0;
+  width: 36px;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, #ffffff, #ffffff 6px, transparent 6px, transparent 12px);
+  opacity: 0.8;
+}
+.uber-street-lamps {
+  position: absolute;
+  top: 110px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-around;
+  font-size: 20px;
+  z-index: 2;
+  user-select: none;
+}
+.uber-suburbs-bottom {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 24px;
+  font-size: 28px;
+  z-index: 1;
+  user-select: none;
+}
+.uber-flow-marker {
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  position: absolute;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 4;
+  backdrop-filter: blur(4px);
+}
+.uber-flow-marker.pickup { background: rgba(34, 197, 94, 0.9); border: 1px solid #4ade80; }
+.uber-flow-marker.drop { background: rgba(239, 68, 68, 0.9); border: 1px solid #f87171; }
+.uber-flow-marker.driver-start { background: rgba(59, 130, 246, 0.9); border: 1px solid #60a5fa; }
+
+.uber-flow-car {
+  position: absolute;
+  top: 155px;
+  font-size: 36px;
+  z-index: 5;
+  transition: all 1.8s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.6));
+}
+.uber-car-beam {
+  position: absolute;
+  right: -24px;
+  top: 12px;
+  width: 30px;
+  height: 16px;
+  background: radial-gradient(ellipse at left, rgba(254, 240, 138, 0.8), transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.uber-hud-overlay {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 8px 14px;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 12px;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
 `;
 
 const USER_ID = 'RIDER-001';
@@ -500,7 +617,7 @@ function InteractiveAnimatedFlow() {
   const [inputOtp, setInputOtp] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [isRejected, setIsRejected] = useState(false);
-  const [carLeft, setCarLeft] = useState(60);
+  const [carLeft, setCarLeft] = useState(50);
 
   const steps = [
     '1. Route & Fare',
@@ -591,7 +708,7 @@ function InteractiveAnimatedFlow() {
     try {
       const res = await verifyOtp(ride.id, inputOtp);
       setRide(res);
-      setCarLeft(450);
+      setCarLeft(500);
       setStep(5);
       toast.success('OTP verified successfully! Ride status: ONGOING');
     } catch (err) {
@@ -626,21 +743,95 @@ function InteractiveAnimatedFlow() {
     setRide(null);
     setDriver(null);
     setIsRejected(false);
-    setCarLeft(60);
+    setCarLeft(50);
     setInputOtp('');
+  };
+
+  const getHudStatusText = () => {
+    switch (step) {
+      case 0: return 'STATUS: IDLE (Select Route)';
+      case 1: return 'STATUS: FARE ESTIMATED';
+      case 2: return 'STATUS: RIDE REQUESTED';
+      case 3: return `STATUS: EN_ROUTE TO PICKUP (${etaMinutes} MINS)`;
+      case 4: return 'STATUS: ARRIVED AT PICKUP (VERIFY OTP)';
+      case 5: return 'STATUS: TRIP ONGOING ➔ EN ROUTE';
+      case 6: return 'STATUS: ARRIVED AT DESTINATION';
+      case 7: return 'STATUS: TRIP COMPLETED (PAID)';
+      default: return 'STATUS: IDLE';
+    }
   };
 
   return (
     <div style={{ maxWidth: 850, margin: '0 auto' }}>
       <StepIndicator steps={steps} currentStep={step} />
 
-      {/* Map Graphic Scene */}
+      {/* Enhanced City Map Graphic Scene with Road, Buildings & Street Scenery */}
       <div className="uber-flow-scene">
+        {/* Top Skyline Buildings */}
+        <div className="uber-city-skyline">
+          <span>🏢</span>
+          <span>🏬</span>
+          <span>🏫</span>
+          <span>🏦</span>
+          <span>🏪</span>
+          <span>🏢</span>
+          <span>🏥</span>
+        </div>
+
+        {/* Street Lamps */}
+        <div className="uber-street-lamps">
+          <span>💡</span>
+          <span>💡</span>
+          <span>💡</span>
+          <span>💡</span>
+          <span>💡</span>
+          <span>💡</span>
+        </div>
+
+        {/* Multi-lane Road Network */}
+        <div className="uber-road">
+          <div className="uber-road-line"></div>
+          {/* Zebra Crossings */}
+          <div className="uber-zebra-crossing" style={{ left: 300 }}></div>
+          <div className="uber-zebra-crossing" style={{ left: 750 }}></div>
+        </div>
+
+        {/* Bottom Suburban Houses & Parks */}
+        <div className="uber-suburbs-bottom">
+          <span>🏡</span>
+          <span>🌳</span>
+          <span>🏠</span>
+          <span>🌲</span>
+          <span>🏡</span>
+          <span>🌳</span>
+          <span>🏢</span>
+        </div>
+
+        {/* Location & Driver Badges */}
         <div className="uber-flow-map">
-          <div className="uber-flow-marker driver-start" style={{ left: 60, top: 120 }}>👨‍✈️ Driver Start (D-001)</div>
-          <div className="uber-flow-marker pickup" style={{ left: 300, top: 120 }}>📍 Pickup ({pickupLabel})</div>
-          <div className="uber-flow-marker drop" style={{ left: 750, top: 120 }}>🏁 Dropoff ({dropoffLabel})</div>
-          <div className="uber-flow-car" style={{ left: carLeft, top: 110 }}>🚘</div>
+          <div className="uber-flow-marker driver-start" style={{ left: 40, top: 95 }}>
+            👨‍✈️ Driver Base (Rajesh)
+          </div>
+          <div className="uber-flow-marker pickup" style={{ left: 290, top: 95 }}>
+            📍 Pickup ({pickupLabel})
+          </div>
+          <div className="uber-flow-marker drop" style={{ left: 740, top: 95 }}>
+            🏁 Dropoff ({dropoffLabel})
+          </div>
+
+          {/* Animated Car with Headlight Beam */}
+          <div className="uber-flow-car" style={{ left: carLeft }}>
+            🚘
+            <div className="uber-car-beam"></div>
+          </div>
+        </div>
+
+        {/* Live HUD Overlay Badge */}
+        <div className="uber-hud-overlay">
+          <div style={{ fontWeight: 800, color: '#f59e0b', marginBottom: 2 }}>{getHudStatusText()}</div>
+          <div style={{ fontSize: 11, opacity: 0.85 }}>
+            Speed: <strong>{step >= 3 && step <= 5 ? '48 km/h' : '0 km/h'}</strong> | Vehicle: <strong>{vehicleType}</strong>
+          </div>
         </div>
       </div>
 
