@@ -145,6 +145,14 @@ public class UberService {
         repository.updateRide(ride);
     }
 
+    public Ride verifyOtpAndStart(String rideId, String otp) {
+        Ride ride = getRide(rideId);
+        if (!ride.verifyOtp(otp)) {
+            throw new IllegalArgumentException("Invalid OTP! Verification failed.");
+        }
+        return startTrip(rideId);
+    }
+
     public Ride startTrip(String rideId) {
         Ride ride = getRide(rideId);
         if (ride.getStatus() != RideStatus.ACCEPTED && ride.getStatus() != RideStatus.REQUESTED) {

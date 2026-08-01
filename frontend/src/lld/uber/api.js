@@ -42,6 +42,13 @@ export function declineRide(rideId, driverId) {
   });
 }
 
+export function verifyOtp(id, otp) {
+  return apiFetch(`/uber/rides/${id}/verify-otp`, {
+    method: 'PUT',
+    body: JSON.stringify({ otp }),
+  });
+}
+
 export function startTrip(id) {
   return apiFetch(`/uber/rides/${id}/start`, { method: 'PUT' });
 }

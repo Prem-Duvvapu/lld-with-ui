@@ -83,6 +83,11 @@ public class UberController {
         return service.assignDriver(id, body.get("driverId"));
     }
 
+    @PutMapping("/rides/{id}/verify-otp")
+    public Ride verifyOtp(@PathVariable String id, @RequestBody Map<String, String> body) {
+        return service.verifyOtpAndStart(id, body.get("otp"));
+    }
+
     @PutMapping("/rides/{id}/start")
     public Ride startTrip(@PathVariable String id) {
         return service.startTrip(id);

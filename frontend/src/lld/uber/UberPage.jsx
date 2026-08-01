@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide } from './api';
+import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide, verifyOtp } from './api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -37,6 +37,7 @@ const UBER_CSS = `
 .uber-flow-marker { padding: 6px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; color: white; position: absolute; box-shadow: var(--shadow-md); z-index: 2; }
 .uber-flow-marker.pickup { background: var(--success); }
 .uber-flow-marker.drop { background: var(--danger); }
+.uber-flow-marker.driver-start { background: var(--info); }
 .uber-flow-car { position: absolute; font-size: 32px; z-index: 3; transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
 `;
 
@@ -169,11 +170,9 @@ function BookRide({ onRideBooked }) {
             <div style={{ marginTop: 16, padding: 16, background: 'var(--success-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)' }}>
               <h3 style={{ color: 'var(--success)', marginBottom: 8 }}>✅ Ride Requested Successfully!</h3>
               <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Trip ID: <strong>{result.id}</strong></div>
+              {result.otp && <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>Secret OTP: <strong style={{ color: 'var(--accent)', fontSize: 16 }}>{result.otp}</strong></div>}
               <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
                 Status: <Badge variant={result.status === 'ACCEPTED' ? 'success' : 'info'}>{result.status}</Badge>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
-                Drivers can view this request in their Driver Dashboard and choose to <strong>Accept</strong> or <strong>Decline</strong>.
               </div>
             </div>
           )}
@@ -487,60 +486,372 @@ function TripHistory() {
   );
 }
 
-function AnimatedFlow() {
-  const [step, setStep] = useState(0);
-  const [carLeft, setCarLeft] = useState(30);
-  const [statusMsg, setStatusMsg] = useState('');
+function InteractiveAnimatedFlow() {
+  const toast = useToast();
+  const [step, setStep] = useState(0); // 0 to 7
+  const [pickupLabel, setPickupLabel] = useState(LOCATIONS[0].label);
+  const [dropoffLabel, setDropoffLabel] = useState(LOCATIONS[1].label);
+  const [vehicleType, setVehicleType] = useState('UBER_GO');
+  const [estimate, setEstimate] = useState(null);
+  const [ride, setRide] = useState(null);
+  const [driver, setDriver] = useState(null);
+  const [etaMinutes, setEtaMinutes] = useState(7);
+  const [driverDistance, setDriverDistance] = useState(2.4);
+  const [inputOtp, setInputOtp] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('UPI');
+  const [isRejected, setIsRejected] = useState(false);
+  const [carLeft, setCarLeft] = useState(60);
 
-  const steps = ['Trip Requested', 'Driver Accept', 'Trip Started (ONGOING)', 'Payment Processed', 'Trip Completed'];
+  const steps = [
+    '1. Route & Fare',
+    '2. Request Ride',
+    '3. Driver Accept/Reject',
+    '4. Driver En Route (ETA)',
+    '5. Verify OTP',
+    '6. Ride Ongoing',
+    '7. Destination Reached',
+    '8. Payment Complete'
+  ];
 
-  const startSim = () => {
-    setStep(1); setStatusMsg('Rider Alex requested ride from MG Road to Koramangala...'); setCarLeft(30);
-    setTimeout(() => {
-      setStep(2); setStatusMsg('Driver Rajesh (UBER_GO) saw request & clicked ACCEPT!'); setCarLeft(150);
-    }, 1800);
-    setTimeout(() => {
-      setStep(3); setStatusMsg('Driver arrived & started trip (ONGOING)...'); setCarLeft(400);
-    }, 3500);
-    setTimeout(() => {
-      setStep(4); setStatusMsg('Processing Payment ₹240.00 via UPI (PaymentProcessor.process)...'); setCarLeft(650);
-    }, 5200);
-    setTimeout(() => {
-      setStep(5); setStatusMsg('✅ Trip COMPLETED! Driver status set to AVAILABLE & location updated to Koramangala'); setCarLeft(700);
-    }, 7000);
+  const locMap = Object.fromEntries(LOCATIONS.map((l) => [l.label, l]));
+
+  // Step 1: Calculate Fare & Estimate
+  const handleStep1Estimate = async () => {
+    const p = locMap[pickupLabel]; const d = locMap[dropoffLabel];
+    if (!p || !d || pickupLabel === dropoffLabel) {
+      toast.error('Pickup and Dropoff locations must be different');
+      return;
+    }
+    try {
+      const data = await getEstimate(p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType);
+      setEstimate(data);
+      setStep(1);
+    } catch (err) {
+      toast.error(err.message || 'Failed to estimate fare');
+    }
   };
 
-  const resetSim = () => {
-    setStep(0); setCarLeft(30); setStatusMsg('');
+  // Step 2: Request Ride
+  const handleStep2Request = async () => {
+    const p = locMap[pickupLabel]; const d = locMap[dropoffLabel];
+    try {
+      const data = await requestRide(USER_ID, p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType);
+      setRide(data);
+      setInputOtp(data.otp || '4829');
+      // Assign mock driver info for simulation
+      const mockDriver = { id: 'D-001', name: 'Rajesh Kumar', vehicleNumber: 'KA-01-AB-1234', vehicleType };
+      setDriver(mockDriver);
+      setStep(2);
+      toast.success(`Ride requested! OTP generated: ${data.otp || '4829'}`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to request ride');
+    }
+  };
+
+  // Step 3: Driver Accept or Reject
+  const handleStep3Accept = async () => {
+    if (!ride) return;
+    try {
+      const updated = await acceptRide(ride.id, 'D-001');
+      setRide(updated);
+      setIsRejected(false);
+      const dist = 2.4;
+      const eta = Math.ceil(dist * 3); // 3 mins per km
+      setDriverDistance(dist);
+      setEtaMinutes(eta);
+      setCarLeft(150);
+      setStep(3);
+      toast.success(`Driver ${updated.driverName || 'Rajesh'} accepted the ride!`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to accept ride');
+    }
+  };
+
+  const handleStep3Reject = async () => {
+    if (!ride) return;
+    try {
+      await declineRide(ride.id, 'D-001');
+      setIsRejected(true);
+      toast.info('Driver rejected the ride request. Step 3 reached (Final step for rejected ride).');
+    } catch (err) {
+      toast.error(err.message || 'Failed to reject ride');
+    }
+  };
+
+  // Step 4: Driver Reached Pickup
+  const handleStep4DriverArrived = () => {
+    setCarLeft(300);
+    setStep(4);
+    toast.success('Driver arrived at Pickup location! Share secret OTP with driver.');
+  };
+
+  // Step 5: Verify OTP & Start Ride
+  const handleStep5VerifyOtp = async () => {
+    if (!ride) return;
+    try {
+      const res = await verifyOtp(ride.id, inputOtp);
+      setRide(res);
+      setCarLeft(450);
+      setStep(5);
+      toast.success('OTP verified successfully! Ride status: ONGOING');
+    } catch (err) {
+      toast.error(err.message || 'Invalid OTP! Please enter correct 4-digit OTP.');
+    }
+  };
+
+  // Step 6: Driver Reached Destination
+  const handleStep6ReachedDestination = () => {
+    setCarLeft(750);
+    setStep(6);
+    toast.info('Destination reached! Driver updating status to COMPLETED...');
+  };
+
+  // Step 7: Complete Trip & Ask Payment
+  const handleStep7CompleteAndAskPayment = async () => {
+    if (!ride) return;
+    try {
+      const res = await completeTrip(ride.id, paymentMethod);
+      setRide(res);
+      setStep(7);
+      toast.success('Trip status set to COMPLETED! Payment requested from rider.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to complete trip');
+    }
+  };
+
+  // Reset Flow
+  const handleReset = () => {
+    setStep(0);
+    setEstimate(null);
+    setRide(null);
+    setDriver(null);
+    setIsRejected(false);
+    setCarLeft(60);
+    setInputOtp('');
   };
 
   return (
-    <div style={{ textAlign: 'center' }}>
+    <div style={{ maxWidth: 850, margin: '0 auto' }}>
       <StepIndicator steps={steps} currentStep={step} />
 
+      {/* Map Graphic Scene */}
       <div className="uber-flow-scene">
         <div className="uber-flow-map">
-          <div className="uber-flow-marker pickup" style={{ left: 300, top: 120 }}>📍 Pickup (MG Road)</div>
-          <div className="uber-flow-marker drop" style={{ left: 750, top: 120 }}>🏁 Dropoff (Koramangala)</div>
+          <div className="uber-flow-marker driver-start" style={{ left: 60, top: 120 }}>👨‍✈️ Driver Start (D-001)</div>
+          <div className="uber-flow-marker pickup" style={{ left: 300, top: 120 }}>📍 Pickup ({pickupLabel})</div>
+          <div className="uber-flow-marker drop" style={{ left: 750, top: 120 }}>🏁 Dropoff ({dropoffLabel})</div>
           <div className="uber-flow-car" style={{ left: carLeft, top: 110 }}>🚘</div>
         </div>
       </div>
 
-      {statusMsg && (
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>
-          {statusMsg}
-        </div>
-      )}
+      {/* Interactive Step Cards */}
+      <Card style={{ marginTop: 16 }}>
+        <CardBody>
+          {/* STEP 0: Select Route */}
+          {step === 0 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Step 1: Rider Selects Pickup & Dropoff Location
+              </h3>
+              <div className="form-row">
+                <div style={{ flex: 1 }}>
+                  <Select label="Pickup Location" value={pickupLabel} onChange={(e) => setPickupLabel(e.target.value)}>
+                    {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
+                  </Select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Select label="Dropoff Location" value={dropoffLabel} onChange={(e) => setDropoffLabel(e.target.value)}>
+                    {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
+                  </Select>
+                </div>
+              </div>
+              <div className="vehicle-types">
+                {VEHICLES.map((v) => (
+                  <div key={v.type} className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`} onClick={() => setVehicleType(v.type)}>
+                    <div className="v-icon">{v.icon}</div>
+                    <div className="v-name">{v.label}</div>
+                    <div className="v-rate">{v.rate}</div>
+                  </div>
+                ))}
+              </div>
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleStep1Estimate}>
+                1. Calculate Fare & Proceed ➔
+              </Button>
+            </div>
+          )}
 
-      {step === 0 ? (
-        <Button variant="primary" size="lg" onClick={startSim}>
-          ▶️ Start Ride Simulation
-        </Button>
-      ) : (
-        <Button variant="secondary" onClick={resetSim}>
-          🔄 Reset Simulation
-        </Button>
-      )}
+          {/* STEP 1: Fare Estimated & Request Ride */}
+          {step === 1 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Step 2: Rider Confirms & Requests Ride
+              </h3>
+              {estimate && (
+                <div className="estimate-card" style={{ marginBottom: 16 }}>
+                  <div className="estimate-detail"><span>Pickup ➔ Dropoff</span><strong>{pickupLabel} ➔ {dropoffLabel}</strong></div>
+                  <div className="estimate-detail"><span>Distance</span><strong>{estimate.distanceKm?.toFixed(1)} km</strong></div>
+                  <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.fare?.toFixed(2)}</strong></div>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button variant="primary" style={{ flex: 1 }} onClick={handleStep2Request}>
+                  2. Confirm & Send Ride Request ➔
+                </Button>
+                <Button variant="secondary" onClick={() => setStep(0)}>
+                  ← Change Route
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Driver Decision (Accept or Reject) */}
+          {step === 2 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>
+                Step 3: Driver Decides to Accept or Reject Ride
+              </h3>
+              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, border: '1px solid var(--border-primary)' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Incoming Request for Driver: <strong>{driver?.name} ({driver?.vehicleType})</strong></div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Trip #{ride?.id}: {pickupLabel} ➔ {dropoffLabel} ({estimate?.distanceKm?.toFixed(1)} km)</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--success)', marginTop: 4 }}>Fare: ₹{ride?.fare?.toFixed(2)}</div>
+              </div>
+
+              {!isRejected ? (
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <Button variant="success" style={{ flex: 1 }} onClick={handleStep3Accept}>
+                    ✅ Accept Ride Request ➔
+                  </Button>
+                  <Button variant="danger" style={{ flex: 1 }} onClick={handleStep3Reject}>
+                    ❌ Reject (Decline) Ride
+                  </Button>
+                </div>
+              ) : (
+                <div style={{ padding: 16, background: 'var(--danger-bg)', borderRadius: 8, border: '1px solid var(--danger)' }}>
+                  <h4 style={{ color: 'var(--danger)', marginBottom: 6 }}>❌ Ride Declined by Driver</h4>
+                  <p style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 12 }}>
+                    The driver declined this ride. This is the final step for a rejected ride request.
+                  </p>
+                  <Button variant="secondary" onClick={handleReset}>
+                    🔄 Try Another Simulation
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 3: Driver En Route & ETA Calculation */}
+          {step === 3 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Step 4: Driver En Route to Pickup (Distance & ETA)
+              </h3>
+              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, borderLeft: '4px solid var(--info)' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--info)' }}>
+                  🚘 {driver?.name} is on the way to {pickupLabel}!
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 6 }}>
+                  Driver Distance to Pickup: <strong>{driverDistance} km</strong>
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', marginTop: 4 }}>
+                  Estimated Arrival Time (ETA): <strong>~{etaMinutes} minutes</strong>
+                </div>
+              </div>
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleStep4DriverArrived}>
+                4. Driver Arrived at Pickup ➔
+              </Button>
+            </div>
+          )}
+
+          {/* STEP 4: Share OTP & Verify */}
+          {step === 4 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Step 5: Rider Shares OTP with Driver
+              </h3>
+              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Rider's Secret Verification OTP:</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)', letterSpacing: 4, margin: '8px 0' }}>
+                  🔑 {ride?.otp || '4829'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Driver inputs OTP to verify rider identity before starting trip.</div>
+              </div>
+              <div className="form-row">
+                <input
+                  type="text"
+                  value={inputOtp}
+                  onChange={(e) => setInputOtp(e.target.value)}
+                  placeholder="Enter 4-digit OTP"
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 16, fontWeight: 700, textAlign: 'center', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                />
+                <Button variant="success" onClick={handleStep5VerifyOtp}>
+                  5. Verify OTP & Start Trip ➔
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 5: Ride Ongoing */}
+          {step === 5 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Step 6: Ride Ongoing to Destination
+              </h3>
+              <div style={{ padding: 16, background: 'var(--warning-bg)', borderRadius: 8, marginBottom: 16, border: '1px solid var(--warning)' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--warning)' }}>
+                  🚕 Ride in Progress ➔ Heading to {dropoffLabel}...
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
+                  Driver: {driver?.name} ({driver?.vehicleNumber}) | Total Distance: {estimate?.distanceKm?.toFixed(1)} km
+                </div>
+              </div>
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleStep6ReachedDestination}>
+                6. Reached Destination ({dropoffLabel}) ➔
+              </Button>
+            </div>
+          )}
+
+          {/* STEP 6: Reached Destination -> Complete & Ask Payment */}
+          {step === 6 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Step 7: Driver Reached Destination & Requests Payment
+              </h3>
+              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, borderLeft: '4px solid var(--success)' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>
+                  🏁 Arrived at {dropoffLabel}!
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 6 }}>
+                  Driver has set status to <strong>COMPLETED</strong> and generated trip bill.
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--success)', marginTop: 6 }}>
+                  Total Bill Amount: ₹{ride?.fare?.toFixed(2)}
+                </div>
+              </div>
+              <Button variant="success" style={{ width: '100%' }} onClick={handleStep7CompleteAndAskPayment}>
+                7. Complete Trip & Request Payment ➔
+              </Button>
+            </div>
+          )}
+
+          {/* STEP 7: Payment Complete */}
+          {step === 7 && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Step 8: Payment Processed by Rider
+              </h3>
+              <div style={{ padding: 16, background: 'var(--success-bg)', borderRadius: 8, marginBottom: 16, border: '1px solid var(--success)' }}>
+                <h4 style={{ color: 'var(--success)', marginBottom: 8 }}>🎉 Ride Completed & Payment Successful!</h4>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Trip ID: <strong>{ride?.id}</strong></div>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>Amount Paid: <strong style={{ fontSize: 16, color: 'var(--success)' }}>₹{ride?.fare?.toFixed(2)}</strong> via <strong>{paymentMethod}</strong></div>
+                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>Driver {driver?.name} is now <strong>AVAILABLE</strong> at {dropoffLabel}.</div>
+              </div>
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleReset}>
+                🔄 Restart Interactive Simulation
+              </Button>
+            </div>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }
@@ -559,7 +870,7 @@ export default function UberPage() {
           {activeTab === 'book' && <BookRide onRideBooked={() => {}} />}
           {activeTab === 'drivers' && <DriverDashboard />}
           {activeTab === 'history' && <TripHistory />}
-          {activeTab === 'demo' && <AnimatedFlow />}
+          {activeTab === 'demo' && <InteractiveAnimatedFlow />}
         </div>
       )}
     </LldPage>
