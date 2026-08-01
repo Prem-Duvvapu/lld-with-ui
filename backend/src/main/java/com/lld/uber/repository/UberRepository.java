@@ -90,6 +90,18 @@ public class UberRepository {
                 .collect(Collectors.toList());
     }
 
+    public List<Ride> getAvailableRideRequestsForDriver(String driverId) {
+        Driver driver = getDriver(driverId);
+        if (driver == null) return Collections.emptyList();
+
+        return rides.values().stream()
+                .filter(r -> r.getStatus() == RideStatus.REQUESTED)
+                .filter(r -> r.getVehicleType() == driver.getVehicleType())
+                .filter(r -> !r.isDeclinedBy(driverId))
+                .sorted(Comparator.comparing(Ride::getCreatedAt).reversed())
+                .collect(Collectors.toList());
+    }
+
     public void updateRide(Ride ride) {
         rides.put(ride.getId(), ride);
     }

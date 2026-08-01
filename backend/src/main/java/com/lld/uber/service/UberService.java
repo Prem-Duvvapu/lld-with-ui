@@ -98,7 +98,7 @@ public class UberService {
 
         String rideId = repository.generateRideId();
         Ride ride = new Ride(rideId, userId, pickup, dropoff, distance, fare, vehicleType);
-        
+
         Rider rider = repository.getRider(userId);
         if (rider != null) {
             ride.setRider(rider);
@@ -106,14 +106,21 @@ public class UberService {
         }
 
         repository.saveRide(ride);
+        return ride;
+    }
 
-        // Proximity matching: assign nearest available driver
-        List<Driver> nearestDrivers = repository.findNearestAvailableDrivers(pickup, vehicleType, 50.0);
-        if (!nearestDrivers.isEmpty()) {
-            Driver driver = nearestDrivers.get(0);
-            assignDriverToRide(ride, driver);
-        }
+    public List<Ride> getAvailableRideRequestsForDriver(String driverId) {
+        return repository.getAvailableRideRequestsForDriver(driverId);
+    }
 
+    public Ride acceptRide(String rideId, String driverId) {
+        return assignDriver(rideId, driverId);
+    }
+
+    public Ride declineRide(String rideId, String driverId) {
+        Ride ride = getRide(rideId);
+        ride.addDeclinedDriver(driverId);
+        repository.updateRide(ride);
         return ride;
     }
 

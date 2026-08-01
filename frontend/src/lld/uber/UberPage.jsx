@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus } from './api';
+import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide } from './api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -94,7 +94,7 @@ function BookRide({ onRideBooked }) {
         setError(data.error); toast.error(data.error);
       } else {
         setResult(data); if (onRideBooked) onRideBooked();
-        toast.success(`Trip Requested! Driver: ${data.driverName || 'Matching nearest driver...'}`);
+        toast.success(`Trip Requested (${data.id})! Available for nearby drivers to Accept/Decline.`);
       }
     } catch (err) {
       const msg = err.message || 'Failed to book ride';
@@ -138,7 +138,7 @@ function BookRide({ onRideBooked }) {
 
           {!estimate ? (
             <Button variant="secondary" onClick={handleEstimate} style={{ width: '100%' }}>
-              Calculate Fare & Nearest Driver
+              Calculate Fare & Check Available Drivers
             </Button>
           ) : (
             <div>
@@ -154,7 +154,7 @@ function BookRide({ onRideBooked }) {
 
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                 <Button variant="primary" loading={loading} onClick={handleBook} style={{ flex: 1 }}>
-                  Confirm & Request Ride
+                  Confirm & Send Request to Drivers
                 </Button>
                 <Button variant="secondary" onClick={() => setEstimate(null)}>
                   Recalculate
@@ -173,7 +173,7 @@ function BookRide({ onRideBooked }) {
                 Status: <Badge variant={result.status === 'ACCEPTED' ? 'success' : 'info'}>{result.status}</Badge>
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
-                Assigned Driver: <strong>{result.driverName || 'Searching...'}</strong> {result.vehicleNumber && `(${result.vehicleNumber})`}
+                Drivers can view this request in their Driver Dashboard and choose to <strong>Accept</strong> or <strong>Decline</strong>.
               </div>
             </div>
           )}
@@ -186,6 +186,8 @@ function BookRide({ onRideBooked }) {
 function DriverDashboard() {
   const toast = useToast();
   const [drivers, setDrivers] = useState([]);
+  const [selectedDriverId, setSelectedDriverId] = useState('');
+  const [availableRequests, setAvailableRequests] = useState([]);
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState('UPI');
@@ -193,24 +195,63 @@ function DriverDashboard() {
   const fetchData = useCallback(async () => {
     try {
       const [dList, rList] = await Promise.all([getDrivers(), getAllRides()]);
-      if (Array.isArray(dList)) setDrivers(dList);
+      if (Array.isArray(dList)) {
+        setDrivers(dList);
+        if (!selectedDriverId && dList.length > 0) {
+          setSelectedDriverId(dList[0].id);
+        }
+      }
       if (Array.isArray(rList)) setRides(rList);
     } catch {
       // silent polling
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedDriverId]);
+
+  const fetchDriverRequests = useCallback(async () => {
+    if (!selectedDriverId) return;
+    try {
+      const reqs = await getDriverRequests(selectedDriverId);
+      if (Array.isArray(reqs)) setAvailableRequests(reqs);
+    } catch {
+      // silent polling
+    }
+  }, [selectedDriverId]);
 
   usePolling(fetchData, 4000, []);
+  usePolling(fetchDriverRequests, 3000, [selectedDriverId]);
 
   const handleStatusChange = async (driverId, status) => {
     try {
       await updateDriverStatus(driverId, status);
       toast.success(`Driver status updated to ${status}`);
       fetchData();
+      fetchDriverRequests();
     } catch (err) {
       toast.error(err.message || 'Failed to update driver status');
+    }
+  };
+
+  const handleAcceptRide = async (rideId) => {
+    try {
+      const res = await acceptRide(rideId, selectedDriverId);
+      toast.success(`✅ Ride #${res.id} ACCEPTED! Assigned to ${res.driverName}`);
+      fetchData();
+      fetchDriverRequests();
+    } catch (err) {
+      toast.error(err.message || 'Failed to accept ride');
+    }
+  };
+
+  const handleDeclineRide = async (rideId) => {
+    try {
+      await declineRide(rideId, selectedDriverId);
+      toast.info(`❌ Ride #${rideId} DECLINED by driver.`);
+      fetchData();
+      fetchDriverRequests();
+    } catch (err) {
+      toast.error(err.message || 'Failed to decline ride');
     }
   };
 
@@ -244,16 +285,29 @@ function DriverDashboard() {
     }
   };
 
+  const currentDriver = drivers.find((d) => d.id === selectedDriverId);
+
   if (loading && drivers.length === 0) return <Skeleton height={200} />;
 
   return (
     <div>
-      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)' }}>
-        👨‍✈️ Driver Status & Availability Control
-      </h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, background: 'var(--bg-tertiary)', padding: '12px 16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>
+          👨‍✈️ Driver Control Dashboard
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Select Active Driver:</span>
+          <select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }}>
+            {drivers.map((d) => (
+              <option key={d.id} value={d.id}>{d.name} ({d.id} - {d.vehicleType})</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       <div className="driver-grid">
         {drivers.map((d) => (
-          <div key={d.id} className="driver-card">
+          <div key={d.id} className="driver-card" style={{ borderColor: d.id === selectedDriverId ? 'var(--accent)' : 'var(--border-primary)', borderWidth: d.id === selectedDriverId ? 2 : 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <strong>{d.name}</strong>
               <Badge variant={d.status === 'AVAILABLE' ? 'success' : d.status === 'ON_TRIP' ? 'warning' : 'neutral'}>
@@ -274,6 +328,46 @@ function DriverDashboard() {
         ))}
       </div>
 
+      {/* Driver Incoming / Available Ride Requests Section */}
+      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+        🔔 Available Ride Requests Nearby for {currentDriver?.name || 'Driver'} ({availableRequests.length})
+      </h3>
+
+      {availableRequests.length === 0 ? (
+        <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)', marginBottom: 24 }}>
+          No pending ride requests nearby for {currentDriver?.name || 'this driver'} ({currentDriver?.vehicleType}). Request a ride in the Passenger tab to see it pop up here!
+        </div>
+      ) : (
+        <div style={{ marginBottom: 24 }}>
+          {availableRequests.map((req) => (
+            <div key={req.id} className="ride-card" style={{ borderLeft: '4px solid var(--accent)' }}>
+              <div className="ride-header">
+                <div>
+                  <strong style={{ fontSize: 15 }}>Ride Request #{req.id}</strong>
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 8 }}>Type: {req.vehicleType}</span>
+                </div>
+                <Badge variant="info">REQUESTED</Badge>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', margin: '8px 0' }}>
+                📍 <strong>Pickup:</strong> {req.pickup?.label || 'Pickup'} ➔ 🏁 <strong>Dropoff:</strong> {req.dropoff?.label || 'Dropoff'} ({req.distanceKm?.toFixed(1)} km)
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)', marginBottom: 12 }}>
+                Estimated Fare: ₹{req.fare?.toFixed(2)}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button size="sm" variant="success" onClick={() => handleAcceptRide(req.id)}>
+                  ✅ Accept Ride Request
+                </Button>
+                <Button size="sm" variant="danger" onClick={() => handleDeclineRide(req.id)}>
+                  ❌ Decline Request
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Ongoing / Active Trips */}
       <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)' }}>
         🚕 Active Trip Operations & Payment Processing
       </h3>
@@ -287,10 +381,10 @@ function DriverDashboard() {
         </select>
       </div>
 
-      {rides.filter((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED').length === 0 ? (
-        <EmptyState icon="🚕" title="No ongoing or pending trips" description="Request a ride from the Passenger tab to see live operations here" />
+      {rides.filter((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED' && r.status !== 'REQUESTED').length === 0 ? (
+        <EmptyState icon="🚕" title="No active ongoing trips" description="Accept an available request above to begin a trip" />
       ) : (
-        rides.filter((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED').map((r) => (
+        rides.filter((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED' && r.status !== 'REQUESTED').map((r) => (
           <div key={r.id} className="ride-card">
             <div className="ride-header">
               <div>
@@ -304,7 +398,7 @@ function DriverDashboard() {
               📍 {r.pickup?.label || 'Pickup'} ➔ 🏁 {r.dropoff?.label || 'Dropoff'} ({r.distanceKm?.toFixed(1)} km)
             </div>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
-              Driver: <strong>{r.driverName || 'Unassigned'}</strong> ({r.vehicleType})
+              Assigned Driver: <strong>{r.driverName || 'Unassigned'}</strong> ({r.vehicleType})
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {r.status === 'ACCEPTED' && (
@@ -398,22 +492,22 @@ function AnimatedFlow() {
   const [carLeft, setCarLeft] = useState(30);
   const [statusMsg, setStatusMsg] = useState('');
 
-  const steps = ['Trip Requested', 'Driver Assigned', 'Trip Started (ONGOING)', 'Payment Processed', 'Trip Completed'];
+  const steps = ['Trip Requested', 'Driver Accept', 'Trip Started (ONGOING)', 'Payment Processed', 'Trip Completed'];
 
   const startSim = () => {
     setStep(1); setStatusMsg('Rider Alex requested ride from MG Road to Koramangala...'); setCarLeft(30);
     setTimeout(() => {
-      setStep(2); setStatusMsg('Driver Rajesh (UBER_GO) assigned via proximity matching!'); setCarLeft(150);
-    }, 1500);
+      setStep(2); setStatusMsg('Driver Rajesh (UBER_GO) saw request & clicked ACCEPT!'); setCarLeft(150);
+    }, 1800);
     setTimeout(() => {
       setStep(3); setStatusMsg('Driver arrived & started trip (ONGOING)...'); setCarLeft(400);
-    }, 3200);
+    }, 3500);
     setTimeout(() => {
       setStep(4); setStatusMsg('Processing Payment ₹240.00 via UPI (PaymentProcessor.process)...'); setCarLeft(650);
-    }, 5000);
+    }, 5200);
     setTimeout(() => {
-      setStep(5); setStatusMsg('✅ Trip COMPLETED! Driver status set to AVAILABLE & location updated to Koramangala'); setCarLeft(750);
-    }, 6800);
+      setStep(5); setStatusMsg('✅ Trip COMPLETED! Driver status set to AVAILABLE & location updated to Koramangala'); setCarLeft(700);
+    }, 7000);
   };
 
   const resetSim = () => {

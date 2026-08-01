@@ -45,6 +45,11 @@ public class UberController {
         return service.updateDriverStatus(id, status);
     }
 
+    @GetMapping("/drivers/{driverId}/requests")
+    public List<Ride> getDriverRequests(@PathVariable String driverId) {
+        return service.getAvailableRideRequestsForDriver(driverId);
+    }
+
     @GetMapping("/estimate")
     public UberService.FareEstimate estimate(
             @RequestParam String pickupLat, @RequestParam String pickupLng, @RequestParam(defaultValue = "Pickup") String pickupLabel,
@@ -61,6 +66,16 @@ public class UberController {
                 req.get("dropoffLat"), req.get("dropoffLng"), req.getOrDefault("dropoffLabel", "Dropoff"),
                 req.getOrDefault("vehicleType", "UBER_GO")
         );
+    }
+
+    @PutMapping("/rides/{id}/accept")
+    public Ride acceptRide(@PathVariable String id, @RequestBody Map<String, String> body) {
+        return service.acceptRide(id, body.get("driverId"));
+    }
+
+    @PutMapping("/rides/{id}/decline")
+    public Ride declineRide(@PathVariable String id, @RequestBody Map<String, String> body) {
+        return service.declineRide(id, body.get("driverId"));
     }
 
     @PutMapping("/rides/{id}/assign")

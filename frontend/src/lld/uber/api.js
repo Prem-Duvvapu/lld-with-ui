@@ -24,6 +24,24 @@ export function getAllRides() {
   return apiFetch('/uber/rides');
 }
 
+export function getDriverRequests(driverId) {
+  return apiFetch(`/uber/drivers/${driverId}/requests`);
+}
+
+export function acceptRide(rideId, driverId) {
+  return apiFetch(`/uber/rides/${rideId}/accept`, {
+    method: 'PUT',
+    body: JSON.stringify({ driverId }),
+  });
+}
+
+export function declineRide(rideId, driverId) {
+  return apiFetch(`/uber/rides/${rideId}/decline`, {
+    method: 'PUT',
+    body: JSON.stringify({ driverId }),
+  });
+}
+
 export function startTrip(id) {
   return apiFetch(`/uber/rides/${id}/start`, { method: 'PUT' });
 }
