@@ -16,7 +16,7 @@ export default function ClassDiagram({ module, customData }) {
       <div className="cd-container" style={{ position: 'relative', minHeight: 400 }}>
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
           {classes.map((cls) => (
-            <div key={cls.name} className="cd-class-box" style={{ borderTopColor: classColors[cls.name] }}>
+            <div key={cls.name} data-class={cls.name} className="cd-class-box" style={{ borderTopColor: classColors[cls.name] }}>
               <div className="cd-class-header" style={{ background: classColors[cls.name] }}>
                 {cls.stereotype && <span className="cd-stereotype">&lt;&lt;{cls.stereotype}&gt;&gt;</span>}
                 <span className="cd-class-name">{cls.name}</span>

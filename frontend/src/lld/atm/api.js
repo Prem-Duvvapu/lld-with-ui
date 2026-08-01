@@ -1,35 +1,30 @@
-const API = '/api/atm';
+import { apiFetch } from '../../utils/api';
 
-export async function authenticate(cardNumber, pin) {
-  const res = await fetch(`${API}/authenticate`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cardNumber, pin })
+export function authenticate(cardNumber, pin) {
+  return apiFetch('/atm/authenticate', {
+    method: 'POST',
+    body: JSON.stringify({ cardNumber, pin }),
   });
-  return res.json();
 }
 
-export async function getBalance(accountNumber) {
-  const res = await fetch(`${API}/${accountNumber}/balance`);
-  return res.json();
+export function getBalance(accountNumber) {
+  return apiFetch(`/atm/${accountNumber}/balance`);
 }
 
-export async function withdraw(accountNumber, amount) {
-  const res = await fetch(`${API}/${accountNumber}/withdraw`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount })
+export function withdraw(accountNumber, amount) {
+  return apiFetch(`/atm/${accountNumber}/withdraw`, {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
   });
-  return res.json();
 }
 
-export async function deposit(accountNumber, amount) {
-  const res = await fetch(`${API}/${accountNumber}/deposit`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount })
+export function deposit(accountNumber, amount) {
+  return apiFetch(`/atm/${accountNumber}/deposit`, {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
   });
-  return res.json();
 }
 
-export async function getTransactions(accountNumber) {
-  const res = await fetch(`${API}/${accountNumber}/transactions`);
-  return res.json();
+export function getTransactions(accountNumber) {
+  return apiFetch(`/atm/${accountNumber}/transactions`);
 }

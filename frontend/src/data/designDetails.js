@@ -1,6 +1,17 @@
 const designDetails = {
   parking: {
     title: 'Parking Lot — Design Details',
+    tldr: [
+      'Multi-floor parking lot supporting CAR, BIKE, TRUCK with entry/exit gate separation',
+      'Strategy Pattern for spot assignment (Nearest vs Farthest) & pricing calculation (Hourly, Flat, Dynamic Surge)',
+      'Thread safety via fine-grained ReentrantLocks (spotLock, ticketLock) in ConcurrentHashMap storage',
+      'Two-step exit flow: Scan (Preview Price) -> Pay & Exit (Release Spot & Issue Receipt)'
+    ],
+    tradeoffs: [
+      'Used Strategy Pattern + Factory over inline conditionals to adhere to Open-Closed Principle for future vehicle types and pricing rules.',
+      'Chosen fine-grained ReentrantLock over synchronized methods to reduce thread contention across different floors and spots.',
+      'In-memory ConcurrentHashMap eliminates DB overhead for lightning-fast sub-millisecond spot allocation.'
+    ],
     requirements: [
       'Multi-floor parking lot with 3 types of spots: CAR (12), BIKE (12), TRUCK (6) — 30 spots total across 3 floors',
       'Multiple gates: G1/G2 (Entry), G3/G4 (Exit) — vehicles can only enter through entry gates and exit through exit gates',

@@ -1,44 +1,35 @@
-const BASE = '/api/zomato';
+import { apiFetch } from '../../utils/api';
 
-export async function getRestaurants() {
-  const res = await fetch(`${BASE}/restaurants`);
-  return res.json();
+export function getRestaurants() {
+  return apiFetch('/zomato/restaurants');
 }
 
-export async function getRestaurant(id) {
-  const res = await fetch(`${BASE}/restaurants/${id}`);
-  return res.json();
+export function getRestaurant(id) {
+  return apiFetch(`/zomato/restaurants/${id}`);
 }
 
-export async function getMenu(id) {
-  const res = await fetch(`${BASE}/restaurants/${id}/menu`);
-  return res.json();
+export function getMenu(id) {
+  return apiFetch(`/zomato/restaurants/${id}/menu`);
 }
 
-export async function placeOrder(restaurantId, userId, items) {
-  const res = await fetch(`${BASE}/orders`, {
+export function placeOrder(restaurantId, userId, items) {
+  return apiFetch('/zomato/orders', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ restaurantId, userId, items }),
   });
-  return res.json();
 }
 
-export async function getOrder(id) {
-  const res = await fetch(`${BASE}/orders/${id}`);
-  return res.json();
+export function getOrder(id) {
+  return apiFetch(`/zomato/orders/${id}`);
 }
 
-export async function getUserOrders(userId) {
-  const res = await fetch(`${BASE}/orders?userId=${userId}`);
-  return res.json();
+export function getUserOrders(userId) {
+  return apiFetch(`/zomato/orders?userId=${userId}`);
 }
 
-export async function updateOrderStatus(id, status) {
-  const res = await fetch(`${BASE}/orders/${id}/status`, {
+export function updateOrderStatus(id, status) {
+  return apiFetch(`/zomato/orders/${id}/status`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
-  return res.json();
 }

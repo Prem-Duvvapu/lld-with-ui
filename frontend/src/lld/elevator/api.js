@@ -1,24 +1,22 @@
-const API = '/api/elevator';
+import { apiFetch } from '../../utils/api';
 
-export async function getElevators() {
-  const res = await fetch(`${API}/elevators`);
-  return res.json();
+export function getElevators() {
+  return apiFetch('/elevator/elevators');
 }
 
-export async function requestElevator(fromFloor, toFloor) {
-  const res = await fetch(`${API}/request`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fromFloor, toFloor })
+export function requestElevator(fromFloor, toFloor) {
+  return apiFetch('/elevator/request', {
+    method: 'POST',
+    body: JSON.stringify({ fromFloor, toFloor }),
   });
-  return res.json();
 }
 
-export async function getRequests() {
-  const res = await fetch(`${API}/requests`);
-  return res.json();
+export function getRequests() {
+  return apiFetch('/elevator/requests');
 }
 
-export async function tick() {
-  const res = await fetch(`${API}/tick`, { method: 'POST' });
-  return res.json();
+export function tick() {
+  return apiFetch('/elevator/tick', {
+    method: 'POST',
+  });
 }

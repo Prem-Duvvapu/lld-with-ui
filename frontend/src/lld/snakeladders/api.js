@@ -1,20 +1,18 @@
-const BASE = '/api/snakeladders';
+import { apiFetch } from '../../utils/api';
 
-export async function createGame(players) {
-  const res = await fetch(`${BASE}/games`, {
+export function createGame(players) {
+  return apiFetch('/snakeladders/games', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ players }),
   });
-  return res.json();
 }
 
-export async function getGame(id) {
-  const res = await fetch(`${BASE}/games/${id}`);
-  return res.json();
+export function getGame(id) {
+  return apiFetch(`/snakeladders/games/${id}`);
 }
 
-export async function rollDice(gameId) {
-  const res = await fetch(`${BASE}/games/${gameId}/roll`, { method: 'POST' });
-  return res.json();
+export function rollDice(gameId) {
+  return apiFetch(`/snakeladders/games/${gameId}/roll`, {
+    method: 'POST',
+  });
 }

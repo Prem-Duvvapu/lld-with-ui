@@ -1,31 +1,25 @@
-const BASE = '/api/tictactoe';
+import { apiFetch } from '../../utils/api';
 
-export async function createGame(player1, player2) {
-  const res = await fetch(`${BASE}/games`, {
+export function createGame(player1, player2) {
+  return apiFetch('/tictactoe/games', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ player1, player2 }),
   });
-  return res.json();
 }
 
-export async function getGame(id) {
-  const res = await fetch(`${BASE}/games/${id}`);
-  return res.json();
+export function getGame(id) {
+  return apiFetch(`/tictactoe/games/${id}`);
 }
 
-export async function makeMove(gameId, row, col, playerName) {
-  const res = await fetch(`${BASE}/games/${gameId}/move`, {
+export function makeMove(gameId, row, col, playerName) {
+  return apiFetch(`/tictactoe/games/${gameId}/move`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ row, col, playerName }),
   });
-  return res.json();
 }
 
-export async function resetGame(gameId) {
-  const res = await fetch(`${BASE}/games/${gameId}/reset`, {
+export function resetGame(gameId) {
+  return apiFetch(`/tictactoe/games/${gameId}/reset`, {
     method: 'POST',
   });
-  return res.json();
 }

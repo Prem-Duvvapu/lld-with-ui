@@ -1,0 +1,25 @@
+.ui-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.ui-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-primary);
+  transition: all var(--duration-normal) var(--ease-spring);
+}
+
+.ui-step-dot--active {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.6);
+  transform: scale(1.25);
+}
+
+.ui-step-dot--done {
+  background: var(--success);
+}

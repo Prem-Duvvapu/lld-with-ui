@@ -5,9 +5,7 @@ import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; color: #333; }
-.app { max-width: 800px; margin: 0 auto; padding: 20px; }
+.app { max-width: 800px; margin: 0 auto; }
 .header { background: #1a1a2e; color: white; padding: 20px 30px; border-radius: 12px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
 .header h1 { font-size: 22px; font-weight: 600; }
 .header p { font-size: 13px; opacity: 0.7; }
@@ -424,126 +422,116 @@ function AnimatedFlow() {
 export default function ElevatorPage() {
   const [elevators, setElevators] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [page, setPage] = useState('app');
 
-  useEffect(() => {
-    const fetchElevators = async () => {
-      try { const data = await getElevators(); setElevators(data); }
-      catch (e) { console.error('Failed to fetch elevators', e); }
-    };
-    fetchElevators();
-    const interval = setInterval(fetchElevators, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(async () => {
+    try { const data = await getElevators(); if (Array.isArray(data)) setElevators(data); }
+    catch (e) { /* polling retry */ }
+  }, 1000, []);
 
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try { const data = await getRequests(); setRequests(data); }
-      catch (e) { console.error('Failed to fetch requests', e); }
-    };
-    fetchRequests();
-    const interval = setInterval(fetchRequests, 2000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(async () => {
+    try { const data = await getRequests(); if (Array.isArray(data)) setRequests(data); }
+    catch (e) { /* polling retry */ }
+  }, 2000, []);
 
   const handleCall = async (from, to) => {
     try { await requestElevator(from, to); }
     catch (e) { console.error('Failed to request elevator', e); }
   };
 
+  const TOTAL_FLOORS = 10;
   const floors = Array.from({ length: TOTAL_FLOORS }, (_, i) => TOTAL_FLOORS - i);
   const arrivedFloors = elevators.filter(e => e.status === 'STOPPED' || e.status === 'IDLE').map(e => e.currentFloor);
   const movingCount = elevators.filter(e => e.status === 'MOVING').length;
   const idleCount = elevators.filter(e => e.status === 'IDLE').length;
   const stoppedCount = elevators.filter(e => e.status === 'STOPPED').length;
 
+  const directionArrow = (dir) => {
+    if (dir === 'UP') return '▲';
+    if (dir === 'DOWN') return '▼';
+    return '•';
+  };
+
   return (
-    <div className="app">
-      <style>{styles}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header className="header">
-        <div>
-          <h1>Elevator Control System</h1>
-          <p>Building Management</p>
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={() => setPage('app')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'app' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>App</button>
-          <button onClick={() => setPage('simulation')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'simulation' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Simulation</button>
-          <button onClick={() => setPage('diagram')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'diagram' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Diagram</button>
-          <button onClick={() => setPage('design')} style={{ padding: '6px 14px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: 6, background: page === 'design' ? 'rgba(255,255,255,0.2)' : 'transparent', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Design</button>
-        </div>
-      </header>
-      {page === 'diagram' && <ClassDiagram module="elevator" />}
-      {page === 'design' && <DesignDetails module="elevator" />}
-      {page === 'simulation' && <AnimatedFlow />}
-      {page === 'app' && (
-        <>
-          <div className="building">
-            <div className="building-header">
-              <span>Building</span>
-              <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.9 }}>
-                {elevators.length} Elevators &middot; {movingCount} Moving &middot; {idleCount} Idle &middot; {stoppedCount} Stopped
-              </span>
-            </div>
-            {floors.map(floor => (
-              <div
-                key={floor}
-                className={`floor-row ${arrivedFloors.includes(floor) ? 'floor-arrived' : ''}`}
-              >
-                <div className="floor-num">F{floor}</div>
-                <div className="floor-buttons">
-                  {floor < TOTAL_FLOORS && (
-                    <button className="floor-btn floor-btn-up" onClick={() => handleCall(floor, floor + 1)}>{'\u25B2'}</button>
-                  )}
-                  {floor > 1 && (
-                    <button className="floor-btn floor-btn-down" onClick={() => handleCall(floor, floor - 1)}>{'\u25BC'}</button>
-                  )}
+    <LldPage
+      module="elevator"
+      title="Elevator Control System"
+      icon="🛗"
+      tabs={['app', 'simulation', 'diagram', 'design']}
+    >
+      {(activeTab) => (
+        <div className="app" style={{ padding: 0 }}>
+          <style>{styles}</style>
+          {activeTab === 'simulation' && <AnimatedFlow />}
+          {activeTab === 'app' && (
+            <>
+              <div className="building">
+                <div className="building-header">
+                  <span>Building Status</span>
+                  <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.9 }}>
+                    {elevators.length} Elevators &middot; {movingCount} Moving &middot; {idleCount} Idle &middot; {stoppedCount} Stopped
+                  </span>
                 </div>
-                <div className="shafts-area">
-                  {elevators.map(el => (
-                    <div className="shaft-col" key={el.id}>
-                      {el.currentFloor === floor && <ElevatorCarIndicator elevator={el} />}
+                {floors.map(floor => (
+                  <div
+                    key={floor}
+                    className={`floor-row ${arrivedFloors.includes(floor) ? 'floor-arrived' : ''}`}
+                  >
+                    <div className="floor-num">F{floor}</div>
+                    <div className="floor-buttons">
+                      {floor < TOTAL_FLOORS && (
+                        <button className="floor-btn floor-btn-up" onClick={() => handleCall(floor, floor + 1)}>▲</button>
+                      )}
+                      {floor > 1 && (
+                        <button className="floor-btn floor-btn-down" onClick={() => handleCall(floor, floor - 1)}>▼</button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="info-panel">
-            <div className="info-card">
-              <h3>Elevator Status</h3>
-              <div className="elevator-list">
-                {elevators.length === 0 && <div className="no-requests">No elevators available.</div>}
-                {elevators.map(el => (
-                  <div className="elevator-item" key={el.id}>
-                    <div className="ei-header">
-                      <span className="ei-name">{el.name}</span>
-                      <span className={`ei-status ${el.status.toLowerCase()}`}>{el.status}</span>
-                    </div>
-                    <div className="ei-details">
-                      <span>Floor {el.currentFloor}</span>
-                      <span>{directionArrow(el.direction)} {el.direction}</span>
-                      <span>Load: {el.currentLoad}/{el.capacity}</span>
+                    <div className="shafts-area">
+                      {elevators.map(el => (
+                        <div className="shaft-col" key={el.id}>
+                          {el.currentFloor === floor && <ElevatorCarIndicator elevator={el} />}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-            <div className="info-card">
-              <h3>Recent Requests</h3>
-              <div className="request-list">
-                {requests.length === 0 && <div className="no-requests">No requests yet.</div>}
-                {requests.slice().reverse().slice(0, 10).map((req, idx) => (
-                  <div className="request-item" key={req.id || idx}>
-                    <span>F{req.fromFloor} &rarr; F{req.toFloor}</span>
-                    <span className="req-status">{req.status || 'PENDING'}</span>
+              <div className="info-panel">
+                <div className="info-card">
+                  <h3>Elevator Status</h3>
+                  <div className="elevator-list">
+                    {elevators.length === 0 && <div className="no-requests">No elevators available.</div>}
+                    {elevators.map(el => (
+                      <div className="elevator-item" key={el.id}>
+                        <div className="ei-header">
+                          <span className="ei-name">{el.name}</span>
+                          <span className={`ei-status ${el.status.toLowerCase()}`}>{el.status}</span>
+                        </div>
+                        <div className="ei-details">
+                          <span>Floor {el.currentFloor}</span>
+                          <span>{directionArrow(el.direction)} {el.direction}</span>
+                          <span>Load: {el.currentLoad}/{el.capacity}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+                <div className="info-card">
+                  <h3>Recent Requests</h3>
+                  <div className="request-list">
+                    {requests.length === 0 && <div className="no-requests">No requests yet.</div>}
+                    {requests.slice().reverse().slice(0, 10).map((req, idx) => (
+                      <div className="request-item" key={req.id || idx}>
+                        <span>F{req.fromFloor} &rarr; F{req.toFloor}</span>
+                        <span className="req-status">{req.status || 'PENDING'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </>
+            </>
+          )}
+        </div>
       )}
-    </div>
+    </LldPage>
   );
 }

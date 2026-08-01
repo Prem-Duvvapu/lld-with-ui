@@ -1,34 +1,67 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DesignDetails from './DesignDetails';
 import ClassDiagram from './ClassDiagram';
+import './LldPage.css';
 
 export default function LldPage({ module, title, icon, tabs: customTabs, children }) {
   const defaultTabs = ['design', 'diagram'];
   const tabs = customTabs || defaultTabs;
-  const tabLabels = { design: 'Design Details', diagram: 'Class Diagram', app: 'App', simulation: 'Simulation', solution: 'Solution' };
-  const [tab, setTab] = useState(tabs[0]);
-  const isCustom = !['design', 'diagram'].includes(tab);
+  const tabLabels = {
+    design: 'Design Details',
+    diagram: 'Class Diagram',
+    app: 'App',
+    simulation: 'Simulation',
+    demo: 'Animated Demo',
+    solution: 'Solution',
+    entry: 'Entry',
+    exit: 'Exit',
+    spots: 'Spots',
+    tickets: 'Tickets'
+  };
+
+  const storageKey = `lld-tab-${module}`;
+  const [tab, setTab] = useState(() => {
+    const saved = sessionStorage.getItem(storageKey);
+    return tabs.includes(saved) ? saved : tabs[0];
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem(storageKey, tab);
+  }, [tab, storageKey]);
+
+  const isBuiltIn = ['design', 'diagram'].includes(tab);
 
   return (
-    <div className="app">
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header className="home-header" style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24 }}>{icon} {title}</h1>
-        <p style={{ color: '#888', fontSize: 14 }}>Low-Level Design</p>
-        <nav style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 12, flexWrap: 'wrap' }}>
-          {tabs.map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: '6px 14px', border: `1px solid ${tab === t ? '#667eea' : '#333'}`, borderRadius: 6, background: tab === t ? 'rgba(102,126,234,0.15)' : 'transparent', color: tab === t ? '#667eea' : '#888', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+    <div className="lld-page">
+      <nav className="lld-page-breadcrumb">
+        <Link to="/">← Home</Link>
+        <span>/</span>
+        <span>{title}</span>
+      </nav>
+
+      <header className="lld-page-header">
+        <h1>{icon && <span>{icon}</span>} {title}</h1>
+        <p className="lld-page-subtitle">Low-Level Design Architecture & Demonstration</p>
+        <nav className="lld-page-nav" role="tablist">
+          {tabs.map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              className={tab === t ? 'active' : ''}
+              onClick={() => setTab(t)}
+            >
               {tabLabels[t] || t}
             </button>
           ))}
         </nav>
       </header>
-      <main style={{ maxWidth: tab === 'app' ? 1200 : 900, margin: '0 auto', width: '100%' }}>
+
+      <main className="lld-page-main">
         {tab === 'design' && <DesignDetails module={module} />}
         {tab === 'diagram' && <ClassDiagram module={module} />}
-        {isCustom && (typeof children === 'function' ? children(tab) : children)}
+        {!isBuiltIn && (typeof children === 'function' ? children(tab) : children)}
       </main>
     </div>
   );

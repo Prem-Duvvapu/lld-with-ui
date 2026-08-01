@@ -1,68 +1,55 @@
-const API = '/api/splitwise';
+import { apiFetch } from '../../utils/api';
 
-async function handleResponse(res) {
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+export function getUsers() {
+  return apiFetch('/splitwise/users');
 }
 
-export async function getUsers() {
-  const res = await fetch(`${API}/users`);
-  return handleResponse(res);
-}
-
-export async function createUser(name, email) {
-  const res = await fetch(`${API}/users`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email })
+export function createUser(name, email) {
+  return apiFetch('/splitwise/users', {
+    method: 'POST',
+    body: JSON.stringify({ name, email }),
   });
-  return handleResponse(res);
 }
 
-export async function createGroup(name, memberIds) {
-  const res = await fetch(`${API}/groups`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, memberIds })
+export function createGroup(name, memberIds) {
+  return apiFetch('/splitwise/groups', {
+    method: 'POST',
+    body: JSON.stringify({ name, memberIds }),
   });
-  return handleResponse(res);
 }
 
-export async function getGroups() {
-  const res = await fetch(`${API}/groups`);
-  return handleResponse(res);
+export function getGroups() {
+  return apiFetch('/splitwise/groups');
 }
 
-export async function addMember(groupId, userId) {
-  const res = await fetch(`${API}/groups/${groupId}/members/${userId}`, { method: 'PUT' });
-  return handleResponse(res);
-}
-
-export async function addExpense(description, amount, paidBy, groupId, splits) {
-  const res = await fetch(`${API}/expenses`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ description, amount, paidBy, groupId, splits })
+export function addMember(groupId, userId) {
+  return apiFetch(`/splitwise/groups/${groupId}/members/${userId}`, {
+    method: 'PUT',
   });
-  return handleResponse(res);
 }
 
-export async function getGroupExpenses(groupId) {
-  const res = await fetch(`${API}/groups/${groupId}/expenses`);
-  return handleResponse(res);
-}
-
-export async function getBalances(userId) {
-  const res = await fetch(`${API}/users/${userId}/balances`);
-  return handleResponse(res);
-}
-
-export async function settleUp(fromUserId, toUserId, groupId, amount) {
-  const res = await fetch(`${API}/settle`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fromUserId, toUserId, groupId, amount })
+export function addExpense(description, amount, paidBy, groupId, splits) {
+  return apiFetch('/splitwise/expenses', {
+    method: 'POST',
+    body: JSON.stringify({ description, amount, paidBy, groupId, splits }),
   });
-  return handleResponse(res);
 }
 
-export async function getTransactions(userId) {
-  const res = await fetch(`${API}/users/${userId}/transactions`);
-  return handleResponse(res);
+export function getGroupExpenses(groupId) {
+  return apiFetch(`/splitwise/groups/${groupId}/expenses`);
+}
+
+export function getBalances(userId) {
+  return apiFetch(`/splitwise/users/${userId}/balances`);
+}
+
+export function settleUp(fromUserId, toUserId, groupId, amount) {
+  return apiFetch('/splitwise/settle', {
+    method: 'POST',
+    body: JSON.stringify({ fromUserId, toUserId, groupId, amount }),
+  });
+}
+
+export function getTransactions(userId) {
+  return apiFetch(`/splitwise/users/${userId}/transactions`);
 }

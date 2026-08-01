@@ -1,85 +1,68 @@
-const BASE = '/api/stackoverflow';
+import { apiFetch } from '../../utils/api';
 
-export async function getQuestions(keyword, tag, userId) {
+export function getQuestions(keyword, tag, userId) {
   const params = new URLSearchParams();
   if (keyword) params.set('keyword', keyword);
   if (tag) params.set('tag', tag);
   if (userId) params.set('userId', userId);
   const qs = params.toString();
-  const res = await fetch(`${BASE}/questions${qs ? '?' + qs : ''}`);
-  return res.json();
+  return apiFetch(`/stackoverflow/questions${qs ? '?' + qs : ''}`);
 }
 
-export async function getQuestion(id) {
-  const res = await fetch(`${BASE}/questions/${id}`);
-  return res.json();
+export function getQuestion(id) {
+  return apiFetch(`/stackoverflow/questions/${id}`);
 }
 
-export async function postQuestion(title, body, authorId, tags) {
-  const res = await fetch(`${BASE}/questions`, {
+export function postQuestion(title, body, authorId, tags) {
+  return apiFetch('/stackoverflow/questions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ title, body, authorId, tags }),
   });
-  return res.json();
 }
 
-export async function postAnswer(questionId, body, authorId) {
-  const res = await fetch(`${BASE}/questions/${questionId}/answers`, {
+export function postAnswer(questionId, body, authorId) {
+  return apiFetch(`/stackoverflow/questions/${questionId}/answers`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ body, authorId }),
   });
-  return res.json();
 }
 
-export async function voteQuestion(questionId, userId, voteType) {
-  const res = await fetch(`${BASE}/questions/${questionId}/vote`, {
+export function voteQuestion(questionId, userId, voteType) {
+  return apiFetch(`/stackoverflow/questions/${questionId}/vote`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, voteType }),
   });
-  return res.json();
 }
 
-export async function voteAnswer(answerId, userId, voteType) {
-  const res = await fetch(`${BASE}/answers/${answerId}/vote`, {
+export function voteAnswer(answerId, userId, voteType) {
+  return apiFetch(`/stackoverflow/answers/${answerId}/vote`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userId, voteType }),
   });
-  return res.json();
 }
 
-export async function acceptAnswer(questionId, answerId, userId) {
-  const res = await fetch(`${BASE}/questions/${questionId}/accept`, {
+export function acceptAnswer(questionId, answerId, userId) {
+  return apiFetch(`/stackoverflow/questions/${questionId}/accept`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answerId, userId }),
   });
-  return res.json();
 }
 
-export async function addComment(targetType, targetId, body, authorId) {
-  const res = await fetch(`${BASE}/comments`, {
+export function addComment(targetType, targetId, body, authorId) {
+  return apiFetch('/stackoverflow/comments', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ targetType, targetId, body, authorId }),
   });
-  return res.json();
 }
 
-export async function getUsers() {
-  const res = await fetch(`${BASE}/users`);
-  return res.json();
+export function getUsers() {
+  return apiFetch('/stackoverflow/users');
 }
 
-export async function getUser(id) {
-  const res = await fetch(`${BASE}/users/${id}`);
-  return res.json();
+export function getUser(id) {
+  return apiFetch(`/stackoverflow/users/${id}`);
 }
 
-export async function getTags() {
-  const res = await fetch(`${BASE}/tags`);
-  return res.json();
+export function getTags() {
+  return apiFetch('/stackoverflow/tags');
 }

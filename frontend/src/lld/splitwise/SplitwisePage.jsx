@@ -5,8 +5,6 @@ import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; }
 .splitwise-app { max-width: 600px; margin: 0 auto; padding: 20px 16px; }
 .sw-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; }
 .sw-header h1 { background: linear-gradient(135deg, #fff, #e0d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-size: 28px; font-weight: 800; }
@@ -540,29 +538,31 @@ export default function SplitwisePage() {
   const handleGroupSelect = (group) => { setSelectedGroup(group); setView('expense'); };
 
   return (
-    <div className="splitwise-app">
-      <style>{styles}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header className="sw-header">
-        <h1>Splitwise</h1>
-        {selectedUser && <span className="sw-user-badge">{selectedUser.name[0]}</span>}
-      </header>
-      <nav style={{ display: 'flex', gap: 8, marginBottom: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'users' || view === 'groups' || view === 'expense' || view === 'balances' || view === 'settle' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'users' || view === 'groups' || view === 'expense' || view === 'balances' || view === 'settle' ? '#fff' : '#555' }} onClick={() => setView('users')}>App</button>
-        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'simulation' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'simulation' ? '#fff' : '#555' }} onClick={() => setView('simulation')}>Simulation</button>
-        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'diagram' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'diagram' ? '#fff' : '#555' }} onClick={() => setView('diagram')}>📐 Class Diagram</button>
-        <button className="sw-btn" style={{ padding: '6px 14px', fontSize: 12, background: view === 'design' ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f0f0f0', color: view === 'design' ? '#fff' : '#555' }} onClick={() => setView('design')}>Design Details</button>
-      </nav>
-      <main className="sw-main">
-        {view === 'simulation' && <AnimatedFlow />}
-        {view === 'design' && <DesignDetails module="splitwise" />}
-        {view === 'diagram' && <ClassDiagram module="splitwise" />}
-        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'users' && <UserList onUserSelect={handleUserSelect} onUserCreated={() => {}} />}
-        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'groups' && selectedUser && <GroupList user={selectedUser} onGroupSelect={handleGroupSelect} onBack={() => { setSelectedUser(null); setView('users'); }} />}
-        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'expense' && selectedGroup && selectedUser && <AddExpense user={selectedUser} group={selectedGroup} onBack={() => { setSelectedGroup(null); setView('groups'); }} onExpenseAdded={() => setView('balances')} />}
-        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'balances' && selectedUser && <BalanceView user={selectedUser} onBack={() => setView('groups')} onSettle={(otherId) => setView('settle')} />}
-        {view !== 'simulation' && view !== 'design' && view !== 'diagram' && view === 'settle' && selectedUser && <SettleUp user={selectedUser} onBack={() => setView('balances')} onSettled={() => setView('balances')} />}
-      </main>
-    </div>
+    <LldPage
+      module="splitwise"
+      title="Splitwise Expense Sharing"
+      icon="💰"
+      tabs={['app', 'simulation', 'diagram', 'design']}
+    >
+      {(activeTab) => (
+        <div className="splitwise-app" style={{ padding: 0 }}>
+          <style>{styles}</style>
+          <main className="sw-main" style={{ minHeight: 'auto' }}>
+            {activeTab === 'simulation' && <AnimatedFlow />}
+            {activeTab === 'design' && <DesignDetails module="splitwise" />}
+            {activeTab === 'diagram' && <ClassDiagram module="splitwise" />}
+            {activeTab === 'app' && (
+              <>
+                {view === 'users' && <UserList onUserSelect={handleUserSelect} onUserCreated={() => {}} />}
+                {view === 'groups' && selectedUser && <GroupList user={selectedUser} onGroupSelect={handleGroupSelect} onBack={() => { setSelectedUser(null); setView('users'); }} />}
+                {view === 'expense' && selectedGroup && selectedUser && <AddExpense user={selectedUser} group={selectedGroup} onBack={() => { setSelectedGroup(null); setView('groups'); }} onExpenseAdded={() => setView('balances')} />}
+                {view === 'balances' && selectedUser && <BalanceView user={selectedUser} onBack={() => setView('groups')} onSettle={() => setView('settle')} />}
+                {view === 'settle' && selectedUser && <SettleUp user={selectedUser} onBack={() => setView('balances')} onSettled={() => setView('balances')} />}
+              </>
+            )}
+          </main>
+        </div>
+      )}
+    </LldPage>
   );
 }

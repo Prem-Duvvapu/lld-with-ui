@@ -1,68 +1,54 @@
-const BASE_URL = '/api/parking';
+import { apiFetch } from '../../utils/api';
 
-export async function getGates() {
-  const res = await fetch(`${BASE_URL}/gates`);
-  return res.json();
+export function getGates() {
+  return apiFetch('/parking/gates');
 }
 
-export async function vehicleEntry(gateId, vehicleNumber, vehicleType, strategy = 'NEAREST') {
-  const res = await fetch(`${BASE_URL}/entry`, {
+export function vehicleEntry(gateId, vehicleNumber, vehicleType, strategy = 'NEAREST') {
+  return apiFetch('/parking/entry', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gateId, vehicleNumber, vehicleType, strategy }),
   });
-  return res.json();
 }
 
-export async function scanVehicleExit(gateId, ticketNumber, pricingStrategy = 'HOURLY') {
-  const res = await fetch(`${BASE_URL}/exit/scan`, {
+export function scanVehicleExit(gateId, ticketNumber, pricingStrategy = 'HOURLY') {
+  return apiFetch('/parking/exit/scan', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gateId, ticketNumber, pricingStrategy }),
   });
-  return res.json();
 }
 
-export async function payVehicleExit(gateId, ticketNumber, pricingStrategy = 'HOURLY', paymentMethod = 'UPI') {
-  const res = await fetch(`${BASE_URL}/exit/pay`, {
+export function payVehicleExit(gateId, ticketNumber, pricingStrategy = 'HOURLY', paymentMethod = 'UPI') {
+  return apiFetch('/parking/exit/pay', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gateId, ticketNumber, pricingStrategy, paymentMethod }),
   });
-  return res.json();
 }
 
-export async function vehicleExit(gateId, ticketNumber) {
-  const res = await fetch(`${BASE_URL}/exit`, {
+export function vehicleExit(gateId, ticketNumber) {
+  return apiFetch('/parking/exit', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ gateId, ticketNumber }),
   });
-  return res.json();
 }
 
-export async function getFloors() {
-  const res = await fetch(`${BASE_URL}/floors`);
-  return res.json();
+export function getFloors() {
+  return apiFetch('/parking/floors');
 }
 
-export async function getActiveTickets() {
-  const res = await fetch(`${BASE_URL}/tickets/active`);
-  return res.json();
+export function getActiveTickets() {
+  return apiFetch('/parking/tickets/active');
 }
 
-export async function getAvailableSpots(vehicleType) {
+export function getAvailableSpots(vehicleType) {
   const params = vehicleType ? `?vehicleType=${vehicleType}` : '';
-  const res = await fetch(`${BASE_URL}/spots/available${params}`);
-  return res.json();
+  return apiFetch(`/parking/spots/available${params}`);
 }
 
-export async function getParkingClassDiagram() {
-  const res = await fetch(`${BASE_URL}/class-diagram`);
-  return res.json();
+export function getParkingClassDiagram() {
+  return apiFetch('/parking/class-diagram');
 }
 
-export async function getParkingDesignDetails() {
-  const res = await fetch(`${BASE_URL}/design-details`);
-  return res.json();
+export function getParkingDesignDetails() {
+  return apiFetch('/parking/design-details');
 }
