@@ -103,6 +103,11 @@ public class UberController {
         return service.startTrip(id);
     }
 
+    @PutMapping("/rides/{id}/arrive")
+    public Ride arriveAtDestination(@PathVariable String id) {
+        return service.arriveAtDestination(id);
+    }
+
     @PutMapping("/rides/{id}/complete")
     public Ride completeTrip(@PathVariable String id, @RequestBody(required = false) Map<String, String> body) {
         String method = body != null ? body.get("paymentMethod") : "UPI";

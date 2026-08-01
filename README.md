@@ -94,8 +94,8 @@ Then open http://localhost:5173 and click any LLD card.
 **APIs:** `GET /api/zomato/restaurants`, `GET /api/zomato/menu`, `POST /api/zomato/orders`, `GET /api/zomato/orders`, `PUT /api/zomato/orders/{id}/status`
 
 ### 3. Uber
-**Features:** Location-based fare estimation (Haversine), vehicle types (Go/XL/Premium), driver assignment, ride state machine (REQUESTED → ACCEPTED → ARRIVED → STARTED → COMPLETED)  
-**APIs:** `GET /api/uber/estimate`, `POST /api/uber/rides`, `GET /api/uber/rides`, `PUT /api/uber/rides/{id}/status`
+**Features:** Pre-booking fare estimation (Haversine distance & duration), vehicle types (Go/XL/Premium), driver request broadcasting with explicit Accept/Decline decision, 4-digit OTP verification, interactive 2D city map scene, ride lifecycle state machine (REQUESTED → ACCEPTED → ONGOING → DESTINATION_REACHED / PAYMENT_PENDING → COMPLETED / PAYMENT_FAILED / CANCELLED), and rider payment checkout  
+**APIs:** `GET /api/uber/estimate`, `POST /api/uber/rides`, `GET /api/uber/rides`, `GET /api/uber/drivers/{driverId}/requests`, `PUT /api/uber/rides/{id}/accept`, `PUT /api/uber/rides/{id}/decline`, `PUT /api/uber/rides/{id}/verify-otp`, `PUT /api/uber/rides/{id}/start`, `PUT /api/uber/rides/{id}/arrive`, `PUT /api/uber/rides/{id}/complete`, `PUT /api/uber/rides/{id}/cancel`
 
 ### 4. Stack Overflow
 **Features:** Q&A with voting, reputation system (Strategy pattern), tag-based search, comments, accept answer, concurrent access safety  

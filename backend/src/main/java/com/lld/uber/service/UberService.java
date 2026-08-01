@@ -172,9 +172,19 @@ public class UberService {
         return ride;
     }
 
-    public Ride completeTrip(String rideId, String paymentMethod) {
+    public Ride arriveAtDestination(String rideId) {
         Ride ride = getRide(rideId);
         if (ride.getStatus() != RideStatus.ONGOING && ride.getStatus() != RideStatus.ACCEPTED) {
+            throw new IllegalStateException("Ride cannot be marked arrived from status: " + ride.getStatus());
+        }
+        ride.setStatus(RideStatus.PAYMENT_PENDING);
+        repository.updateRide(ride);
+        return ride;
+    }
+
+    public Ride completeTrip(String rideId, String paymentMethod) {
+        Ride ride = getRide(rideId);
+        if (ride.getStatus() != RideStatus.ONGOING && ride.getStatus() != RideStatus.ACCEPTED && ride.getStatus() != RideStatus.DESTINATION_REACHED && ride.getStatus() != RideStatus.PAYMENT_PENDING && ride.getStatus() != RideStatus.PAYMENT_FAILED) {
             throw new IllegalStateException("Ride cannot be completed from status: " + ride.getStatus());
         }
 
@@ -185,18 +195,22 @@ public class UberService {
         repository.savePayment(payment);
 
         ride.setPayment(payment);
-        ride.setStatus(RideStatus.COMPLETED);
 
-        String driverId = ride.getDriverId();
-        if (driverId != null) {
-            Driver driver = repository.getDriver(driverId);
-            if (driver != null) {
-                if (ride.getDropoff() != null) {
-                    driver.setCurrentLocation(ride.getDropoff());
+        if (payment.getStatus() == com.lld.uber.payment.PaymentStatus.COMPLETED) {
+            ride.setStatus(RideStatus.COMPLETED);
+            String driverId = ride.getDriverId();
+            if (driverId != null) {
+                Driver driver = repository.getDriver(driverId);
+                if (driver != null) {
+                    if (ride.getDropoff() != null) {
+                        driver.setCurrentLocation(ride.getDropoff());
+                    }
+                    driver.setStatus(DriverStatus.AVAILABLE);
+                    repository.updateDriver(driver);
                 }
-                driver.setStatus(DriverStatus.AVAILABLE);
-                repository.updateDriver(driver);
             }
+        } else {
+            ride.setStatus(RideStatus.PAYMENT_FAILED);
         }
 
         repository.updateRide(ride);

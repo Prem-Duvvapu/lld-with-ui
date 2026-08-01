@@ -36,6 +36,17 @@
 - `src/components/DesignDetails.jsx` — Renders detailed design breakdown from data.
 - `src/data/designDetails.js` — Content for each module's design details.
 
+## Uber Module
+### Backend
+- `UberInitializer`: Sample riders & drivers (UBER_GO, UBER_XL, UBER_PREMIUM).
+- `UberService`: estimate, requestRide, acceptRide, declineRide, verifyOtpAndStart, arriveAtDestination, completeTrip, cancelTrip.
+- `RideStatus`: REQUESTED, ACCEPTED, ONGOING, DESTINATION_REACHED, PAYMENT_PENDING, COMPLETED, PAYMENT_FAILED, CANCELLED.
+- `PaymentProcessor`: Validates and completes rider payments (`UPI`, `CARD`, `CASH`).
+
+### Frontend
+- 6 tabs: Passenger Booking, Driver Dashboard, Trip History, Interactive 2D Simulation, Class Diagram, Design Details.
+- Real-time polling & interactive 2D city map scene (asphalt road, skyline, street lamps, car headlight beam).
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide, verifyOtp, getUserRides } from './api';
+import { getEstimate, requestRide, getAllRides, startTrip, arriveAtDestination, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide, verifyOtp, getUserRides } from './api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -397,9 +397,14 @@ function BookRide({ onRideBooked }) {
                 )}
 
                 {/* Rider Checkout / Payment Section when Completed */}
-                {activeRide.status === 'COMPLETED' && (
+                {(activeRide.status === 'PAYMENT_PENDING' || activeRide.status === 'DESTINATION_REACHED' || activeRide.status === 'PAYMENT_FAILED' || activeRide.status === 'COMPLETED') && (
                   <div style={{ marginTop: 12, padding: 16, background: 'var(--bg-card)', borderRadius: 8, border: '2px solid var(--success)' }}>
                     <h4 style={{ color: 'var(--success)', marginBottom: 8 }}>🏁 Arrived at Destination! Please Complete Payment</h4>
+                    {activeRide.status === 'PAYMENT_FAILED' && (
+                      <div style={{ padding: 10, background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 6, marginBottom: 10, fontSize: 13 }}>
+                        ⚠️ Payment failed. Please select another payment method and try again.
+                      </div>
+                    )}
                     <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--success)', marginBottom: 12 }}>
                       Total Fare Bill: ₹{activeRide.fare?.toFixed(2)}
                     </div>
@@ -512,6 +517,16 @@ function DriverDashboard() {
     } catch (err) {
       const msg = typeof err === 'object' && err !== null ? (err.message || 'Invalid OTP verification') : String(err);
       toast.error(`❌ ${msg}`);
+    }
+  };
+
+  const handleArriveTrip = async (rideId) => {
+    try {
+      await arriveAtDestination(rideId);
+      toast.success('🏁 Arrived at destination! Requesting payment from rider.');
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update trip status');
     }
   };
 
@@ -661,10 +676,16 @@ function DriverDashboard() {
               </div>
             )}
 
+            {(r.status === 'PAYMENT_PENDING' || r.status === 'DESTINATION_REACHED') && (
+              <div style={{ margin: '10px 0', padding: 12, background: 'var(--warning-bg)', borderRadius: 8, border: '1px solid var(--warning)', fontSize: 13, color: 'var(--warning)' }}>
+                ⏳ <strong>Destination Reached:</strong> Payment request sent to Rider (₹{r.fare?.toFixed(2)})...
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               {r.status === 'ONGOING' && (
-                <Button size="sm" variant="success" onClick={() => handleCompleteTrip(r.id)}>
-                  🏁 Reached Destination & Request Payment
+                <Button size="sm" variant="success" onClick={() => handleArriveTrip(r.id)}>
+                  🏁 Reached Destination (Request Payment)
                 </Button>
               )}
               <Button size="sm" variant="danger" onClick={() => handleCancelTrip(r.id)}>
@@ -700,7 +721,10 @@ function TripHistory() {
       case 'REQUESTED': return 'info';
       case 'ACCEPTED': return 'warning';
       case 'ONGOING': return 'warning';
+      case 'DESTINATION_REACHED': return 'warning';
+      case 'PAYMENT_PENDING': return 'warning';
       case 'COMPLETED': return 'success';
+      case 'PAYMENT_FAILED': return 'danger';
       case 'CANCELLED': return 'danger';
       default: return 'neutral';
     }

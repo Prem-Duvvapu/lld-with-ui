@@ -53,6 +53,10 @@ export function startTrip(id) {
   return apiFetch(`/uber/rides/${id}/start`, { method: 'PUT' });
 }
 
+export function arriveAtDestination(id) {
+  return apiFetch(`/uber/rides/${id}/arrive`, { method: 'PUT' });
+}
+
 export function completeTrip(id, paymentMethod = 'UPI') {
   return apiFetch(`/uber/rides/${id}/complete`, {
     method: 'PUT',
