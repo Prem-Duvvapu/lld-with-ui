@@ -2,6 +2,7 @@ package com.lld.uber.controller;
 
 import com.lld.uber.model.*;
 import com.lld.uber.service.UberService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -84,8 +85,13 @@ public class UberController {
     }
 
     @PutMapping("/rides/{id}/verify-otp")
-    public Ride verifyOtp(@PathVariable String id, @RequestBody Map<String, String> body) {
-        return service.verifyOtpAndStart(id, body.get("otp"));
+    public ResponseEntity<?> verifyOtp(@PathVariable String id, @RequestBody Map<String, String> body) {
+        try {
+            Ride ride = service.verifyOtpAndStart(id, body.get("otp"));
+            return ResponseEntity.ok(ride);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PutMapping("/rides/{id}/start")

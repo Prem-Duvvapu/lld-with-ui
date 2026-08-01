@@ -705,14 +705,28 @@ function InteractiveAnimatedFlow() {
   // Step 5: Verify OTP & Start Ride
   const handleStep5VerifyOtp = async () => {
     if (!ride) return;
+    const cleanInput = inputOtp.trim();
+    const expectedOtp = (ride.otp || '4829').trim();
+
+    if (!cleanInput) {
+      toast.error('Please enter the 4-digit secret OTP shown above.');
+      return;
+    }
+
+    if (cleanInput !== expectedOtp) {
+      toast.error(`❌ Invalid OTP "${cleanInput}"! Please enter the correct 4-digit secret OTP (${expectedOtp}).`);
+      return;
+    }
+
     try {
-      const res = await verifyOtp(ride.id, inputOtp);
+      const res = await verifyOtp(ride.id, cleanInput);
       setRide(res);
       setCarLeft(500);
       setStep(5);
-      toast.success('OTP verified successfully! Ride status: ONGOING');
+      toast.success('✅ OTP verified successfully! Ride status: ONGOING');
     } catch (err) {
-      toast.error(err.message || 'Invalid OTP! Please enter correct 4-digit OTP.');
+      const msg = typeof err === 'object' && err !== null ? (err.message || 'Invalid OTP! Verification failed.') : String(err);
+      toast.error(`❌ ${msg}`);
     }
   };
 
