@@ -1,8 +1,7 @@
 package com.lld.uber.controller;
 
-import com.lld.uber.model.Ride;
+import com.lld.uber.model.*;
 import com.lld.uber.service.UberService;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,56 +18,95 @@ public class UberController {
         this.service = service;
     }
 
+    @PostMapping("/riders")
+    public Rider registerRider(@RequestBody Rider rider) {
+        return service.registerRider(rider);
+    }
+
+    @GetMapping("/riders")
+    public List<Rider> getRiders() {
+        return service.getAllRiders();
+    }
+
+    @PostMapping("/drivers")
+    public Driver registerDriver(@RequestBody Driver driver) {
+        return service.registerDriver(driver);
+    }
+
+    @GetMapping("/drivers")
+    public List<Driver> getDrivers() {
+        return service.getAllDrivers();
+    }
+
+    @PutMapping("/drivers/{id}/status")
+    public Driver updateDriverStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
+        String statusStr = body.get("status");
+        DriverStatus status = DriverStatus.valueOf(statusStr.toUpperCase());
+        return service.updateDriverStatus(id, status);
+    }
+
     @GetMapping("/estimate")
-    public ResponseEntity<?> estimate(
-            @RequestParam String pickupLat, @RequestParam String pickupLng,
-            @RequestParam(defaultValue = "Pickup") String pickupLabel,
-            @RequestParam String dropoffLat, @RequestParam String dropoffLng,
-            @RequestParam(defaultValue = "Dropoff") String dropoffLabel,
+    public UberService.FareEstimate estimate(
+            @RequestParam String pickupLat, @RequestParam String pickupLng, @RequestParam(defaultValue = "Pickup") String pickupLabel,
+            @RequestParam String dropoffLat, @RequestParam String dropoffLng, @RequestParam(defaultValue = "Dropoff") String dropoffLabel,
             @RequestParam(defaultValue = "UBER_GO") String vehicleType) {
-        try {
-            return ResponseEntity.ok(service.estimate(pickupLat, pickupLng, pickupLabel,
-                    dropoffLat, dropoffLng, dropoffLabel, vehicleType));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        return service.estimate(pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType);
     }
 
     @PostMapping("/rides")
-    public ResponseEntity<?> requestRide(@RequestBody Map<String, String> body) {
-        try {
-            Ride ride = service.requestRide(
-                    body.get("userId"),
-                    body.get("pickupLat"), body.get("pickupLng"), body.get("pickupLabel"),
-                    body.get("dropoffLat"), body.get("dropoffLng"), body.get("dropoffLabel"),
-                    body.get("vehicleType")
-            );
-            return ResponseEntity.ok(ride);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    public Ride requestRide(@RequestBody Map<String, String> req) {
+        return service.requestRide(
+                req.getOrDefault("userId", "RIDER-001"),
+                req.get("pickupLat"), req.get("pickupLng"), req.getOrDefault("pickupLabel", "Pickup"),
+                req.get("dropoffLat"), req.get("dropoffLng"), req.getOrDefault("dropoffLabel", "Dropoff"),
+                req.getOrDefault("vehicleType", "UBER_GO")
+        );
     }
 
-    @GetMapping("/rides/{id}")
-    public ResponseEntity<?> getRide(@PathVariable String id) {
-        try {
-            return ResponseEntity.ok(service.getRide(id));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    @PutMapping("/rides/{id}/assign")
+    public Ride assignDriver(@PathVariable String id, @RequestBody Map<String, String> body) {
+        return service.assignDriver(id, body.get("driverId"));
     }
 
-    @GetMapping("/rides")
-    public List<Ride> getUserRides(@RequestParam String userId) {
-        return service.getUserRides(userId);
+    @PutMapping("/rides/{id}/start")
+    public Ride startTrip(@PathVariable String id) {
+        return service.startTrip(id);
+    }
+
+    @PutMapping("/rides/{id}/complete")
+    public Ride completeTrip(@PathVariable String id, @RequestBody(required = false) Map<String, String> body) {
+        String method = body != null ? body.get("paymentMethod") : "UPI";
+        return service.completeTrip(id, method);
+    }
+
+    @PutMapping("/rides/{id}/cancel")
+    public Ride cancelTrip(@PathVariable String id) {
+        return service.cancelTrip(id);
     }
 
     @PutMapping("/rides/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
-        try {
-            return ResponseEntity.ok(service.updateStatus(id, body.get("status")));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    public Ride updateStatus(@PathVariable String id, @RequestBody Map<String, String> body) {
+        String statusStr = body.get("status");
+        if ("ONGOING".equalsIgnoreCase(statusStr) || "STARTED".equalsIgnoreCase(statusStr) || "IN_PROGRESS".equalsIgnoreCase(statusStr)) {
+            return service.startTrip(id);
+        } else if ("COMPLETED".equalsIgnoreCase(statusStr)) {
+            return service.completeTrip(id, body.getOrDefault("paymentMethod", "UPI"));
+        } else if ("CANCELLED".equalsIgnoreCase(statusStr)) {
+            return service.cancelTrip(id);
         }
+        return service.getRide(id);
+    }
+
+    @GetMapping("/rides/{id}")
+    public Ride getRide(@PathVariable String id) {
+        return service.getRide(id);
+    }
+
+    @GetMapping("/rides")
+    public List<Ride> getRides(@RequestParam(required = false) String userId) {
+        if (userId != null && !userId.isEmpty()) {
+            return service.getUserRides(userId);
+        }
+        return service.getAllRides();
     }
 }

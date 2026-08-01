@@ -2,6 +2,7 @@ package com.lld.uber.config;
 
 import com.lld.uber.model.Driver;
 import com.lld.uber.model.Location;
+import com.lld.uber.model.Rider;
 import com.lld.uber.model.VehicleType;
 import com.lld.uber.repository.UberRepository;
 import org.springframework.boot.CommandLineRunner;
@@ -18,17 +19,19 @@ public class UberInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        repository.addDriver(new Driver("D1", "Vikram", "9988776655", VehicleType.UBER_GO,
-                "KA-01-AB-1234", new Location(12.9716, 77.5946, "MG Road")));
-        repository.addDriver(new Driver("D2", "Sneha", "9988776644", VehicleType.UBER_GO,
-                "KA-02-CD-5678", new Location(12.9344, 77.6101, "Koramangala")));
-        repository.addDriver(new Driver("D3", "Rajesh", "9988776633", VehicleType.UBER_XL,
-                "KA-03-EF-9012", new Location(12.9815, 77.6365, "Indiranagar")));
-        repository.addDriver(new Driver("D4", "Anita", "9988776622", VehicleType.UBER_PREMIUM,
-                "KA-04-GH-3456", new Location(12.9279, 77.6271, "JP Nagar")));
-        repository.addDriver(new Driver("D5", "Karan", "9988776611", VehicleType.UBER_GO,
-                "KA-05-IJ-7890", new Location(12.9586, 77.6500, "Whitefield")));
-        repository.addDriver(new Driver("D6", "Priya", "9988776600", VehicleType.UBER_XL,
-                "KA-06-KL-1111", new Location(12.9698, 77.5500, "Malleswaram")));
+        // Register sample riders
+        Rider rider1 = new Rider("RIDER-001", "Alex Johnson", "9876543210", new Location(12.9716, 77.5946, "MG Road"));
+        Rider rider2 = new Rider("RIDER-002", "Sarah Smith", "9876543211", new Location(12.9352, 77.6245, "Koramangala"));
+        repository.registerRider(rider1);
+        repository.registerRider(rider2);
+
+        // Register sample drivers
+        Driver d1 = new Driver("D-001", "Rajesh Kumar", "9876543212", VehicleType.UBER_GO, "KA-01-AB-1234", new Location(12.9720, 77.5950, "MG Road Junction"));
+        Driver d2 = new Driver("D-002", "Suresh Sharma", "9876543213", VehicleType.UBER_XL, "KA-02-CD-5678", new Location(12.9360, 77.6250, "Koramangala 5th Block"));
+        Driver d3 = new Driver("D-003", "Vikram Singh", "9876543214", VehicleType.UBER_PREMIUM, "KA-03-EF-9012", new Location(12.9700, 77.5900, "Cubbon Park"));
+
+        repository.registerDriver(d1);
+        repository.registerDriver(d2);
+        repository.registerDriver(d3);
     }
 }

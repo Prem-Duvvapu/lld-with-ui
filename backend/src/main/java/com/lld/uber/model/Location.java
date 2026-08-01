@@ -1,29 +1,41 @@
 package com.lld.uber.model;
 
 public class Location {
-    private double lat;
-    private double lng;
+    private double latitude;
+    private double longitude;
     private String label;
 
     public Location() {}
 
-    public Location(double lat, double lng, String label) {
-        this.lat = lat;
-        this.lng = lng;
+    public Location(double latitude, double longitude, String label) {
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.label = label;
     }
 
-    public double getLat() { return lat; }
-    public double getLng() { return lng; }
+    public double getLatitude() { return latitude; }
+    public void setLatitude(double latitude) { this.latitude = latitude; }
+
+    public double getLongitude() { return longitude; }
+    public void setLongitude(double longitude) { this.longitude = longitude; }
+
+    public double getLat() { return latitude; }
+    public void setLat(double lat) { this.latitude = lat; }
+
+    public double getLng() { return longitude; }
+    public void setLng(double lng) { this.longitude = lng; }
+
     public String getLabel() { return label; }
+    public void setLabel(String label) { this.label = label; }
 
     public double distanceTo(Location other) {
-        double dlat = Math.toRadians(other.lat - this.lat);
-        double dlng = Math.toRadians(other.lng - this.lng);
+        if (other == null) return 0;
+        double dlat = Math.toRadians(other.latitude - this.latitude);
+        double dlng = Math.toRadians(other.longitude - this.longitude);
         double a = Math.sin(dlat / 2) * Math.sin(dlat / 2)
-                 + Math.cos(Math.toRadians(this.lat)) * Math.cos(Math.toRadians(other.lat))
+                 + Math.cos(Math.toRadians(this.latitude)) * Math.cos(Math.toRadians(other.latitude))
                  * Math.sin(dlng / 2) * Math.sin(dlng / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return 6371 * c;
+        return 6371 * c; // kilometers
     }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getEstimate, requestRide, getUserRides, updateRideStatus } from './api';
+import { getEstimate, requestRide, getAllRides, startTrip, completeTrip, cancelTrip, getDrivers, updateDriverStatus } from './api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -29,6 +29,9 @@ const UBER_CSS = `
 .ride-card { border: 1px solid var(--border-primary); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; background: var(--bg-card); color: var(--text-primary); }
 .ride-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
 
+.driver-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.driver-card { border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 16px; background: var(--bg-card); }
+
 .uber-flow-scene { position: relative; width: 100%; height: 280px; background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border-primary); margin-bottom: 16px; }
 .uber-flow-map { position: relative; width: 100%; height: 100%; padding: 20px; }
 .uber-flow-marker { padding: 6px 12px; border-radius: 16px; font-size: 11px; font-weight: 700; color: white; position: absolute; box-shadow: var(--shadow-md); z-index: 2; }
@@ -37,15 +40,15 @@ const UBER_CSS = `
 .uber-flow-car { position: absolute; font-size: 32px; z-index: 3; transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); }
 `;
 
-const USER_ID = 'user1';
+const USER_ID = 'RIDER-001';
 
 const LOCATIONS = [
   { lat: 12.9716, lng: 77.5946, label: 'MG Road' },
-  { lat: 12.9344, lng: 77.6101, label: 'Koramangala' },
-  { lat: 12.9815, lng: 77.6365, label: 'Indiranagar' },
-  { lat: 12.9279, lng: 77.6271, label: 'JP Nagar' },
-  { lat: 12.9586, lng: 77.6500, label: 'Whitefield' },
-  { lat: 12.9698, lng: 77.5500, label: 'Malleswaram' },
+  { lat: 12.9352, lng: 77.6245, label: 'Koramangala' },
+  { lat: 12.9784, lng: 77.6408, label: 'Indiranagar' },
+  { lat: 12.9141, lng: 77.6411, label: 'HSR Layout' },
+  { lat: 12.9569, lng: 77.7011, label: 'Marathahalli' },
+  { lat: 12.9698, lng: 77.7500, label: 'Whitefield' },
 ];
 
 const VEHICLES = [
@@ -74,7 +77,7 @@ function BookRide({ onRideBooked }) {
       setError(msg); toast.error(msg); return;
     }
     try {
-      const data = await getEstimate(p.lat, p.lng, d.lat, d.lng, vehicleType);
+      const data = await getEstimate(p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType);
       setEstimate(data);
     } catch (err) {
       const msg = err.message || 'Failed to get fare estimate';
@@ -90,8 +93,8 @@ function BookRide({ onRideBooked }) {
       if (data.error) {
         setError(data.error); toast.error(data.error);
       } else {
-        setResult(data); onRideBooked();
-        toast.success(`Ride requested! Driver: ${data.driverName || 'Assigning...'}`);
+        setResult(data); if (onRideBooked) onRideBooked();
+        toast.success(`Trip Requested! Driver: ${data.driverName || 'Matching nearest driver...'}`);
       }
     } catch (err) {
       const msg = err.message || 'Failed to book ride';
@@ -102,9 +105,9 @@ function BookRide({ onRideBooked }) {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto' }}>
+    <div style={{ maxWidth: 650, margin: '0 auto' }}>
       <Card>
-        <CardHeader title="🚗 Book a Ride" subtitle="Instant distance calculation via Haversine strategy" />
+        <CardHeader title="🚗 Passenger Trip Request" subtitle="Distance-based fare estimation & proximity driver matching" />
         <CardBody>
           <div className="form-row">
             <div style={{ flex: 1 }}>
@@ -120,7 +123,7 @@ function BookRide({ onRideBooked }) {
           </div>
 
           <label style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 8, color: 'var(--text-primary)' }}>
-            Select Vehicle Type
+            Select Ride Type
           </label>
 
           <div className="vehicle-types">
@@ -135,15 +138,18 @@ function BookRide({ onRideBooked }) {
 
           {!estimate ? (
             <Button variant="secondary" onClick={handleEstimate} style={{ width: '100%' }}>
-              Calculate Fare Estimate
+              Calculate Fare & Nearest Driver
             </Button>
           ) : (
             <div>
               <div className="estimate-card">
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>Estimated Trip Summary</h3>
+                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>Trip Fare & Driver Proximity</h3>
                 <div className="estimate-detail"><span>Distance</span><strong>{estimate.distanceKm?.toFixed(1)} km</strong></div>
-                <div className="estimate-detail"><span>Estimated Time</span><strong>{estimate.estimatedMinutes} mins</strong></div>
-                <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.estimatedFare?.toFixed(2)}</strong></div>
+                <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.fare?.toFixed(2)}</strong></div>
+                <div className="estimate-detail">
+                  <span>Driver Availability</span>
+                  <strong>{estimate.driversAvailable ? `Nearest Driver: ${estimate.nearestDriverName || 'Available'} (${estimate.driverDistanceKm} km away)` : 'No Drivers Nearby'}</strong>
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
@@ -162,9 +168,13 @@ function BookRide({ onRideBooked }) {
           {result && (
             <div style={{ marginTop: 16, padding: 16, background: 'var(--success-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--success)' }}>
               <h3 style={{ color: 'var(--success)', marginBottom: 8 }}>✅ Ride Requested Successfully!</h3>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Ride ID: <strong>{result.id || result.rideId}</strong></div>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Status: <Badge variant="info">{result.status}</Badge></div>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Driver Assigned: <strong>{result.driverName || 'Searching nearby drivers...'}</strong></div>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Trip ID: <strong>{result.id}</strong></div>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
+                Status: <Badge variant={result.status === 'ACCEPTED' ? 'success' : 'info'}>{result.status}</Badge>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
+                Assigned Driver: <strong>{result.driverName || 'Searching...'}</strong> {result.vehicleNumber && `(${result.vehicleNumber})`}
+              </div>
             </div>
           )}
         </CardBody>
@@ -173,14 +183,158 @@ function BookRide({ onRideBooked }) {
   );
 }
 
-function MyRides() {
+function DriverDashboard() {
   const toast = useToast();
+  const [drivers, setDrivers] = useState([]);
+  const [rides, setRides] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState('UPI');
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [dList, rList] = await Promise.all([getDrivers(), getAllRides()]);
+      if (Array.isArray(dList)) setDrivers(dList);
+      if (Array.isArray(rList)) setRides(rList);
+    } catch {
+      // silent polling
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  usePolling(fetchData, 4000, []);
+
+  const handleStatusChange = async (driverId, status) => {
+    try {
+      await updateDriverStatus(driverId, status);
+      toast.success(`Driver status updated to ${status}`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update driver status');
+    }
+  };
+
+  const handleStartTrip = async (rideId) => {
+    try {
+      await startTrip(rideId);
+      toast.success('Trip started! ONGOING');
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to start trip');
+    }
+  };
+
+  const handleCompleteTrip = async (rideId) => {
+    try {
+      const res = await completeTrip(rideId, paymentMethod);
+      toast.success(`Trip completed! Payment of ₹${res.fare?.toFixed(2)} processed via ${paymentMethod}`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to complete trip');
+    }
+  };
+
+  const handleCancelTrip = async (rideId) => {
+    try {
+      await cancelTrip(rideId);
+      toast.success('Trip cancelled');
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to cancel trip');
+    }
+  };
+
+  if (loading && drivers.length === 0) return <Skeleton height={200} />;
+
+  return (
+    <div>
+      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)' }}>
+        👨‍✈️ Driver Status & Availability Control
+      </h3>
+      <div className="driver-grid">
+        {drivers.map((d) => (
+          <div key={d.id} className="driver-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <strong>{d.name}</strong>
+              <Badge variant={d.status === 'AVAILABLE' ? 'success' : d.status === 'ON_TRIP' ? 'warning' : 'neutral'}>
+                {d.status}
+              </Badge>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>ID: {d.id} | {d.vehicleType}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>Reg: {d.vehicleNumber}</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <Button size="sm" variant={d.status === 'AVAILABLE' ? 'primary' : 'secondary'} onClick={() => handleStatusChange(d.id, 'AVAILABLE')}>
+                AVAILABLE
+              </Button>
+              <Button size="sm" variant={d.status === 'OFFLINE' ? 'danger' : 'secondary'} onClick={() => handleStatusChange(d.id, 'OFFLINE')}>
+                OFFLINE
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: 'var(--text-primary)' }}>
+        🚕 Active Trip Operations & Payment Processing
+      </h3>
+
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Payment Method on Completion:</span>
+        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
+          <option value="UPI">UPI / GPay</option>
+          <option value="CARD">Credit / Debit Card</option>
+          <option value="CASH">Cash</option>
+        </select>
+      </div>
+
+      {rides.filter((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED').length === 0 ? (
+        <EmptyState icon="🚕" title="No ongoing or pending trips" description="Request a ride from the Passenger tab to see live operations here" />
+      ) : (
+        rides.filter((r) => r.status !== 'COMPLETED' && r.status !== 'CANCELLED').map((r) => (
+          <div key={r.id} className="ride-card">
+            <div className="ride-header">
+              <div>
+                <strong>Trip #{r.id}</strong> — Passenger: <span>{r.rider?.name || r.userId}</span>
+              </div>
+              <Badge variant={r.status === 'ACCEPTED' ? 'info' : r.status === 'ONGOING' ? 'warning' : 'neutral'}>
+                {r.status}
+              </Badge>
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0' }}>
+              📍 {r.pickup?.label || 'Pickup'} ➔ 🏁 {r.dropoff?.label || 'Dropoff'} ({r.distanceKm?.toFixed(1)} km)
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>
+              Driver: <strong>{r.driverName || 'Unassigned'}</strong> ({r.vehicleType})
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {r.status === 'ACCEPTED' && (
+                <Button size="sm" variant="primary" onClick={() => handleStartTrip(r.id)}>
+                  ▶️ Start Trip (ONGOING)
+                </Button>
+              )}
+              {(r.status === 'ONGOING' || r.status === 'ACCEPTED') && (
+                <Button size="sm" variant="success" onClick={() => handleCompleteTrip(r.id)}>
+                  💳 Process Payment & Complete
+                </Button>
+              )}
+              <Button size="sm" variant="danger" onClick={() => handleCancelTrip(r.id)}>
+                ❌ Cancel Trip
+              </Button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function TripHistory() {
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRides = useCallback(async () => {
     try {
-      const data = await getUserRides(USER_ID);
+      const data = await getAllRides();
       if (Array.isArray(data)) setRides(data);
     } catch {
       // silent polling
@@ -191,53 +345,47 @@ function MyRides() {
 
   usePolling(fetchRides, 4000, []);
 
-  const handleStatusChange = async (rideId, status) => {
-    try {
-      await updateRideStatus(rideId, status);
-      toast.success(`Ride status updated to ${status}`);
-      fetchRides();
-    } catch (err) {
-      toast.error(err.message || 'Failed to update status');
-    }
-  };
-
   const getBadgeVariant = (status) => {
     switch (status) {
       case 'REQUESTED': return 'info';
       case 'ACCEPTED': return 'warning';
-      case 'ARRIVED': return 'accent';
-      case 'STARTED': return 'warning';
+      case 'ONGOING': return 'warning';
       case 'COMPLETED': return 'success';
+      case 'CANCELLED': return 'danger';
       default: return 'neutral';
     }
   };
 
   if (loading && rides.length === 0) return <Skeleton height={200} />;
-  if (rides.length === 0) return <EmptyState icon="🚕" title="No active or past rides" />;
+  if (rides.length === 0) return <EmptyState icon="📜" title="No trip records found" />;
 
   return (
     <div>
-      <h2 style={{ marginBottom: 16, fontSize: 18, color: 'var(--text-primary)' }}>Your Ride History & Active Trips</h2>
+      <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: 'var(--text-primary)' }}>
+        📋 All Trip Records & Payment History
+      </h3>
       {rides.map((r) => (
-        <div key={r.id || r.rideId} className="ride-card">
+        <div key={r.id} className="ride-card">
           <div className="ride-header">
             <div>
-              <span style={{ fontWeight: 700 }}>Ride #{r.id || r.rideId}</span>
+              <span style={{ fontWeight: 700 }}>Trip #{r.id}</span>
               <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 8 }}>({r.vehicleType})</span>
             </div>
             <Badge variant={getBadgeVariant(r.status)}>{r.status}</Badge>
           </div>
           <div style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0' }}>
-            📍 {r.pickupLabel} ➔ 🏁 {r.dropoffLabel}
+            📍 {r.pickup?.label || 'Pickup'} ➔ 🏁 {r.dropoff?.label || 'Dropoff'} ({r.distanceKm?.toFixed(1)} km)
           </div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)', marginBottom: 12 }}>
-            Fare: ₹{r.fare ? r.fare.toFixed(2) : r.estimatedFare?.toFixed(2)}
+          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 8 }}>
+            Driver: <strong>{r.driverName || 'Unassigned'}</strong> {r.vehicleNumber && `(${r.vehicleNumber})`}
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {r.status === 'REQUESTED' && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(r.id || r.rideId, 'ACCEPTED')}>Driver Accept</Button>}
-            {r.status === 'ACCEPTED' && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(r.id || r.rideId, 'ARRIVED')}>Driver Arrived</Button>}
-            {r.status === 'ARRIVED' && <Button size="sm" variant="secondary" onClick={() => handleStatusChange(r.id || r.rideId, 'STARTED')}>Start Trip</Button>}
-            {r.status === 'STARTED' && <Button size="sm" variant="success" onClick={() => handleStatusChange(r.id || r.rideId, 'COMPLETED')}>Complete Trip</Button>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-tertiary)', padding: '8px 12px', borderRadius: 6 }}>
+            <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--success)' }}>Total Fare: ₹{r.fare?.toFixed(2)}</span>
+            {r.payment && (
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                Paid via <strong>{r.payment.method}</strong> ({r.payment.status})
+              </span>
+            )}
           </div>
         </div>
       ))}
@@ -250,22 +398,22 @@ function AnimatedFlow() {
   const [carLeft, setCarLeft] = useState(30);
   const [statusMsg, setStatusMsg] = useState('');
 
-  const steps = ['Request', 'Driver Accept', 'Arrived', 'Trip Started', 'Completed'];
+  const steps = ['Trip Requested', 'Driver Assigned', 'Trip Started (ONGOING)', 'Payment Processed', 'Trip Completed'];
 
   const startSim = () => {
-    setStep(1); setStatusMsg('Finding nearby driver...'); setCarLeft(30);
+    setStep(1); setStatusMsg('Rider Alex requested ride from MG Road to Koramangala...'); setCarLeft(30);
     setTimeout(() => {
-      setStep(2); setStatusMsg('Driver Alex accepted! On the way...'); setCarLeft(150);
+      setStep(2); setStatusMsg('Driver Rajesh (UBER_GO) assigned via proximity matching!'); setCarLeft(150);
     }, 1500);
     setTimeout(() => {
-      setStep(3); setStatusMsg('Driver arrived at pickup location!'); setCarLeft(300);
-    }, 3000);
+      setStep(3); setStatusMsg('Driver arrived & started trip (ONGOING)...'); setCarLeft(400);
+    }, 3200);
     setTimeout(() => {
-      setStep(4); setStatusMsg('Trip in progress ➔ Heading to destination'); setCarLeft(600);
-    }, 4500);
+      setStep(4); setStatusMsg('Processing Payment ₹240.00 via UPI (PaymentProcessor.process)...'); setCarLeft(650);
+    }, 5000);
     setTimeout(() => {
-      setStep(5); setStatusMsg('Trip Completed! Total Fare: ₹240.00'); setCarLeft(750);
-    }, 6500);
+      setStep(5); setStatusMsg('✅ Trip COMPLETED! Driver status set to AVAILABLE & location updated to Koramangala'); setCarLeft(750);
+    }, 6800);
   };
 
   const resetSim = () => {
@@ -307,15 +455,16 @@ export default function UberPage() {
   return (
     <LldPage
       module="uber"
-      title="Uber Cab Booking"
+      title="Uber Ride Sharing Service"
       icon="🚗"
-      tabs={['book', 'my-rides', 'demo', 'diagram', 'design']}
+      tabs={['book', 'drivers', 'history', 'demo', 'diagram', 'design']}
     >
       {(activeTab) => (
         <div className="uber-container">
           <style>{UBER_CSS}</style>
           {activeTab === 'book' && <BookRide onRideBooked={() => {}} />}
-          {activeTab === 'my-rides' && <MyRides />}
+          {activeTab === 'drivers' && <DriverDashboard />}
+          {activeTab === 'history' && <TripHistory />}
           {activeTab === 'demo' && <AnimatedFlow />}
         </div>
       )}

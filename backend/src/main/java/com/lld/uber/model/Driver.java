@@ -1,32 +1,39 @@
 package com.lld.uber.model;
 
-public class Driver {
-    private String id;
-    private String name;
-    private String phone;
+public class Driver extends User {
     private VehicleType vehicleType;
     private String vehicleNumber;
-    private Location location;
-    private boolean available;
+    private Location currentLocation;
+    private DriverStatus status;
+
+    public Driver() {}
 
     public Driver(String id, String name, String phone, VehicleType vehicleType,
-                  String vehicleNumber, Location location) {
-        this.id = id;
-        this.name = name;
-        this.phone = phone;
+                  String vehicleNumber, Location currentLocation) {
+        super(id, name, phone);
         this.vehicleType = vehicleType;
         this.vehicleNumber = vehicleNumber;
-        this.location = location;
-        this.available = true;
+        this.currentLocation = currentLocation;
+        this.status = DriverStatus.AVAILABLE;
     }
 
-    public String getId() { return id; }
-    public String getName() { return name; }
-    public String getPhone() { return phone; }
     public VehicleType getVehicleType() { return vehicleType; }
+    public void setVehicleType(VehicleType vehicleType) { this.vehicleType = vehicleType; }
+
     public String getVehicleNumber() { return vehicleNumber; }
-    public Location getLocation() { return location; }
-    public void setLocation(Location location) { this.location = location; }
-    public boolean isAvailable() { return available; }
-    public void setAvailable(boolean available) { this.available = available; }
+    public void setVehicleNumber(String vehicleNumber) { this.vehicleNumber = vehicleNumber; }
+
+    public Location getCurrentLocation() { return currentLocation; }
+    public void setCurrentLocation(Location currentLocation) { this.currentLocation = currentLocation; }
+
+    public Location getLocation() { return currentLocation; }
+    public void setLocation(Location location) { this.currentLocation = location; }
+
+    public DriverStatus getStatus() { return status; }
+    public void setStatus(DriverStatus status) { this.status = status; }
+
+    public boolean isAvailable() { return this.status == DriverStatus.AVAILABLE; }
+    public void setAvailable(boolean available) {
+        this.status = available ? DriverStatus.AVAILABLE : DriverStatus.ON_TRIP;
+    }
 }
