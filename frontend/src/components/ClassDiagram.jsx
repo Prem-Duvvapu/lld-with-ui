@@ -54,8 +54,8 @@ export default function ClassDiagram({ module, customData }) {
 
       let x1, y1, x2, y2;
 
-      if (Math.abs(dx) > Math.abs(dy) * 1.2) {
-        // Horizontal connection (same or adjacent column in row)
+      if (Math.abs(dx) > Math.abs(dy) * 1.1) {
+        // Horizontal connection (same row or adjacent columns)
         if (dx > 0) {
           x1 = fRect.right - cRect.left;
           y1 = fCenter.y;
@@ -91,7 +91,7 @@ export default function ClassDiagram({ module, customData }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       updateLineCoords();
-    }, 100);
+    }, 120);
 
     const observer = new ResizeObserver(() => {
       updateLineCoords();
@@ -145,13 +145,20 @@ export default function ClassDiagram({ module, customData }) {
   return (
     <div className="class-diagram-section">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <h3 className="cd-title" style={{ margin: 0 }}>{title}</h3>
+        <div>
+          <h3 className="cd-title" style={{ margin: 0 }}>{title}</h3>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span><strong style={{ color: 'var(--accent)' }}>───▶</strong> Association</span>
+            <span><strong style={{ color: 'var(--accent)' }}>- - ▶</strong> Extends / Implements</span>
+          </div>
+        </div>
+
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {selectedClass && (
             <button
               onClick={() => setSelectedClass(null)}
               style={{
-                padding: '4px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                padding: '4px 12px', borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                 border: '1px solid var(--accent)', background: 'var(--bg-tertiary)', color: 'var(--accent)'
               }}
             >
@@ -183,33 +190,91 @@ export default function ClassDiagram({ module, customData }) {
         </div>
       </div>
 
-      <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 16 }}>
-        💡 <em>Hover or click any class box to isolate and highlight its specific connections.</em>
+      <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 20 }}>
+        💡 <em>Hover or click any class box to isolate its specific connections. Labels render on top of lines for 100% clarity.</em>
       </p>
 
       {viewMode === 'list' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, marginTop: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginTop: 16 }}>
           {relationships.map((rel, idx) => (
             <div key={idx} style={{
               padding: 14, borderRadius: 8, border: '1px solid var(--border-primary)',
               background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13
             }}>
-              <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ color: classColors[rel.from] || 'var(--accent)' }}>{rel.from}</span>
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'var(--bg-tertiary)', border: '1px solid var(--border-secondary)', color: 'var(--text-secondary)' }}>
-                  {rel.dashed ? 'implements / extends' : 'associates'}
+                  {rel.dashed ? 'extends / implements' : 'associates'}
                 </span>
                 <span style={{ color: classColors[rel.to] || 'var(--accent)' }}>{rel.to}</span>
               </div>
-              <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 600 }}>
-                Label: "{rel.label || 'uses'}"
+              <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>
+                Relationship: "{rel.label || 'uses'}"
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div ref={containerRef} className="cd-container" style={{ position: 'relative', minHeight: 460 }}>
-          <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'center', padding: '10px 0' }}>
+        <div ref={containerRef} className="cd-container" style={{ position: 'relative', minHeight: 520, padding: '24px 30px' }}>
+          {/* SVG Overlay placed at zIndex: 10 so relationship line badges ALWAYS sit ON TOP of class cards */}
+          <svg className="cd-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
+            <defs>
+              <marker id="cd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
+              </marker>
+              <filter id="cd-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.25)" />
+              </filter>
+            </defs>
+
+            {lineCoords.map(({ rel, x1, y1, x2, y2 }, i) => {
+              const highlighted = isRelHighlighted(rel);
+              const midX = (x1 + x2) / 2;
+              const midY = (y1 + y2) / 2;
+              const labelText = rel.label || 'uses';
+              const labelWidth = Math.max(labelText.length * 7 + 16, 50);
+
+              return (
+                <g key={i} style={{ opacity: highlighted ? 1 : 0.08, transition: 'opacity 0.2s ease' }}>
+                  <path
+                    d={`M${x1},${y1} Q${midX},${midY} ${x2},${y2}`}
+                    fill="none"
+                    stroke={highlighted ? (activeTarget ? 'var(--accent)' : 'var(--border-primary)') : 'var(--border-primary)'}
+                    strokeWidth={highlighted ? (activeTarget ? '3' : '1.8') : '1.2'}
+                    strokeDasharray={rel.dashed ? '6,4' : 'none'}
+                    markerEnd="url(#cd-arrow)"
+                  />
+                  {labelText && (
+                    <g transform={`translate(${midX}, ${midY})`} filter="url(#cd-glow)">
+                      <rect
+                        x={-labelWidth / 2}
+                        y="-11"
+                        width={labelWidth}
+                        height="22"
+                        rx="11"
+                        fill="var(--bg-card)"
+                        stroke={highlighted && activeTarget ? 'var(--accent)' : 'var(--border-primary)'}
+                        strokeWidth="1.5"
+                      />
+                      <text
+                        x="0"
+                        y="4"
+                        textAnchor="middle"
+                        fill="var(--text-primary)"
+                        fontSize="11"
+                        fontWeight="800"
+                      >
+                        {labelText}
+                      </text>
+                    </g>
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Class Cards Grid placed at zIndex: 2 */}
+          <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexWrap: 'wrap', gap: '40px 50px', justifyContent: 'center', padding: '20px 0' }}>
             {classes.map((cls) => {
               const fields = Array.isArray(cls.fields) ? cls.fields : [];
               const methods = Array.isArray(cls.methods) ? cls.methods : [];
@@ -225,9 +290,9 @@ export default function ClassDiagram({ module, customData }) {
                   style={{
                     borderTopColor: classColors[cls.name],
                     opacity: highlighted ? 1 : 0.18,
-                    transform: (isSelected || isHovered) ? 'scale(1.05)' : 'none',
+                    transform: (isSelected || isHovered) ? 'scale(1.04)' : 'none',
                     boxShadow: (isSelected || isHovered)
-                      ? `0 0 16px ${classColors[cls.name] || 'var(--accent)'}`
+                      ? `0 0 18px ${classColors[cls.name] || 'var(--accent)'}`
                       : 'var(--shadow-md)',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
@@ -251,56 +316,6 @@ export default function ClassDiagram({ module, customData }) {
               );
             })}
           </div>
-
-          <svg className="cd-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
-            <defs>
-              <marker id="cd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
-              </marker>
-            </defs>
-            {lineCoords.map(({ rel, x1, y1, x2, y2 }, i) => {
-              const highlighted = isRelHighlighted(rel);
-              const midX = (x1 + x2) / 2;
-              const midY = (y1 + y2) / 2;
-
-              return (
-                <g key={i} style={{ opacity: highlighted ? 1 : 0.08, transition: 'opacity 0.2s ease' }}>
-                  <path
-                    d={`M${x1},${y1} Q${midX},${midY} ${x2},${y2}`}
-                    fill="none"
-                    stroke={highlighted ? (activeTarget ? 'var(--accent)' : 'var(--border-primary)') : 'var(--border-primary)'}
-                    strokeWidth={highlighted ? (activeTarget ? '3' : '1.5') : '1'}
-                    strokeDasharray={rel.dashed ? '5,4' : 'none'}
-                    markerEnd="url(#cd-arrow)"
-                  />
-                  {rel.label && (
-                    <g transform={`translate(${midX}, ${midY})`}>
-                      <rect
-                        x={-rel.label.length * 3.5 - 6}
-                        y="-10"
-                        width={rel.label.length * 7 + 12}
-                        height="18"
-                        rx="9"
-                        fill="var(--bg-card)"
-                        stroke={highlighted && activeTarget ? 'var(--accent)' : 'var(--border-primary)'}
-                        strokeWidth="1"
-                      />
-                      <text
-                        x="0"
-                        y="3"
-                        textAnchor="middle"
-                        fill="var(--text-primary)"
-                        fontSize="10"
-                        fontWeight="700"
-                      >
-                        {rel.label}
-                      </text>
-                    </g>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
         </div>
       )}
 
@@ -310,14 +325,14 @@ export default function ClassDiagram({ module, customData }) {
 }
 
 const cdStyles = `
-.class-diagram-section { margin: 32px 0; padding: 20px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); overflow: hidden; }
-.cd-title { font-size: 16px; color: var(--info); font-weight: 700; letter-spacing: 0.5px; }
-.cd-class-box { width: 215px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border-primary); border-top: 4px solid; background: var(--bg-card); box-shadow: var(--shadow-md); cursor: pointer; user-select: none; }
-.cd-class-box.highlighted { box-shadow: 0 0 12px var(--focus-ring, rgba(37,99,235,0.4)); }
-.cd-class-header { padding: 8px 10px; color: #ffffff; text-align: center; font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-.cd-stereotype { display: block; font-size: 10px; font-weight: 400; font-style: italic; opacity: 0.9; }
-.cd-class-section { padding: 8px 10px; border-top: 1px solid var(--border-primary); font-size: 11px; color: var(--text-primary); }
-.cd-field { font-family: var(--code-font); padding: 2px 0; color: var(--code-field); font-size: 11px; font-weight: 600; }
-.cd-method { font-family: var(--code-font); padding: 2px 0; color: var(--code-method); font-size: 11px; font-weight: 600; }
+.class-diagram-section { margin: 32px 0; padding: 24px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); overflow: hidden; }
+.cd-title { font-size: 17px; color: var(--info); font-weight: 800; letter-spacing: 0.5px; }
+.cd-class-box { width: 235px; margin: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-primary); border-top: 5px solid; background: var(--bg-card); box-shadow: var(--shadow-md); cursor: pointer; user-select: none; }
+.cd-class-box.highlighted { box-shadow: 0 0 14px var(--focus-ring, rgba(37,99,235,0.4)); }
+.cd-class-header { padding: 10px 12px; color: #ffffff; text-align: center; font-weight: 800; font-size: 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+.cd-stereotype { display: block; font-size: 10px; font-weight: 400; font-style: italic; opacity: 0.95; letter-spacing: 0.5px; }
+.cd-class-section { padding: 10px 12px; border-top: 1px solid var(--border-primary); font-size: 11px; color: var(--text-primary); }
+.cd-field { font-family: var(--code-font); padding: 3px 0; color: var(--code-field); font-size: 11px; font-weight: 600; }
+.cd-method { font-family: var(--code-font); padding: 3px 0; color: var(--code-method); font-size: 11px; font-weight: 600; }
 .cd-empty { color: var(--text-muted); font-style: italic; font-size: 10px; text-align: center; }
 `;
