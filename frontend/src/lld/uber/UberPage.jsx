@@ -223,7 +223,7 @@ function BookRide({ onRideBooked }) {
     setError(''); setLoading(true);
     const p = locMap[pickup]; const d = locMap[dropoff];
     try {
-      const data = await requestRide(USER_ID, p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType);
+      const data = await requestRide(USER_ID, p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType, estimate?.fare, estimate?.distanceKm);
       if (data.error) {
         setError(data.error); toast.error(data.error);
       } else {
@@ -792,7 +792,7 @@ function InteractiveAnimatedFlow() {
   const handleStep2Request = async () => {
     const p = locMap[pickupLabel]; const d = locMap[dropoffLabel];
     try {
-      const data = await requestRide(USER_ID, p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType);
+      const data = await requestRide(USER_ID, p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType, estimate?.fare, estimate?.distanceKm);
       setRide(data);
       setInputOtp(data.otp || '4829');
       // Assign mock driver info for simulation

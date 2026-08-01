@@ -84,15 +84,29 @@ public class UberService {
 
     public Ride requestRide(String userId, String pickupLat, String pickupLng, String pickupLabel,
                             String dropoffLat, String dropoffLng, String dropoffLabel,
-                            String vehicleTypeStr) {
-        // Reuse estimate calculation to enforce DRY principle
-        FareEstimate est = estimate(pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleTypeStr);
-
+                            String vehicleTypeStr, Double preCalculatedFare, Double preCalculatedDistanceKm) {
         Location pickup = new Location(Double.parseDouble(pickupLat), Double.parseDouble(pickupLng), pickupLabel);
         Location dropoff = new Location(Double.parseDouble(dropoffLat), Double.parseDouble(dropoffLng), dropoffLabel);
+        VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr.toUpperCase());
+
+        // Use pre-calculated fare and distance from estimate if provided by UI
+        double distanceKm = (preCalculatedDistanceKm != null && preCalculatedDistanceKm > 0)
+                ? preCalculatedDistanceKm : pickup.distanceTo(dropoff);
+
+        double fare;
+        if (preCalculatedFare != null && preCalculatedFare > 0) {
+            fare = preCalculatedFare;
+        } else {
+            double rate = switch (vehicleType) {
+                case UBER_GO -> RATE_GO;
+                case UBER_XL -> RATE_XL;
+                case UBER_PREMIUM -> RATE_PREMIUM;
+            };
+            fare = Math.round((25 + distanceKm * rate) * 100.0) / 100.0;
+        }
 
         String rideId = repository.generateRideId();
-        Ride ride = new Ride(rideId, userId, pickup, dropoff, est.distanceKm(), est.fare(), est.vehicleType());
+        Ride ride = new Ride(rideId, userId, pickup, dropoff, distanceKm, fare, vehicleType);
 
         Rider rider = repository.getRider(userId);
         if (rider != null) {

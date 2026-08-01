@@ -61,11 +61,15 @@ public class UberController {
 
     @PostMapping("/rides")
     public Ride requestRide(@RequestBody Map<String, String> req) {
+        Double fare = req.containsKey("fare") && req.get("fare") != null ? Double.parseDouble(req.get("fare")) : null;
+        Double distanceKm = req.containsKey("distanceKm") && req.get("distanceKm") != null ? Double.parseDouble(req.get("distanceKm")) : null;
         return service.requestRide(
                 req.getOrDefault("userId", "RIDER-001"),
                 req.get("pickupLat"), req.get("pickupLng"), req.getOrDefault("pickupLabel", "Pickup"),
                 req.get("dropoffLat"), req.get("dropoffLng"), req.getOrDefault("dropoffLabel", "Dropoff"),
-                req.getOrDefault("vehicleType", "UBER_GO")
+                req.getOrDefault("vehicleType", "UBER_GO"),
+                fare,
+                distanceKm
         );
     }
 

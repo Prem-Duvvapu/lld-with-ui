@@ -5,10 +5,10 @@ export function getEstimate(pickupLat, pickupLng, pickupLabel, dropoffLat, dropo
   return apiFetch(`/uber/estimate?${params}`);
 }
 
-export function requestRide(userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType) {
+export function requestRide(userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType, fare, distanceKm) {
   return apiFetch('/uber/rides', {
     method: 'POST',
-    body: JSON.stringify({ userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType }),
+    body: JSON.stringify({ userId, pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType, fare, distanceKm }),
   });
 }
 
