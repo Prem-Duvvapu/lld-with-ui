@@ -10,6 +10,7 @@
 - All modules use in-memory `ConcurrentHashMap` + `ReentrantLock` for thread safety.
 - CORS: `@CrossOrigin(origins = "*")` on every controller.
 - Frontend: one folder per LLD in `src/lld/`, each with `{Name}Page.jsx` + `api.js`.
+- **Terminal Execution**: ALWAYS use WSL (`wsl <command>`) for running commands.
 
 ## Parking Lot Module
 ### Backend
