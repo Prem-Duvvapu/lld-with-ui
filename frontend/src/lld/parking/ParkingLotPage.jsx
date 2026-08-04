@@ -505,8 +505,16 @@ function AnimatedFlow() {
   const timerRef = useRef(null);
   const mountedRef = useRef(true);
   const sceneRef = useRef(null);
-  const entryGateRef = useRef('');
-  const exitGateRef = useRef('');
+  const entryGateRef = useRef('G1');
+  const exitGateRef = useRef('G3');
+
+  // Simulation Controls & Input States
+  const [simVehicleNumber, setSimVehicleNumber] = useState('KA-01-HH-1234');
+  const [simVehicleType, setSimVehicleType] = useState('CAR');
+  const [simSpotStrategy, setSimSpotStrategy] = useState('NEAREST');
+  const [simPricingStrategy, setSimPricingStrategy] = useState('HOURLY');
+  const [simPayMethod, setSimPayMethod] = useState('UPI');
+  const [scanPreview, setScanPreview] = useState(null);
 
   useEffect(() => {
     getGates()
@@ -559,14 +567,20 @@ function AnimatedFlow() {
     setTicketData(null); setOccupiedCells([]); setTimer(0); setAway(false);
     setActivity(null); setShowReceipt(false); setReceiptData(null);
     setGateBarUp(false); setExitGateBarUp(false); setEntryLoading(false);
-    setSimError(''); setPersonVisible(false);
+    setSimError(''); setPersonVisible(false); setScanPreview(null);
   };
 
-  const steps = ['Entry', 'Ticket', 'Park', 'Away', 'Return', 'At Exit', 'Scan Ticket', 'Payment', 'Done'];
-
-  const [scanPreview, setScanPreview] = useState(null);
-  const [selectedPayMethod, setSelectedPayMethod] = useState('UPI');
-  const [selectedStrategy, setSelectedStrategy] = useState('HOURLY');
+  const steps = [
+    'Configure Vehicle',
+    'At Entry (G1)',
+    'Ticket Issued (API)',
+    'Parked in Spot',
+    'Away Simulation',
+    'At Exit (G3)',
+    'Scan Fee (API)',
+    'Paid & Open Gate (API)',
+    'Exit Complete'
+  ];
 
   const findEmptyCell = () => {
     const used = new Set(occupiedCells);
@@ -576,27 +590,35 @@ function AnimatedFlow() {
     return -1;
   };
 
-  const startFlow = async () => {
+  // Step 0 -> Step 1: Drive to Entry Gate G1
+  const driveToEntry = () => {
     setSimError(''); setStep(1); setGateBarUp(true); setShowTicket(false);
     setShowReceipt(false); setScanPreview(null); setAway(false); setTimer(0); setActivity(null);
 
     setTimeout(() => setCarLeft(50), 500);
     setTimeout(() => setGateBarUp(false), 1500);
+  };
 
-    setTimeout(() => {
-      setEntryLoading(true);
-      vehicleEntry(entryGateRef.current || 'G1', 'KA-01-AB-1234', 'CAR').then((data) => {
-        if (!mountedRef.current) return;
-        setEntryLoading(false);
-        if (data.error) {
-          setSimError(data.error);
-        } else {
-          setTicketData(data); setShowTicket(true); setStep(2);
-        }
-      }).catch((err) => {
-        if (mountedRef.current) { setEntryLoading(false); setSimError(err.message || 'API call failed'); }
-      });
-    }, 2000);
+  // Step 1 -> Step 2: Execute Real Backend Entry API
+  const issueTicketApi = async () => {
+    setEntryLoading(true); setSimError('');
+    try {
+      const data = await vehicleEntry(entryGateRef.current || 'G1', simVehicleNumber, simVehicleType, simSpotStrategy);
+      if (data.error) {
+        setSimError(data.error);
+        toast.show(data.error, 'error');
+      } else {
+        setTicketData(data);
+        setShowTicket(true);
+        setStep(2);
+        toast.show(`Ticket #${data.ticketNumber} issued via Spring Boot API! Spot: ${data.spotId}`, 'success');
+      }
+    } catch (err) {
+      setSimError(err.message || 'API call failed');
+      toast.show(err.message || 'API call failed', 'error');
+    } finally {
+      setEntryLoading(false);
+    }
   };
 
   const parkVehicle = () => {
@@ -656,33 +678,49 @@ function AnimatedFlow() {
     setCarLeft(sceneWidth - 110); setCarBottom(40); setStep(6);
   };
 
+  // Step 5 -> Step 6: Execute Real Backend Scan Exit API
   const scanTicketAtExit = async () => {
     if (!ticketData) return;
     setEntryLoading(true); setSimError('');
     try {
-      const res = await scanVehicleExit(exitGateRef.current || 'G3', ticketData.ticketNumber, selectedStrategy);
-      if (res.error) setSimError(res.error);
-      else { setScanPreview(res); setStep(7); }
+      const res = await scanVehicleExit(exitGateRef.current || 'G3', ticketData.ticketNumber, simPricingStrategy);
+      if (res.error) {
+        setSimError(res.error);
+        toast.show(res.error, 'error');
+      } else {
+        setScanPreview(res);
+        setStep(7);
+        toast.show(`Fee calculated via API: ₹${res.amount?.toFixed(2)} (${simPricingStrategy})`, 'info');
+      }
     } catch (err) {
       setSimError(err.message || 'Scan failed');
+      toast.show(err.message || 'Scan failed', 'error');
     } finally {
       setEntryLoading(false);
     }
   };
 
+  // Step 6 -> Step 7: Execute Real Backend Pay Exit API
   const payAndExitVehicle = async () => {
     if (!ticketData) return;
     setEntryLoading(true); setSimError('');
     try {
-      const res = await payVehicleExit(exitGateRef.current || 'G3', ticketData.ticketNumber, selectedStrategy, selectedPayMethod);
-      if (res.error) setSimError(res.error);
-      else {
-        setReceiptData(res); setStep(8); setExitGateBarUp(true); setShowReceipt(true);
+      const res = await payVehicleExit(exitGateRef.current || 'G3', ticketData.ticketNumber, simPricingStrategy, simPayMethod);
+      if (res.error) {
+        setSimError(res.error);
+        toast.show(res.error, 'error');
+      } else {
+        setReceiptData(res);
+        setStep(8);
+        setExitGateBarUp(true);
+        setShowReceipt(true);
+        toast.show(`Paid ₹${res.amount?.toFixed(2)} via ${simPayMethod}! Spot ${ticketData.spotId} freed in backend.`, 'success');
         setTimeout(() => { setCarLeft(sceneWidth + 60); }, 800);
         setTimeout(() => { setExitGateBarUp(false); }, 2500);
       }
     } catch (err) {
       setSimError(err.message || 'Payment failed');
+      toast.show(err.message || 'Payment failed', 'error');
     } finally {
       setEntryLoading(false);
     }
@@ -692,7 +730,7 @@ function AnimatedFlow() {
     <div className="flow-section">
       <StepIndicator steps={steps} currentStep={step} />
 
-      <div className="scene" ref={sceneRef}>
+      <div className="scene" ref={sceneRef} style={{ position: 'relative' }}>
         <div className="entry-gate">
           <span>G1</span>
           <div className={`bar ${gateBarUp ? 'up' : ''}`} />
@@ -717,14 +755,44 @@ function AnimatedFlow() {
         <div className="car-animated" style={{ left: carLeft, bottom: carBottom }}>🚗</div>
         {personVisible && <div className="person-animated" style={{ left: personLeft, bottom: personBottom }}>🚶‍♂️</div>}
 
+        {/* Floating Glassmorphism Live HUD Overlay */}
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          left: '12px',
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 'var(--radius-md)',
+          padding: '10px 14px',
+          color: '#fff',
+          fontSize: 'var(--font-xs)',
+          minWidth: '240px',
+          zIndex: 5,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+        }}>
+          <div style={{ fontWeight: 800, color: '#3b82f6', fontSize: 'var(--font-xs)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🅿️ PARKING LIVE HUD</span>
+            <span style={{ fontSize: '9px', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>REAL BACKEND</span>
+          </div>
+          <div>Ticket #: <strong style={{ color: '#facc15' }}>{ticketData?.ticketNumber || '---'}</strong></div>
+          <div>Assigned Spot: <strong style={{ color: '#38bdf8' }}>{ticketData?.spotId || '---'}</strong></div>
+          <div>Vehicle: <strong>{simVehicleNumber} ({simVehicleType})</strong></div>
+          <div>Spot Strategy: <strong>{simSpotStrategy}</strong></div>
+          <div>Pricing Model: <strong>{simPricingStrategy}</strong></div>
+          <div>Status: <strong style={{ color: receiptData ? '#22c55e' : scanPreview ? '#f59e0b' : ticketData ? '#3b82f6' : '#94a3b8' }}>
+            {receiptData ? `PAID (₹${receiptData.amount?.toFixed(2)})` : scanPreview ? `FEE SCANNED (₹${scanPreview.amount?.toFixed(2)})` : ticketData ? 'PARKED (ACTIVE TICKET)' : 'IDLE'}
+          </strong></div>
+        </div>
+
         {showTicket && ticketData && (
           <div className="ticket-popup">
-            <h3>🎟️ Ticket Issued</h3>
+            <h3>🎟️ Ticket Issued (API)</h3>
             <div className="ticket-detail">Ticket #: <strong>{ticketData.ticketNumber}</strong></div>
-            <div className="ticket-detail">Vehicle: <strong>{ticketData.vehicleNumber}</strong></div>
+            <div className="ticket-detail">Vehicle: <strong>{ticketData.vehicleNumber} ({ticketData.vehicleType})</strong></div>
             <div className="ticket-detail">Spot: <strong>{ticketData.spotId}</strong></div>
             <Button onClick={parkVehicle} variant="primary" style={{ marginTop: 12, width: '100%' }}>
-              Park Vehicle
+              🅿️ Park Vehicle in {ticketData.spotId}
             </Button>
           </div>
         )}
@@ -735,7 +803,7 @@ function AnimatedFlow() {
             <div className="ticket-detail">Paid: <strong>₹{receiptData.amount.toFixed(2)}</strong></div>
             <div className="ticket-detail">Method: <strong>{receiptData.paymentMethod}</strong></div>
             <Button onClick={resetFlow} variant="primary" style={{ marginTop: 12, width: '100%' }}>
-              Reset Simulation
+              ↺ Reset Simulation
             </Button>
           </div>
         )}
@@ -743,12 +811,57 @@ function AnimatedFlow() {
 
       {simError && <div className="error-msg">{simError}</div>}
 
+      {/* STEP 0: CONFIGURE VEHICLE & STRATEGIES */}
       {step === 0 && (
-        <Button onClick={startFlow} variant="primary" size="lg">
-          ▶️ Start Parking Simulation
-        </Button>
+        <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px', width: '100%' }}>
+          <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 700, marginBottom: '12px', color: '#3b82f6' }}>
+            Step 1: Configure Vehicle & Parking Strategies
+          </h4>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px', fontSize: 'var(--font-xs)' }}>
+            <div>
+              <label style={{ display: 'block', fontWeight: 600, marginBottom: '4px' }}>Vehicle Number:</label>
+              <Input
+                value={simVehicleNumber}
+                onChange={(e) => setSimVehicleNumber(e.target.value)}
+                placeholder="KA-01-HH-1234"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 600, marginBottom: '4px' }}>Vehicle Type:</label>
+              <Select value={simVehicleType} onChange={(e) => setSimVehicleType(e.target.value)}>
+                <option value="CAR">Car (₹20/hr)</option>
+                <option value="BIKE">Bike (₹10/hr)</option>
+                <option value="TRUCK">Truck (₹40/hr)</option>
+              </Select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontWeight: 600, marginBottom: '4px' }}>Spot Assignment Strategy:</label>
+              <Select value={simSpotStrategy} onChange={(e) => setSimSpotStrategy(e.target.value)}>
+                <option value="NEAREST">Nearest Spot (Nearest to Entrance)</option>
+                <option value="FARTHEST">Farthest Spot (Farthest from Entrance)</option>
+              </Select>
+            </div>
+          </div>
+
+          <Button onClick={driveToEntry} variant="primary" size="lg">
+            🚗 Drive Vehicle to Entry Gate G1 ➔
+          </Button>
+        </div>
       )}
 
+      {/* STEP 1: AT ENTRY GATE G1 */}
+      {step === 1 && (
+        <div style={{ textAlign: 'center', width: '100%' }}>
+          <Button onClick={issueTicketApi} variant="primary" size="lg" loading={entryLoading}>
+            🎟️ Issue Ticket via Spring Boot API (POST /parking/entry) ➔
+          </Button>
+        </div>
+      )}
+
+      {/* STEP 3: PARKED & AWAY TIMER */}
       {step === 3 && away && (
         <div style={{ textAlign: 'center', width: '100%' }}>
           <div className="away-timer">
@@ -768,46 +881,52 @@ function AnimatedFlow() {
           </div>
           {activity && (
             <Button onClick={returnToCar} variant="success">
-              🏃 Return to Vehicle
+              🏃 Return to Vehicle ➔
             </Button>
           )}
         </div>
       )}
 
+      {/* STEP 5: DRIVE TO EXIT GATE G3 */}
       {step === 5 && (
         <Button onClick={driveToExitGate} variant="danger">
-          🚗 Drive to Exit Gate
+          🚗 Drive to Exit Gate G3 ➔
         </Button>
       )}
 
+      {/* STEP 6: SCAN TICKET AT EXIT GATE G3 */}
       {step === 6 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Pricing Strategy:</label>
-            <Select value={selectedStrategy} onChange={(e) => setSelectedStrategy(e.target.value)}>
-              <option value="HOURLY">Hourly (Standard)</option>
-              <option value="FLAT">Flat Rate</option>
-              <option value="DYNAMIC">Dynamic Surge (1.5x)</option>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', background: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: 16, borderRadius: 'var(--radius-lg)' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <label style={{ fontSize: 13, fontWeight: 600 }}>Select Pricing Strategy for API:</label>
+            <Select value={simPricingStrategy} onChange={(e) => setSimPricingStrategy(e.target.value)}>
+              <option value="HOURLY">Hourly (Standard ₹20/hr)</option>
+              <option value="FLAT">Flat Rate (₹50 Flat)</option>
+              <option value="DYNAMIC">Dynamic Surge (1.5x Multiplier)</option>
             </Select>
           </div>
           <Button onClick={scanTicketAtExit} variant="warning" loading={entryLoading}>
-            🎟️ Scan Ticket & Calculate Price
+            🎟️ Scan Ticket & Calculate Price via API (POST /parking/exit/scan) ➔
           </Button>
         </div>
       )}
 
+      {/* STEP 7: SCAN PREVIEW & PAYMENT */}
       {step === 7 && scanPreview && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <label style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Payment Method:</label>
-            <Select value={selectedPayMethod} onChange={(e) => setSelectedPayMethod(e.target.value)}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', background: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: 16, borderRadius: 'var(--radius-lg)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>
+            Calculated Amount: ₹{scanPreview.amount?.toFixed(2)} ({simPricingStrategy})
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <label style={{ fontSize: 13, fontWeight: 600 }}>Payment Method:</label>
+            <Select value={simPayMethod} onChange={(e) => setSimPayMethod(e.target.value)}>
               <option value="UPI">UPI / QR Code</option>
               <option value="CARD">Credit / Debit Card</option>
               <option value="CASH">Cash</option>
             </Select>
           </div>
           <Button onClick={payAndExitVehicle} variant="success" loading={entryLoading}>
-            💳 Pay ₹{scanPreview.amount?.toFixed(2)} & Open Exit Gate
+            💳 Pay ₹{scanPreview.amount?.toFixed(2)} & Free Spot via API (POST /parking/exit/pay) ➔
           </Button>
         </div>
       )}
