@@ -896,74 +896,74 @@ export default function ZomatoPage() {
               {tab === 'simulation' && <InteractiveZomatoSimulation />}
             </>
           )}
-        </>
-      )}
 
-      {/* OTP Verification Modal */}
-      {otpModalOpen && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'var(--card-bg)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 'var(--radius-lg)',
-            padding: '24px',
-            width: '320px',
-            boxShadow: 'var(--shadow-xl)'
-          }}>
-            <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '8px' }}>🔑 Enter Delivery OTP</h3>
-            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Ask the customer for the 4-digit verification OTP to complete delivery for Order #{otpTargetOrderId}.
-            </p>
-
-            <input
-              type="text"
-              maxLength={4}
-              value={otpInput}
-              onChange={(e) => setOtpInput(e.target.value)}
-              placeholder="e.g. 4821"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: 'var(--font-xl)',
-                letterSpacing: '8px',
-                textAlign: 'center',
-                fontWeight: 800,
-                borderRadius: 'var(--radius-md)',
+          {/* OTP Verification Modal */}
+          {otpModalOpen && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}>
+              <div style={{
+                background: 'var(--card-bg)',
                 border: '1px solid var(--border-color)',
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                marginBottom: '16px'
-              }}
-            />
+                borderRadius: 'var(--radius-lg)',
+                padding: '24px',
+                width: '320px',
+                boxShadow: 'var(--shadow-xl)'
+              }}>
+                <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '8px' }}>🔑 Enter Delivery OTP</h3>
+                <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                  Ask the customer for the 4-digit verification OTP to complete delivery for Order #{otpTargetOrderId}.
+                </p>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => setOtpModalOpen(false)}
-                style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleVerifyOtpAndDeliver}
-                style={{ flex: 1, padding: '10px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
-              >
-                Verify & Deliver
-              </button>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={otpInput}
+                  onChange={(e) => setOtpInput(e.target.value)}
+                  placeholder="e.g. 4821"
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    fontSize: 'var(--font-xl)',
+                    letterSpacing: '8px',
+                    textAlign: 'center',
+                    fontWeight: 800,
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    marginBottom: '16px'
+                  }}
+                />
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => setOtpModalOpen(false)}
+                    style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleVerifyOtpAndDeliver}
+                    style={{ flex: 1, padding: '10px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Verify & Deliver
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </LldPage>
   );

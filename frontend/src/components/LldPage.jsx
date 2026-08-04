@@ -70,8 +70,10 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
         {tab === 'diagram' && <ClassDiagram module={module} />}
         {!isBuiltIn && (
           typeof children === 'function'
-            ? (typeof children(tab) === 'function' ? children(tab)() : children(tab))
-            : children
+            ? children(tab)
+            : Array.isArray(children)
+              ? children.map((c) => (typeof c === 'function' ? c(tab) : c))
+              : children
         )}
       </main>
     </div>
