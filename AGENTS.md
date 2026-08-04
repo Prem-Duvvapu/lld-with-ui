@@ -59,6 +59,19 @@
 - 6 tabs: 🍕 Food Ordering, 🏪 Restaurant Dashboard, 🛵 Delivery Partner, Interactive 2D Simulation, Class Diagram, Design Details.
 - Real-time polling, 8-step Interactive 2D Simulation scene (night city map, kitchen smoke particles, moving scooter, customer house, live HUD), and color-accented section borders.
 
+## Tic Tac Toe Module
+### Backend
+- `TicTacToeService`: createGame, makeMove, undoLastMove, resetGame.
+- `GameMode`: HUMAN_VS_HUMAN, HUMAN_VS_AI.
+- `AIDifficulty`: EASY, MEDIUM, UNBEATABLE (Minimax Algorithm).
+- `AIMoveStrategy`: Strategy pattern for AI move calculation (`RandomAIMoveStrategy`, `MinimaxAIMoveStrategy`).
+- Thread safety: `ConcurrentHashMap` repository + per-game `ReentrantLock`.
+
+### Frontend
+- 6 tabs: 🎮 Game Board, 🤖 AI Arena, 📜 Move History & Replay, 🕹️ Interactive 2D Simulation, Class Diagram, Design Details.
+- Routes: `/tic-tac-toe` and `/tictactoe`.
+- 8-step Interactive 2D Simulation scene (neon grid, AI brain pulse, laser winning line, live telemetry HUD).
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar

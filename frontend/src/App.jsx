@@ -10,6 +10,7 @@ const LLD_ROUTES = [
   { path: 'uber', title: 'Uber', module: './lld/uber/UberPage.jsx' },
   { path: 'stackoverflow', title: 'Stack Overflow', module: './lld/stackoverflow/StackOverflowPage.jsx' },
   { path: 'tic-tac-toe', title: 'Tic Tac Toe', module: './lld/tictactoe/TicTacToePage.jsx' },
+  { path: 'tictactoe', title: 'Tic Tac Toe', module: './lld/tictactoe/TicTacToePage.jsx' },
   { path: 'snake-ladders', title: 'Snake & Ladders', module: './lld/snakeladders/SnakeLaddersPage.jsx' },
   { path: 'atm', title: 'ATM', module: './lld/atm/AtmPage.jsx' },
   { path: 'splitwise', title: 'Splitwise', module: './lld/splitwise/SplitwisePage.jsx' },

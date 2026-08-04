@@ -138,8 +138,8 @@ Then open http://localhost:5173 and click any LLD card.
 **APIs:** `GET /api/stackoverflow/questions`, `POST /api/stackoverflow/questions`, `POST /api/stackoverflow/questions/{id}/answers`, `POST /api/stackoverflow/questions/{id}/vote`, `POST /api/stackoverflow/questions/{id}/accept`, `POST /api/stackoverflow/answers/{id}/vote`, `POST /api/stackoverflow/comments`
 
 ### 5. Tic Tac Toe
-**Features:** 2-player game on 3x3 grid, turn management, win/draw detection, reset & new game  
-**APIs:** `POST /api/tictactoe/games`, `GET /api/tictactoe/games/{id}`, `POST /api/tictactoe/games/{id}/move`, `POST /api/tictactoe/games/{id}/reset`
+**Features:** Multi-mode game engine (Human vs Human 2-player local, Human vs AI), Strategy Pattern for AI opponents (Random vs Unbeatable Minimax algorithm), 2D winning line coordinate calculation (`winningLine`), Step-by-step move history log, atomic Undo move functionality, thread-safe session concurrency via `ReentrantLock`, 8-step Interactive 2D Arcade simulation scene (3D board grid, glowing X/O emblems, AI brain pulse indicator, neon laser winning line, live telemetry HUD), and color-accented section card layouts. Supports both `/tictactoe` and `/tic-tac-toe` routes.  
+**APIs:** `POST /api/tictactoe/games`, `GET /api/tictactoe/games/{id}`, `POST /api/tictactoe/games/{id}/move`, `POST /api/tictactoe/games/{id}/undo`, `POST /api/tictactoe/games/{id}/reset`
 
 ### 6. Snake & Ladders
 **Features:** Multiplayer (2-4 players), 10x10 board, dice roll, snake/ladder mappings, turn management, win detection  
