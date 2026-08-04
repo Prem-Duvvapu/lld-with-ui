@@ -1,6 +1,8 @@
 package com.lld.tictactoe.controller;
 
+import com.lld.tictactoe.model.AIDifficulty;
 import com.lld.tictactoe.model.Game;
+import com.lld.tictactoe.model.GameMode;
 import com.lld.tictactoe.service.TicTacToeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,9 +21,26 @@ public class TicTacToeController {
     }
 
     @PostMapping("/games")
-    public ResponseEntity<?> createGame(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> createGame(@RequestBody Map<String, Object> body) {
         try {
-            return ResponseEntity.ok(service.createGame(body.get("player1"), body.get("player2")));
+            String p1 = (String) body.getOrDefault("player1", "Player X");
+            String p2 = (String) body.getOrDefault("player2", "Player O");
+            
+            GameMode mode = GameMode.HUMAN_VS_HUMAN;
+            if (body.containsKey("gameMode")) {
+                try {
+                    mode = GameMode.valueOf((String) body.get("gameMode"));
+                } catch (Exception ignored) {}
+            }
+
+            AIDifficulty difficulty = AIDifficulty.MEDIUM;
+            if (body.containsKey("aiDifficulty")) {
+                try {
+                    difficulty = AIDifficulty.valueOf((String) body.get("aiDifficulty"));
+                } catch (Exception ignored) {}
+            }
+
+            return ResponseEntity.ok(service.createGame(p1, p2, mode, difficulty));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -43,6 +62,15 @@ public class TicTacToeController {
             int col = ((Number) body.get("col")).intValue();
             String playerName = (String) body.get("playerName");
             return ResponseEntity.ok(service.makeMove(id, row, col, playerName));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/games/{id}/undo")
+    public ResponseEntity<?> undoMove(@PathVariable String id) {
+        try {
+            return ResponseEntity.ok(service.undoLastMove(id));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

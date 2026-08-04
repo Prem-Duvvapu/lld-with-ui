@@ -725,6 +725,34 @@ const classDiagrams = {
       { from: 'Payment', to: 'PaymentMethod', label: 'uses' },
       { from: 'Payment', to: 'PaymentStatus', label: 'has status' }
     ]
+  },
+
+  tictactoe: {
+    title: 'Tic Tac Toe Game — Class Diagram',
+    classes: [
+      { name: 'TicTacToeService', stereotype: 'singleton', fields: ['- repository: GameRepository', '- gameLocks: ConcurrentHashMap<String, ReentrantLock>'], methods: ['+ createGame(p1, p2, mode, diff): Game', '+ makeMove(gameId, row, col, player): Game', '+ undoLastMove(gameId): Game', '+ resetGame(gameId): Game'] },
+      { name: 'Game', fields: ['- id: String', '- player1: Player', '- player2: Player', '- gameMode: GameMode', '- aiDifficulty: AIDifficulty', '- board: String[][]', '- currentTurn: Player', '- state: GameState', '- winner: Player', '- winningLine: int[]', '- moveHistory: List<Move>'], methods: ['+ makeMove(row, col, player): boolean', '+ checkGameState(player): void', '+ undoLastMove(): boolean', '+ reset(): void'] },
+      { name: 'Player', fields: ['- name: String', '- symbol: Symbol (X/O)'], methods: [] },
+      { name: 'Move', fields: ['- moveNumber: int', '- playerName: String', '- symbol: Symbol', '- row: int', '- col: int', '- timestamp: long'], methods: [] },
+      { name: 'AIMoveStrategy', stereotype: 'interface', fields: [], methods: ['+ findBestMove(game): int[]'] },
+      { name: 'RandomAIMoveStrategy', fields: ['implements AIMoveStrategy'], methods: ['+ findBestMove(game): int[]'] },
+      { name: 'MinimaxAIMoveStrategy', fields: ['implements AIMoveStrategy'], methods: ['+ findBestMove(game): int[]', '- minimax(board, depth, isMax): int'] },
+      { name: 'GameMode', stereotype: 'enum', fields: ['HUMAN_VS_HUMAN', 'HUMAN_VS_AI'], methods: [] },
+      { name: 'AIDifficulty', stereotype: 'enum', fields: ['EASY', 'MEDIUM', 'UNBEATABLE'], methods: [] },
+      { name: 'GameState', stereotype: 'enum', fields: ['IN_PROGRESS', 'WON', 'DRAW', 'ABANDONED'], methods: [] }
+    ],
+    relationships: [
+      { from: 'TicTacToeService', to: 'GameRepository', label: 'uses' },
+      { from: 'TicTacToeService', to: 'Game', label: 'manages' },
+      { from: 'TicTacToeService', to: 'AIMoveStrategy', label: 'executes' },
+      { from: 'Game', to: 'Player', label: 'has players' },
+      { from: 'Game', to: 'Move', label: 'records history' },
+      { from: 'Game', to: 'GameMode', label: 'has mode' },
+      { from: 'Game', to: 'AIDifficulty', label: 'has difficulty' },
+      { from: 'Game', to: 'GameState', label: 'has state' },
+      { from: 'RandomAIMoveStrategy', to: 'AIMoveStrategy', label: 'implements', dashed: true },
+      { from: 'MinimaxAIMoveStrategy', to: 'AIMoveStrategy', label: 'implements', dashed: true }
+    ]
   }
 };
 

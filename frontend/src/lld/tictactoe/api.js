@@ -1,9 +1,9 @@
 import { apiFetch } from '../../utils/api';
 
-export function createGame(player1, player2) {
+export function createGame(player1, player2, gameMode = 'HUMAN_VS_HUMAN', aiDifficulty = 'MEDIUM') {
   return apiFetch('/tictactoe/games', {
     method: 'POST',
-    body: JSON.stringify({ player1, player2 }),
+    body: JSON.stringify({ player1, player2, gameMode, aiDifficulty }),
   });
 }
 
@@ -15,6 +15,12 @@ export function makeMove(gameId, row, col, playerName) {
   return apiFetch(`/tictactoe/games/${gameId}/move`, {
     method: 'POST',
     body: JSON.stringify({ row, col, playerName }),
+  });
+}
+
+export function undoMove(gameId) {
+  return apiFetch(`/tictactoe/games/${gameId}/undo`, {
+    method: 'POST',
   });
 }
 
