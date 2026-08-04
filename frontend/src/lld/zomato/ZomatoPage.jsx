@@ -969,7 +969,7 @@ export default function ZomatoPage() {
   );
 }
 
-// Sub-component: Upgraded Interactive 2D Simulation Scene with StepIndicator & Dynamic Workflow Panel
+// Sub-component: Upgraded Interactive 2D Simulation Scene Connected directly to Backend REST APIs
 function InteractiveZomatoSimulation() {
   const [step, setStep] = useState(0);
   const [autoPlay, setAutoPlay] = useState(false);
@@ -977,6 +977,8 @@ function InteractiveZomatoSimulation() {
   const [scooterLeft, setScooterLeft] = useState(150);
   const [inputOtp, setInputOtp] = useState('');
   const [otpError, setOtpError] = useState('');
+  const [realOrder, setRealOrder] = useState(null);
+  const [apiLoading, setApiLoading] = useState(false);
   const { showToast } = useToast();
   const timerRef = useRef(null);
 
@@ -1004,37 +1006,133 @@ function InteractiveZomatoSimulation() {
     }
   }, [step]);
 
-  // Auto-play timer
-  useEffect(() => {
-    if (autoPlay) {
-      timerRef.current = setInterval(() => {
-        setStep(prev => (prev < 7 ? prev + 1 : 0));
-      }, 3500);
-    } else {
-      clearInterval(timerRef.current);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [autoPlay]);
+  // Step 0 -> Step 1: Call Real Backend Place Order API
+  const handleStep0PlaceOrder = async () => {
+    setApiLoading(true);
+    try {
+      const newOrder = await api.placeOrder({
+        customerId: 'CUST-101',
+        restaurantId: 'REST-01',
+        items: [
+          { itemId: 'M101', name: 'Paneer Butter Masala', price: 260.0, quantity: 1 },
+          { itemId: 'M102', name: 'Garlic Naan', price: 55.0, quantity: 2 }
+        ],
+        deliveryAddress: 'Apt 4B, Green Glen Layout, Bellandur, Bangalore',
+        paymentMethod: payMethod
+      });
 
-  const handleNextStep = () => setStep(prev => Math.min(7, prev + 1));
-  const handlePrevStep = () => setStep(prev => Math.max(0, prev - 1));
+      setRealOrder(newOrder);
+      setInputOtp(newOrder.deliveryOtp || '4821');
+      setStep(1);
+      showToast(`Order #${newOrder.id} placed in backend! Secret OTP: ${newOrder.deliveryOtp}`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to place order in backend', 'error');
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  // Step 1 -> Step 2: Call Real Backend Confirm Order API
+  const handleStep1ConfirmOrder = async () => {
+    if (!realOrder) {
+      setStep(2);
+      return;
+    }
+    setApiLoading(true);
+    try {
+      const updated = await api.confirmOrder(realOrder.id);
+      setRealOrder(updated);
+      setStep(2);
+      showToast(`Restaurant confirmed order #${realOrder.id} in backend!`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to confirm order', 'error');
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  // Step 2 -> Step 3: Call Real Backend Start Preparing API
+  const handleStep2StartPreparing = async () => {
+    if (!realOrder) {
+      setStep(3);
+      return;
+    }
+    setApiLoading(true);
+    try {
+      const updated = await api.startPreparingOrder(realOrder.id);
+      setRealOrder(updated);
+      setStep(3);
+      showToast(`Kitchen started cooking order #${realOrder.id} in backend!`, 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to start cooking', 'error');
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  // Step 3 -> Step 4: Call Real Backend Mark Ready for Pickup API
+  const handleStep3MarkReady = async () => {
+    if (!realOrder) {
+      setStep(4);
+      return;
+    }
+    setApiLoading(true);
+    try {
+      const updated = await api.markReadyForPickup(realOrder.id);
+      setRealOrder(updated);
+      setStep(4);
+      showToast(`Order #${realOrder.id} ready! Assigned agent: ${updated.deliveryAgentName || 'Ramesh Kumar'}`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to mark ready', 'error');
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  // Step 4 -> Step 5: Scooter Departs
+  const handleStep4Depart = () => {
+    setStep(5);
+    showToast(`Agent ${realOrder?.deliveryAgentName || 'Ramesh Kumar'} departed for delivery!`, 'info');
+  };
+
+  // Step 5 -> Step 6: Arrive at Customer House
+  const handleStep5Arrive = () => {
+    setStep(6);
+    showToast('Agent arrived at customer address! Please verify 4-digit OTP.', 'info');
+  };
+
+  // Step 6 -> Step 7: Call Real Backend Verify OTP & Deliver API
+  const handleStep6VerifyOtp = async () => {
+    if (!inputOtp || inputOtp.length !== 4) {
+      setOtpError('Please enter a valid 4-digit OTP');
+      showToast('Please enter a valid 4-digit OTP', 'error');
+      return;
+    }
+    setApiLoading(true);
+    try {
+      if (realOrder) {
+        const updated = await api.verifyOtpAndDeliver(realOrder.id, inputOtp.trim());
+        setRealOrder(updated);
+      }
+      setOtpError('');
+      setStep(7);
+      showToast(`✅ OTP verified in backend! Order #${realOrder?.id || 'ORD-10101'} status set to DELIVERED.`, 'success');
+    } catch (err) {
+      const msg = err.message || 'Invalid OTP! Verification failed in backend.';
+      setOtpError(`❌ ${msg}`);
+      showToast(`❌ ${msg}`, 'error');
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
   const handleReset = () => {
     setStep(0);
     setAutoPlay(false);
     setScooterLeft(150);
     setInputOtp('');
     setOtpError('');
-  };
-
-  const handleVerifyOtp = () => {
-    if (inputOtp.trim() === '4821') {
-      setOtpError('');
-      setStep(7);
-      showToast('✅ OTP verified successfully! Order delivered.', 'success');
-    } else {
-      setOtpError('❌ Invalid OTP! Please enter customer secret OTP (4821).');
-      showToast('Invalid OTP! Try 4821', 'error');
-    }
+    setRealOrder(null);
   };
 
   return (
@@ -1181,21 +1279,23 @@ function InteractiveZomatoSimulation() {
         }}>
           <div style={{ fontWeight: 800, color: '#e23744', fontSize: 'var(--font-sm)', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>📍 ZOMATO LIVE HUD</span>
-            <span style={{ fontSize: '10px', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>LIVE</span>
+            <span style={{ fontSize: '10px', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>REAL BACKEND</span>
           </div>
-          <div>Order ID: <strong style={{ color: '#facc15' }}>#ORD-10101</strong></div>
+          <div>Order ID: <strong style={{ color: '#facc15' }}>#{realOrder?.id || 'ORD-10101'}</strong></div>
           <div>Status: <strong style={{ color: '#22c55e' }}>{
-            step === 0 ? 'CONFIGURING_ORDER' :
-            step === 1 ? 'PLACED' :
-            step === 2 ? 'CONFIRMED' :
-            step === 3 ? 'PREPARING (COOKING)' :
-            step === 4 ? 'READY_FOR_PICKUP' :
-            step === 5 ? 'OUT_FOR_DELIVERY' :
-            step === 6 ? 'VERIFYING_OTP' : 'DELIVERED'
+            realOrder?.status || (
+              step === 0 ? 'CONFIGURING_ORDER' :
+              step === 1 ? 'PLACED' :
+              step === 2 ? 'CONFIRMED' :
+              step === 3 ? 'PREPARING (COOKING)' :
+              step === 4 ? 'READY_FOR_PICKUP' :
+              step === 5 ? 'OUT_FOR_DELIVERY' :
+              step === 6 ? 'VERIFYING_OTP' : 'DELIVERED'
+            )
           }</strong></div>
           <div>Restaurant: <strong>Spice Garden</strong></div>
-          <div>Secret OTP: <strong style={{ color: '#38bdf8' }}>{step >= 1 ? '4821' : '---'}</strong></div>
-          <div>Agent: <strong>{step >= 4 ? 'Ramesh Kumar (KA-01-EQ-1234)' : 'Unassigned'}</strong></div>
+          <div>Secret OTP: <strong style={{ color: '#38bdf8' }}>{realOrder?.deliveryOtp || (step >= 1 ? '4821' : '---')}</strong></div>
+          <div>Agent: <strong>{realOrder?.deliveryAgentName || (step >= 4 ? 'Ramesh Kumar (KA-01-EQ-1234)' : 'Unassigned')}</strong></div>
         </div>
       </div>
 
@@ -1211,42 +1311,14 @@ function InteractiveZomatoSimulation() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
-            onClick={() => setAutoPlay(!autoPlay)}
-            style={{
-              padding: '8px 16px',
-              background: autoPlay ? '#ef4444' : '#22c55e',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 'var(--radius-sm)',
-              fontWeight: 700,
-              cursor: 'pointer'
-            }}
-          >
-            {autoPlay ? '⏸ Pause Auto-Play' : '▶ Start Auto-Play Tour'}
-          </button>
-          <button
-            onClick={handlePrevStep}
-            disabled={step === 0}
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: step === 0 ? 'not-allowed' : 'pointer' }}
-          >
-            ⏮ Prev Step
-          </button>
-          <button
-            onClick={handleNextStep}
-            disabled={step === 7}
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: step === 7 ? 'not-allowed' : 'pointer' }}
-          >
-            Next Step ⏭
-          </button>
-          <button
             onClick={handleReset}
             style={{ padding: '8px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
           >
-            ↺ Reset
+            ↺ Reset Simulation
           </button>
         </div>
         <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-          Click through steps 0–7 interactively below!
+          All buttons execute real Spring Boot REST API calls!
         </div>
       </div>
 
@@ -1264,7 +1336,7 @@ function InteractiveZomatoSimulation() {
               Step 1: Select Items & Configure Food Order
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Customer Rahul Sharma is ordering food from Spice Garden restaurant.
+              Customer Rahul Sharma is ordering food from Spice Garden restaurant via Spring Boot API.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', fontSize: 'var(--font-xs)' }}>
@@ -1292,10 +1364,11 @@ function InteractiveZomatoSimulation() {
             </div>
 
             <button
-              onClick={() => { setStep(1); showToast('Order #ORD-10101 placed successfully! OTP: 4821', 'success'); }}
-              style={{ padding: '12px 24px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
+              onClick={handleStep0PlaceOrder}
+              disabled={apiLoading}
+              style={{ padding: '12px 24px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              🛒 Place Food Order (₹423.50) ➔
+              {apiLoading ? 'Placing Order...' : '🛒 Place Food Order via API (₹423.50) ➔'}
             </button>
           </div>
         )}
@@ -1304,25 +1377,26 @@ function InteractiveZomatoSimulation() {
         {step === 1 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#eab308' }}>
-              Step 2: Order Placed (Status: PLACED)
+              Step 2: Order Placed (Status: {realOrder?.status || 'PLACED'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Order created with payment transaction <strong>TXN-881920</strong> and secret delivery verification OTP.
+              Order <strong>#{realOrder?.id || 'ORD-10101'}</strong> created in backend with payment transaction <strong>{realOrder?.payment?.transactionRef || 'TXN-881920'}</strong>.
             </p>
 
             <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontWeight: 800, color: '#22c55e', fontSize: 'var(--font-base)' }}>🔑 Secret Delivery OTP: 4821</div>
-                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>Share this 4-digit secret OTP with the delivery agent upon food arrival.</div>
+                <div style={{ fontWeight: 800, color: '#22c55e', fontSize: 'var(--font-base)' }}>🔑 Secret Delivery OTP: {realOrder?.deliveryOtp || '4821'}</div>
+                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>Generated by Java backend `ZomatoService.placeOrder`.</div>
               </div>
-              <span className="badge badge-warning" style={{ padding: '6px 12px', borderRadius: '4px', fontWeight: 700 }}>PLACED</span>
+              <span className="badge badge-warning" style={{ padding: '6px 12px', borderRadius: '4px', fontWeight: 700 }}>{realOrder?.status || 'PLACED'}</span>
             </div>
 
             <button
-              onClick={() => { setStep(2); showToast('Spice Garden accepted the order!', 'success'); }}
-              style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
+              onClick={handleStep1ConfirmOrder}
+              disabled={apiLoading}
+              style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              🏪 Restaurant Accepts & Confirms Order ➔
+              {apiLoading ? 'Calling API...' : '🏪 Restaurant Accepts & Confirms Order via API ➔'}
             </button>
           </div>
         )}
@@ -1331,10 +1405,10 @@ function InteractiveZomatoSimulation() {
         {step === 2 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#3b82f6' }}>
-              Step 3: Restaurant Confirms Order (Status: CONFIRMED)
+              Step 3: Restaurant Confirms Order (Status: {realOrder?.status || 'CONFIRMED'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Spice Garden kitchen accepts the order and queues it for cooking.
+              Spice Garden kitchen accepts order <strong>#{realOrder?.id || 'ORD-10101'}</strong> via Spring Boot API.
             </p>
 
             <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
@@ -1345,10 +1419,11 @@ function InteractiveZomatoSimulation() {
             </div>
 
             <button
-              onClick={() => { setStep(3); showToast('Chef started preparing food!', 'info'); }}
-              style={{ padding: '12px 24px', background: '#eab308', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
+              onClick={handleStep2StartPreparing}
+              disabled={apiLoading}
+              style={{ padding: '12px 24px', background: '#eab308', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              🍳 Start Cooking in Kitchen ➔
+              {apiLoading ? 'Calling API...' : '🍳 Start Cooking in Kitchen via API ➔'}
             </button>
           </div>
         )}
@@ -1357,17 +1432,18 @@ function InteractiveZomatoSimulation() {
         {step === 3 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#eab308' }}>
-              Step 4: Kitchen Cooking (Status: PREPARING)
+              Step 4: Kitchen Cooking (Status: {realOrder?.status || 'PREPARING'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
               Chef is cooking Paneer Butter Masala and baking fresh Garlic Naan in the oven. Smoke particles are rising from the stove in the 2D graphic scene above!
             </p>
 
             <button
-              onClick={() => { setStep(4); showToast('Order ready! Agent Ramesh Kumar assigned.', 'success'); }}
-              style={{ padding: '12px 24px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
+              onClick={handleStep3MarkReady}
+              disabled={apiLoading}
+              style={{ padding: '12px 24px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              📦 Mark Food Ready for Pickup ➔
+              {apiLoading ? 'Matching Agent in Backend...' : '📦 Mark Ready & Match Agent via API ➔'}
             </button>
           </div>
         )}
@@ -1376,22 +1452,22 @@ function InteractiveZomatoSimulation() {
         {step === 4 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#8b5cf6' }}>
-              Step 5: Food Ready & Delivery Agent Assigned (Status: READY_FOR_PICKUP)
+              Step 5: Food Ready & Delivery Agent Assigned (Status: {realOrder?.status || 'READY_FOR_PICKUP'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Food is packed. System matched available delivery agent <strong>Ramesh Kumar (🛵 KA-01-EQ-1234)</strong>.
+              Food packed. Backend assigned delivery agent <strong>{realOrder?.deliveryAgentName || 'Ramesh Kumar'} ({realOrder?.deliveryAgentPhone || '+91 91111 22222'})</strong>.
             </p>
 
             <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontWeight: 700 }}>🛵 Delivery Agent: Ramesh Kumar</div>
-                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Vehicle: KA-01-EQ-1234 | Phone: +91 91111 22222</div>
+                <div style={{ fontWeight: 700 }}>🛵 Assigned Agent: {realOrder?.deliveryAgentName || 'Ramesh Kumar'}</div>
+                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Status: {realOrder?.status} | Phone: {realOrder?.deliveryAgentPhone || '+91 91111 22222'}</div>
               </div>
-              <span className="badge badge-secondary" style={{ padding: '6px 12px', borderRadius: '4px', fontWeight: 700 }}>READY_FOR_PICKUP</span>
+              <span className="badge badge-secondary" style={{ padding: '6px 12px', borderRadius: '4px', fontWeight: 700 }}>{realOrder?.status || 'OUT_FOR_DELIVERY'}</span>
             </div>
 
             <button
-              onClick={() => { setStep(5); showToast('Scooter departed for delivery!', 'info'); }}
+              onClick={handleStep4Depart}
               style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
             >
               🛵 Scooter Departs for Delivery ➔
@@ -1403,14 +1479,14 @@ function InteractiveZomatoSimulation() {
         {step === 5 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#3b82f6' }}>
-              Step 6: Scooter Out for Delivery (Status: OUT_FOR_DELIVERY)
+              Step 6: Scooter Out for Delivery (Status: {realOrder?.status || 'OUT_FOR_DELIVERY'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Ramesh Kumar is driving the Zomato delivery scooter across the asphalt road network to Green Glen Layout. Watch the scooter move smoothly on the map above!
+              {realOrder?.deliveryAgentName || 'Ramesh Kumar'} is driving the Zomato delivery scooter across the asphalt road network to Green Glen Layout.
             </p>
 
             <button
-              onClick={() => { setStep(6); showToast('Driver arrived at Customer house! Ask for OTP.', 'info'); }}
+              onClick={handleStep5Arrive}
               style={{ padding: '12px 24px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
             >
               📍 Arrive at Customer House ➔
@@ -1422,20 +1498,20 @@ function InteractiveZomatoSimulation() {
         {step === 6 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#38bdf8' }}>
-              Step 7: Verify Secret Delivery OTP
+              Step 7: Verify Secret Delivery OTP via Backend
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Agent Ramesh Kumar arrived at customer address. Enter customer's 4-digit secret OTP to complete handoff.
+              Agent arrived at customer address. Enter customer's 4-digit secret OTP (<strong>{realOrder?.deliveryOtp || '4821'}</strong>) to execute backend verification.
             </p>
 
             <div style={{ background: 'var(--bg-primary)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', maxWidth: '400px', marginBottom: '20px' }}>
-              <div style={{ fontSize: 'var(--font-xs)', color: '#38bdf8', fontWeight: 700, marginBottom: '8px' }}>🔑 Handoff Verification (Secret OTP: 4821)</div>
+              <div style={{ fontSize: 'var(--font-xs)', color: '#38bdf8', fontWeight: 700, marginBottom: '8px' }}>🔑 Handoff Verification (Secret OTP: {realOrder?.deliveryOtp || '4821'})</div>
               <input
                 type="text"
                 maxLength={4}
                 value={inputOtp}
                 onChange={(e) => setInputOtp(e.target.value)}
-                placeholder="Enter 4821..."
+                placeholder={`e.g. ${realOrder?.deliveryOtp || '4821'}`}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -1452,10 +1528,11 @@ function InteractiveZomatoSimulation() {
               />
               {otpError && <div style={{ color: '#ef4444', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>{otpError}</div>}
               <button
-                onClick={handleVerifyOtp}
-                style={{ width: '100%', padding: '10px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
+                onClick={handleStep6VerifyOtp}
+                disabled={apiLoading}
+                style={{ width: '100%', padding: '10px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: apiLoading ? 'wait' : 'pointer' }}
               >
-                🔑 Verify OTP & Complete Delivery
+                {apiLoading ? 'Verifying OTP in Backend...' : '🔑 Verify OTP via Backend API'}
               </button>
             </div>
           </div>
@@ -1465,16 +1542,16 @@ function InteractiveZomatoSimulation() {
         {step === 7 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#22c55e' }}>
-              Step 8: Order Delivered & Payment Settled (Status: DELIVERED)
+              Step 8: Order Delivered & Payment Settled (Status: {realOrder?.status || 'DELIVERED'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Order successfully delivered to Rahul Sharma! Payment settled via UPI.
+              Order successfully verified and delivered in Spring Boot backend! Payment settled via {realOrder?.payment?.paymentMethod || 'UPI'}.
             </p>
 
             <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', padding: '20px', borderRadius: 'var(--radius-md)', marginBottom: '20px', fontSize: 'var(--font-xs)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 'var(--font-sm)', color: '#22c55e' }}>✅ Order #ORD-10101 Completed!</div>
-                <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>Amount Paid: ₹423.50 | Agent Ramesh Kumar freed for next delivery.</div>
+                <div style={{ fontWeight: 800, fontSize: 'var(--font-sm)', color: '#22c55e' }}>✅ Order #{realOrder?.id || 'ORD-10101'} Completed in Backend!</div>
+                <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>Amount Paid: ₹{realOrder?.totalAmount?.toFixed(2) || '423.50'} | Agent freed for next delivery.</div>
                 <div style={{ marginTop: '6px', color: '#facc15' }}>Customer Rating: ★★★★★ (5.0)</div>
               </div>
               <button
