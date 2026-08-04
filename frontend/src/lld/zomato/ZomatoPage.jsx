@@ -297,31 +297,23 @@ export default function ZomatoPage() {
     }
   };
 
-  const tabs = [
-    { id: 'browse', label: '🍕 Food Ordering' },
-    { id: 'restaurant', label: '🏪 Restaurant Dashboard' },
-    { id: 'driver', label: '🛵 Delivery Partner' },
-    { id: 'simulation', label: '🎬 Interactive 2D Simulation' },
-    { id: 'diagram', label: '📊 Class Diagram' },
-    { id: 'details', label: '📝 Design Details' }
-  ];
-
   return (
     <LldPage
-      title="Zomato — Food Delivery Service LLD"
-      subtitle="Multi-restaurant ordering, state machine lifecycle, 4-digit OTP verification, multiple payments & real-time 2D delivery simulation"
-      tabs={tabs}
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
+      module="zomato"
+      title="Zomato Food Delivery Service"
+      icon="🍕"
+      tabs={['browse', 'restaurant', 'driver', 'simulation', 'diagram', 'details']}
     >
-      {loading ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Loading Zomato Food Delivery Service...
-        </div>
-      ) : (
+      {(tab) => (
         <>
-          {/* TAB 1: FOOD ORDERING (CUSTOMER VIEW) */}
-          {activeTab === 'browse' && (
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+              Loading Zomato Food Delivery Service...
+            </div>
+          ) : (
+            <>
+              {/* TAB 1: FOOD ORDERING (CUSTOMER VIEW) */}
+              {tab === 'browse' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
               {/* Left Column: Restaurants & Menu */}
               <div>
@@ -715,7 +707,7 @@ export default function ZomatoPage() {
           )}
 
           {/* TAB 2: RESTAURANT MANAGER DASHBOARD */}
-          {activeTab === 'restaurant' && (
+          {tab === 'restaurant' && (
             <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
               {/* Left Column: Menu Management */}
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
@@ -829,7 +821,7 @@ export default function ZomatoPage() {
           )}
 
           {/* TAB 3: DELIVERY PARTNER DASHBOARD */}
-          {activeTab === 'driver' && (
+          {tab === 'driver' && (
             <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
               {/* Agent Selector & Availability */}
               <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
@@ -933,7 +925,7 @@ export default function ZomatoPage() {
           )}
 
           {/* TAB 4: INTERACTIVE 2D SIMULATION SCENE */}
-          {activeTab === 'simulation' && (
+          {tab === 'simulation' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {/* Simulation Toolbar */}
               <div style={{
@@ -1085,15 +1077,7 @@ export default function ZomatoPage() {
             </div>
           )}
 
-          {/* TAB 5: CLASS DIAGRAM */}
-          {activeTab === 'diagram' && (
-            <ClassDiagram diagram={classDiagrams.zomato} />
-          )}
 
-          {/* TAB 6: DESIGN DETAILS */}
-          {activeTab === 'details' && (
-            <DesignDetails details={designDetails.zomato} />
-          )}
         </>
       )}
 

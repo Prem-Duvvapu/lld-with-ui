@@ -9,15 +9,22 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
   const tabs = customTabs || defaultTabs;
   const tabLabels = {
     design: 'Design Details',
+    details: 'Design Details',
     diagram: 'Class Diagram',
     app: 'App',
-    simulation: 'Simulation',
+    simulation: 'Interactive 2D Simulation',
     demo: 'Animated Demo',
     solution: 'Solution',
     entry: 'Entry',
     exit: 'Exit',
     spots: 'Spots',
-    tickets: 'Tickets'
+    tickets: 'Tickets',
+    browse: '🍕 Food Ordering',
+    restaurant: '🏪 Restaurant Dashboard',
+    driver: '🛵 Delivery Partner',
+    book: 'Passenger Booking',
+    drivers: 'Driver Dashboard',
+    history: 'Trip History'
   };
 
   const storageKey = `lld-tab-${module}`;
@@ -30,7 +37,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
     sessionStorage.setItem(storageKey, tab);
   }, [tab, storageKey]);
 
-  const isBuiltIn = ['design', 'diagram'].includes(tab);
+  const isBuiltIn = ['design', 'details', 'diagram'].includes(tab);
 
   return (
     <div className="lld-page">
@@ -59,7 +66,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
       </header>
 
       <main className="lld-page-main">
-        {tab === 'design' && <DesignDetails module={module} />}
+        {(tab === 'design' || tab === 'details') && <DesignDetails module={module} />}
         {tab === 'diagram' && <ClassDiagram module={module} />}
         {!isBuiltIn && (typeof children === 'function' ? children(tab) : children)}
       </main>
