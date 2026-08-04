@@ -4484,6 +4484,56 @@ const designDetails = {
       { area: 'Recommendation Engine (ML)', description: 'Implement collaborative filtering or neural network-based recommendation strategy. User-song affinity matrix computed from listening history. Existing RecommendationStrategy interface accommodates new algorithms.', difficulty: 'Hard' },
     ],
   },
+
+  zomato: {
+    title: 'Zomato Food Delivery Service — Low-Level System Design',
+    tldr: [
+      'Multi-entity domain model supporting Customers, Restaurants, Menu Items, Delivery Agents, Orders, Payments, and Real-Time Notifications.',
+      'State Machine order lifecycle: PLACED ➔ CONFIRMED ➔ PREPARING ➔ READY_FOR_PICKUP ➔ OUT_FOR_DELIVERY ➔ DELIVERED (or CANCELLED).',
+      'Thread-safe ConcurrentHashMap repository protected by ReentrantLock for order state transitions.',
+      '4-Digit OTP handoff verification between customer and delivery agent for secure delivery confirmation.',
+      'Extensible payment processor supporting UPI, Credit Card, Debit Card, Wallet, and Cash on Delivery with auto-refund on cancellation.'
+    ],
+    requirements: [
+      'Customers can browse restaurants, view categorized menus, configure order items, and select payment methods.',
+      'Restaurants can manage menu items, toggle stock availability, and accept/prepare incoming orders.',
+      'Delivery Agents can toggle online availability, accept assigned orders, and complete deliveries via 4-digit OTP handoff.',
+      'The system handles state transitions concurrently ensuring thread safety during high order volume.',
+      'Supports real-time notifications for status updates dispatched to customers, restaurants, and delivery agents.',
+      'Supports automated payment processing and refund calculation upon cancellation.'
+    ],
+    entities: [
+      { name: 'Customer', description: 'Represents a customer with ID, name, email, phone, and delivery address.' },
+      { name: 'Restaurant', description: 'Represents a restaurant offering a categorized menu of food items.' },
+      { name: 'MenuItem', description: 'Represents a menu item with name, price, category, veg/non-veg flag, and stock availability.' },
+      { name: 'DeliveryAgent', description: 'Represents a delivery partner with vehicle registration, online status, and delivery count.' },
+      { name: 'Order', description: 'Central entity tracking order items, customer, restaurant, assigned agent, status, and 4-digit OTP.' },
+      { name: 'Payment', description: 'Tracks payment transaction reference, payment method, amount, and payment status.' },
+      { name: 'Notification', description: 'Stores status update alerts sent to customers, restaurants, or delivery partners.' }
+    ],
+    designPatterns: [
+      { name: 'State Pattern', used: true, explanation: 'Enforces strict state transitions for OrderStatus (PLACED ➔ CONFIRMED ➔ PREPARING ➔ READY_FOR_PICKUP ➔ OUT_FOR_DELIVERY ➔ DELIVERED).' },
+      { name: 'Strategy Pattern', used: true, explanation: 'Encapsulates PaymentProcessor implementations (UPI, Card, Wallet, COD) allowing seamless extension.' },
+      { name: 'Observer Pattern', used: true, explanation: 'Dispatches real-time Notifications to customer, kitchen, and driver on every order status change.' },
+      { name: 'Factory Pattern', used: true, explanation: 'Creates initial seed data (Restaurants, Menu, Customers, Delivery Agents) during application initialization.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility Principle (SRP)', description: 'ZomatoService manages order lifecycle, ZomatoRepository handles thread-safe data persistence, and PaymentProcessor manages payments.' },
+      { name: 'Open/Closed Principle (OCP)', description: 'New payment methods or assignment strategies can be added without altering existing order processing logic.' },
+      { name: 'Interface Segregation Principle (ISP)', description: 'Entities expose targeted getters and state update methods appropriate for their domain boundary.' },
+      { name: 'Dependency Inversion Principle (DIP)', description: 'High-level ZomatoService depends on repository abstractions rather than concrete storage mechanisms.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Order fields, status transitions, and secret OTP verification are encapsulated behind atomic service methods.' },
+      { name: 'Abstraction', description: 'REST Controllers abstract backend thread safety and concurrency from frontend UI components.' },
+      { name: 'Polymorphism', description: 'PaymentProcessor handles diverse payment methods using a unified processPayment() contract.' }
+    ],
+    extensibility: [
+      { area: 'Geospatial Agent Matching', description: 'Integrate Haversine distance algorithm or QuadTree index to assign the nearest available delivery agent.', difficulty: 'Medium' },
+      { area: 'Dynamic Surge Delivery Fee', description: 'Apply dynamic delivery fee pricing based on weather, demand peak hours, or distance.', difficulty: 'Medium' },
+      { area: 'Scheduled Orders', description: 'Support advance order booking with scheduled kitchen dispatch timers.', difficulty: 'Easy' }
+    ]
+  }
 };
 
 export default designDetails;

@@ -697,6 +697,34 @@ const classDiagrams = {
       { from: 'User', to: 'Subscription', label: 'has' },
       { from: 'Subscription', to: 'SubscriptionPlan', label: 'has plan' },
     ]
+  },
+
+  zomato: {
+    title: 'Zomato Food Delivery Service — Class Diagram',
+    classes: [
+      { name: 'ZomatoService', stereotype: 'singleton', fields: ['- repository: ZomatoRepository', '- orderLock: ReentrantLock'], methods: ['+ placeOrder(req): Order', '+ confirmOrder(id): Order', '+ startPreparingOrder(id): Order', '+ markReadyForPickup(id): Order', '+ verifyOtpAndDeliver(id, otp): Order', '+ cancelOrder(id, reason): Order'] },
+      { name: 'Customer', fields: ['- id: String', '- name: String', '- email: String', '- phone: String', '- deliveryAddress: String'], methods: [] },
+      { name: 'Restaurant', fields: ['- id: String', '- name: String', '- cuisine: String', '- rating: double', '- address: String', '- menu: List<MenuItem>'], methods: ['+ updateMenuAvailability(itemId, avail): void'] },
+      { name: 'MenuItem', fields: ['- id: String', '- name: String', '- price: double', '- category: String', '- available: boolean', '- isVeg: boolean'], methods: [] },
+      { name: 'DeliveryAgent', fields: ['- id: String', '- name: String', '- phone: String', '- vehicleNumber: String', '- available: boolean', '- totalDeliveries: int'], methods: ['+ setAvailable(avail): void'] },
+      { name: 'Order', fields: ['- id: String', '- customerId: String', '- restaurantId: String', '- deliveryAgentId: String', '- items: List<OrderItem>', '- status: OrderStatus', '- deliveryOtp: String', '- totalAmount: double', '- createdAt: LocalDateTime'], methods: ['+ updateStatus(newStatus): void'] },
+      { name: 'Payment', fields: ['- id: String', '- orderId: String', '- amount: double', '- method: PaymentMethod', '- status: PaymentStatus', '- transactionRef: String'], methods: ['+ processPayment(): boolean'] },
+      { name: 'OrderStatus', stereotype: 'enum', fields: ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'], methods: [] },
+      { name: 'PaymentMethod', stereotype: 'enum', fields: ['UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'WALLET', 'CASH_ON_DELIVERY'], methods: [] },
+      { name: 'PaymentStatus', stereotype: 'enum', fields: ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'], methods: [] }
+    ],
+    relationships: [
+      { from: 'ZomatoService', to: 'ZomatoRepository', label: 'uses' },
+      { from: 'ZomatoService', to: 'Order', label: 'manages' },
+      { from: 'ZomatoService', to: 'Payment', label: 'processes' },
+      { from: 'Order', to: 'Customer', label: 'placed by' },
+      { from: 'Order', to: 'Restaurant', label: 'fulfilled by' },
+      { from: 'Order', to: 'DeliveryAgent', label: 'delivered by' },
+      { from: 'Order', to: 'OrderStatus', label: 'has status' },
+      { from: 'Restaurant', to: 'MenuItem', label: 'contains' },
+      { from: 'Payment', to: 'PaymentMethod', label: 'uses' },
+      { from: 'Payment', to: 'PaymentStatus', label: 'has status' }
+    ]
   }
 };
 

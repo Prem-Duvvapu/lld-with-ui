@@ -68,7 +68,11 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
       <main className="lld-page-main">
         {(tab === 'design' || tab === 'details') && <DesignDetails module={module} />}
         {tab === 'diagram' && <ClassDiagram module={module} />}
-        {!isBuiltIn && (typeof children === 'function' ? children(tab) : children)}
+        {!isBuiltIn && (
+          typeof children === 'function'
+            ? (typeof children(tab) === 'function' ? children(tab)() : children(tab))
+            : children
+        )}
       </main>
     </div>
   );
