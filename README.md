@@ -90,8 +90,8 @@ Then open http://localhost:5173 and click any LLD card.
 **APIs:** `GET /api/parking/gates`, `POST /api/parking/entry`, `POST /api/parking/exit`, `GET /api/parking/floors`, `GET /api/parking/spots/available`, `GET /api/parking/tickets/active`
 
 ### 2. Zomato
-**Features:** Restaurant browsing, menu ordering, cart management, order state machine (PLACED → CONFIRMED → PREPARING → OUT_FOR_DELIVERY → DELIVERED), delivery partner assignment  
-**APIs:** `GET /api/zomato/restaurants`, `GET /api/zomato/menu`, `POST /api/zomato/orders`, `GET /api/zomato/orders`, `PUT /api/zomato/orders/{id}/status`
+**Features:** Multi-entity domain model (Customer, Restaurant, MenuItem, DeliveryAgent, Order, Payment, Notification), order state machine lifecycle (`PLACED` ➔ `CONFIRMED` ➔ `PREPARING` ➔ `READY_FOR_PICKUP` ➔ `OUT_FOR_DELIVERY` ➔ `DELIVERED` / `CANCELLED`), 4-digit OTP handoff verification, extensible payment strategies (UPI, Credit Card, Debit Card, Wallet, COD), automated refund processing, real-time notification engine, thread-safe `ConcurrentHashMap` repository with `ReentrantLock`, 8-step Interactive 2D Simulation scene (night city skyline, kitchen smoke particles, moving scooter, live HUD) calling real Spring Boot REST APIs, and color-accented section card layouts.  
+**APIs:** `GET /api/zomato/restaurants`, `GET /api/zomato/customers`, `GET /api/zomato/agents`, `POST /api/zomato/orders`, `GET /api/zomato/orders`, `POST /api/zomato/orders/{id}/confirm`, `POST /api/zomato/orders/{id}/prepare`, `POST /api/zomato/orders/{id}/ready`, `POST /api/zomato/orders/{id}/deliver`, `POST /api/zomato/orders/{id}/cancel`, `PUT /api/zomato/menu/availability`, `PUT /api/zomato/agents/availability`
 
 ### 3. Uber
 **Features:** Pre-booking fare estimation (Haversine distance & duration), vehicle types (Go/XL/Premium), driver request broadcasting with explicit Accept/Decline decision, 4-digit OTP verification, interactive 2D city map scene, ride lifecycle state machine (REQUESTED → ACCEPTED → ONGOING → DESTINATION_REACHED / PAYMENT_PENDING → COMPLETED / PAYMENT_FAILED / CANCELLED), and rider payment checkout  
