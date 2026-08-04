@@ -1,9 +1,6 @@
 package com.lld.zomato.controller;
 
-import com.lld.zomato.model.MenuItem;
-import com.lld.zomato.model.Order;
-import com.lld.zomato.model.OrderItem;
-import com.lld.zomato.model.Restaurant;
+import com.lld.zomato.model.*;
 import com.lld.zomato.service.ZomatoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,79 +13,136 @@ import java.util.Map;
 @CrossOrigin(origins = "*")
 public class ZomatoController {
 
-    private final ZomatoService service;
+    private final ZomatoService zomatoService;
 
-    public ZomatoController(ZomatoService service) {
-        this.service = service;
+    public ZomatoController(ZomatoService zomatoService) {
+        this.zomatoService = zomatoService;
     }
 
+    // --- Customers ---
+    @GetMapping("/customers")
+    public ResponseEntity<List<Customer>> getCustomers() {
+        return ResponseEntity.ok(zomatoService.getCustomers());
+    }
+
+    @PostMapping("/customers")
+    public ResponseEntity<Customer> registerCustomer(@RequestBody Customer customer) {
+        return ResponseEntity.ok(zomatoService.registerCustomer(
+                customer.getName(), customer.getEmail(), customer.getPhone(), customer.getDeliveryAddress()
+        ));
+    }
+
+    // --- Restaurants ---
     @GetMapping("/restaurants")
-    public List<Restaurant> getRestaurants() {
-        return service.getRestaurants();
+    public ResponseEntity<List<Restaurant>> getRestaurants() {
+        return ResponseEntity.ok(zomatoService.getRestaurants());
     }
 
     @GetMapping("/restaurants/{id}")
-    public ResponseEntity<?> getRestaurant(@PathVariable String id) {
-        try {
-            return ResponseEntity.ok(service.getRestaurant(id));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<Restaurant> getRestaurant(@PathVariable String id) {
+        return ResponseEntity.ok(zomatoService.getRestaurant(id));
     }
 
-    @GetMapping("/restaurants/{id}/menu")
-    public ResponseEntity<?> getMenu(@PathVariable String id) {
-        try {
-            List<MenuItem> menu = service.getRestaurant(id).getMenu();
-            return ResponseEntity.ok(menu);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    @PutMapping("/restaurants/{id}/menu/{itemId}/availability")
+    public ResponseEntity<Restaurant> updateMenuItemAvailability(
+            @PathVariable String id,
+            @PathVariable String itemId,
+            @RequestBody Map<String, Boolean> body) {
+        boolean available = body.getOrDefault("available", true);
+        return ResponseEntity.ok(zomatoService.updateMenuItemAvailability(id, itemId, available));
     }
+
+    @PostMapping("/restaurants/{id}/menu")
+    public ResponseEntity<Restaurant> addMenuItem(
+            @PathVariable String id,
+            @RequestBody MenuItem menuItem) {
+        return ResponseEntity.ok(zomatoService.addMenuItemToRestaurant(id, menuItem));
+    }
+
+    // --- Delivery Agents ---
+    @GetMapping("/agents")
+    public ResponseEntity<List<DeliveryAgent>> getDeliveryAgents() {
+        return ResponseEntity.ok(zomatoService.getDeliveryAgents());
+    }
+
+    @PutMapping("/agents/{id}/availability")
+    public ResponseEntity<DeliveryAgent> toggleAgentAvailability(
+            @PathVariable String id,
+            @RequestBody Map<String, Boolean> body) {
+        boolean available = body.getOrDefault("available", true);
+        return ResponseEntity.ok(zomatoService.toggleAgentAvailability(id, available));
+    }
+
+    // --- Orders ---
+    public record PlaceOrderRequest(
+            String customerId,
+            String restaurantId,
+            List<OrderItem> items,
+            String deliveryAddress,
+            String paymentMethod
+    ) {}
 
     @PostMapping("/orders")
-    public ResponseEntity<?> placeOrder(@RequestBody Map<String, Object> request) {
-        try {
-            String restaurantId = (String) request.get("restaurantId");
-            String userId = (String) request.get("userId");
-            List<Map<String, Object>> itemsRaw = (List<Map<String, Object>>) request.get("items");
-
-            List<OrderItem> items = itemsRaw.stream().map(m -> {
-                String menuItemId = (String) m.get("menuItemId");
-                String name = (String) m.get("name");
-                int qty = ((Number) m.get("quantity")).intValue();
-                double price = ((Number) m.get("price")).doubleValue();
-                return new OrderItem(menuItemId, name, qty, price);
-            }).toList();
-
-            Order order = service.placeOrder(restaurantId, userId, items);
-            return ResponseEntity.ok(order);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    @GetMapping("/orders/{id}")
-    public ResponseEntity<?> getOrder(@PathVariable String id) {
-        try {
-            return ResponseEntity.ok(service.getOrder(id));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<Order> placeOrder(@RequestBody PlaceOrderRequest request) {
+        return ResponseEntity.ok(zomatoService.placeOrder(
+                request.customerId(),
+                request.restaurantId(),
+                request.items(),
+                request.deliveryAddress(),
+                request.paymentMethod()
+        ));
     }
 
     @GetMapping("/orders")
-    public List<Order> getUserOrders(@RequestParam String userId) {
-        return service.getUserOrders(userId);
+    public ResponseEntity<List<Order>> getOrders(
+            @RequestParam(required = false) String customerId,
+            @RequestParam(required = false) String restaurantId,
+            @RequestParam(required = false) String agentId) {
+        if (customerId != null) return ResponseEntity.ok(zomatoService.getCustomerOrders(customerId));
+        if (restaurantId != null) return ResponseEntity.ok(zomatoService.getRestaurantOrders(restaurantId));
+        if (agentId != null) return ResponseEntity.ok(zomatoService.getAgentOrders(agentId));
+        return ResponseEntity.ok(zomatoService.getAllOrders());
     }
 
-    @PutMapping("/orders/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable String id, @RequestBody Map<String, String> request) {
-        try {
-            String status = request.get("status");
-            return ResponseEntity.ok(service.updateOrderStatus(id, status));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+    @GetMapping("/orders/{id}")
+    public ResponseEntity<Order> getOrder(@PathVariable String id) {
+        return ResponseEntity.ok(zomatoService.getOrder(id));
+    }
+
+    @PutMapping("/orders/{id}/confirm")
+    public ResponseEntity<Order> confirmOrder(@PathVariable String id) {
+        return ResponseEntity.ok(zomatoService.confirmOrder(id));
+    }
+
+    @PutMapping("/orders/{id}/prepare")
+    public ResponseEntity<Order> startPreparingOrder(@PathVariable String id) {
+        return ResponseEntity.ok(zomatoService.startPreparingOrder(id));
+    }
+
+    @PutMapping("/orders/{id}/ready")
+    public ResponseEntity<Order> markReadyForPickup(@PathVariable String id) {
+        return ResponseEntity.ok(zomatoService.markReadyForPickup(id));
+    }
+
+    @PutMapping("/orders/{id}/verify-otp")
+    public ResponseEntity<Order> verifyOtpAndDeliver(
+            @PathVariable String id,
+            @RequestBody Map<String, String> body) {
+        String otp = body.get("otp");
+        return ResponseEntity.ok(zomatoService.verifyOtpAndDeliver(id, otp));
+    }
+
+    @PutMapping("/orders/{id}/cancel")
+    public ResponseEntity<Order> cancelOrder(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String reason = body != null ? body.get("reason") : "User requested cancellation";
+        return ResponseEntity.ok(zomatoService.cancelOrder(id, reason));
+    }
+
+    // --- Notifications ---
+    @GetMapping("/notifications")
+    public ResponseEntity<List<Notification>> getNotifications(@RequestParam(required = false) String recipientId) {
+        return ResponseEntity.ok(zomatoService.getNotifications(recipientId));
     }
 }
