@@ -1,20 +1,56 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation (2+ years experience). 9 LLD projects in a **single unified backend + frontend** — Java Spring Boot backend, React + Vite frontend.
+SDE-2 interview preparation (2+ years experience). **45 LLD projects** in a **single unified backend + frontend** — Java Spring Boot backend, React + Vite frontend.
 
 ## Projects
 
 | # | Project | Domain | Key Design Patterns |
 |---|---------|--------|-------------------|
-| 1 | [Parking Lot](#1-parking-lot) | Multi-level parking with gates | Singleton, Strategy (pricing), Factory, Repository, Concurrency (ReentrantLock) |
-| 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy, Repository |
-| 3 | [Uber](#3-uber) | Ride-hailing | State Machine, Strategy (pricing), Repository, Haversine distance |
+| 1 | [Parking Lot](#1-parking-lot) | Multi-level parking with gates | Singleton, Strategy (pricing/spot), Factory, Repository, Concurrency (ReentrantLock) |
+| 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy (payment), Observer, Repository, OTP Handoff |
+| 3 | [Uber](#3-uber) | Ride-hailing | State Machine, Strategy (pricing), Repository, Haversine distance, OTP Verification |
 | 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy (reputation), Factory, Repository, Tag-based search |
 | 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Game loop, Win detection |
 | 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | State Machine, Board design, Snake/Ladder mapping |
 | 7 | [ATM](#7-atm) | Banking ATM | State Machine, Thread Safety (ReentrantLock), Authentication |
 | 8 | [Splitwise](#8-splitwise) | Expense sharing | State Machine, Split Strategies (Equal/Percentage/Exact), Balance calculation |
 | 9 | [Elevator](#9-elevator) | Elevator Control | SCAN Scheduling, Proximity-based assignment, Thread Safety (ReentrantLock) |
+| 10 | Library Management | Book Catalog & Loans | Strategy, Factory, Observer |
+| 11 | Movie Ticket Booking | Cinema Seats & Shows | State Machine, Concurrency Lock |
+| 12 | Hotel Management | Room Reservation | State Machine, Strategy, Factory |
+| 13 | Airline Reservation | Flight Booking & Seats | State Machine, Strategy |
+| 14 | Coffee Machine | Ingredient & Brew Engine | State Pattern, Factory, Decorator |
+| 15 | Digital Wallet | Payment & Ledger | Command Pattern, Transactional Lock |
+| 16 | Chess | 2-Player Strategy Game | Command, State, Strategy |
+| 17 | Ludo | Multiplayer Board Game | State Machine, Game Loop |
+| 18 | Inventory Management | Stock & Warehouse | Observer, Strategy |
+| 19 | Shopping Cart | E-Commerce Cart & Discounts | Strategy, Command |
+| 20 | Minesweeper | Grid Mine Game | Recursion, Game Loop |
+| 21 | Vending Machine | State-based Dispenser | State Pattern, Chain of Responsibility |
+| 22 | Logging Framework | Log Sink Engine | Chain of Responsibility, Singleton |
+| 23 | Traffic Signal | Signal Timing Engine | State Pattern, Observer |
+| 24 | Task Management System | Task Workflow | State Pattern, Strategy |
+| 25 | LinkedIn | Professional Network | Graph Model, Observer |
+| 26 | LRU Cache | In-Memory Cache | Doubly Linked List + HashMap |
+| 27 | Pub Sub System | Message Broker | Observer, Producer-Consumer |
+| 28 | Car Rental System | Vehicle Fleet & Booking | State Machine, Strategy |
+| 29 | Online Auction System | Bidding Engine | Observer, Strategy |
+| 30 | Restaurant Management | Order & Kitchen Workflow | State Machine, Factory |
+| 31 | Social Network | Posts & Feeds | Graph Model, Observer |
+| 32 | Concert Ticket Booking | Event Seats & Reservation | Concurrency Lock, State Machine |
+| 33 | CricInfo | Live Cricket Scorecard | Observer Pattern, Event Listener |
+| 34 | Course Registration System | Student Enrollment | Strategy, Observer |
+| 35 | Stock Brokerage Platform | Trading & Portfolio | Strategy, Observer, Order Book |
+| 36 | Music Streaming Service | Audio Catalog & Playlists | Strategy, Factory |
+| 37 | FooBar Alternately | Multithreading Concurrency | Semaphore / ReentrantLock |
+| 38 | Zero Even Odd | Multithreading Concurrency | Semaphore Synchronization |
+| 39 | Fizz Buzz Multithreaded | Multithreading Concurrency | CyclicBarrier / Condition |
+| 40 | Building H2O | Multithreading Concurrency | Barrier / Semaphore |
+| 41 | Thread-Safe TTL Cache | Concurrent Caching | Scheduled Executor, ConcurrentHashMap |
+| 42 | Concurrent HashMap | Concurrent Data Structure | Segment Locking / Bucket Lock |
+| 43 | Blocking Queue | Concurrent Queue | Producer-Consumer, ReentrantLock + Condition |
+| 44 | Concurrent Bloom Filter | Probabilistic Structure | BitSet + Hash Functions |
+| 45 | Multi-threaded Merge Sort | Parallel Sorting | ForkJoinPool / RecursiveTask |
 
 ## Architecture
 
