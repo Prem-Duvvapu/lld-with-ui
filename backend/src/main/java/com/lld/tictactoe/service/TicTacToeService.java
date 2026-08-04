@@ -54,7 +54,7 @@ public class TicTacToeService {
             // Auto-trigger AI move if HUMAN_VS_AI mode and game is IN_PROGRESS
             if (game.getGameMode() == GameMode.HUMAN_VS_AI
                     && game.getState() == GameState.IN_PROGRESS
-                    && game.getCurrentTurn().getSymbol() == Player.Symbol.O) {
+                    && game.getCurrentTurn().getSymbol() == Symbol.O) {
                 triggerAIMove(game);
             }
 

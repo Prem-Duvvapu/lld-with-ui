@@ -1,128 +1,122 @@
 package com.lld.tictactoe.model;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class Game {
     private String id;
-    private Player player1;
-    private Player player2;
+    private Board board;
+    private Player[] players;
+    private int currentPlayerIndex;
+    private GameStatus status;
+    private GameState state; // Backward compatibility alias
     private GameMode gameMode;
     private AIDifficulty aiDifficulty;
-    private String[][] board;
-    private Player currentTurn;
-    private GameState state;
     private Player winner;
     private int moveCount;
     private int[] winningLine; // [startRow, startCol, endRow, endCol]
     private List<Move> moveHistory;
 
     public Game(String id, String player1Name, String player2Name) {
-        this(id, player1Name, player2Name, GameMode.HUMAN_VS_HUMAN, AIDifficulty.MEDIUM);
+        this(id, player1Name, player2Name, GameMode.HUMAN_VS_HUMAN, AIDifficulty.MEDIUM, 3);
     }
 
     public Game(String id, String player1Name, String player2Name, GameMode gameMode, AIDifficulty aiDifficulty) {
+        this(id, player1Name, player2Name, gameMode, aiDifficulty, 3);
+    }
+
+    public Game(String id, String player1Name, String player2Name, GameMode gameMode, AIDifficulty aiDifficulty, int boardSize) {
         this.id = id;
-        this.player1 = new Player(player1Name, Player.Symbol.X);
-        this.player2 = new Player(player2Name, Player.Symbol.O);
+        this.board = new Board(boardSize);
+        this.players = new Player[]{
+            new Player(player1Name, Symbol.X),
+            new Player(player2Name, Symbol.O)
+        };
+        this.currentPlayerIndex = 0;
+        this.status = GameStatus.IN_PROGRESS;
+        this.state = GameState.IN_PROGRESS;
         this.gameMode = gameMode != null ? gameMode : GameMode.HUMAN_VS_HUMAN;
         this.aiDifficulty = aiDifficulty != null ? aiDifficulty : AIDifficulty.MEDIUM;
-        this.board = new String[3][3];
-        for (int i = 0; i < 3; i++) Arrays.fill(board[i], "");
-        this.currentTurn = player1;
-        this.state = GameState.IN_PROGRESS;
         this.moveCount = 0;
         this.winningLine = null;
         this.moveHistory = new ArrayList<>();
     }
 
     public String getId() { return id; }
-    public Player getPlayer1() { return player1; }
-    public Player getPlayer2() { return player2; }
+    public Board getBoardObj() { return board; }
+    public String[][] getBoard() { return board.toMatrix(); }
+    public Player[] getPlayers() { return players; }
+    public Player getPlayer1() { return players[0]; }
+    public Player getPlayer2() { return players[1]; }
+    public int getCurrentPlayerIndex() { return currentPlayerIndex; }
+    public Player getCurrentPlayer() { return players[currentPlayerIndex]; }
+    public Player getCurrentTurn() { return getCurrentPlayer(); }
+    public GameStatus getStatus() { return status; }
+    public GameState getState() { return state; }
     public GameMode getGameMode() { return gameMode; }
     public AIDifficulty getAiDifficulty() { return aiDifficulty; }
-    public String[][] getBoard() { return board; }
-    public Player getCurrentTurn() { return currentTurn; }
-    public GameState getState() { return state; }
-    public void setState(GameState state) { this.state = state; }
     public Player getWinner() { return winner; }
-    public void setWinner(Player winner) { this.winner = winner; }
     public int getMoveCount() { return moveCount; }
     public int[] getWinningLine() { return winningLine; }
     public List<Move> getMoveHistory() { return moveHistory; }
 
-    public synchronized boolean makeMove(int row, int col, Player player) {
-        if (state != GameState.IN_PROGRESS) return false;
-        if (!currentTurn.equals(player)) return false;
-        if (row < 0 || row >= 3 || col < 0 || col >= 3) return false;
-        if (!board[row][col].isEmpty()) return false;
+    public synchronized boolean makeMove(int row, int col) {
+        return makeMove(row, col, getCurrentPlayer());
+    }
 
-        board[row][col] = player.getSymbol().name();
+    public synchronized boolean makeMove(int row, int col, Player player) {
+        if (status != GameStatus.IN_PROGRESS) return false;
+        if (!getCurrentPlayer().equals(player)) return false;
+        if (!board.isCellEmpty(row, col)) return false;
+
+        board.setCell(row, col, player.getSymbol());
         moveCount++;
         moveHistory.add(new Move(moveCount, player.getName(), player.getSymbol(), row, col));
 
-        checkGameState(player);
-        if (state == GameState.IN_PROGRESS) {
-            currentTurn = (currentTurn.equals(player1)) ? player2 : player1;
+        if (checkWin(player)) {
+            status = GameStatus.WON;
+            state = GameState.WON;
+            winner = player;
+        } else if (checkDraw()) {
+            status = GameStatus.DRAW;
+            state = GameState.DRAW;
+        } else {
+            switchPlayer();
         }
         return true;
     }
 
-    private void checkGameState(Player player) {
-        String sym = player.getSymbol().name();
+    public boolean checkWin(Player player) {
+        int[] winLine = board.checkWinLine(player.getSymbol());
+        if (winLine != null) {
+            this.winningLine = winLine;
+            return true;
+        }
+        return false;
+    }
 
-        // Check Rows
-        for (int r = 0; r < 3; r++) {
-            if (board[r][0].equals(sym) && board[r][1].equals(sym) && board[r][2].equals(sym)) {
-                state = GameState.WON;
-                winner = player;
-                winningLine = new int[]{r, 0, r, 2};
-                return;
-            }
-        }
-        // Check Columns
-        for (int c = 0; c < 3; c++) {
-            if (board[0][c].equals(sym) && board[1][c].equals(sym) && board[2][c].equals(sym)) {
-                state = GameState.WON;
-                winner = player;
-                winningLine = new int[]{0, c, 2, c};
-                return;
-            }
-        }
-        // Main Diagonal
-        if (board[0][0].equals(sym) && board[1][1].equals(sym) && board[2][2].equals(sym)) {
-            state = GameState.WON;
-            winner = player;
-            winningLine = new int[]{0, 0, 2, 2};
-            return;
-        }
-        // Anti-Diagonal
-        if (board[0][2].equals(sym) && board[1][1].equals(sym) && board[2][0].equals(sym)) {
-            state = GameState.WON;
-            winner = player;
-            winningLine = new int[]{0, 2, 2, 0};
-            return;
-        }
+    public boolean checkDraw() {
+        return board.isFull();
+    }
 
-        if (moveCount == 9) {
-            state = GameState.DRAW;
-        }
+    public void switchPlayer() {
+        currentPlayerIndex = (currentPlayerIndex + 1) % 2;
     }
 
     public synchronized boolean undoLastMove() {
-        if (moveHistory.isEmpty() || state != GameState.IN_PROGRESS) return false;
+        if (moveHistory.isEmpty() || status != GameStatus.IN_PROGRESS) return false;
         Move last = moveHistory.remove(moveHistory.size() - 1);
-        board[last.getRow()][last.getCol()] = "";
+        board.clearCell(last.getRow(), last.getCol());
         moveCount--;
         winningLine = null;
-        currentTurn = last.getSymbol() == player1.getSymbol() ? player1 : player2;
+        currentPlayerIndex = last.getSymbol() == players[0].getSymbol() ? 0 : 1;
         return true;
     }
 
     public synchronized void reset() {
-        for (int i = 0; i < 3; i++) Arrays.fill(board[i], "");
-        currentTurn = player1;
+        board.reset();
+        currentPlayerIndex = 0;
+        status = GameStatus.IN_PROGRESS;
         state = GameState.IN_PROGRESS;
         winner = null;
         winningLine = null;

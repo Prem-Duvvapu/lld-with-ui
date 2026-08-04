@@ -1,15 +1,15 @@
 package com.lld.tictactoe.strategy;
 
 import com.lld.tictactoe.model.Game;
-import com.lld.tictactoe.model.Player;
+import com.lld.tictactoe.model.Symbol;
 
 public class MinimaxAIMoveStrategy implements AIMoveStrategy {
 
     @Override
     public int[] findBestMove(Game game) {
         String[][] board = copyBoard(game.getBoard());
-        Player.Symbol aiSymbol = game.getCurrentTurn().getSymbol();
-        Player.Symbol humanSymbol = (aiSymbol == Player.Symbol.X) ? Player.Symbol.O : Player.Symbol.X;
+        Symbol aiSymbol = game.getCurrentTurn().getSymbol();
+        Symbol humanSymbol = (aiSymbol == Symbol.X) ? Symbol.O : Symbol.X;
 
         int bestScore = Integer.MIN_VALUE;
         int[] bestMove = null;
@@ -30,7 +30,7 @@ public class MinimaxAIMoveStrategy implements AIMoveStrategy {
         return bestMove;
     }
 
-    private int minimax(String[][] board, int depth, boolean isMaximizing, Player.Symbol aiSymbol, Player.Symbol humanSymbol) {
+    private int minimax(String[][] board, int depth, boolean isMaximizing, Symbol aiSymbol, Symbol humanSymbol) {
         String winner = checkWinner(board);
         if (winner != null) {
             if (winner.equals(aiSymbol.name())) return 10 - depth;
