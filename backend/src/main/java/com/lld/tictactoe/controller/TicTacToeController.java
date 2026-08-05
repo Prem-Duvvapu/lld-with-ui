@@ -1,8 +1,6 @@
 package com.lld.tictactoe.controller;
 
-import com.lld.tictactoe.model.AIDifficulty;
 import com.lld.tictactoe.model.Game;
-import com.lld.tictactoe.model.GameMode;
 import com.lld.tictactoe.service.TicTacToeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,22 +23,7 @@ public class TicTacToeController {
         try {
             String p1 = (String) body.getOrDefault("player1", "Player X");
             String p2 = (String) body.getOrDefault("player2", "Player O");
-            
-            GameMode mode = GameMode.HUMAN_VS_HUMAN;
-            if (body.containsKey("gameMode")) {
-                try {
-                    mode = GameMode.valueOf((String) body.get("gameMode"));
-                } catch (Exception ignored) {}
-            }
-
-            AIDifficulty difficulty = AIDifficulty.MEDIUM;
-            if (body.containsKey("aiDifficulty")) {
-                try {
-                    difficulty = AIDifficulty.valueOf((String) body.get("aiDifficulty"));
-                } catch (Exception ignored) {}
-            }
-
-            return ResponseEntity.ok(service.createGame(p1, p2, mode, difficulty));
+            return ResponseEntity.ok(service.createGame(p1, p2));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

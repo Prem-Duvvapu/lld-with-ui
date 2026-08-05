@@ -1,323 +1,295 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import LldPage from '../../components/LldPage';
-import StepIndicator from '../../components/ui/StepIndicator';
-import { createGame, getGame, makeMove, undoMove, resetGame } from './api';
+import { createGame, makeMove, undoMove, resetGame } from './api';
 
-const TTT_SIMULATION_STEPS = [
-  { title: '1. Create Match', desc: 'Initialize match in HUMAN_VS_AI mode with UNBEATABLE Minimax strategy.' },
-  { title: '2. Human Move [1,1]', desc: 'Player X occupies center cell [1,1] to gain positional control.' },
-  { title: '3. AI Counter [0,0]', desc: 'Unbeatable Minimax AI analyzes board and counters at corner [0,0].' },
-  { title: '4. Human Attack [0,2]', desc: 'Player X places symbol at top-right corner [0,2].' },
-  { title: '5. AI Defensive Block', desc: 'AI detects double threat and blocks Player X at top-center [0,1].' },
-  { title: '6. Human Fork Attempt', desc: 'Player X plays bottom-right cell [2,2].' },
-  { title: '7. AI Winning Move', desc: 'Minimax AI calculates 100% win path and completes diagonal at [2,0].' },
-  { title: '8. Victory & Telemetry', desc: 'Engine computes winning line coordinates and locks game session.' }
+// ── Simulation steps ─────────────────────────────────────────────────────────
+
+const SIM_STEPS = [
+  { title: '1. Create Match',   desc: 'POST /api/tictactoe/games — initialize new 3×3 board, assign X to Alice, O to Bob.' },
+  { title: '2. Alice plays X',  desc: 'POST /api/tictactoe/games/{id}/move — Alice places X at [0,0] (top-left corner).' },
+  { title: '3. Bob plays O',    desc: 'POST /api/tictactoe/games/{id}/move — Bob plays O at [1,1] (center cell).' },
+  { title: '4. Alice plays X',  desc: 'Alice occupies [0,1] building a threat across the top row.' },
+  { title: '5. Bob plays O',    desc: 'Bob blocks at [2,2] — diagonal corner strategy.' },
+  { title: '6. Alice wins!',    desc: 'Alice completes [0,0]→[0,1]→[0,2]. Win line detected. Game ends.' },
+  { title: '7. Undo move',      desc: 'POST /api/tictactoe/games/{id}/undo — removes Alice\'s last move, game resumes.' },
+  { title: '8. Reset board',    desc: 'POST /api/tictactoe/games/{id}/reset — board cleared, ready for next match.' },
 ];
 
-function InteractiveTicTacToeSimulation() {
-  const [simStep, setSimStep] = useState(0);
-  const [simGame, setSimGame] = useState(null);
-  const [simLogs, setSimLogs] = useState([]);
-  const [isSimulating, setIsSimulating] = useState(false);
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-  const addLog = (msg) => {
-    setSimLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 7)]);
-  };
+function WinnerBanner({ winner }) {
+  if (!winner) return null;
+  return (
+    <div style={{
+      background: 'rgba(34,197,94,0.12)',
+      border: '1px solid #22c55e',
+      borderRadius: 'var(--radius-md)',
+      padding: '10px 18px',
+      color: '#22c55e',
+      fontWeight: 800,
+      fontSize: 'var(--font-base)',
+      textAlign: 'center',
+    }}>
+      🎉 Winner: {winner.name} ({winner.symbol})
+    </div>
+  );
+}
 
-  const handleRunSimStep = async (stepIdx) => {
-    try {
-      if (stepIdx === 0) {
-        addLog('⚡ API POST /api/tictactoe/games (HUMAN_VS_AI, UNBEATABLE)');
-        const game = await createGame('Alex (Human)', 'CyberMinimax 🤖', 'HUMAN_VS_AI', 'UNBEATABLE');
-        setSimGame(game);
-        addLog(`✅ Game #${game.id} created. Turn: ${game.currentTurn.name}`);
-      } else if (stepIdx === 1) {
-        if (!simGame) return;
-        addLog('⚡ API POST /api/tictactoe/games/move (Human X at [1,1])');
-        const game = await makeMove(simGame.id, 1, 1, 'Alex (Human)');
-        setSimGame(game);
-        addLog('✅ Human X placed at [1,1]. AI auto-computed counter move.');
-      } else if (stepIdx === 2) {
-        if (!simGame) return;
-        addLog('⚡ Minimax AI evaluated 9,458 state trees ➔ corner move [0,0]');
-        const fresh = await getGame(simGame.id);
-        setSimGame(fresh);
-      } else if (stepIdx === 3) {
-        if (!simGame) return;
-        addLog('⚡ API POST /api/tictactoe/games/move (Human X at [0,2])');
-        const game = await makeMove(simGame.id, 0, 2, 'Alex (Human)');
-        setSimGame(game);
-        addLog('✅ Human X placed at [0,2].');
-      } else if (stepIdx === 4) {
-        if (!simGame) return;
-        addLog('⚡ Minimax AI defensive block executed at [0,1]');
-        const fresh = await getGame(simGame.id);
-        setSimGame(fresh);
-      } else if (stepIdx === 5) {
-        if (!simGame) return;
-        addLog('⚡ API POST /api/tictactoe/games/move (Human X at [2,2])');
-        const game = await makeMove(simGame.id, 2, 2, 'Alex (Human)');
-        setSimGame(game);
-        addLog('✅ Human X placed at [2,2].');
-      } else if (stepIdx === 6) {
-        if (!simGame) return;
-        addLog('⚡ Minimax AI calculated winning diagonal move at [2,0]');
-        const fresh = await getGame(simGame.id);
-        setSimGame(fresh);
-        addLog(`🎉 GAME OVER! Winner: ${fresh.winner?.name || 'AI'}`);
-      } else if (stepIdx === 7) {
-        addLog('📊 Match Completed. Telemetry recorded in ConcurrentHashMap Repository.');
-      }
-    } catch (err) {
-      addLog(`❌ Sim Error: ${err.message}`);
-    }
-  };
+function DrawBanner() {
+  return (
+    <div style={{
+      background: 'rgba(234,179,8,0.12)',
+      border: '1px solid #eab308',
+      borderRadius: 'var(--radius-md)',
+      padding: '10px 18px',
+      color: '#eab308',
+      fontWeight: 800,
+      fontSize: 'var(--font-base)',
+      textAlign: 'center',
+    }}>
+      🤝 It's a Draw!
+    </div>
+  );
+}
 
-  const handleNextStep = () => {
-    if (simStep < TTT_SIMULATION_STEPS.length - 1) {
-      const next = simStep + 1;
-      setSimStep(next);
-      handleRunSimStep(next);
-    }
-  };
-
-  const handleResetSim = () => {
-    setSimStep(0);
-    setSimGame(null);
-    setSimLogs([]);
-    handleRunSimStep(0);
-  };
-
-  useEffect(() => {
-    handleRunSimStep(0);
-  }, []);
-
-  const board = simGame?.board || Array.from({ length: 3 }, () => Array(3).fill(''));
+function GameGrid({ board, game, onCellClick }) {
   const isWinningCell = (r, c) => {
-    if (!simGame?.winningLine) return false;
-    const [sr, sc, er, ec] = simGame.winningLine;
-    if (sr === er && sr === r) return c >= Math.min(sc, ec) && c <= Math.max(sc, ec);
-    if (sc === ec && sc === c) return r >= Math.min(sr, er) && r <= Math.max(sr, er);
-    if (sr === 0 && sc === 0 && er === 2 && ec === 2) return r === c;
-    if (sr === 0 && sc === 2 && er === 2 && ec === 0) return r + c === 2;
+    if (!game?.winningLine) return false;
+    const [sr, sc, er, ec] = game.winningLine;
+    if (sr === er) return r === sr && c >= Math.min(sc, ec) && c <= Math.max(sc, ec);
+    if (sc === ec) return c === sc && r >= Math.min(sr, er) && r <= Math.max(sr, er);
+    if (sr === 0 && sc === 0) return r === c;
+    if (sr === 0 && sc === 2) return r + c === 2;
     return false;
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <StepIndicator
-        steps={TTT_SIMULATION_STEPS.map(s => s.title)}
-        currentStep={simStep}
-        onStepClick={(idx) => {
-          setSimStep(idx);
-          handleRunSimStep(idx);
-        }}
-      />
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 88px)', gap: '10px' }}>
+      {board.map((row, rIdx) =>
+        row.map((val, cIdx) => {
+          const win = isWinningCell(rIdx, cIdx);
+          return (
+            <div
+              key={`${rIdx}-${cIdx}`}
+              onClick={() => onCellClick(rIdx, cIdx)}
+              style={{
+                width: 88, height: 88,
+                borderRadius: 'var(--radius-md)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 38, fontWeight: 900,
+                cursor: game?.status === 'IN_PROGRESS' && !val ? 'pointer' : 'default',
+                background: win
+                  ? 'rgba(34,197,94,0.18)'
+                  : val === 'X' ? 'rgba(99,102,241,0.12)' : val === 'O' ? 'rgba(239,68,68,0.12)' : 'var(--bg-primary)',
+                border: win
+                  ? '2px solid #22c55e'
+                  : val === 'X' ? '2px solid #6366f1' : val === 'O' ? '2px solid #ef4444' : '1px solid var(--border-color)',
+                color: val === 'X' ? '#6366f1' : val === 'O' ? '#ef4444' : 'transparent',
+                boxShadow: win ? '0 0 16px rgba(34,197,94,0.35)' : 'none',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {val || '·'}
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
 
-      {/* Control Toolbar */}
+// ── Interactive 2-D Simulation ───────────────────────────────────────────────
+
+function TicTacToeSimulation() {
+  const [step, setStep] = useState(0);
+  const [simGame, setSimGame] = useState(null);
+  const [logs, setLogs] = useState([]);
+
+  const log = (msg) => setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 6)]);
+
+  const runStep = async (idx) => {
+    try {
+      if (idx === 0) {
+        log('POST /api/tictactoe/games');
+        const g = await createGame('Alice', 'Bob');
+        setSimGame(g);
+        log(`✅ Match #${g.id} created. X=${g.player1.name}, O=${g.player2.name}`);
+      } else if (idx === 1 && simGame) {
+        log('POST …/move — Alice [0,0]');
+        const g = await makeMove(simGame.id, 0, 0, 'Alice');
+        setSimGame(g);
+        log('✅ X placed at [0,0]');
+      } else if (idx === 2 && simGame) {
+        log('POST …/move — Bob [1,1]');
+        const g = await makeMove(simGame.id, 1, 1, 'Bob');
+        setSimGame(g);
+        log('✅ O placed at [1,1]');
+      } else if (idx === 3 && simGame) {
+        log('POST …/move — Alice [0,1]');
+        const g = await makeMove(simGame.id, 0, 1, 'Alice');
+        setSimGame(g);
+        log('✅ X placed at [0,1]');
+      } else if (idx === 4 && simGame) {
+        log('POST …/move — Bob [2,2]');
+        const g = await makeMove(simGame.id, 2, 2, 'Bob');
+        setSimGame(g);
+        log('✅ O placed at [2,2]');
+      } else if (idx === 5 && simGame) {
+        log('POST …/move — Alice [0,2] (WIN!)');
+        const g = await makeMove(simGame.id, 0, 2, 'Alice');
+        setSimGame(g);
+        log(`🎉 WON! Winner: ${g.winner?.name}. WinLine: [${g.winningLine?.join(',')}]`);
+      } else if (idx === 6 && simGame) {
+        log('POST …/undo');
+        const g = await undoMove(simGame.id);
+        setSimGame(g);
+        log('↩ Last move undone. Game back IN_PROGRESS.');
+      } else if (idx === 7 && simGame) {
+        log('POST …/reset');
+        const g = await resetGame(simGame.id);
+        setSimGame(g);
+        log('🔄 Board reset. Ready for next match.');
+      }
+    } catch (err) {
+      log(`❌ ${err.message}`);
+    }
+  };
+
+  const handleStart = async () => {
+    setStep(0);
+    setSimGame(null);
+    setLogs([]);
+    await runStep(0);
+  };
+
+  const handleNext = async () => {
+    if (step >= SIM_STEPS.length - 1) return;
+    const next = step + 1;
+    setStep(next);
+    await runStep(next);
+  };
+
+  const board = simGame?.board || Array.from({ length: 3 }, () => Array(3).fill(''));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Step pills */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {SIM_STEPS.map((s, i) => (
+          <div
+            key={i}
+            style={{
+              padding: '4px 12px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: 'var(--font-xs)',
+              fontWeight: 700,
+              background: i < step ? 'rgba(99,102,241,0.15)' : i === step ? '#6366f1' : 'var(--bg-primary)',
+              color: i === step ? '#fff' : i < step ? '#6366f1' : 'var(--text-muted)',
+              border: i < step || i === step ? '1px solid #6366f1' : '1px solid var(--border-color)',
+            }}
+          >
+            {i + 1}. {s.title.replace(/^\d+\. /, '')}
+          </div>
+        ))}
+      </div>
+
+      {/* Current step card */}
       <div style={{
-        display: 'flex',
-        justify: 'space-between',
-        alignItems: 'center',
         background: 'var(--card-bg)',
         border: '1px solid var(--border-color)',
         borderLeft: '4px solid #6366f1',
         borderRadius: 'var(--radius-lg)',
         padding: '16px 20px',
-        boxShadow: 'var(--shadow-sm)'
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
       }}>
         <div>
-          <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Simulation Progress</span>
-          <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 800, margin: '2px 0 0' }}>
-            Step {simStep + 1} of 8: {TTT_SIMULATION_STEPS[simStep].title}
-          </h3>
-          <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>
-            {TTT_SIMULATION_STEPS[simStep].desc}
-          </p>
+          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+            Step {step + 1} / {SIM_STEPS.length}
+          </div>
+          <div style={{ fontWeight: 800, marginTop: 2 }}>{SIM_STEPS[step].title}</div>
+          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>{SIM_STEPS[step].desc}</div>
         </div>
-
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={handleResetSim}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-color)',
-              background: 'var(--bg-primary)',
-              color: 'var(--text-primary)',
-              fontWeight: 600,
-              fontSize: 'var(--font-xs)',
-              cursor: 'pointer'
-            }}
-          >
-            🔄 Restart Simulation
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={handleStart} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>
+            🔄 Restart
           </button>
-
-          <button
-            onClick={handleNextStep}
-            disabled={simStep >= TTT_SIMULATION_STEPS.length - 1}
-            style={{
-              padding: '8px 20px',
-              borderRadius: 'var(--radius-sm)',
-              border: 'none',
-              background: simStep >= TTT_SIMULATION_STEPS.length - 1 ? 'var(--bg-secondary)' : '#6366f1',
-              color: simStep >= TTT_SIMULATION_STEPS.length - 1 ? 'var(--text-muted)' : '#ffffff',
-              fontWeight: 700,
-              fontSize: 'var(--font-xs)',
-              cursor: simStep >= TTT_SIMULATION_STEPS.length - 1 ? 'not-allowed' : 'pointer',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-            }}
-          >
-            Next Step ➔
+          <button onClick={handleNext} disabled={step >= SIM_STEPS.length - 1} style={{ padding: '7px 18px', borderRadius: 'var(--radius-sm)', border: 'none', background: step >= SIM_STEPS.length - 1 ? 'var(--bg-secondary)' : '#6366f1', color: step >= SIM_STEPS.length - 1 ? 'var(--text-muted)' : '#fff', cursor: step >= SIM_STEPS.length - 1 ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 'var(--font-xs)' }}>
+            Next ➔
           </button>
         </div>
       </div>
 
-      {/* Main 2D Arcade Grid & Live HUD */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px' }}>
-        {/* Left Column: Neon 2D Game Board Canvas */}
+      {/* Board + HUD */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+        {/* Game Board Preview */}
         <div style={{
           background: '#0f172a',
           border: '1px solid #1e293b',
           borderRadius: 'var(--radius-lg)',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          minHeight: '380px',
-          boxShadow: 'var(--shadow-md)'
+          padding: 28,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          minHeight: 320, gap: 20,
         }}>
-          {/* Ambient Lighting Cones */}
-          <div style={{
-            position: 'absolute', top: -50, left: '50%', transform: 'translateX(-50%)',
-            width: '300px', height: '200px',
-            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%)',
-            pointerEvents: 'none'
-          }} />
-
-          {/* AI Thinking Pulse Badge */}
-          {simStep === 2 || simStep === 4 || simStep === 6 ? (
-            <div style={{
-              position: 'absolute', top: 16,
-              background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444',
-              color: '#f87171', padding: '6px 14px', borderRadius: 'var(--radius-full)',
-              fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px',
-              animation: 'pulse 1.5s infinite'
-            }}>
-              <span>🧠 Minimax Engine Evaluating Tree...</span>
-            </div>
-          ) : null}
-
-          {/* 3x3 Board Canvas */}
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(3, 90px)', gridGap: '12px',
-            background: '#1e293b', padding: '16px', borderRadius: '16px',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.5)', position: 'relative'
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 88px)', gap: 10 }}>
             {board.map((row, rIdx) =>
               row.map((val, cIdx) => {
-                const isWin = isWinningCell(rIdx, cIdx);
+                const winLine = simGame?.winningLine;
+                let win = false;
+                if (winLine) {
+                  const [sr, sc, er, ec] = winLine;
+                  if (sr === er) win = rIdx === sr && cIdx >= Math.min(sc, ec) && cIdx <= Math.max(sc, ec);
+                  else if (sc === ec) win = cIdx === sc && rIdx >= Math.min(sr, er) && rIdx <= Math.max(sr, er);
+                  else if (sr === 0 && sc === 0) win = rIdx === cIdx;
+                  else if (sr === 0 && sc === 2) win = rIdx + cIdx === 2;
+                }
                 return (
-                  <div
-                    key={`${rIdx}-${cIdx}`}
-                    style={{
-                      width: '90px', height: '90px',
-                      borderRadius: '12px',
-                      background: isWin ? 'rgba(34, 197, 94, 0.25)' : val === 'X' ? 'rgba(99, 102, 241, 0.15)' : val === 'O' ? 'rgba(239, 68, 68, 0.15)' : '#0f172a',
-                      border: isWin ? '2px solid #22c55e' : val === 'X' ? '1px solid #6366f1' : val === 'O' ? '1px solid #ef4444' : '1px solid #334155',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '42px', fontWeight: 900,
-                      color: val === 'X' ? '#818cf8' : val === 'O' ? '#f87171' : 'transparent',
-                      transition: 'all 0.3s ease',
-                      boxShadow: isWin ? '0 0 20px rgba(34, 197, 94, 0.6)' : 'none'
-                    }}
-                  >
-                    {val || '.'}
+                  <div key={`${rIdx}-${cIdx}`} style={{
+                    width: 88, height: 88,
+                    borderRadius: 12,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 38, fontWeight: 900,
+                    background: win ? 'rgba(34,197,94,0.25)' : val === 'X' ? 'rgba(99,102,241,0.18)' : val === 'O' ? 'rgba(239,68,68,0.18)' : '#1e293b',
+                    border: win ? '2px solid #22c55e' : val === 'X' ? '1px solid #6366f1' : val === 'O' ? '1px solid #ef4444' : '1px solid #334155',
+                    color: val === 'X' ? '#818cf8' : val === 'O' ? '#f87171' : '#475569',
+                    boxShadow: win ? '0 0 20px rgba(34,197,94,0.5)' : 'none',
+                    transition: 'all 0.25s ease',
+                  }}>
+                    {val || '·'}
                   </div>
                 );
               })
             )}
-
-            {/* Winning Laser Line Overlay */}
-            {simGame?.winningLine && (
-              <div style={{
-                position: 'absolute',
-                top: 0, left: 0, right: 0, bottom: 0,
-                pointerEvents: 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center'
-              }}>
-                <span style={{ background: '#22c55e', color: '#fff', padding: '4px 12px', borderRadius: 'var(--radius-full)', fontWeight: 800, fontSize: '12px', boxShadow: '0 0 16px #22c55e' }}>
-                  ⚡ WINNING LINE DETECTED
-                </span>
-              </div>
-            )}
           </div>
+          {simGame?.status === 'WON' && (
+            <div style={{ background: '#22c55e', color: '#fff', padding: '5px 16px', borderRadius: 'var(--radius-full)', fontWeight: 800, fontSize: 13 }}>
+              ⚡ WINNING LINE DETECTED
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Live Telemetry HUD */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Telemetry HUD Box */}
-          <div style={{
-            background: 'var(--card-bg)',
-            border: '1px solid var(--border-color)',
-            borderTop: '4px solid #6366f1',
-            borderRadius: 'var(--radius-lg)',
-            padding: '16px',
-            boxShadow: 'var(--shadow-md)'
-          }}>
-            <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 800, marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
-              📡 Telemetry & Concurrency HUD
-            </h4>
-
-            <div style={{ fontSize: 'var(--font-xs)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Match Mode:</span>
-                <span style={{ fontWeight: 700, color: '#6366f1' }}>{simGame?.gameMode || 'HUMAN_VS_AI'}</span>
+        {/* Right: HUD + Log */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '3px solid #6366f1', borderRadius: 'var(--radius-lg)', padding: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 'var(--font-sm)', marginBottom: 12, borderBottom: '1px solid var(--border-color)', paddingBottom: 8 }}>📡 Match HUD</div>
+            {[
+              ['Move Count', `${simGame?.moveCount ?? 0} / 9`],
+              ['Current Turn', simGame?.currentTurn?.name ?? '—'],
+              ['Game Status', simGame?.status ?? 'NOT STARTED'],
+              ['Lock', 'ReentrantLock ✅'],
+            ].map(([k, v]) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-xs)', marginBottom: 6 }}>
+                <span style={{ color: 'var(--text-muted)' }}>{k}</span>
+                <span style={{ fontWeight: 700 }}>{v}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>AI Difficulty:</span>
-                <span style={{ fontWeight: 700, color: '#ef4444' }}>{simGame?.aiDifficulty || 'UNBEATABLE'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Move Count:</span>
-                <span style={{ fontWeight: 700 }}>{simGame?.moveCount || 0} / 9</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Game Status:</span>
-                <span style={{ fontWeight: 700, color: simGame?.state === 'WON' ? '#22c55e' : 'var(--text-primary)' }}>
-                  {simGame?.state || 'IN_PROGRESS'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Thread Lock:</span>
-                <span style={{ fontWeight: 700, color: '#22c55e' }}>ReentrantLock Acquired</span>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Real-time API Logs Console */}
-          <div style={{
-            background: '#090d16',
-            border: '1px solid #1e293b',
-            borderRadius: 'var(--radius-lg)',
-            padding: '14px',
-            fontFamily: 'monospace',
-            fontSize: '11px',
-            color: '#38bdf8',
-            maxHeight: '200px',
-            overflowY: 'auto'
-          }}>
-            <div style={{ color: '#94a3b8', fontWeight: 700, marginBottom: '6px', borderBottom: '1px solid #1e293b', paddingBottom: '4px' }}>
-              📟 REST API Log Stream
-            </div>
-            {simLogs.length === 0 ? (
-              <div style={{ color: '#475569' }}>Logs will stream here...</div>
-            ) : (
-              simLogs.map((log, idx) => <div key={idx} style={{ marginBottom: '4px' }}>{log}</div>)
-            )}
+          <div style={{ background: '#090d16', border: '1px solid #1e293b', borderRadius: 'var(--radius-lg)', padding: 14, fontFamily: 'monospace', fontSize: 11, color: '#38bdf8', maxHeight: 170, overflowY: 'auto' }}>
+            <div style={{ color: '#94a3b8', fontWeight: 700, marginBottom: 6, borderBottom: '1px solid #1e293b', paddingBottom: 4 }}>📟 API Log Stream</div>
+            {logs.length === 0
+              ? <div style={{ color: '#475569' }}>Logs will appear here...</div>
+              : logs.map((l, i) => <div key={i} style={{ marginBottom: 3 }}>{l}</div>)
+            }
           </div>
         </div>
       </div>
@@ -325,35 +297,39 @@ function InteractiveTicTacToeSimulation() {
   );
 }
 
+// ── Main Page ────────────────────────────────────────────────────────────────
+
 export default function TicTacToePage() {
   const [game, setGame] = useState(null);
   const [player1, setPlayer1] = useState('Alice');
   const [player2, setPlayer2] = useState('Bob');
-  const [gameMode, setGameMode] = useState('HUMAN_VS_HUMAN');
-  const [aiDifficulty, setAiDifficulty] = useState('UNBEATABLE');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleStartMatch = async (e) => {
+  const board = game?.board || Array.from({ length: 3 }, () => Array(3).fill(''));
+
+  const handleStart = async (e) => {
     if (e) e.preventDefault();
     setLoading(true);
+    setErrorMsg('');
     try {
-      const data = await createGame(player1, player2, gameMode, aiDifficulty);
+      const data = await createGame(player1, player2);
       setGame(data);
     } catch (err) {
-      alert(err.message || 'Failed to start game');
+      setErrorMsg(err.message || 'Failed to start game');
     } finally {
       setLoading(false);
     }
   };
 
   const handleCellClick = async (row, col) => {
-    if (!game || game.state !== 'IN_PROGRESS') return;
-    const currentName = game.currentTurn.name;
+    if (!game || game.status !== 'IN_PROGRESS') return;
+    setErrorMsg('');
     try {
-      const updated = await makeMove(game.id, row, col, currentName);
+      const updated = await makeMove(game.id, row, col, game.currentTurn.name);
       setGame(updated);
     } catch (err) {
-      alert(err.message || 'Invalid move');
+      setErrorMsg(err.message || 'Invalid move');
     }
   };
 
@@ -363,7 +339,7 @@ export default function TicTacToePage() {
       const updated = await undoMove(game.id);
       setGame(updated);
     } catch (err) {
-      alert(err.message || 'Cannot undo move');
+      setErrorMsg(err.message || 'Cannot undo');
     }
   };
 
@@ -373,241 +349,115 @@ export default function TicTacToePage() {
       const updated = await resetGame(game.id);
       setGame(updated);
     } catch (err) {
-      alert(err.message || 'Failed to reset');
+      setErrorMsg(err.message || 'Failed to reset');
     }
   };
-
-  const board = game?.board || Array.from({ length: 3 }, () => Array(3).fill(''));
 
   return (
     <LldPage
       module="tictactoe"
       title="Tic Tac Toe Game Engine"
       icon="❌"
-      tabs={['board', 'ai', 'history', 'simulation', 'diagram', 'details']}
+      tabs={['board', 'history', 'simulation', 'diagram', 'details']}
     >
       {(tab) => (
         <>
-          {/* TAB 1: GAME BOARD */}
+          {/* ── TAB 1: GAME BOARD ─────────────────────────────────────────── */}
           {tab === 'board' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
-              {/* Left Column: Interactive 3x3 Grid */}
-              <div style={{
-                background: 'var(--card-bg)',
-                border: '1px solid var(--border-color)',
-                borderTop: '4px solid #6366f1',
-                borderRadius: 'var(--radius-lg)',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                boxShadow: 'var(--shadow-md)'
-              }}>
-                <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 800, marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24 }}>
+              {/* Left: Board */}
+              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '4px solid #6366f1', borderRadius: 'var(--radius-lg)', padding: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+                <h3 style={{ fontWeight: 800, fontSize: 'var(--font-lg)', margin: 0 }}>
                   {game ? `Match #${game.id}` : 'Start New Match'}
                 </h3>
 
                 {!game ? (
-                  <form onSubmit={handleStartMatch} style={{ width: '100%', maxWidth: '320px' }}>
-                    <div style={{ marginBottom: '12px' }}>
+                  <form onSubmit={handleStart} style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
                       <label style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>Player 1 (X)</label>
-                      <input
-                        type="text"
-                        value={player1}
-                        onChange={(e) => setPlayer1(e.target.value)}
-                        style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                      />
+                      <input value={player1} onChange={e => setPlayer1(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', marginTop: 4 }} />
                     </div>
-                    <div style={{ marginBottom: '12px' }}>
+                    <div>
                       <label style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>Player 2 (O)</label>
-                      <input
-                        type="text"
-                        value={player2}
-                        onChange={(e) => setPlayer2(e.target.value)}
-                        style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                      />
+                      <input value={player2} onChange={e => setPlayer2(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', marginTop: 4 }} />
                     </div>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      style={{ width: '100%', padding: '10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Start 2-Player Match
+                    <button type="submit" disabled={loading} style={{ padding: '10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer', fontSize: 'var(--font-sm)' }}>
+                      {loading ? 'Starting…' : '▶ Start Match'}
                     </button>
                   </form>
                 ) : (
                   <>
-                    {/* Status Message */}
-                    <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                      {game.state === 'IN_PROGRESS' && (
-                        <div style={{ fontSize: 'var(--font-base)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          Turn: <span style={{ color: game.currentTurn.symbol === 'X' ? '#6366f1' : '#ef4444' }}>{game.currentTurn.name} ({game.currentTurn.symbol})</span>
-                        </div>
-                      )}
-                      {game.state === 'WON' && (
-                        <div style={{ fontSize: 'var(--font-lg)', fontWeight: 800, color: '#22c55e', background: 'rgba(34, 197, 94, 0.1)', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid #22c55e' }}>
-                          🎉 Winner: {game.winner?.name}!
-                        </div>
-                      )}
-                      {game.state === 'DRAW' && (
-                        <div style={{ fontSize: 'var(--font-lg)', fontWeight: 800, color: '#eab308', background: 'rgba(234, 179, 8, 0.1)', padding: '8px 16px', borderRadius: 'var(--radius-md)', border: '1px solid #eab308' }}>
-                          🤝 It's a Draw!
-                        </div>
-                      )}
-                    </div>
+                    {/* Status */}
+                    {game.status === 'IN_PROGRESS' && (
+                      <div style={{ fontWeight: 700, fontSize: 'var(--font-base)' }}>
+                        Turn: <span style={{ color: game.currentTurn?.symbol === 'X' ? '#6366f1' : '#ef4444' }}>
+                          {game.currentTurn?.name} ({game.currentTurn?.symbol})
+                        </span>
+                      </div>
+                    )}
+                    {game.status === 'WON' && <WinnerBanner winner={game.winner} />}
+                    {game.status === 'DRAW' && <DrawBanner />}
+                    {errorMsg && <div style={{ color: '#ef4444', fontSize: 'var(--font-xs)' }}>⚠ {errorMsg}</div>}
 
                     {/* Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 90px)', gap: '10px', marginBottom: '20px' }}>
-                      {board.map((row, rIdx) =>
-                        row.map((val, cIdx) => (
-                          <div
-                            key={`${rIdx}-${cIdx}`}
-                            onClick={() => handleCellClick(rIdx, cIdx)}
-                            style={{
-                              width: '90px', height: '90px',
-                              borderRadius: 'var(--radius-md)',
-                              background: val === 'X' ? 'rgba(99, 102, 241, 0.1)' : val === 'O' ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-primary)',
-                              border: val === 'X' ? '2px solid #6366f1' : val === 'O' ? '2px solid #ef4444' : '1px solid var(--border-color)',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: '36px', fontWeight: 900,
-                              color: val === 'X' ? '#6366f1' : val === 'O' ? '#ef4444' : 'var(--text-muted)',
-                              cursor: game.state === 'IN_PROGRESS' && !val ? 'pointer' : 'default'
-                            }}
-                          >
-                            {val}
-                          </div>
-                        ))
-                      )}
-                    </div>
+                    <GameGrid board={board} game={game} onCellClick={handleCellClick} />
 
-                    {/* Action Controls */}
-                    <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '300px' }}>
-                      <button onClick={handleUndo} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600 }}>
-                        ↩ Undo
-                      </button>
-                      <button onClick={handleReset} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600 }}>
-                        🔄 Reset
-                      </button>
-                      <button onClick={() => setGame(null)} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: 'var(--radius-sm)', background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
-                        New Match
-                      </button>
+                    {/* Controls */}
+                    <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 290 }}>
+                      <button onClick={handleUndo} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>↩ Undo</button>
+                      <button onClick={handleReset} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>🔄 Reset</button>
+                      <button onClick={() => { setGame(null); setErrorMsg(''); }} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: 'var(--radius-sm)', background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--font-xs)' }}>New</button>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Right Column: Game Stats */}
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
-                <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-                  📊 Match Stats & Settings
-                </h3>
+              {/* Right: Info panel */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 20 }}>
+                  <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', marginBottom: 14, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>📊 Match Info</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--font-xs)' }}>
+                    {[
+                      ['Player X', player1 || '—', '#6366f1'],
+                      ['Player O', player2 || '—', '#ef4444'],
+                      ['Moves Made', game?.moveCount ?? 0, 'var(--text-primary)'],
+                      ['Status', game?.status ?? 'NOT STARTED', 'var(--text-primary)'],
+                    ].map(([k, v, c]) => (
+                      <div key={k} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-muted)' }}>{k}</span>
+                        <span style={{ fontWeight: 700, color: c }}>{String(v)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: 'var(--font-xs)' }}>
-                  <div style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)' }}>
-                    <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Player 1 (X)</div>
-                    <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', color: '#6366f1' }}>{player1}</div>
-                  </div>
-                  <div style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)' }}>
-                    <div style={{ color: 'var(--text-muted)', marginBottom: '4px' }}>Player 2 (O)</div>
-                    <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', color: '#ef4444' }}>{player2}</div>
-                  </div>
+                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderLeft: '4px solid #3b82f6', borderRadius: 'var(--radius-lg)', padding: 16, fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>How to Play:</strong><br />
+                  Click any empty cell to place your symbol. Get 3 in a row — horizontally, vertically, or diagonally — to win. Use ↩ Undo to take back your last move.
                 </div>
               </div>
             </div>
           )}
 
-          {/* TAB 2: AI ARENA */}
-          {tab === 'ai' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: '24px' }}>
-              {/* Left Column: AI Configuration */}
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '4px solid #ef4444', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
-                <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-                  🤖 Configure AI Match
-                </h3>
-
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>Human Name (X)</label>
-                  <input
-                    type="text"
-                    value={player1}
-                    onChange={(e) => setPlayer1(e.target.value)}
-                    style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-                  />
-                </div>
-
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>AI Strategy Level</label>
-                  <select
-                    value={aiDifficulty}
-                    onChange={(e) => setAiDifficulty(e.target.value)}
-                    style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontWeight: 700 }}
-                  >
-                    <option value="EASY">EASY (Random Strategy)</option>
-                    <option value="MEDIUM">MEDIUM (Heuristic Strategy)</option>
-                    <option value="UNBEATABLE">UNBEATABLE (Minimax Algorithm)</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setGameMode('HUMAN_VS_AI');
-                    handleStartMatch();
-                  }}
-                  style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer', marginTop: '8px' }}
-                >
-                  ⚔️ Battle AI Bot
-                </button>
-              </div>
-
-              {/* Right Column: AI Arena Board */}
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 800, marginBottom: '16px' }}>
-                  Human vs CyberMinimax AI
-                </h3>
-                {game && game.gameMode === 'HUMAN_VS_AI' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 90px)', gap: '10px' }}>
-                    {board.map((row, rIdx) =>
-                      row.map((val, cIdx) => (
-                        <div
-                          key={`${rIdx}-${cIdx}`}
-                          onClick={() => handleCellClick(rIdx, cIdx)}
-                          style={{
-                            width: '90px', height: '90px',
-                            borderRadius: 'var(--radius-md)',
-                            background: val === 'X' ? 'rgba(99, 102, 241, 0.1)' : val === 'O' ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-primary)',
-                            border: val === 'X' ? '2px solid #6366f1' : val === 'O' ? '2px solid #ef4444' : '1px solid var(--border-color)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '36px', fontWeight: 900,
-                            color: val === 'X' ? '#6366f1' : val === 'O' ? '#ef4444' : 'var(--text-muted)',
-                            cursor: game.state === 'IN_PROGRESS' && !val ? 'pointer' : 'default'
-                          }}
-                        >
-                          {val}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Configure and start AI match on the left panel!</div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: MOVE HISTORY */}
+          {/* ── TAB 2: MOVE HISTORY ───────────────────────────────────────── */}
           {tab === 'history' && (
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '4px solid #3b82f6', borderRadius: 'var(--radius-lg)', padding: '20px' }}>
-              <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-                📜 Match Move History Log
+            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '4px solid #3b82f6', borderRadius: 'var(--radius-lg)', padding: 20 }}>
+              <h3 style={{ fontWeight: 700, fontSize: 'var(--font-base)', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
+                📜 Move History Log
               </h3>
-              {!game?.moveHistory || game.moveHistory.length === 0 ? (
-                <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)' }}>No moves recorded yet.</div>
+              {!game?.moveHistory?.length ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  No moves recorded yet. Start a game from the Game Board tab.
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {game.moveHistory.map((m, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', fontSize: 'var(--font-xs)' }}>
-                      <span><strong>Move #{m.moveNumber}:</strong> {m.playerName} ({m.symbol})</span>
-                      <span>Row {m.row}, Col {m.col}</span>
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', border: '1px solid var(--border-color)', borderLeft: `3px solid ${m.symbol === 'X' ? '#6366f1' : '#ef4444'}`, borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', fontSize: 'var(--font-xs)' }}>
+                      <span>
+                        <strong style={{ color: m.symbol === 'X' ? '#6366f1' : '#ef4444' }}>Move #{m.moveNumber}</strong>
+                        {' — '}{m.playerName} placed <strong>{m.symbol}</strong>
+                      </span>
+                      <span style={{ color: 'var(--text-muted)' }}>Row {m.row}, Col {m.col}</span>
                     </div>
                   ))}
                 </div>
@@ -615,8 +465,8 @@ export default function TicTacToePage() {
             </div>
           )}
 
-          {/* TAB 4: INTERACTIVE 2D SIMULATION */}
-          {tab === 'simulation' && <InteractiveTicTacToeSimulation />}
+          {/* ── TAB 3: SIMULATION ─────────────────────────────────────────── */}
+          {tab === 'simulation' && <TicTacToeSimulation />}
         </>
       )}
     </LldPage>

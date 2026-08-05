@@ -730,30 +730,29 @@ const classDiagrams = {
   tictactoe: {
     title: 'Tic Tac Toe Game — Class Diagram',
     classes: [
-      { name: 'TicTacToeService', stereotype: 'singleton', fields: ['- repository: GameRepository', '- gameLocks: ConcurrentHashMap<String, ReentrantLock>'], methods: ['+ createGame(p1, p2, mode, diff): Game', '+ makeMove(gameId, row, col, player): Game', '+ undoLastMove(gameId): Game', '+ resetGame(gameId): Game'] },
-      { name: 'Game', fields: ['- id: String', '- player1: Player', '- player2: Player', '- gameMode: GameMode', '- aiDifficulty: AIDifficulty', '- board: String[][]', '- currentTurn: Player', '- state: GameState', '- winner: Player', '- winningLine: int[]', '- moveHistory: List<Move>'], methods: ['+ makeMove(row, col, player): boolean', '+ checkGameState(player): void', '+ undoLastMove(): boolean', '+ reset(): void'] },
-      { name: 'Player', fields: ['- name: String', '- symbol: Symbol (X/O)'], methods: [] },
+      { name: 'TicTacToeService', stereotype: 'singleton', fields: ['- repository: GameRepository', '- gameLocks: ConcurrentHashMap<String, ReentrantLock>'], methods: ['+ createGame(p1, p2): Game', '+ makeMove(gameId, row, col, playerName): Game', '+ undoLastMove(gameId): Game', '+ resetGame(gameId): Game'] },
+      { name: 'Game', fields: ['- id: String', '- board: Board', '- players: Player[]', '- currentPlayerIndex: int', '- status: GameStatus', '- winner: Player', '- moveHistory: List<Move>', '- winningLine: int[]'], methods: ['+ makeMove(row, col, player): boolean', '+ checkWin(player): boolean', '+ checkDraw(): boolean', '+ switchPlayer(): void', '+ getCurrentPlayer(): Player', '+ undoLastMove(): boolean', '+ reset(): void'] },
+      { name: 'Board', fields: ['- grid: Cell[][]', '- size: int'], methods: ['+ isCellEmpty(row, col): boolean', '+ setCell(row, col, Symbol): void', '+ isFull(): boolean', '+ checkWinLine(symbol): int[]'] },
+      { name: 'Cell', fields: ['- row: int', '- col: int', '- symbol: Symbol'], methods: ['+ getSymbol(): Symbol', '+ setSymbol(Symbol): void', '+ isEmpty(): boolean'] },
+      { name: 'Player', fields: ['- name: String', '- symbol: Symbol'], methods: [] },
       { name: 'Move', fields: ['- moveNumber: int', '- playerName: String', '- symbol: Symbol', '- row: int', '- col: int', '- timestamp: long'], methods: [] },
-      { name: 'AIMoveStrategy', stereotype: 'interface', fields: [], methods: ['+ findBestMove(game): int[]'] },
-      { name: 'RandomAIMoveStrategy', fields: ['implements AIMoveStrategy'], methods: ['+ findBestMove(game): int[]'] },
-      { name: 'MinimaxAIMoveStrategy', fields: ['implements AIMoveStrategy'], methods: ['+ findBestMove(game): int[]', '- minimax(board, depth, isMax): int'] },
-      { name: 'GameMode', stereotype: 'enum', fields: ['HUMAN_VS_HUMAN', 'HUMAN_VS_AI'], methods: [] },
-      { name: 'AIDifficulty', stereotype: 'enum', fields: ['EASY', 'MEDIUM', 'UNBEATABLE'], methods: [] },
-      { name: 'GameState', stereotype: 'enum', fields: ['IN_PROGRESS', 'WON', 'DRAW', 'ABANDONED'], methods: [] }
+      { name: 'Symbol', stereotype: 'enum', fields: ['X', 'O'], methods: [] },
+      { name: 'GameStatus', stereotype: 'enum', fields: ['IN_PROGRESS', 'WON', 'DRAW'], methods: [] },
+      { name: 'GameRepository', fields: ['- games: ConcurrentHashMap<String, Game>'], methods: ['+ save(game): void', '+ get(id): Game', '+ generateId(): String'] }
     ],
     relationships: [
       { from: 'TicTacToeService', to: 'GameRepository', label: 'uses' },
       { from: 'TicTacToeService', to: 'Game', label: 'manages' },
-      { from: 'TicTacToeService', to: 'AIMoveStrategy', label: 'executes' },
-      { from: 'Game', to: 'Player', label: 'has players' },
+      { from: 'Game', to: 'Board', label: 'contains' },
+      { from: 'Game', to: 'Player', label: 'has players (X & O)' },
       { from: 'Game', to: 'Move', label: 'records history' },
-      { from: 'Game', to: 'GameMode', label: 'has mode' },
-      { from: 'Game', to: 'AIDifficulty', label: 'has difficulty' },
-      { from: 'Game', to: 'GameState', label: 'has state' },
-      { from: 'RandomAIMoveStrategy', to: 'AIMoveStrategy', label: 'implements', dashed: true },
-      { from: 'MinimaxAIMoveStrategy', to: 'AIMoveStrategy', label: 'implements', dashed: true }
+      { from: 'Game', to: 'GameStatus', label: 'has status' },
+      { from: 'Board', to: 'Cell', label: 'contains 3×3' },
+      { from: 'Cell', to: 'Symbol', label: 'holds' },
+      { from: 'Player', to: 'Symbol', label: 'assigned' }
     ]
   }
 };
 
 export default classDiagrams;
+

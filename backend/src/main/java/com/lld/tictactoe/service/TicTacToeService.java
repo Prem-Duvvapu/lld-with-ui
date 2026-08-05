@@ -2,15 +2,17 @@ package com.lld.tictactoe.service;
 
 import com.lld.tictactoe.model.*;
 import com.lld.tictactoe.repository.GameRepository;
-import com.lld.tictactoe.strategy.AIMoveStrategy;
-import com.lld.tictactoe.strategy.MinimaxAIMoveStrategy;
-import com.lld.tictactoe.strategy.RandomAIMoveStrategy;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * TicTacToeService — manages the game lifecycle.
+ *
+ * Thread safety: per-game ReentrantLock stored in ConcurrentHashMap.
+ */
 @Service
 public class TicTacToeService {
 
@@ -21,76 +23,61 @@ public class TicTacToeService {
         this.repository = repository;
     }
 
-    public Game createGame(String player1, String player2, GameMode mode, AIDifficulty difficulty) {
+    /** Creates a new 2-player game and saves it in the in-memory repository. */
+    public Game createGame(String player1, String player2) {
         String id = repository.generateId();
-        String p2 = (mode == GameMode.HUMAN_VS_AI) ? (player2 != null && !player2.isBlank() ? player2 : "AI Bot 🤖") : player2;
-        Game game = new Game(id, player1, p2, mode, difficulty);
+        String p1 = (player1 != null && !player1.isBlank()) ? player1 : "Player X";
+        String p2 = (player2 != null && !player2.isBlank()) ? player2 : "Player O";
+        Game game = new Game(id, p1, p2);
         repository.save(game);
         gameLocks.put(id, new ReentrantLock());
         return game;
     }
 
+    /** Retrieves a game by ID. Throws if not found. */
     public Game getGame(String id) {
         Game game = repository.get(id);
         if (game == null) throw new IllegalArgumentException("Game not found: " + id);
         return game;
     }
 
+    /**
+     * Makes a move on behalf of {@code playerName} at (row, col).
+     * Validates turn ownership and cell availability.
+     */
     public Game makeMove(String gameId, int row, int col, String playerName) {
         Game game = getGame(gameId);
         ReentrantLock lock = gameLocks.computeIfAbsent(gameId, k -> new ReentrantLock());
         lock.lock();
         try {
-            Player player = game.getCurrentTurn();
-            if (!player.getName().equals(playerName)) {
-                throw new IllegalStateException("Not your turn. Current turn: " + player.getName());
+            Player currentPlayer = game.getCurrentTurn();
+            if (!currentPlayer.getName().equals(playerName)) {
+                throw new IllegalStateException("Not your turn. Current turn: " + currentPlayer.getName());
             }
-
-            boolean success = game.makeMove(row, col, player);
+            boolean success = game.makeMove(row, col, currentPlayer);
             if (!success) {
                 throw new IllegalStateException("Invalid move at (" + row + ", " + col + ")");
             }
-
-            // Auto-trigger AI move if HUMAN_VS_AI mode and game is IN_PROGRESS
-            if (game.getGameMode() == GameMode.HUMAN_VS_AI
-                    && game.getState() == GameState.IN_PROGRESS
-                    && game.getCurrentTurn().getSymbol() == Symbol.O) {
-                triggerAIMove(game);
-            }
-
             return game;
         } finally {
             lock.unlock();
         }
     }
 
-    private void triggerAIMove(Game game) {
-        AIMoveStrategy strategy = (game.getAiDifficulty() == AIDifficulty.EASY)
-                ? new RandomAIMoveStrategy()
-                : new MinimaxAIMoveStrategy();
-
-        int[] bestMove = strategy.findBestMove(game);
-        if (bestMove != null) {
-            game.makeMove(bestMove[0], bestMove[1], game.getCurrentTurn());
-        }
-    }
-
+    /** Undoes the last move if the game is still IN_PROGRESS. */
     public Game undoLastMove(String gameId) {
         Game game = getGame(gameId);
         ReentrantLock lock = gameLocks.computeIfAbsent(gameId, k -> new ReentrantLock());
         lock.lock();
         try {
-            boolean undone = game.undoLastMove();
-            if (game.getGameMode() == GameMode.HUMAN_VS_AI && undone && !game.getMoveHistory().isEmpty()) {
-                // Undo AI move too so human player gets turn back
-                game.undoLastMove();
-            }
+            game.undoLastMove();
             return game;
         } finally {
             lock.unlock();
         }
     }
 
+    /** Resets the board and restarts the game. */
     public Game resetGame(String gameId) {
         Game game = getGame(gameId);
         ReentrantLock lock = gameLocks.computeIfAbsent(gameId, k -> new ReentrantLock());

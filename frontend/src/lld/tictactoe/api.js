@@ -1,9 +1,9 @@
 import { apiFetch } from '../../utils/api';
 
-export function createGame(player1, player2, gameMode = 'HUMAN_VS_HUMAN', aiDifficulty = 'MEDIUM') {
+export function createGame(player1, player2) {
   return apiFetch('/tictactoe/games', {
     method: 'POST',
-    body: JSON.stringify({ player1, player2, gameMode, aiDifficulty }),
+    body: JSON.stringify({ player1, player2 }),
   });
 }
 
