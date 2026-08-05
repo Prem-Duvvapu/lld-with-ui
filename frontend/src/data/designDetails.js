@@ -4582,6 +4582,104 @@ const designDetails = {
       { area: 'WebSocket Real-Time Multiplayer', description: 'Replace polling with STOMP/WebSocket topics for real-time remote 2-player matchmaking.', difficulty: 'Hard' },
       { area: 'Leaderboard & ELO Rating System', description: 'Track player win/loss statistics and compute dynamic ELO rating scores across games.', difficulty: 'Medium' }
     ]
+  },
+  lrucache: {
+    title: 'LRU Cache System — Design Details',
+    tldr: [
+      'Production-grade in-memory cache system supporting thread-safe O(1) GET, PUT, REMOVE operations and configurable capacity',
+      'Extensible Eviction Strategy pattern enabling dynamic runtime switching between LRU (Least Recently Used), LFU (Least Frequently Used), and FIFO algorithms',
+      'Thread-safe storage combining ConcurrentHashMap for O(1) key lookups with a custom Doubly-Linked List guarded by ReentrantLock',
+      'Real-time telemetry tracking (hits, misses, evictions, hit rate %) and 2D animated memory rack simulation'
+    ],
+    tradeoffs: [
+      'Used custom Doubly-Linked List with Sentinel Head & Tail nodes to guarantee clean O(1) node detachment and head promotion without null checks.',
+      'Guarded doubly-linked list mutations with ReentrantLock to prevent concurrency pointer corruption during simultaneous put/get operations.',
+      'Decoupled EvictionPolicy into a Strategy interface to allow runtime swapping of eviction rules (LRU, LFU, FIFO) without clearing active cache data.',
+      'Maintained in-memory operation logs to enable step-by-step history inspection and simulation replay.'
+    ],
+    requirements: [
+      'Fixed & Dynamic Capacity: Configurable maximum cache capacity with dynamic resizing and automatic eviction of excess elements.',
+      'O(1) Time Complexity: GET and PUT operations execute in constant time O(1).',
+      'Eviction Policy: Automatically evicts least recently used item when capacity is exceeded.',
+      'Strategy Pattern Extensibility: Easy to swap eviction policy (LRU, LFU, FIFO) at runtime.',
+      'Thread Safety: High concurrency support using ConcurrentHashMap and fine-grained ReentrantLock.'
+    ],
+    entities: [
+      { name: 'LruCache', description: 'Core cache engine class holding key-value mapping, doubly linked list pointers, lock manager, and metrics.' },
+      { name: 'Node', description: 'Doubly linked list element storing key, value, prev/next references, access count, and timestamps.' },
+      { name: 'EvictionPolicy', description: 'Strategy interface defining keyAccessed, keyInserted, evictKey, removeKey, and getOrderedNodes.' },
+      { name: 'LRUEvictionPolicy', description: 'LRU strategy maintaining Sentinel Head (MRU) and Sentinel Tail (LRU) for O(1) access and eviction.' },
+      { name: 'LFUEvictionPolicy', description: 'LFU strategy tracking access counts to evict least frequently used nodes.' },
+      { name: 'FIFOEvictionPolicy', description: 'FIFO strategy evicting nodes based strictly on insertion creation timestamp.' }
+    ],
+    designPatterns: [
+      { name: 'Strategy Pattern', used: true, explanation: 'Encapsulates eviction logic behind EvictionPolicy interface, allowing seamless runtime swapping of LRU, LFU, and FIFO strategies.' },
+      { name: 'Doubly Linked List', used: true, explanation: 'Enables constant time O(1) removal of arbitrary nodes and promotion to HEAD.' },
+      { name: 'Lock Manager / Concurrency Lock', used: true, explanation: 'ReentrantLock ensures atomic thread safety across map and linked list pointer modifications.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility Principle (SRP)', description: 'LruCache handles cache coordination, Node manages item payload, and EvictionPolicy focuses strictly on eviction ordering.' },
+      { name: 'Open/Closed Principle (OCP)', description: 'New eviction strategies (e.g. ARC or 2Q) can be implemented without modifying LruCache core code.' },
+      { name: 'Dependency Inversion Principle (DIP)', description: 'LruCache depends on EvictionPolicy abstraction rather than concrete LRUEvictionPolicy.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Internal list pointer updates and concurrency locks are strictly encapsulated within LruCache methods.' },
+      { name: 'Abstraction', description: 'REST API exposes clean GET, PUT, REMOVE endpoints without exposing pointer manipulation details.' },
+      { name: 'Polymorphism', description: 'LruCache invokes eviction policy methods polymorphically regardless of active strategy.' }
+    ],
+    extensibility: [
+      { area: 'TTL (Time-To-Live) Expiration Engine', description: 'Add background thread or lazy expiry check to invalidate stale cache nodes after TTL duration.', difficulty: 'Medium' },
+      { area: 'Distributed Cache Synchronization', description: 'Integrate Redis pub-sub or Raft consensus algorithm for multi-node distributed cache invalidate messages.', difficulty: 'Hard' }
+    ]
+  },
+  'lru-cache': {
+    title: 'LRU Cache System — Design Details',
+    tldr: [
+      'Production-grade in-memory cache system supporting thread-safe O(1) GET, PUT, REMOVE operations and configurable capacity',
+      'Extensible Eviction Strategy pattern enabling dynamic runtime switching between LRU (Least Recently Used), LFU (Least Frequently Used), and FIFO algorithms',
+      'Thread-safe storage combining ConcurrentHashMap for O(1) key lookups with a custom Doubly-Linked List guarded by ReentrantLock',
+      'Real-time telemetry tracking (hits, misses, evictions, hit rate %) and 2D animated memory rack simulation'
+    ],
+    tradeoffs: [
+      'Used custom Doubly-Linked List with Sentinel Head & Tail nodes to guarantee clean O(1) node detachment and head promotion without null checks.',
+      'Guarded doubly-linked list mutations with ReentrantLock to prevent concurrency pointer corruption during simultaneous put/get operations.',
+      'Decoupled EvictionPolicy into a Strategy interface to allow runtime swapping of eviction rules (LRU, LFU, FIFO) without clearing active cache data.',
+      'Maintained in-memory operation logs to enable step-by-step history inspection and simulation replay.'
+    ],
+    requirements: [
+      'Fixed & Dynamic Capacity: Configurable maximum cache capacity with dynamic resizing and automatic eviction of excess elements.',
+      'O(1) Time Complexity: GET and PUT operations execute in constant time O(1).',
+      'Eviction Policy: Automatically evicts least recently used item when capacity is exceeded.',
+      'Strategy Pattern Extensibility: Easy to swap eviction policy (LRU, LFU, FIFO) at runtime.',
+      'Thread Safety: High concurrency support using ConcurrentHashMap and fine-grained ReentrantLock.'
+    ],
+    entities: [
+      { name: 'LruCache', description: 'Core cache engine class holding key-value mapping, doubly linked list pointers, lock manager, and metrics.' },
+      { name: 'Node', description: 'Doubly linked list element storing key, value, prev/next references, access count, and timestamps.' },
+      { name: 'EvictionPolicy', description: 'Strategy interface defining keyAccessed, keyInserted, evictKey, removeKey, and getOrderedNodes.' },
+      { name: 'LRUEvictionPolicy', description: 'LRU strategy maintaining Sentinel Head (MRU) and Sentinel Tail (LRU) for O(1) access and eviction.' },
+      { name: 'LFUEvictionPolicy', description: 'LFU strategy tracking access counts to evict least frequently used nodes.' },
+      { name: 'FIFOEvictionPolicy', description: 'FIFO strategy evicting nodes based strictly on insertion creation timestamp.' }
+    ],
+    designPatterns: [
+      { name: 'Strategy Pattern', used: true, explanation: 'Encapsulates eviction logic behind EvictionPolicy interface, allowing seamless runtime swapping of LRU, LFU, and FIFO strategies.' },
+      { name: 'Doubly Linked List', used: true, explanation: 'Enables constant time O(1) removal of arbitrary nodes and promotion to HEAD.' },
+      { name: 'Lock Manager / Concurrency Lock', used: true, explanation: 'ReentrantLock ensures atomic thread safety across map and linked list pointer modifications.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility Principle (SRP)', description: 'LruCache handles cache coordination, Node manages item payload, and EvictionPolicy focuses strictly on eviction ordering.' },
+      { name: 'Open/Closed Principle (OCP)', description: 'New eviction strategies (e.g. ARC or 2Q) can be implemented without modifying LruCache core code.' },
+      { name: 'Dependency Inversion Principle (DIP)', description: 'LruCache depends on EvictionPolicy abstraction rather than concrete LRUEvictionPolicy.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Internal list pointer updates and concurrency locks are strictly encapsulated within LruCache methods.' },
+      { name: 'Abstraction', description: 'REST API exposes clean GET, PUT, REMOVE endpoints without exposing pointer manipulation details.' },
+      { name: 'Polymorphism', description: 'LruCache invokes eviction policy methods polymorphically regardless of active strategy.' }
+    ],
+    extensibility: [
+      { area: 'TTL (Time-To-Live) Expiration Engine', description: 'Add background thread or lazy expiry check to invalidate stale cache nodes after TTL duration.', difficulty: 'Medium' },
+      { area: 'Distributed Cache Synchronization', description: 'Integrate Redis pub-sub or Raft consensus algorithm for multi-node distributed cache invalidate messages.', difficulty: 'Hard' }
+    ]
   }
 };
 

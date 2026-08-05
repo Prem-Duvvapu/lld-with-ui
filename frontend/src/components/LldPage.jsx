@@ -7,6 +7,10 @@ import './LldPage.css';
 export default function LldPage({ module, title, icon, tabs: customTabs, children }) {
   const defaultTabs = ['design', 'diagram'];
   const tabs = customTabs || defaultTabs;
+  const getTabId = (t) => (typeof t === 'object' ? t.id : t);
+  const getTabLabel = (t) => (typeof t === 'object' ? t.label : (tabLabels[t] || t));
+  const tabIds = tabs.map(getTabId);
+
   const tabLabels = {
     design: 'Design Details',
     details: 'Design Details',
@@ -24,13 +28,16 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
     driver: '🛵 Delivery Partner',
     book: 'Passenger Booking',
     drivers: 'Driver Dashboard',
-    history: 'Trip History'
+    history: 'Trip History',
+    operations: '⚡ Operations',
+    telemetry: '📊 Telemetry',
+    logs: '📜 Logs'
   };
 
   const storageKey = `lld-tab-${module}`;
   const [tab, setTab] = useState(() => {
     const saved = sessionStorage.getItem(storageKey);
-    return tabs.includes(saved) ? saved : tabs[0];
+    return tabIds.includes(saved) ? saved : tabIds[0];
   });
 
   useEffect(() => {
@@ -51,17 +58,21 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
         <h1>{icon && <span>{icon}</span>} {title}</h1>
         <p className="lld-page-subtitle">Low-Level Design Architecture & Demonstration</p>
         <nav className="lld-page-nav" role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={tab === t}
-              className={tab === t ? 'active' : ''}
-              onClick={() => setTab(t)}
-            >
-              {tabLabels[t] || t}
-            </button>
-          ))}
+          {tabs.map((t) => {
+            const tabId = getTabId(t);
+            const label = getTabLabel(t);
+            return (
+              <button
+                key={tabId}
+                role="tab"
+                aria-selected={tab === tabId}
+                className={tab === tabId ? 'active' : ''}
+                onClick={() => setTab(tabId)}
+              >
+                {label}
+              </button>
+            );
+          })}
         </nav>
       </header>
 
