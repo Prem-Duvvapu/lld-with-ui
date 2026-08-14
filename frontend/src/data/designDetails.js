@@ -1,4 +1,44 @@
 const designDetails = {
+  pubsub: {
+    title: 'Pub/Sub System (Message Broker) — Design Details',
+    tldr: [
+      'Topic-based high-throughput message broker featuring Observer pattern and dedicated per-subscriber Producer-Consumer worker threads',
+      'Strict FIFO message delivery ordering guaranteed per subscriber by isolating each subscriber in its own ArrayBlockingQueue',
+      'Non-blocking publisher dispatch: publish() enqueues to subscriber queues and returns immediately without blocking on slow consumers',
+      'Backpressure rejection policy: when subscriber queue is full, new messages are rejected with QueueFullException without stalling the broker',
+      'Thread-safe subscriber registration via CopyOnWriteArrayList ensuring lock-free publish iteration during concurrent subscriptions'
+    ],
+    tradeoffs: [
+      'Chose dedicated worker threads per subscriber over shared thread pool to guarantee strict FIFO ordering per subscriber.',
+      'Adopted drop-and-reject backpressure policy on full queue to protect broker throughput from slow consumers.',
+      'Used CopyOnWriteArrayList for subscriber lists because publish reads outnumber subscribe/unsubscribe writes 100:1.'
+    ],
+    requirements: [
+      'Topic Management: Dynamic creation and lookup of message topics',
+      'Subscriber Registration: Support Print, Logging, and Slow subscriber types with customizable queue capacities and processing delays',
+      'Asynchronous Dispatch: Producer-Consumer pattern delivering messages asynchronously via background worker threads',
+      'FIFO Order Guarantee: Preserve strict publication sequence per subscriber queue',
+      'Backpressure Handling: Detect queue overflow and emit rejection events without blocking publishers',
+      'Graceful Shutdown: Drain in-flight queued messages when shutting down subscriber worker threads'
+    ],
+    entities: [
+      { name: 'Broker', description: 'Central domain manager handling topics, subscriptions, and message publication.', fields: [{ name: 'topics', type: 'ConcurrentHashMap<String, Topic>' }], methods: [{ name: 'publish(...)', returns: 'List<String>', description: 'Enqueues message into all subscriber queues' }] },
+      { name: 'Topic', description: 'Subject representing a named message channel with subscriber workers.', fields: [{ name: 'workers', type: 'CopyOnWriteArrayList<SubscriberWorker>' }], methods: [{ name: 'publish(...)', returns: 'List<String>', description: 'Dispatches message to workers' }] },
+      { name: 'SubscriberWorker', description: 'Dedicated consumer thread draining an ArrayBlockingQueue<Message> sequentially.', fields: [{ name: 'queue', type: 'BlockingQueue<Message>' }], methods: [{ name: 'enqueue(...)', returns: 'boolean', description: 'Non-blocking offer' }] }
+    ],
+    designPatterns: [
+      { name: 'Observer Pattern', usage: 'Topic acts as Subject; Subscribers act as Observers notified on publish.' },
+      { name: 'Producer-Consumer Pattern', usage: 'Publishers produce to Topic; SubscriberWorkers consume dedicated ArrayBlockingQueue asynchronously.' }
+    ],
+    solid: [
+      { principle: 'Single Responsibility', details: 'Topic handles routing; SubscriberWorker manages queue & thread; Subscriber executes business logic.' },
+      { principle: 'Open/Closed', details: 'Extensible with new Subscriber types (e.g. DatabaseSubscriber) without changing Broker.' }
+    ],
+    extensibility: [
+      'Partitioned Topics: Add partition keys for multi-threaded parallel subscriber groups.',
+      'Message Filtering: Support header-based pattern matching (e.g. Wildcard topic subscriptions).'
+    ]
+  },
   uber: {
     title: 'Uber Cab Booking — Design Details',
     tldr: [

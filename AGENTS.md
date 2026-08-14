@@ -107,6 +107,17 @@
 - 5 tabs: Live Elevator Shafts, Controller Dashboard, 8-step Interactive Simulation, Class Diagram, Design Details.
 - Real-time shaft visualizer with animated sliding doors, occupancy gauges, floor call buttons, and interactive simulation replay.
 
+## Pub Sub System Module
+### Backend
+- `PubSubService`: Singleton Spring service facade managing high-throughput `Broker` and topics.
+- `Topic`: Manages active subscribers via `CopyOnWriteArrayList<SubscriberWorker>` for lock-free publish iteration.
+- `SubscriberWorker`: Dedicated per-subscriber thread draining a bounded `ArrayBlockingQueue<Message>` sequentially to guarantee strict FIFO delivery order per subscriber.
+- Backpressure Policy: Drop-and-reject policy when a subscriber queue is full, emitting simulation alerts without stalling publishers.
+
+### Frontend
+- 5 tabs: Topics & Publishers, Subscribers & Inboxes, Interactive 2D Simulation, Class Diagram, Design Details.
+- Real-time message flow visualizer with publisher nodes, broker hub, animated particle streams, queue depth fill bars, and slow-subscriber backpressure indicators.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar

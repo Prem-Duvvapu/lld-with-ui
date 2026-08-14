@@ -1,23 +1,50 @@
 package com.lld.pubsub.model;
 
-public class Message {
-    private long id;
-    private String topic;
-    private String content;
-    private String publisher;
-    private long timestamp;
+import java.util.Collections;
+import java.util.Map;
 
-    public Message(long id, String topic, String content, String publisher, long timestamp) {
+public class Message {
+    private final String id;
+    private final String topicName;
+    private final String payload;
+    private final String publisherId;
+    private final long timestampEpoch;
+    private final Map<String, String> headers;
+
+    public Message(String id, String topicName, String payload, String publisherId, Map<String, String> headers) {
         this.id = id;
-        this.topic = topic;
-        this.content = content;
-        this.publisher = publisher;
-        this.timestamp = timestamp;
+        this.topicName = topicName;
+        this.payload = payload;
+        this.publisherId = publisherId;
+        this.timestampEpoch = System.currentTimeMillis();
+        this.headers = headers != null ? headers : Collections.emptyMap();
     }
 
-    public long getId() { return id; }
-    public String getTopic() { return topic; }
-    public String getContent() { return content; }
-    public String getPublisher() { return publisher; }
-    public long getTimestamp() { return timestamp; }
+    public Message(String id, String topicName, String payload, String publisherId) {
+        this(id, topicName, payload, publisherId, Collections.emptyMap());
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getTopicName() {
+        return topicName;
+    }
+
+    public String getPayload() {
+        return payload;
+    }
+
+    public String getPublisherId() {
+        return publisherId;
+    }
+
+    public long getTimestampEpoch() {
+        return timestampEpoch;
+    }
+
+    public Map<String, String> getHeaders() {
+        return headers;
+    }
 }
