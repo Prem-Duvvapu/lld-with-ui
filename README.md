@@ -16,7 +16,7 @@ SDE-2 interview preparation (2+ years experience). **45 LLD projects** in a **si
 | 8 | [Splitwise](#8-splitwise) | Expense sharing | State Machine, Split Strategies (Equal/Percentage/Exact), Balance calculation |
 | 9 | [Elevator](#9-elevator) | Elevator Control | SCAN Scheduling, Proximity-based assignment, Thread Safety (ReentrantLock) |
 | 10 | Library Management | Book Catalog & Loans | Strategy, Factory, Observer |
-| 11 | Movie Ticket Booking | Cinema Seats & Shows | State Machine, Concurrency Lock |
+| 11 | [Movie Ticket Booking](#11-movie-ticket-booking) | Cinema Seats & Shows | Singleton, Strategy (pricing), Factory, Observer, State Machine, Per-Seat ReentrantLock Concurrency, Hold TTL, Idempotency |
 | 12 | Hotel Management | Room Reservation | State Machine, Strategy, Factory |
 | 13 | Airline Reservation | Flight Booking & Seats | State Machine, Strategy |
 | 14 | Coffee Machine | Ingredient & Brew Engine | State Pattern, Factory, Decorator |
@@ -60,6 +60,7 @@ lld-with-ui/
 │   └── src/main/java/com/lld/
 │       ├── atm/           ← ATM
 │       ├── elevator/      ← Elevator
+│       ├── movieticket/   ← Movie Ticket Booking (BookMyShow)
 │       ├── parkinglot/    ← Parking Lot
 │       ├── snakeladders/  ← Snake & Ladders
 │       ├── splitwise/     ← Splitwise
@@ -71,17 +72,18 @@ lld-with-ui/
 ├── frontend/              ← React + Vite SPA
 │   ├── src/
 │   │   ├── components/    → ClassDiagram (reusable)
-│   │   ├── data/          → classDiagrams.js (all 9 UMLs)
+│   │   ├── data/          → classDiagrams.js, designDetails.js
 │   │   ├── lld/           → one folder per project
+│   │   │   ├── atm/
+│   │   │   ├── elevator/
+│   │   │   ├── movieticket/
 │   │   │   ├── parking/
-│   │   │   ├── zomato/
-│   │   │   ├── uber/
+│   │   │   ├── snakeladders/
+│   │   │   ├── splitwise/
 │   │   │   ├── stackoverflow/
 │   │   │   ├── tictactoe/
-│   │   │   ├── snakeladders/
-│   │   │   ├── atm/
-│   │   │   ├── splitwise/
-│   │   │   └── elevator/
+│   │   │   ├── uber/
+│   │   │   └── zomato/
 │   │   └── pages/         → Home page
 │   └── public/
 └── README.md
@@ -103,20 +105,21 @@ Then open http://localhost:5173 and click any LLD card.
 
 | Pattern | Where | Why |
 |---------|-------|-----|
-| **Singleton** | `ParkingLotService` | Single system instance managing all operations |
-| **Strategy** | `ReputationStrategy` / `PricingStrategy` | Swap algorithms (voting impact, parking rates) at runtime |
-| **Factory** | Spot/Entity creation | Encapsulate object creation logic |
-| **State Machine** | `OrderStatus`, `RideStatus`, `GameState` | Formal state transitions with guards |
+| **Singleton** | `ParkingLotService`, `MovieTicketService` | Single system instance managing all operations |
+| **Strategy** | `ReputationStrategy`, `PricingStrategy`, `SplitStrategy` | Swap algorithms (voting impact, seat prices, split calculations) at runtime |
+| **Factory** | Spot/Seat/Entity creation | Encapsulate object creation logic |
+| **Observer** | `SeatMapNotifier` / Event loggers | Broadcast status change events to subscribers |
+| **State Machine** | `OrderStatus`, `RideStatus`, `SeatStatus`, `GameState` | Formal state transitions with guards |
 | **Repository** | All projects | Abstract data storage behind interface |
 | **Encapsulation** | All models | Data + behavior in single unit |
 | **SOLID** | All layers | SRP (Controller/Service/Repo), OCP (extensible via Strategy), DIP (abstractions over concretions) |
-| **Concurrency** | `ReentrantLock` in Parking Lot, ATM, Elevator | Thread-safe state mutations |
+| **Concurrency** | `SeatLockManager` (per-seat ReentrantLock), `ConcurrentHashMap` | Fine-grained thread-safe state mutations with deadlock prevention |
 
 ## OOPs Principles
 
-- **Encapsulation** — Models bundle state with behavior (`Ticket` tracks own entry/exit, `Elevator` manages its own stops)
-- **Inheritance** — Shared behavior via interfaces (`ReputationStrategy` → `QuestionReputationStrategy`, `AnswerReputationStrategy`)
-- **Polymorphism** — Strategy pattern swaps implementations at runtime (split types, reputation calculation)
+- **Encapsulation** — Models bundle state with behavior (`Ticket` tracks own entry/exit, `Seat` manages status & TTL)
+- **Inheritance** — Shared behavior via interfaces (`PricingStrategy` → `BasePricingStrategy`, `SurgePricingStrategy`)
+- **Polymorphism** — Strategy pattern swaps implementations at runtime (pricing strategies, split types)
 - **Abstraction** — Repository hides storage details; Service hides business logic; Controller exposes clean API
 
 ## Project Details
@@ -156,6 +159,10 @@ Then open http://localhost:5173 and click any LLD card.
 ### 9. Elevator
 **Features:** 4 elevators, 10 floors, SCAN scheduling algorithm, proximity-based assignment, capacity limits, animated elevator movement with door open/close, floor call buttons, request log, thread-safe concurrent processing  
 **APIs:** `GET /api/elevator/elevators`, `POST /api/elevator/request`, `GET /api/elevator/requests`, `POST /api/elevator/tick`
+
+### 11. Movie Ticket Booking (BookMyShow)
+**Features:** Multi-entity domain model (Movie, Theater, Screen, Show, Seat, Booking, User), per-seat `ReentrantLock` concurrency (`showId:seatId`), deadlock prevention via ascending lock ordering, seat-hold lifecycle (`AVAILABLE` $\rightarrow$ `HELD` (5m TTL) $\rightarrow$ `BOOKED` / `AVAILABLE`), `@Scheduled` background stale hold cleanup, Strategy Pattern (`BasePricingStrategy` & `SurgePricingStrategy`), Observer Pattern (`SeatMapNotifier`), Idempotency key protection, 5-tab React UI (Movies & Booking, Booking History, Interactive 2D Concurrency Simulation, Class Diagram, Design Details), live 3s seat map polling, 5-minute hold countdown timer, and 8-step scripted simulation scene calling isolated `/api/movie-ticket/sim/*` endpoints.  
+**APIs:** `GET /api/movie-ticket/movies`, `GET /api/movie-ticket/theaters`, `GET /api/movie-ticket/movies/{id}/shows`, `GET /api/movie-ticket/shows/{id}/seats`, `POST /api/movie-ticket/shows/{id}/hold`, `POST /api/movie-ticket/book`, `POST /api/movie-ticket/cancel`, `GET /api/movie-ticket/bookings/{id}`, `GET /api/movie-ticket/bookings/user/{userId}`
 
 ## Tech Stack
 - **Backend:** Java 17, Spring Boot 3.2, Maven (single app on port 9090)
