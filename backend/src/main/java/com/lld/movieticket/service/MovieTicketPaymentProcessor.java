@@ -5,8 +5,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
-@Component
-public class PaymentProcessor {
+@Component("movieTicketPaymentProcessor")
+public class MovieTicketPaymentProcessor {
     private boolean shouldFail = false;
 
     public void setShouldFail(boolean fail) {

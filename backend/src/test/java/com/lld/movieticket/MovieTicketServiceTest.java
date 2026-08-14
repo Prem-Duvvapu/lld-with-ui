@@ -7,7 +7,7 @@ import com.lld.movieticket.model.*;
 import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
 import com.lld.movieticket.service.MovieTicketService;
-import com.lld.movieticket.service.PaymentProcessor;
+import com.lld.movieticket.service.MovieTicketPaymentProcessor;
 import com.lld.movieticket.service.SeatLockManager;
 import com.lld.movieticket.strategy.BasePricingStrategy;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class MovieTicketServiceTest {
     private MovieTicketRepository repository;
     private SeatLockManager seatLockManager;
-    private PaymentProcessor paymentProcessor;
+    private MovieTicketPaymentProcessor paymentProcessor;
     private SeatMapNotifier seatMapNotifier;
     private BasePricingStrategy pricingStrategy;
     private MovieTicketService service;
@@ -34,7 +34,7 @@ public class MovieTicketServiceTest {
         repository = new MovieTicketRepository();
         repository.seedInitialData();
         seatLockManager = new SeatLockManager();
-        paymentProcessor = new PaymentProcessor();
+        paymentProcessor = new MovieTicketPaymentProcessor();
         seatMapNotifier = new SeatMapNotifier();
         pricingStrategy = new BasePricingStrategy();
         service = new MovieTicketService(repository, seatLockManager, paymentProcessor, seatMapNotifier, pricingStrategy);

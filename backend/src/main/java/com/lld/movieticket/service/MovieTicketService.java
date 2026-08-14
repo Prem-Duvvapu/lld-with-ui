@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class MovieTicketService {
     private final MovieTicketRepository repository;
     private final SeatLockManager seatLockManager;
-    private final PaymentProcessor paymentProcessor;
+    private final MovieTicketPaymentProcessor paymentProcessor;
     private final SeatMapNotifier seatMapNotifier;
     private final PricingStrategy pricingStrategy;
 
@@ -34,7 +34,7 @@ public class MovieTicketService {
 
     public MovieTicketService(MovieTicketRepository repository,
                               SeatLockManager seatLockManager,
-                              PaymentProcessor paymentProcessor,
+                              MovieTicketPaymentProcessor paymentProcessor,
                               SeatMapNotifier seatMapNotifier,
                               BasePricingStrategy basePricingStrategy) {
         this.repository = repository;
