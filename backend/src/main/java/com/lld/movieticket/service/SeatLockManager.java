@@ -24,15 +24,19 @@ public class SeatLockManager {
     }
 
     private List<ReentrantLock> lockSeatsInOrder(long showId, List<Long> seatIds) {
-        List<Long> sortedIds = new ArrayList<>(seatIds);
-        Collections.sort(sortedIds);
+        List<Long> sortedIds = seatIds.stream().distinct().sorted().toList();
         List<ReentrantLock> acquiredLocks = new ArrayList<>();
-        for (Long seatId : sortedIds) {
-            ReentrantLock lock = getLockForSeat(showId, seatId);
-            lock.lock();
-            acquiredLocks.add(lock);
+        try {
+            for (Long seatId : sortedIds) {
+                ReentrantLock lock = getLockForSeat(showId, seatId);
+                lock.lock();
+                acquiredLocks.add(lock);
+            }
+            return acquiredLocks;
+        } catch (Exception e) {
+            unlockSeats(acquiredLocks);
+            throw e;
         }
-        return acquiredLocks;
     }
 
     private void unlockSeats(List<ReentrantLock> locks) {

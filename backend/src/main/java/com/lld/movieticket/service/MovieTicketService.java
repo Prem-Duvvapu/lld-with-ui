@@ -196,8 +196,10 @@ public class MovieTicketService {
 
     @Scheduled(fixedRate = 30000)
     public void cleanupExpiredHolds() {
-        for (Show s : repository.getShowsByMovie(1)) {
-            seatLockManager.expireStaleHolds(s.getId(), repository, seatMapNotifier);
+        for (Movie movie : repository.getMovies()) {
+            for (Show s : repository.getShowsByMovie(movie.getId())) {
+                seatLockManager.expireStaleHolds(s.getId(), repository, seatMapNotifier);
+            }
         }
     }
 
