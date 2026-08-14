@@ -71,6 +71,37 @@ const styles = `
 
 .sw-sim-card { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 14px; max-width: 320px; margin: 0 auto; text-align: center; position: relative; z-index: 10; animation: slideUp 0.4s ease-out; }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Add Expense Enhanced UX Styles */
+.sw-expense-container { display: flex; flex-direction: column; gap: 18px; }
+.sw-group-banner { background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(118, 75, 162, 0.12)); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+.sw-group-banner-title { font-size: 18px; font-weight: 800; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.sw-input-group { display: flex; flex-direction: column; gap: 8px; }
+.sw-label { font-size: 13px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.sw-preset-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.sw-chip { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--bg-primary); color: var(--text-primary); border: 1px solid var(--border-primary); cursor: pointer; transition: all 0.2s; }
+.sw-chip:hover { border-color: #667eea; color: #667eea; transform: translateY(-1px); }
+.sw-chip.active { background: #667eea; color: #fff; border-color: #667eea; }
+
+.sw-avatar-pills { display: flex; gap: 10px; flex-wrap: wrap; }
+.sw-avatar-pill { display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 24px; background: var(--bg-primary); border: 1px solid var(--border-primary); cursor: pointer; transition: all 0.2s; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.sw-avatar-pill:hover { border-color: #667eea; }
+.sw-avatar-pill.selected { background: rgba(102, 126, 234, 0.15); border-color: #667eea; color: #667eea; }
+.sw-pill-circle { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+
+.sw-strategy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sw-strategy-card { background: var(--bg-primary); border: 2px solid var(--border-primary); border-radius: 12px; padding: 12px 8px; cursor: pointer; transition: all 0.2s; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sw-strategy-card:hover { border-color: #667eea; transform: translateY(-2px); }
+.sw-strategy-card.selected { background: rgba(102, 126, 234, 0.1); border-color: #667eea; box-shadow: 0 4px 14px rgba(102, 126, 234, 0.2); }
+.sw-strategy-icon { font-size: 22px; }
+.sw-strategy-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.sw-strategy-desc { font-size: 10px; color: var(--text-secondary); }
+
+.sw-allocation-card { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.sw-allocation-user { display: flex; align-items: center; gap: 10px; }
+.sw-allocation-input { display: flex; align-items: center; gap: 8px; }
+.sw-progress-bar-bg { width: 100%; height: 8px; background: var(--bg-primary); border-radius: 4px; overflow: hidden; border: 1px solid var(--border-primary); margin-top: 6px; }
+.sw-progress-bar-fill { height: 100%; transition: width 0.3s ease, background-color 0.3s ease; }
 `;
 
 function UserList({ onUserSelect, onUserCreated }) {
@@ -213,6 +244,10 @@ function AddExpense({ user, group, onBack, onExpenseAdded }) {
     }
   };
 
+  const selectPresetAmount = (presetVal) => {
+    handleAmountChange(String(presetVal));
+  };
+
   const handleSplitTypeChange = (type) => {
     setSplitType(type);
     const parsedAmount = parseFloat(amount);
@@ -226,61 +261,274 @@ function AddExpense({ user, group, onBack, onExpenseAdded }) {
 
   const updateSplit = (memberId, val) => { setSplits({ ...splits, [memberId]: val }); };
 
+  const autoDistributeEqual = () => {
+    if (splitType === 'PERCENTAGE') {
+      const pct = (100 / members.length).toFixed(1);
+      const updated = {}; members.forEach((m) => { updated[m.id] = pct; }); setSplits(updated);
+    } else if (splitType === 'EXACT' && parseFloat(amount) > 0) {
+      const share = (parseFloat(amount) / members.length).toFixed(2);
+      const updated = {}; members.forEach((m) => { updated[m.id] = share; }); setSplits(updated);
+    }
+  };
+
+  const parsedAmount = parseFloat(amount) || 0;
+  const currentTotalAllocated = Object.values(splits).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  
+  let allocationPercentage = 0;
+  if (splitType === 'PERCENTAGE') {
+    allocationPercentage = Math.min(100, Math.max(0, currentTotalAllocated));
+  } else if (splitType === 'EXACT' && parsedAmount > 0) {
+    allocationPercentage = Math.min(100, Math.max(0, (currentTotalAllocated / parsedAmount) * 100));
+  } else if (splitType === 'EQUAL') {
+    allocationPercentage = 100;
+  }
+
   const validateSplits = () => {
-    const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) return 'Enter a valid positive amount';
+    if (!description.trim()) return 'Enter an expense description';
     if (splitType === 'EQUAL') return null;
-    const total = Object.values(splits).reduce((s, v) => s + (parseFloat(v) || 0), 0);
-    if (splitType === 'PERCENTAGE' && Math.abs(total - 100) > 0.01) return 'Percentages must sum to 100 (got ' + total + '%)';
-    if (splitType === 'EXACT' && Math.abs(total - parsedAmount) > 0.01) return 'Exact amounts must sum to ₹' + parsedAmount + ' (got ₹' + total + ')';
+    if (splitType === 'PERCENTAGE' && Math.abs(currentTotalAllocated - 100) > 0.01) {
+      return `Percentages must sum to 100% (currently ${currentTotalAllocated.toFixed(1)}%)`;
+    }
+    if (splitType === 'EXACT' && Math.abs(currentTotalAllocated - parsedAmount) > 0.01) {
+      return `Exact amounts must sum to ₹${parsedAmount.toFixed(2)} (currently ₹${currentTotalAllocated.toFixed(2)})`;
+    }
     return null;
   };
 
+  const validationStatus = validateSplits();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationError = validateSplits();
-    if (validationError) { setError(validationError); return; }
+    if (validationStatus) { setError(validationStatus); return; }
     const splitEntries = members.map((m) => {
       if (splitType === 'EQUAL') return { userId: m.id, type: 'EQUAL' };
       if (splitType === 'PERCENTAGE') return { userId: m.id, type: 'PERCENTAGE', percentage: parseFloat(splits[m.id]) || 0, amount: 0 };
       return { userId: m.id, type: 'EXACT', amount: parseFloat(splits[m.id]) || 0, percentage: 0 };
     });
     setSubmitting(true); setError(null);
-    try { await addExpense(description, parseFloat(amount), paidBy, group.id, splitEntries); onExpenseAdded(); }
+    try { await addExpense(description.trim(), parsedAmount, paidBy, group.id, splitEntries); onExpenseAdded(); }
     catch (err) { setError(err.message); }
     finally { setSubmitting(false); }
   };
 
+  const avatarColors = ['#667eea', '#764ba2', '#a855f7', '#f59e0b', '#10b981', '#ec4899'];
+
   return (
-    <div>
-      <button className="sw-back-btn" onClick={onBack}>&larr; Back to Groups</button>
-      <div className="sw-section-title">Add Expense in {group.name}</div>
-      {error && <div className="sw-error">{error}</div>}
-      <form className="sw-expense-form" onSubmit={handleSubmit}>
-        <label>Description</label>
-        <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What was this expense for?" required />
-        <label>Amount (₹)</label>
-        <input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => handleAmountChange(e.target.value)} placeholder="0.00" required />
-        <label>Paid by</label>
-        <select value={paidBy} onChange={(e) => setPaidBy(Number(e.target.value))}>
-          {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.id === user.id ? ' (you)' : ''}</option>)}
-        </select>
-        <label>Split Type (Strategy Pattern)</label>
-        <select value={splitType} onChange={(e) => handleSplitTypeChange(e.target.value)}>
-          <option value="EQUAL">Equal Split</option>
-          <option value="PERCENTAGE">Percentage Split</option>
-          <option value="EXACT">Exact Amount Split</option>
-        </select>
-        <label>Split Share Details</label>
-        {members.map((m) => (
-          <div key={m.id} className="sw-split-row">
-            <span>{m.name}{m.id === user.id ? ' (you)' : ''}</span>
-            {splitType === 'EQUAL' && <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{parseFloat(amount) > 0 ? '₹' + (parseFloat(amount) / members.length).toFixed(2) : '₹0.00'}</span>}
-            {splitType === 'PERCENTAGE' && <input type="number" step="0.1" min="0" max="100" value={splits[m.id] || ''} onChange={(e) => updateSplit(m.id, e.target.value)} placeholder="%" />}
-            {splitType === 'EXACT' && <input type="number" step="0.01" min="0" value={splits[m.id] || ''} onChange={(e) => updateSplit(m.id, e.target.value)} placeholder="₹0.00" />}
+    <div className="sw-expense-container">
+      <div className="sw-group-banner">
+        <div>
+          <button className="sw-back-btn" onClick={onBack} style={{ margin: 0 }}>&larr; Back to Groups</button>
+          <div className="sw-group-banner-title" style={{ marginTop: 4 }}>
+            <span>📁 {group.name}</span>
+            <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 10, background: 'rgba(102, 126, 234, 0.2)', color: '#667eea', fontWeight: 600 }}>
+              {members.length} members
+            </span>
           </div>
-        ))}
-        <button type="submit" className="sw-btn" disabled={submitting}>{submitting ? 'Adding...' : '💸 Add Expense'}</button>
+        </div>
+        <div style={{ fontSize: 32 }}>💸</div>
+      </div>
+
+      {error && <div className="sw-error">{error}</div>}
+
+      <form className="sw-expense-form" onSubmit={handleSubmit}>
+        <div className="sw-input-group">
+          <label className="sw-label">🏷️ Expense Description</label>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. Rent, Grocery, Dinner at Taj"
+            required
+            style={{ fontSize: 15 }}
+          />
+        </div>
+
+        <div className="sw-input-group">
+          <label className="sw-label">
+            <span>💰 Amount (₹)</span>
+            {parsedAmount > 0 && <span style={{ color: '#22c55e', fontSize: 12 }}>₹{parsedAmount.toFixed(2)} entered</span>}
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={amount}
+            onChange={(e) => handleAmountChange(e.target.value)}
+            placeholder="0.00"
+            required
+            style={{ fontSize: 18, fontWeight: 700, color: '#667eea' }}
+          />
+          <div className="sw-preset-chips">
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', alignSelf: 'center', marginRight: 4 }}>Quick Presets:</span>
+            {[200, 500, 1000, 2500, 5000].map((preset) => (
+              <button
+                type="button"
+                key={preset}
+                className={`sw-chip ${parsedAmount === preset ? 'active' : ''}`}
+                onClick={() => selectPresetAmount(preset)}
+              >
+                +₹{preset.toLocaleString()}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="sw-input-group">
+          <label className="sw-label">👤 Paid By</label>
+          <div className="sw-avatar-pills">
+            {members.map((m, idx) => (
+              <div
+                key={m.id}
+                className={`sw-avatar-pill ${paidBy === m.id ? 'selected' : ''}`}
+                onClick={() => setPaidBy(m.id)}
+              >
+                <div className="sw-pill-circle" style={{ background: avatarColors[idx % avatarColors.length] }}>
+                  {m.name[0]}
+                </div>
+                <span>{m.name}{m.id === user.id ? ' (you)' : ''}</span>
+                {paidBy === m.id && <span style={{ color: '#667eea', fontWeight: 800 }}>✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="sw-input-group">
+          <label className="sw-label">⚡ Split Strategy (Design Pattern)</label>
+          <div className="sw-strategy-grid">
+            <div
+              className={`sw-strategy-card ${splitType === 'EQUAL' ? 'selected' : ''}`}
+              onClick={() => handleSplitTypeChange('EQUAL')}
+            >
+              <div className="sw-strategy-icon">⚖️</div>
+              <div className="sw-strategy-name">Equal Split</div>
+              <div className="sw-strategy-desc">Splits total evenly across members</div>
+            </div>
+
+            <div
+              className={`sw-strategy-card ${splitType === 'PERCENTAGE' ? 'selected' : ''}`}
+              onClick={() => handleSplitTypeChange('PERCENTAGE')}
+            >
+              <div className="sw-strategy-icon">📊</div>
+              <div className="sw-strategy-name">Percentage Split</div>
+              <div className="sw-strategy-desc">Custom % allocation (sums to 100%)</div>
+            </div>
+
+            <div
+              className={`sw-strategy-card ${splitType === 'EXACT' ? 'selected' : ''}`}
+              onClick={() => handleSplitTypeChange('EXACT')}
+            >
+              <div className="sw-strategy-icon">💵</div>
+              <div className="sw-strategy-name">Exact Amount</div>
+              <div className="sw-strategy-desc">Specify exact ₹ share per member</div>
+            </div>
+          </div>
+        </div>
+
+        {splitType !== 'EQUAL' && (
+          <div style={{ background: 'var(--bg-primary)', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border-primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700 }}>
+              <span style={{ color: 'var(--text-primary)' }}>Allocation Progress</span>
+              <span style={{ color: splitType === 'PERCENTAGE' ? (Math.abs(currentTotalAllocated - 100) < 0.01 ? '#22c55e' : '#ef4444') : (Math.abs(currentTotalAllocated - parsedAmount) < 0.01 ? '#22c55e' : '#ef4444') }}>
+                {splitType === 'PERCENTAGE' ? `${currentTotalAllocated.toFixed(1)}% / 100%` : `₹${currentTotalAllocated.toFixed(2)} / ₹${parsedAmount.toFixed(2)}`}
+              </span>
+            </div>
+            <div className="sw-progress-bar-bg">
+              <div
+                className="sw-progress-bar-fill"
+                style={{
+                  width: `${allocationPercentage}%`,
+                  backgroundColor: splitType === 'PERCENTAGE' ? (Math.abs(currentTotalAllocated - 100) < 0.01 ? '#22c55e' : currentTotalAllocated > 100 ? '#ef4444' : '#f59e0b') : (Math.abs(currentTotalAllocated - parsedAmount) < 0.01 ? '#22c55e' : '#f59e0b')
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Need exact match to submit</span>
+              <button
+                type="button"
+                onClick={autoDistributeEqual}
+                style={{ background: 'none', border: 'none', color: '#667eea', fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                ⚡ Auto-Split Equally
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="sw-input-group">
+          <label className="sw-label">📊 Member Share Allocations</label>
+          {members.map((m, idx) => {
+            const userPct = splitType === 'PERCENTAGE' ? (parseFloat(splits[m.id]) || 0) : (parsedAmount > 0 ? ((parseFloat(splits[m.id]) || 0) / parsedAmount) * 100 : 0);
+            const userAmt = splitType === 'PERCENTAGE' ? (parsedAmount * (parseFloat(splits[m.id]) || 0)) / 100 : (splitType === 'EQUAL' ? (parsedAmount / members.length) : (parseFloat(splits[m.id]) || 0));
+
+            return (
+              <div key={m.id} className="sw-allocation-card">
+                <div className="sw-allocation-user">
+                  <div className="sw-pill-circle" style={{ background: avatarColors[idx % avatarColors.length] }}>
+                    {m.name[0]}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+                      {m.name} {m.id === user.id ? <span style={{ fontSize: 11, color: '#667eea' }}>(you)</span> : ''}
+                    </div>
+                    {splitType !== 'EQUAL' && (
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                        {splitType === 'PERCENTAGE' ? `Calculated: ₹${userAmt.toFixed(2)}` : `Equivalent: ${userPct.toFixed(1)}%`}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="sw-allocation-input">
+                  {splitType === 'EQUAL' && (
+                    <span style={{ fontWeight: 700, color: '#22c55e', fontSize: 15 }}>
+                      ₹{(parsedAmount > 0 ? parsedAmount / members.length : 0).toFixed(2)}
+                    </span>
+                  )}
+
+                  {splitType === 'PERCENTAGE' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value={splits[m.id] || ''}
+                        onChange={(e) => updateSplit(m.id, e.target.value)}
+                        placeholder="0"
+                        style={{ width: 80, textAlign: 'right', fontWeight: 700 }}
+                      />
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>%</span>
+                    </div>
+                  )}
+
+                  {splitType === 'EXACT' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={splits[m.id] || ''}
+                        onChange={(e) => updateSplit(m.id, e.target.value)}
+                        placeholder="0.00"
+                        style={{ width: 90, textAlign: 'right', fontWeight: 700 }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          type="submit"
+          className="sw-btn"
+          disabled={submitting || !!validationStatus}
+          style={{ width: '100%', padding: '14px', fontSize: 16, marginTop: 8 }}
+        >
+          {submitting ? 'Adding Expense...' : `💸 Add Expense ${parsedAmount > 0 ? `(₹${parsedAmount.toFixed(2)})` : ''}`}
+        </button>
       </form>
     </div>
   );
