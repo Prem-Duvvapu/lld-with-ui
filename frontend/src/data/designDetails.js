@@ -4852,7 +4852,47 @@ const designDetails = {
       { area: 'Dynamic Seat Map Layouts', description: 'Support SVG auditorium canvas with curved seating, recliner lounges, and wheelchair access.', difficulty: 'Medium' },
       { area: 'WebSocket Real-Time Updates', description: 'Stream seat hold notifications to all active web clients via WebSocket STOMP protocol.', difficulty: 'Hard' }
     ]
+  },
+  atm: {
+    requirements: [
+      'State Machine Session Lifecycle: Explicit session states (IDLE → CARD_INSERTED → AUTHENTICATED → TRANSACTION_IN_PROGRESS → DISPENSING → CARD_BLOCKED) with strict guard validation.',
+      'Fine-Grained Per-Account Concurrency: Fair ReentrantLock per Account preventing account overselling under simultaneous multi-thread withdrawal races.',
+      'Hardware Cash Dispenser Locking: CashDispenser owns a dedicated ReentrantLock for note calculation and inventory updates.',
+      'Denomination-Based Cash Dispensing: Strategy Pattern using GreedyDenominationDispenseStrategy for note calculation across ₹2000, ₹500, ₹200, and ₹100 notes.',
+      'Compensating Transaction & Atomicity: Automatically credit account balance back if cash dispenser hardware fails due to denomination mismatch after debiting.',
+      'Card Security & PIN Lockout: Track failed PIN attempts and automatically block card (CARD_BLOCKED) after 3 consecutive failures.',
+      'Isolated Concurrency Simulation: Step-by-step interactive timeline demonstrating balance races, denomination failures, and PIN lockouts.'
+    ],
+    entities: [
+      { name: 'AtmService', description: 'Spring @Service facade managing session state machine, PIN verification, withdrawal, deposit, and simulation engine.' },
+      { name: 'CashDispenser', description: 'Hardware cash dispenser tracking note inventory with fair ReentrantLock.' },
+      { name: 'DenominationDispenseStrategy', description: 'Strategy interface computing optimal note counts per denomination for requested amounts.' },
+      { name: 'Account', description: 'Account entity with balance and per-account ReentrantLock for fine-grained thread safety.' },
+      { name: 'Card', description: 'Card model tracking card number, PIN, failed attempt counter, and block status.' },
+      { name: 'Transaction', description: 'Abstract template base class for WithdrawalTransaction and DepositTransaction.' }
+    ],
+    designPatterns: [
+      { name: 'State Pattern', used: true, explanation: 'ATMState enum enforces valid ATM hardware session transitions.' },
+      { name: 'Strategy Pattern', used: true, explanation: 'GreedyDenominationDispenseStrategy calculates note counts per denomination.' },
+      { name: 'Template Method Pattern', used: true, explanation: 'Transaction abstract base class defines execution lifecycle for withdrawals and deposits.' },
+      { name: 'Singleton Pattern', used: true, explanation: 'AtmService and CashDispenser managed as Spring singletons.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility Principle (SRP)', description: 'BankingService manages accounts; CashDispenser manages note inventory; AtmService coordinates session lifecycle.' },
+      { name: 'Open/Closed Principle (OCP)', description: 'New note dispense strategies (e.g. DynamicDenominationBalanceStrategy) can be implemented without modifying CashDispenser.' },
+      { name: 'Dependency Inversion Principle (DIP)', description: 'CashDispenser depends on DenominationDispenseStrategy interface.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Account lock synchronization and card PIN verification logic are strictly encapsulated inside entity methods.' },
+      { name: 'Polymorphism', description: 'CashDispenser delegates note calculation polymorphically to strategy implementations.' },
+      { name: 'Abstraction', description: 'REST API exposes clean endpoints for card insertion, PIN auth, withdrawals, deposits, and simulation snapshots.' }
+    ],
+    extensibility: [
+      { area: 'Cheque & Cardless Cash Deposit', description: 'Add OCR cheque scanner and OTP-based cardless cash withdrawal support.', difficulty: 'Medium' },
+      { area: 'Multi-Currency Dispenser', description: 'Extend NoteDenomination to support USD, EUR, and GBP currency notes with exchange rate conversion.', difficulty: 'Medium' }
+    ]
   }
 };
 
+export const ATM_DETAILS = designDetails.atm;
 export default designDetails;

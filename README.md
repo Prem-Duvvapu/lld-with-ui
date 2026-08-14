@@ -294,7 +294,8 @@ Then open http://localhost:5173 and click any LLD card.
 **APIs:** `POST /api/snakeladders/games`, `GET /api/snakeladders/games/{id}`, `POST /api/snakeladders/games/{id}/roll`
 
 ### 7. ATM
-**APIs:** `POST /api/atm/authenticate`, `GET /api/atm/{accountNumber}/balance`, `POST /api/atm/{accountNumber}/withdraw`, `POST /api/atm/{accountNumber}/deposit`, `GET /api/atm/{accountNumber}/transactions`
+**Features:** Hardware session state machine (`IDLE` ➔ `CARD_INSERTED` ➔ `AUTHENTICATED` ➔ `TRANSACTION_IN_PROGRESS` ➔ `DISPENSING` ➔ `SESSION_ENDED` / `CARD_BLOCKED`), Strategy Pattern for currency denomination dispensing across ₹2000, ₹500, ₹200, and ₹100 notes (`GreedyDenominationDispenseStrategy`), fine-grained per-account `ReentrantLock` preventing balance overselling under simultaneous 10-thread withdrawal races, hardware `CashDispenser` lock, automatic compensating credit refund on dispenser note combination failure, 3-attempt PIN lockout, 4-tab React UI (Interactive Hardware Keypad Terminal, Concurrency Simulation with live HUD event log, Class Diagram, Design Details), and isolated simulation API (`/api/atm/sim/*`).  
+**APIs:** `POST /api/atm/insert-card`, `POST /api/atm/authenticate`, `GET /api/atm/{accountNumber}/balance`, `POST /api/atm/{accountNumber}/withdraw`, `POST /api/atm/{accountNumber}/deposit`, `POST /api/atm/eject`, `GET /api/atm/{accountNumber}/transactions`, `GET /api/atm/dispenser`, `POST /api/atm/sim/reset`, `POST /api/atm/sim/authenticate`, `POST /api/atm/sim/withdraw`, `GET /api/atm/sim/events`, `GET /api/atm/sim/snapshots`
 
 ### 8. Splitwise
 **Features:** User/group management, expense creation with EQUAL/PERCENTAGE/EXACT split, balance calculation, settle up, transaction history, concurrent access safety  

@@ -1,72 +1,95 @@
 # Walkthrough — LLD Case Studies Phase Completion
 
-Completed end-to-end implementation and verification for two major LLD case studies:
-1. **Pub/Sub System LLD (#27)**
-2. **Online Shopping System (Shopping Cart LLD #19)**
+Completed end-to-end implementation and verification for three major LLD case studies and routing enhancements:
+1. **ATM System LLD (#7 Parity Upgrade)**
+2. **Pub/Sub System LLD (#27)**
+3. **Online Shopping System (Shopping Cart LLD #19)**
+4. **App Routing Fixes (Hotel Management, Airline, Inventory)**
 
 ---
 
-## 1. Pub/Sub System LLD (Project #27)
+## 1. ATM System LLD (Project #7 Parity Upgrade)
 
-### Changes Made
-- **Backend Architecture (`com.lld.pubsub`)**:
-  - `Message`: Core message object carrying id, topic, payload, publisher id, and epoch timestamp.
-  - `Subscriber`: Interface defining `consume(Message)`. Provided 3 concrete implementations: `PrintSubscriber`, `LoggingSubscriber`, and `SlowSubscriber`.
-  - `SubscriberWorker`: Dedicated per-subscriber worker thread running an `ArrayBlockingQueue<Message>` (capacity=50) to guarantee **strict FIFO message delivery ordering per subscriber**.
-  - `Topic`: Subject managing `CopyOnWriteArrayList<SubscriberWorker>` to support lock-free publish iteration during concurrent subscriber joins/leaves.
-  - `Broker`: Domain manager maintaining `ConcurrentHashMap<String, Topic>`.
-  - `PubSubService`: Singleton Spring facade supporting dynamic topic creation, subscriber registration, publishing, and isolated simulation engine (`/api/pubsub/sim/*`).
-  - `PubSubController`: REST controller annotated with `@CrossOrigin(origins = "*")`.
-- **Backend Tests (`PubSubServiceTest`)**:
-  - Verified topic creation, multi-subscriber message delivery, strict FIFO per-subscriber ordering, slow consumer isolation, and drop-and-reject backpressure handling under full queue conditions. **All 5 JUnit tests passed cleanly in 0.8s**.
-- **Frontend UI (`src/lld/pubsub/`)**:
-  - 5-tab React component (`PubSubPage.jsx` + `api.js`): Topics & Publishers, Subscribers & Inboxes, Interactive 2D Simulation, Class Diagram, Design Details.
-
----
-
-## 2. Online Shopping System (Shopping Cart LLD #19)
-
-### Changes Made
-- **Backend Architecture (`com.lld.shoppingcart`)**:
-  - **Models & Enums**: `Category`, `OrderStatus` (`PLACED`, `PROCESSING`, `SHIPPED`, `DELIVERED`, `CANCELLED`), `PaymentMethod` (`CREDIT_CARD`, `DEBIT_CARD`, `UPI`, `WALLET`), `User`, `Product` (with `AtomicInteger stockQuantity` and per-product `ReentrantLock`), `CartItem`, `Cart`, `OrderItem`, `Order`, `SimEvent`.
-  - **Command Pattern (`com.lld.shoppingcart.command`)**: `CartCommand` interface (`execute()`, `undo()`), `AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand`. Enables single-step atomic Undo functionality.
-  - **Payment Strategy Pattern (`com.lld.shoppingcart.payment`)**: `PaymentStrategy` interface with `CreditCardPaymentStrategy`, `DebitCardPaymentStrategy`, `UpiPaymentStrategy`, `WalletPaymentStrategy`, routed via `ShoppingCartPaymentProcessor`.
-  - **Custom Exception Hierarchy (`com.lld.shoppingcart.exception`)**: `ProductNotFoundException` (404), `InsufficientStockException` (409), `CartEmptyException` (400), `PaymentFailedException` (422), `InvalidOrderStateException` (400).
-  - **Service & Concurrency (`ShoppingCartService`)**:
-    - **Deadlock Prevention**: Sorts required product locks by `productId` ascending before acquiring per-product `ReentrantLock` instances during checkout.
-    - **Zero Overselling**: Atomic CAS check-and-decrement validation under lock.
-    - **Idempotency Support**: Caches cached orders by idempotency key.
-    - **Order Lifecycle & Restocking**: Restocks inventory when orders in `PLACED`/`PROCESSING` states are cancelled.
-    - **Isolated Simulation Engine**: Surface at `/api/shoppingcart/sim/*`.
-  - **Controller (`ShoppingCartController`)**: REST API annotated with `@CrossOrigin(origins = "*")`.
-- **Backend Tests (`ShoppingCartServiceTest`)**:
-  - Authored 5 JUnit tests including a **10-thread simultaneous checkout concurrency race condition test** on a low-stock product (2 units).
-  - Verified **exactly 2 orders succeeded and 8 failed with `InsufficientStockException`**, leaving stock at 0 with zero negative overselling. **All 5 tests passed cleanly in 0.75s**.
-- **Frontend UI (`src/lld/shoppingcart/`)**:
-  - Built 7-tab React component (`ShoppingCartPage.jsx` + `api.js` using `apiFetch` helper): Shop Catalog, Cart & Checkout with Undo, Orders Timeline, Seller Dashboard, Interactive 2D Simulation, Class Diagram, Design Details.
+### Key Architectural Upgrades (`com.lld.atm`)
+- **Session Lifecycle State Machine (`ATMState`)**:
+  - Enforces explicit state transitions: `IDLE` $\rightarrow$ `CARD_INSERTED` $\rightarrow$ `AUTHENTICATED` $\rightarrow$ `TRANSACTION_IN_PROGRESS` $\rightarrow$ `DISPENSING` $\rightarrow$ `SESSION_ENDED` / `CARD_BLOCKED`.
+  - Guard methods validate transition prerequisites and throw `InvalidSessionStateException` on out-of-sequence calls.
+- **Strategy Pattern for Denomination Dispensing (`com.lld.atm.dispenser`)**:
+  - `DenominationDispenseStrategy` interface implemented by `GreedyDenominationDispenseStrategy`.
+  - Greedily selects largest currency note combinations across ₹2000, ₹500, ₹200, and ₹100 notes.
+  - Rejects invalid denomination requests (e.g. ₹2300 requested when only ₹2000 notes exist) with `InsufficientCashException`.
+- **Fine-Grained Per-Account Concurrency & Locks (`Account` & `BankingService`)**:
+  - Replaced global repository locking with a fair per-account `ReentrantLock` in `Account`.
+  - Prevents race conditions during simultaneous multi-thread balance inquiries and debits.
+- **Hardware Cash Dispenser Locking & Compensating Transactions**:
+  - `CashDispenser` owns a dedicated `ReentrantLock`.
+  - **Atomicity Protocol**: If cash dispensing fails after debiting an account, `AtmService` automatically triggers a **compensating transaction** that credits the debited amount back to the account balance before throwing `InsufficientCashException`.
+- **Card Security & PIN Attempt Lockout**:
+  - `Card` tracks `failedPinAttempts` via `AtomicInteger`.
+  - After 3 consecutive failed PIN attempts, `card.blockCard()` is called, transitioning session state to `CARD_BLOCKED` and throwing `CardBlockedException` (HTTP 403).
+- **Template Method Pattern (`Transaction`)**:
+  - Abstract `Transaction` base class with concrete `WithdrawalTransaction` and `DepositTransaction` subclasses.
+- **Isolated Simulation Engine (`/api/atm/sim/*`)**:
+  - Endpoints supporting 10-thread balance race simulation, denomination mismatch compensation, and 3-attempt PIN lockout.
+- **React Frontend UI (`src/lld/atm/`)**:
+  - 4-tab React component (`AtmPage.jsx` + `api.js` + `AtmPage.css`):
+    1. `🏧 ATM Terminal`: Physical cabinet UI with 4-digit PIN keypad, card slot animation, balance inquiry, deposit, withdrawal, note breakdown chips, and printable transaction receipt modal.
+    2. `🔒 Concurrency Simulation`: Step-by-step interactive visualizer for 10-thread balance races, denomination failure compensation, and PIN lockout.
+    3. `📐 Class Diagram`: Interactive diagram rendering via `<ClassDiagram lldKey="atm" />`.
+    4. `📋 Design Details`: Complete architecture breakdown via `<DesignDetails lldKey="atm" />`.
 
 ---
 
-## 3. Verification Results
+## 2. Pub/Sub System LLD (Project #27)
 
-### Automated Tests
-1. **Pub/Sub System JUnit Test Suite**:
-   ```bash
-   wsl bash -c "cd backend && mvn test -Dtest=PubSubServiceTest"
-   # Output: Tests run: 5, Failures: 0, Errors: 0, Skipped: 0 -> BUILD SUCCESS
-   ```
-2. **Shopping Cart System JUnit Test Suite**:
-   ```bash
-   wsl bash -c "cd backend && mvn test -Dtest=ShoppingCartServiceTest"
-   # Output: Tests run: 5, Failures: 0, Errors: 0, Skipped: 0 -> BUILD SUCCESS
-   ```
-3. **Frontend Vite Production Build**:
-   ```bash
-   wsl bash -c "cd frontend && npm run build"
-   # Output: 150 modules transformed -> built in 4.98s (0 errors)
-   ```
+### Architecture (`com.lld.pubsub`)
+- Dedicated per-subscriber worker thread running an `ArrayBlockingQueue<Message>` to guarantee **strict FIFO message delivery ordering per subscriber**.
+- `CopyOnWriteArrayList<SubscriberWorker>` dispatches messages without locking subscribers during high-throughput publish iterations.
+- Drop-and-reject backpressure policy emits `QueueFullException` simulation alerts without stalling publishers when a slow consumer's queue overflows.
+- 5-tab React UI (`PubSubPage.jsx`): Topics & Publishers, Subscribers & Inboxes, Interactive 2D Simulation, Class Diagram, Design Details.
 
 ---
 
-## Summary of Completed Git Commits
-- Commit `eec4e62`: `feat(pubsub): complete Pub/Sub System LLD module with Producer-Consumer per-subscriber worker queues, FIFO ordering, backpressure, and 5-tab UI`
+## 3. Online Shopping System (Shopping Cart LLD #19)
+
+### Architecture (`com.lld.shoppingcart`)
+- **Command Pattern**: `CartCommand` interface (`AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand`) supporting single-step atomic Undo functionality.
+- **Strategy Pattern**: `PaymentStrategy` interface with `CreditCard`, `DebitCard`, `UPI`, and `Wallet` strategies routed via `ShoppingCartPaymentProcessor`.
+- **Deadlock Prevention**: Ascending `productId` lock acquisition ordering on per-product `ReentrantLock` instances during checkout.
+- 7-tab React UI (`ShoppingCartPage.jsx`): Shop Catalog, Cart & Checkout with Undo, Orders Timeline, Seller Dashboard, Interactive 2D Concurrency Simulation, Class Diagram, Design Details.
+
+---
+
+## 4. Verification Results
+
+### Automated Backend Tests
+- Executed full repository backend unit test suite:
+  ```bash
+  wsl bash -c "cd backend && mvn test"
+  ```
+- **Results**: **66 tests run, 0 failures, 0 errors** (`BUILD SUCCESS`).
+  - `AtmServiceTest`: 5/5 passed (including 10-thread simultaneous withdrawal race test and compensating credit refund test).
+  - `ShoppingCartServiceTest`: 5/5 passed.
+  - `PubSubServiceTest`: 5/5 passed.
+  - `ParkingLotServiceTest`: 18/18 passed.
+  - `MovieTicketServiceTest`: 7/7 passed.
+  - `SplitwiseServiceTest`: 7/7 passed.
+  - `ElevatorConcurrencyTest` / `LookScanDispatchStrategyTest`: 6/6 passed.
+  - `TicTacToeServiceTest`: 5/5 passed.
+  - `LruCacheServiceTest`: 5/5 passed.
+  - `ZomatoServiceTest`: 3/3 passed.
+
+### Automated Frontend Production Build
+- Executed Vite production bundle compilation:
+  ```bash
+  wsl bash -c "cd frontend && npm run build"
+  ```
+- **Result**: **151 modules transformed cleanly in 9.42s with 0 build errors**.
+
+---
+
+## 5. Git Commit & Push Summary
+
+All changes committed and pushed to git repository `main`:
+1. `c49f84a`: `fix(routing): add route alias for hotel-management, airline-reservation, and inventory-management in App.jsx`
+2. Next: `feat(atm): complete ATM System LLD parity upgrade with session state machine, denomination dispensing strategy, fine-grained per-account ReentrantLocks, compensating transactions, and 4-tab React UI`

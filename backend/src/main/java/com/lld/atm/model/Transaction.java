@@ -1,67 +1,43 @@
 package com.lld.atm.model;
 
-import java.time.LocalDateTime;
+import java.util.Map;
 
-public class Transaction {
-    private long id;
-    private String accountNumber;
-    private TransactionType type;
-    private double amount;
-    private LocalDateTime timestamp;
-    private String status;
-    private String message;
+public abstract class Transaction {
+    private final String transactionId;
+    private final String accountNumber;
+    private final TransactionType type;
+    private final double amount;
+    private final long timestampEpoch;
+    private String status; // "SUCCESS", "FAILED"
+    private String failureReason;
 
-    public Transaction() {}
-
-    public Transaction(long id, String accountNumber, TransactionType type, double amount,
-                       LocalDateTime timestamp, String status, String message) {
-        this.id = id;
+    public Transaction(String transactionId, String accountNumber, TransactionType type, double amount) {
+        this.transactionId = transactionId;
         this.accountNumber = accountNumber;
         this.type = type;
         this.amount = amount;
-        this.timestamp = timestamp;
-        this.status = status;
-        this.message = message;
+        this.timestampEpoch = System.currentTimeMillis();
+        this.status = "SUCCESS";
     }
 
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
+    public String getTransactionId() {
+        return transactionId;
     }
 
     public String getAccountNumber() {
         return accountNumber;
     }
 
-    public void setAccountNumber(String accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
     public TransactionType getType() {
         return type;
-    }
-
-    public void setType(TransactionType type) {
-        this.type = type;
     }
 
     public double getAmount() {
         return amount;
     }
 
-    public void setAmount(double amount) {
-        this.amount = amount;
-    }
-
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
+    public long getTimestampEpoch() {
+        return timestampEpoch;
     }
 
     public String getStatus() {
@@ -72,11 +48,11 @@ public class Transaction {
         this.status = status;
     }
 
-    public String getMessage() {
-        return message;
+    public String getFailureReason() {
+        return failureReason;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
+    public void setFailureReason(String failureReason) {
+        this.failureReason = failureReason;
     }
 }

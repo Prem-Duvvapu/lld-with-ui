@@ -1,0 +1,338 @@
+.atm-page {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  color: var(--text-primary);
+}
+
+.atm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.atm-title-area h1 {
+  margin: 0 0 4px 0;
+  font-size: 1.8rem;
+}
+
+.atm-badge {
+  font-size: 0.85rem;
+  color: #a78bfa;
+  background: rgba(167, 139, 250, 0.1);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(167, 139, 250, 0.2);
+}
+
+.atm-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.atm-tab {
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.atm-tab.active {
+  background: var(--accent-color, #7c3aed);
+  color: #fff;
+  border-color: var(--accent-color, #7c3aed);
+}
+
+/* TERMINAL LAYOUT */
+.atm-terminal-layout {
+  display: grid;
+  grid-template-columns: 600px 1fr;
+  gap: 24px;
+}
+
+.atm-cabinet {
+  background: #1e1e2d;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 2px solid #323248;
+}
+
+.atm-screen {
+  background: #0f172a;
+  border: 3px solid #334155;
+  border-radius: 12px;
+  padding: 16px;
+  min-height: 280px;
+  margin-bottom: 20px;
+  color: #38bdf8;
+  font-family: 'Fira Code', monospace;
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.8);
+}
+
+.screen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.bank-logo {
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.status-pill {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  background: #334155;
+}
+
+.status-pill.authenticated { background: #166534; color: #4ade80; }
+.status-pill.card_blocked { background: #991b1b; color: #f87171; }
+
+.screen-alert {
+  padding: 8px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+}
+.screen-alert.error { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+.screen-alert.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; }
+
+.screen-body.idle { text-align: center; padding-top: 40px; color: #94a3b8; }
+.screen-body.pin-entry { text-align: center; padding-top: 20px; }
+
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
+  font-size: 1.8rem;
+}
+.pin-dots .dot { color: #334155; }
+.pin-dots .dot.filled { color: #38bdf8; }
+
+.account-hud {
+  display: flex;
+  justify-content: space-between;
+  background: #1e293b;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+.account-hud .green { color: #4ade80; }
+
+.atm-amount-selector label { font-size: 0.85rem; color: #94a3b8; }
+.atm-amount-selector input {
+  width: 100%;
+  padding: 8px;
+  background: #020617;
+  border: 1px solid #334155;
+  color: #38bdf8;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  margin-top: 4px;
+}
+
+.quick-buttons {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0;
+}
+.quick-buttons button {
+  flex: 1;
+  padding: 4px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.screen-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.btn-action {
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-action.withdraw { background: #166534; color: #fff; }
+.btn-action.deposit { background: #1e40af; color: #fff; }
+.btn-action.balance { background: #334155; color: #fff; }
+.btn-action.eject { background: #991b1b; color: #fff; }
+
+.atm-hardware-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-slot-area {
+  text-align: center;
+}
+.slot-label { font-size: 0.75rem; color: #94a3b8; }
+.card-slot {
+  background: #020617;
+  border: 2px dashed #475569;
+  padding: 10px;
+  border-radius: 8px;
+  color: #64748b;
+  font-weight: bold;
+}
+.card-slot.active { border-color: #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.keypad-btn {
+  padding: 14px;
+  background: #334155;
+  border: 1px solid #475569;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.keypad-btn:active { transform: scale(0.96); }
+.keypad-btn.clear { background: #b91c1c; }
+.keypad-btn.enter { background: #15803d; }
+
+.cash-dispenser-slot {
+  background: #020617;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+.cash-dispenser-slot.dispensing { border-color: #22c55e; color: #22c55e; animation: pulse 1s infinite; }
+
+.atm-side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.card-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+.card-selector button {
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+.card-selector button.selected { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+
+.btn-insert-main {
+  width: 100%;
+  padding: 10px;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+.denom-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* SIMULATION TAB */
+.sim-scenarios-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.sim-scenario-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.btn-trigger {
+  width: 100%;
+  padding: 10px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 12px;
+}
+.btn-trigger.red { background: #dc2626; }
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 12px;
+}
+
+.timeline-item {
+  background: var(--bg-secondary);
+  border-left: 4px solid #3b82f6;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+.timeline-item.withdraw_failed { border-color: #ef4444; }
+.timeline-item.dispenser_fail_revert { border-color: #f59e0b; }
+.timeline-item.card_blocked { border-color: #dc2626; }
+
+.timeline-item .time { font-size: 0.75rem; color: var(--text-secondary); margin-right: 8px; }
+.timeline-item .actor { font-weight: bold; margin-right: 8px; }
+.timeline-item .type-tag { font-size: 0.75rem; background: rgba(59, 130, 246, 0.15); padding: 2px 6px; border-radius: 4px; }

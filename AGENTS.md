@@ -128,6 +128,17 @@
 - 5 tabs: Topics & Publishers, Subscribers & Inboxes, Interactive 2D Simulation, Class Diagram, Design Details.
 - Real-time message flow visualizer with publisher nodes, broker hub, animated particle streams, queue depth fill bars, and slow-subscriber backpressure indicators.
 
+## ATM Module
+### Backend
+- `AtmInitializer`: Seed sample accounts, card credentials ( John Doe = 1234, Jane Smith = 4321, Alice Johnson = 0000 ), and initial cash dispenser note inventory.
+- `AtmService`: Singleton facade managing session state machine (`IDLE`, `CARD_INSERTED`, `AUTHENTICATED`, `TRANSACTION_IN_PROGRESS`, `DISPENSING`, `CARD_BLOCKED`), fine-grained per-account `ReentrantLock` concurrency, hardware `CashDispenser` note calculation, compensating transaction balance revert on dispense failure, 3-attempt PIN lockout, and isolated `/api/atm/sim/*` engine.
+- Strategy Pattern: `DenominationDispenseStrategy` interface with `GreedyDenominationDispenseStrategy` for note calculation across ₹2000, ₹500, ₹200, and ₹100 notes.
+- Template Method Pattern: `Transaction` abstract base class with `WithdrawalTransaction` and `DepositTransaction`.
+
+### Frontend
+- 4 tabs: 🏧 ATM Terminal, 🔒 Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
+- Hardware keypad terminal with PIN entry, cash slot animation, note breakdown badges, printable receipt modal, and interactive simulation timeline for 10-thread balance races, denomination mismatch compensation, and PIN lockout.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar
