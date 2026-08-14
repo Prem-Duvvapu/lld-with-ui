@@ -6,15 +6,23 @@ public class Movie {
     private String genre;
     private int duration;
     private double rating;
+    private String language;
+    private String posterEmoji;
 
     public Movie() {}
 
-    public Movie(long id, String title, String genre, int duration, double rating) {
+    public Movie(long id, String title, String genre, int duration, double rating, String language, String posterEmoji) {
         this.id = id;
         this.title = title;
         this.genre = genre;
         this.duration = duration;
         this.rating = rating;
+        this.language = language;
+        this.posterEmoji = posterEmoji;
+    }
+
+    public Movie(long id, String title, String genre, int duration, double rating) {
+        this(id, title, genre, duration, rating, "English", "🎬");
     }
 
     public long getId() { return id; }
@@ -31,4 +39,10 @@ public class Movie {
 
     public double getRating() { return rating; }
     public void setRating(double rating) { this.rating = rating; }
+
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+
+    public String getPosterEmoji() { return posterEmoji; }
+    public void setPosterEmoji(String posterEmoji) { this.posterEmoji = posterEmoji; }
 }

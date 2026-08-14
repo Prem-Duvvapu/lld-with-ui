@@ -797,6 +797,77 @@ const classDiagrams = {
       { from: 'EvictionPolicy', to: 'EvictionPolicyType', label: 'uses' },
       { from: 'LRUEvictionPolicy', to: 'Node', label: 'doubly-linked list HEAD/TAIL' }
     ]
+  },
+  splitwise: {
+    title: 'Splitwise Expense Sharing — Class Diagram',
+    classes: [
+      { name: 'SplitwiseService', stereotype: 'singleton', fields: ['- repository: SplitwiseRepository', '- strategyFactory: SplitStrategyFactory', '- eventLog: List<ExpenseEvent>', '- lock: ReentrantLock'], methods: ['+ createUser(name, email): User', '+ createGroup(name, memberIds): Group', '+ addExpense(desc, amount, paidBy, groupId, splits): Expense', '+ settleUp(fromUser, toUser, groupId, amount): Settlement', '+ getSimplifiedDebts(groupId): List<SuggestedSettlement>'] },
+      { name: 'User', fields: ['- id: long', '- name: String', '- email: String'], methods: [] },
+      { name: 'Group', fields: ['- id: long', '- name: String', '- members: List<User>'], methods: [] },
+      { name: 'Expense', fields: ['- id: long', '- description: String', '- amount: double', '- paidBy: User', '- groupId: long', '- splits: List<Split>', '- createdAt: LocalDateTime'], methods: [] },
+      { name: 'Split', fields: ['- id: long', '- user: User', '- amount: double', '- percentage: double', '- type: SplitType'], methods: [] },
+      { name: 'SplitType', stereotype: 'enum', fields: ['EQUAL', 'PERCENTAGE', 'EXACT'], methods: [] },
+      { name: 'Settlement', fields: ['- id: long', '- fromUser: User', '- toUser: User', '- amount: double', '- groupId: long', '- timestamp: LocalDateTime'], methods: [] },
+      { name: 'ExpenseEvent', stereotype: 'dto', fields: ['- id: long', '- type: String', '- actor: String', '- description: String', '- balanceSnapshot: Map', '- timestamp: LocalDateTime'], methods: [] },
+      { name: 'SuggestedSettlement', stereotype: 'dto', fields: ['- fromUser: User', '- toUser: User', '- amount: double'], methods: [] },
+      { name: 'SplitStrategy', stereotype: 'interface', fields: [], methods: ['+ calculateSplits(amount, group, splits, repo): List<Split>'] },
+      { name: 'EqualSplitStrategy', fields: ['implements SplitStrategy'], methods: ['+ calculateSplits(...)'] },
+      { name: 'PercentageSplitStrategy', fields: ['implements SplitStrategy'], methods: ['+ calculateSplits(...)'] },
+      { name: 'ExactSplitStrategy', fields: ['implements SplitStrategy'], methods: ['+ calculateSplits(...)'] },
+      { name: 'SplitStrategyFactory', fields: ['- strategies: Map<SplitType, SplitStrategy>'], methods: ['+ getStrategy(type): SplitStrategy'] },
+      { name: 'SplitwiseRepository', fields: ['- users: ConcurrentHashMap', '- groups: ConcurrentHashMap', '- expenses: ConcurrentHashMap', '- balances: ConcurrentHashMap', '- lock: ReentrantLock'], methods: ['+ saveUser()', '+ saveGroup()', '+ saveExpense()', '+ updateBalance()', '+ getNetBalance()'] }
+    ],
+    relationships: [
+      { from: 'SplitwiseService', to: 'SplitwiseRepository', label: 'uses' },
+      { from: 'SplitwiseService', to: 'SplitStrategyFactory', label: 'uses' },
+      { from: 'SplitwiseService', to: 'ExpenseEvent', label: 'logs' },
+      { from: 'SplitwiseService', to: 'SuggestedSettlement', label: 'calculates' },
+      { from: 'EqualSplitStrategy', to: 'SplitStrategy', label: 'implements', dashed: true },
+      { from: 'PercentageSplitStrategy', to: 'SplitStrategy', label: 'implements', dashed: true },
+      { from: 'ExactSplitStrategy', to: 'SplitStrategy', label: 'implements', dashed: true },
+      { from: 'SplitStrategyFactory', to: 'SplitStrategy', label: 'creates' },
+      { from: 'Group', to: 'User', label: 'contains' },
+      { from: 'Expense', to: 'User', label: 'paid by' },
+      { from: 'Expense', to: 'Split', label: 'contains' },
+      { from: 'Split', to: 'User', label: 'assigned to' },
+      { from: 'Split', to: 'SplitType', label: 'has type' },
+      { from: 'Settlement', to: 'User', label: 'from / to' }
+    ]
+  },
+  movieticket: {
+    title: 'Movie Ticket Booking System (BookMyShow) — Class Diagram',
+    classes: [
+      { name: 'MovieTicketService', stereotype: 'singleton', fields: ['- repository: MovieTicketRepository', '- seatLockManager: SeatLockManager', '- paymentProcessor: PaymentProcessor', '- seatMapNotifier: SeatMapNotifier', '- pricingStrategy: PricingStrategy'], methods: ['+ getMovies(): List<Movie>', '+ getShows(movieId): List<Show>', '+ getSeats(showId): List<Seat>', '+ holdSeats(showId, seatIds, userId): Map', '+ bookSeats(showId, seatIds, userId, method, key): Booking', '+ cancelBooking(bookingId): Booking', '+ simHoldSeats(...)', '+ simBookSeats(...)'] },
+      { name: 'SeatLockManager', fields: ['- seatLocks: ConcurrentHashMap<String, ReentrantLock>'], methods: ['+ holdSeats(showId, seatIds, userId, duration, repo, notifier)', '+ confirmSeats(showId, seatIds, userId, repo, notifier)', '+ releaseSeats(...)', '+ expireStaleHolds(...)'] },
+      { name: 'MovieTicketRepository', fields: ['- movies: ConcurrentHashMap', '- theaters: ConcurrentHashMap', '- shows: ConcurrentHashMap', '- showSeats: Map<Long, Map<Long, Seat>>', '- bookings: ConcurrentHashMap'], methods: ['+ getSeatsByShow(showId): List<Seat>', '+ findSeatById(showId, seatId): Seat', '+ updateSeat(seat): void', '+ saveBooking(booking): Booking'] },
+      { name: 'Seat', fields: ['- id: long', '- showId: long', '- row: int', '- col: int', '- seatType: SeatType', '- price: double', '- status: SeatStatus', '- heldByUserId: String', '- holdExpiresAt: long', '- version: long'], methods: [] },
+      { name: 'SeatStatus', stereotype: 'enum', fields: ['AVAILABLE', 'HELD', 'BOOKED'], methods: [] },
+      { name: 'SeatType', stereotype: 'enum', fields: ['SILVER', 'GOLD', 'PLATINUM'], methods: [] },
+      { name: 'Booking', fields: ['- id: long', '- showId: long', '- seatIds: List<Long>', '- userId: String', '- bookingStatus: BookingStatus', '- paymentMethod: PaymentMethod', '- totalAmount: double', '- bookingTime: LocalDateTime'], methods: [] },
+      { name: 'BookingStatus', stereotype: 'enum', fields: ['PENDING', 'CONFIRMED', 'CANCELLED'], methods: [] },
+      { name: 'PricingStrategy', stereotype: 'interface', fields: [], methods: ['+ calculatePrice(show, seat): double'] },
+      { name: 'BasePricingStrategy', fields: ['implements PricingStrategy'], methods: ['+ calculatePrice(show, seat): double'] },
+      { name: 'SurgePricingStrategy', fields: ['implements PricingStrategy'], methods: ['+ calculatePrice(show, seat): double'] },
+      { name: 'SeatFactory', fields: [], methods: ['+ createSeat(seatId, showId, row, col, seatType): Seat'] },
+      { name: 'SeatMapNotifier', fields: ['- observers: List<SeatAvailabilityObserver>'], methods: ['+ notifyStatusChange(...)'] },
+      { name: 'SeatAvailabilityObserver', stereotype: 'interface', fields: [], methods: ['+ onSeatStatusChanged(...)'] },
+      { name: 'PaymentProcessor', fields: ['- shouldFail: boolean'], methods: ['+ processPayment(userId, amount, method): String'] }
+    ],
+    relationships: [
+      { from: 'MovieTicketService', to: 'SeatLockManager', label: 'uses' },
+      { from: 'MovieTicketService', to: 'MovieTicketRepository', label: 'uses' },
+      { from: 'MovieTicketService', to: 'PaymentProcessor', label: 'uses' },
+      { from: 'MovieTicketService', to: 'PricingStrategy', label: 'uses' },
+      { from: 'MovieTicketService', to: 'SeatMapNotifier', label: 'notifies' },
+      { from: 'BasePricingStrategy', to: 'PricingStrategy', label: 'implements', dashed: true },
+      { from: 'SurgePricingStrategy', to: 'PricingStrategy', label: 'implements', dashed: true },
+      { from: 'SeatLockManager', to: 'Seat', label: 'locks & mutates' },
+      { from: 'MovieTicketRepository', to: 'Seat', label: 'contains per show' },
+      { from: 'MovieTicketRepository', to: 'Booking', label: 'stores' },
+      { from: 'Seat', to: 'SeatStatus', label: 'has status' },
+      { from: 'Seat', to: 'SeatType', label: 'has type' },
+      { from: 'Booking', to: 'BookingStatus', label: 'has status' }
+    ]
   }
 };
 

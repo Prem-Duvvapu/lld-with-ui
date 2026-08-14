@@ -10,6 +10,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/splitwise")
+@CrossOrigin(origins = "*")
 public class SplitwiseController {
     private final SplitwiseService splitwiseService;
 
@@ -70,7 +71,7 @@ public class SplitwiseController {
         Long groupId = ((Number) body.get("groupId")).longValue();
         List<Map<String, Object>> splitsRaw = (List<Map<String, Object>>) body.get("splits");
 
-        List<Split> splits = splitsRaw.stream().map(s -> {
+        List<Split> splits = (splitsRaw == null) ? List.of() : splitsRaw.stream().map(s -> {
             Split split = new Split();
             User user = new User();
             user.setId(((Number) s.get("userId")).longValue());
@@ -108,5 +109,85 @@ public class SplitwiseController {
     @GetMapping("/users/{userId}/transactions")
     public ResponseEntity<List<Object>> getTransactionHistory(@PathVariable long userId) {
         return ResponseEntity.ok(splitwiseService.getTransactionHistory(userId));
+    }
+
+    @GetMapping("/groups/{groupId}/simplified-debts")
+    public ResponseEntity<List<SuggestedSettlement>> getSimplifiedDebts(@PathVariable long groupId) {
+        return ResponseEntity.ok(splitwiseService.getSimplifiedDebts(groupId));
+    }
+
+    @GetMapping("/events")
+    public ResponseEntity<List<ExpenseEvent>> getEventLog() {
+        return ResponseEntity.ok(splitwiseService.getEventLog());
+    }
+
+    // --- ISOLATED SIMULATION ENDPOINTS ---
+    @PostMapping("/sim/reset")
+    public ResponseEntity<Map<String, String>> simReset() {
+        splitwiseService.simReset();
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PostMapping("/sim/users")
+    public ResponseEntity<User> simCreateUser(@RequestBody Map<String, String> body) {
+        User user = splitwiseService.simCreateUser(body.get("name"), body.get("email"));
+        return ResponseEntity.ok(user);
+    }
+
+    @PostMapping("/sim/groups")
+    public ResponseEntity<Group> simCreateGroup(@RequestBody Map<String, Object> body) {
+        String name = (String) body.get("name");
+        List<Integer> memberIdsRaw = (List<Integer>) body.get("memberIds");
+        List<Long> memberIds = memberIdsRaw.stream().map(Integer::longValue).toList();
+        Group group = splitwiseService.simCreateGroup(name, memberIds);
+        return ResponseEntity.ok(group);
+    }
+
+    @PostMapping("/sim/expenses")
+    public ResponseEntity<Expense> simAddExpense(@RequestBody Map<String, Object> body) {
+        String description = (String) body.get("description");
+        double amount = ((Number) body.get("amount")).doubleValue();
+        Long paidBy = ((Number) body.get("paidBy")).longValue();
+        Long groupId = ((Number) body.get("groupId")).longValue();
+        List<Map<String, Object>> splitsRaw = (List<Map<String, Object>>) body.get("splits");
+
+        List<Split> splits = (splitsRaw == null) ? List.of() : splitsRaw.stream().map(s -> {
+            Split split = new Split();
+            User user = new User();
+            user.setId(((Number) s.get("userId")).longValue());
+            split.setUser(user);
+            split.setAmount(s.get("amount") != null ? ((Number) s.get("amount")).doubleValue() : 0);
+            split.setPercentage(s.get("percentage") != null ? ((Number) s.get("percentage")).doubleValue() : 0);
+            split.setType(SplitType.valueOf((String) s.get("type")));
+            return split;
+        }).toList();
+
+        Expense expense = splitwiseService.simAddExpense(description, amount, paidBy, groupId, splits);
+        return ResponseEntity.ok(expense);
+    }
+
+    @PostMapping("/sim/settle")
+    public ResponseEntity<Settlement> simSettleUp(@RequestBody Map<String, Object> body) {
+        long fromUserId = ((Number) body.get("fromUserId")).longValue();
+        long toUserId = ((Number) body.get("toUserId")).longValue();
+        long groupId = ((Number) body.get("groupId")).longValue();
+        double amount = ((Number) body.get("amount")).doubleValue();
+        Settlement settlement = splitwiseService.simSettleUp(fromUserId, toUserId, groupId, amount);
+        return ResponseEntity.ok(settlement);
+    }
+
+    @GetMapping("/sim/balances")
+    public ResponseEntity<Map<String, Map<String, Double>>> simGetBalances() {
+        return ResponseEntity.ok(splitwiseService.simGetAllBalances());
+    }
+
+    @GetMapping("/sim/events")
+    public ResponseEntity<List<ExpenseEvent>> simGetEvents() {
+        return ResponseEntity.ok(splitwiseService.simGetEvents());
+    }
+
+    @GetMapping("/sim/groups/{groupId}/simplified-debts")
+    public ResponseEntity<List<SuggestedSettlement>> simGetSimplifiedDebts(@PathVariable long groupId) {
+        return ResponseEntity.ok(splitwiseService.simGetSimplifiedDebts(groupId));
     }
 }

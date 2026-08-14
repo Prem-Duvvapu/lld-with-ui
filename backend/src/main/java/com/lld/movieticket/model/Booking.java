@@ -8,18 +8,31 @@ public class Booking {
     private long showId;
     private List<Long> seatIds;
     private String userId;
-    private String status;
+    private BookingStatus bookingStatus;
+    private PaymentMethod paymentMethod;
     private double totalAmount;
     private LocalDateTime bookingTime;
 
     public Booking() {}
+
+    public Booking(long id, long showId, List<Long> seatIds, String userId, BookingStatus bookingStatus, PaymentMethod paymentMethod, double totalAmount, LocalDateTime bookingTime) {
+        this.id = id;
+        this.showId = showId;
+        this.seatIds = seatIds;
+        this.userId = userId;
+        this.bookingStatus = bookingStatus != null ? bookingStatus : BookingStatus.PENDING;
+        this.paymentMethod = paymentMethod != null ? paymentMethod : PaymentMethod.UPI;
+        this.totalAmount = totalAmount;
+        this.bookingTime = bookingTime;
+    }
 
     public Booking(long id, long showId, List<Long> seatIds, String userId, String status, double totalAmount, LocalDateTime bookingTime) {
         this.id = id;
         this.showId = showId;
         this.seatIds = seatIds;
         this.userId = userId;
-        this.status = status;
+        setStatus(status);
+        this.paymentMethod = PaymentMethod.UPI;
         this.totalAmount = totalAmount;
         this.bookingTime = bookingTime;
     }
@@ -36,8 +49,20 @@ public class Booking {
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public BookingStatus getBookingStatus() { return bookingStatus; }
+    public void setBookingStatus(BookingStatus bookingStatus) { this.bookingStatus = bookingStatus; }
+
+    public String getStatus() { return bookingStatus != null ? bookingStatus.name() : "PENDING"; }
+    public void setStatus(String status) {
+        try {
+            this.bookingStatus = BookingStatus.valueOf(status.toUpperCase());
+        } catch (Exception e) {
+            this.bookingStatus = BookingStatus.PENDING;
+        }
+    }
+
+    public PaymentMethod getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
 
     public double getTotalAmount() { return totalAmount; }
     public void setTotalAmount(double totalAmount) { this.totalAmount = totalAmount; }

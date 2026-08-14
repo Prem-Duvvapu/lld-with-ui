@@ -4680,6 +4680,97 @@ const designDetails = {
       { area: 'TTL (Time-To-Live) Expiration Engine', description: 'Add background thread or lazy expiry check to invalidate stale cache nodes after TTL duration.', difficulty: 'Medium' },
       { area: 'Distributed Cache Synchronization', description: 'Integrate Redis pub-sub or Raft consensus algorithm for multi-node distributed cache invalidate messages.', difficulty: 'Hard' }
     ]
+  },
+  splitwise: {
+    title: 'Splitwise Expense Sharing — Design Details',
+    summary: 'Multi-actor expense sharing engine supporting group & non-group expenses, 3 split strategies (Equal, Percentage, Exact), balance ledger tracking, graph-based debt simplification, real-time event logging, and thread-safe settlement processing.',
+    highlights: [
+      'Extensible Strategy Pattern for split calculations (EqualSplitStrategy, PercentageSplitStrategy, ExactSplitStrategy) encapsulated by SplitStrategyFactory',
+      'Graph-based greedy Min-Cash-Flow debt simplification algorithm reducing settlement transactions to O(N log N) time complexity',
+      'Thread-safe ledger mutations using ConcurrentHashMap and fine-grained ReentrantLock',
+      'Real-time event logging capturing balance snapshots for interactive 2D simulation replay'
+    ],
+    tradeoffs: [
+      'Used single service-level ReentrantLock for balance ledger updates to eliminate multi-lock acquisition deadlock risk during multi-user splits.',
+      'Implemented greedy min-cash-flow algorithm (producing ≤ N-1 transactions) for optimal performance instead of NP-hard subset-sum solver.',
+      'Decoupled simulation state into an isolated simRepository engine to allow real API simulation without mutating main business data.'
+    ],
+    requirements: [
+      'Multi-User & Group Management: Users can belong to multiple groups and create expenses across members.',
+      'Flexible Split Strategies: Support EQUAL, PERCENTAGE (must sum to 100%), and EXACT (must sum to expense total) splits.',
+      'Balance Ledger: Track pairwise net balances (who owes whom) with atomic updates.',
+      'Debt Simplification: Algorithmically calculate minimal settlements required to clear all group debts.',
+      'Settlement Processing: Support full and partial settlements between users.',
+      'Simulation & Event Log: Real-time event log with full timeline replay.'
+    ],
+    entities: [
+      { name: 'SplitwiseService', description: 'Central facade coordinating expense calculations, debt simplification, settlement, and event logging.' },
+      { name: 'SplitStrategyFactory', description: 'Factory resolving SplitType enum to concrete SplitStrategy implementation.' },
+      { name: 'SplitStrategy', description: 'Strategy interface defining calculateSplits method for expense distribution.' },
+      { name: 'Expense', description: 'Model storing amount, paidBy user, group reference, splits list, and timestamp.' },
+      { name: 'Settlement', description: 'Model representing transfer from one user to another within a group.' },
+      { name: 'ExpenseEvent', description: 'DTO storing event type, actor, description, and balance snapshot for simulation timeline.' }
+    ],
+    designPatterns: [
+      { name: 'Strategy Pattern', used: true, explanation: 'Encapsulates EQUAL, PERCENTAGE, and EXACT split calculation algorithms behind SplitStrategy interface.' },
+      { name: 'Factory Pattern', used: true, explanation: 'SplitStrategyFactory maps SplitType enum to appropriate strategy instance.' },
+      { name: 'Facade Pattern', used: true, explanation: 'SplitwiseService acts as a unified facade for repository, strategies, debt simplification, and event logging.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility Principle (SRP)', description: 'SplitwiseService handles orchestration, SplitStrategy classes handle split math, and SplitwiseRepository handles data storage.' },
+      { name: 'Open/Closed Principle (OCP)', description: 'New split rules (e.g., share ratio/weight) can be added by implementing SplitStrategy without altering service code.' },
+      { name: 'Dependency Inversion Principle (DIP)', description: 'SplitwiseService depends on SplitStrategy interface rather than concrete strategy implementations.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Balance ledger calculations and lock synchronizations are encapsulated within repository and service methods.' },
+      { name: 'Polymorphism', description: 'Service invokes calculateSplits polymorphically across split strategies.' },
+      { name: 'Abstraction', description: 'REST API exposes clean endpoints for users, groups, expenses, balances, and settlements.' }
+    ],
+    extensibility: [
+      { area: 'Multi-Currency Support', description: 'Add currency code to Expense and real-time exchange rate conversion engine.', difficulty: 'Medium' },
+      { area: 'Recurring Expenses', description: 'Add scheduled cron job for automated monthly rent/utility bill creation.', difficulty: 'Easy' },
+      { area: 'Expense Itemization & Receipt Scanning', description: 'Allow line-item breakdown with OCR receipt image scanning integration.', difficulty: 'Hard' }
+    ]
+  },
+  movieticket: {
+    requirements: [
+      'Double-Booking Prevention: Guarantee that no two users can book or hold the same seat at the exact same time.',
+      'Per-Seat Lock Granularity: ReentrantLock per seat (showId:seatId) preventing global service serialization.',
+      'Seat-Hold Lifecycle: Transition seats from AVAILABLE → HELD (with 5-minute TTL countdown) → BOOKED on payment, or auto-release to AVAILABLE on hold expiry.',
+      'All-or-Nothing Multi-Seat Booking: Lock target seats in ascending ID order to prevent deadlock, with full rollback if any seat is unavailable.',
+      'Observer & Event Timeline: SeatAvailabilityObserver notifies frontend and simulation timeline of status changes in real-time.',
+      'Isolated Concurrency Simulation: 8-step interactive simulation demonstrating race conditions, double-booking prevention, hold TTL timeouts, and cancellations.'
+    ],
+    entities: [
+      { name: 'MovieTicketService', description: 'Central facade coordinating shows, seat maps, hold lifecycle, booking confirmation, and simulation engine.' },
+      { name: 'SeatLockManager', description: 'Fine-grained concurrency manager with per-seat ReentrantLocks, deadlock prevention via sorted lock acquisition, and hold TTL checks.' },
+      { name: 'MovieTicketRepository', description: 'Thread-safe repository indexing seats per show (showId → seatId → Seat) to avoid cross-show seat leaking.' },
+      { name: 'Seat', description: 'Domain model with row, col, seatType (SILVER, GOLD, PLATINUM), status (AVAILABLE, HELD, BOOKED), heldByUserId, holdExpiresAt, and version.' },
+      { name: 'PricingStrategy', description: 'Strategy pattern calculating seat prices (BasePricingStrategy and SurgePricingStrategy).' },
+      { name: 'SeatMapNotifier', description: 'Observer publisher broadcasting seat status change events to registered listeners.' }
+    ],
+    designPatterns: [
+      { name: 'Strategy Pattern', used: true, explanation: 'BasePricingStrategy and SurgePricingStrategy compute seat prices dynamically.' },
+      { name: 'Factory Pattern', used: true, explanation: 'SeatFactory creates Seat instances with predefined row/col layouts and prices per seat type.' },
+      { name: 'Observer Pattern', used: true, explanation: 'SeatMapNotifier publishes seat status changes to SeatAvailabilityObserver instances.' },
+      { name: 'State Pattern', used: true, explanation: 'SeatStatus enum (AVAILABLE, HELD, BOOKED) enforces valid state transitions.' },
+      { name: 'Singleton Pattern', used: true, explanation: 'Spring manages MovieTicketService and SeatLockManager as singletons.' }
+    ],
+    principles: [
+      { name: 'Single Responsibility Principle (SRP)', description: 'SeatLockManager handles seat locks/TTL, PricingStrategy handles cost calculations, and MovieTicketRepository handles data storage.' },
+      { name: 'Open/Closed Principle (OCP)', description: 'New pricing strategies (e.g. WeekendSurge, EarlyBird) can be added without modifying booking logic.' },
+      { name: 'Dependency Inversion Principle (DIP)', description: 'MovieTicketService depends on PricingStrategy and SeatAvailabilityObserver interfaces rather than concrete implementations.' }
+    ],
+    oopConcepts: [
+      { name: 'Encapsulation', description: 'Per-seat locks and atomic status transitions are encapsulated inside SeatLockManager.' },
+      { name: 'Polymorphism', description: 'Pricing strategies calculate seat costs polymorphically based on seat type and surge factors.' },
+      { name: 'Abstraction', description: 'Clean REST endpoints expose movie browsing, show selection, seat holding, booking, and simulation replay.' }
+    ],
+    extensibility: [
+      { area: 'Real Payment Gateway Integration', description: 'Replace PaymentProcessor stub with Stripe/Razorpay webhook callbacks and 2FA verification.', difficulty: 'Medium' },
+      { area: 'Dynamic Seat Map Layouts', description: 'Support SVG auditorium canvas with curved seating, recliner lounges, and wheelchair access.', difficulty: 'Medium' },
+      { area: 'WebSocket Real-Time Updates', description: 'Stream seat hold notifications to all active web clients via WebSocket STOMP protocol.', difficulty: 'Hard' }
+    ]
   }
 };
 

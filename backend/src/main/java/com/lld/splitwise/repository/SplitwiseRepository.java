@@ -23,15 +23,24 @@ public class SplitwiseRepository {
     private final AtomicLong settlementIdCounter = new AtomicLong(1);
     private final ReentrantLock lock = new ReentrantLock();
 
-    public SplitwiseRepository() {
-        User alice = new User(userIdCounter.getAndIncrement(), "Alice", "alice@email.com");
-        User bob = new User(userIdCounter.getAndIncrement(), "Bob", "bob@email.com");
-        User charlie = new User(userIdCounter.getAndIncrement(), "Charlie", "charlie@email.com");
-        User diana = new User(userIdCounter.getAndIncrement(), "Diana", "diana@email.com");
-        users.put(alice.getId(), alice);
-        users.put(bob.getId(), bob);
-        users.put(charlie.getId(), charlie);
-        users.put(diana.getId(), diana);
+    public SplitwiseRepository() {}
+
+    public void clear() {
+        lock.lock();
+        try {
+            users.clear();
+            groups.clear();
+            expenses.clear();
+            settlementsByGroup.clear();
+            expensesByGroup.clear();
+            balances.clear();
+            userIdCounter.set(1);
+            groupIdCounter.set(1);
+            expenseIdCounter.set(1);
+            settlementIdCounter.set(1);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public User saveUser(User user) {
@@ -107,27 +116,39 @@ public class SplitwiseRepository {
     }
 
     public void updateBalance(long userId1, long userId2, double amount) {
+        if (userId1 == userId2 || Math.abs(amount) < 0.0001) return;
         String key1 = userId1 + ":" + userId2;
         String key2 = userId2 + ":" + userId1;
         lock.lock();
         try {
             Double existing1 = balances.get(key1);
             Double existing2 = balances.get(key2);
+
             if (existing1 != null) {
-                balances.put(key1, existing1 + amount);
+                double newBal = existing1 + amount;
+                if (Math.abs(newBal) < 0.01) {
+                    balances.remove(key1);
+                } else if (newBal > 0) {
+                    balances.put(key1, Math.round(newBal * 100.0) / 100.0);
+                } else {
+                    balances.remove(key1);
+                    balances.put(key2, Math.round(-newBal * 100.0) / 100.0);
+                }
             } else if (existing2 != null) {
-                double newVal = existing2 - amount;
-                if (newVal >= 0) {
-                    balances.put(key2, newVal);
+                double newBal = existing2 - amount;
+                if (Math.abs(newBal) < 0.01) {
+                    balances.remove(key2);
+                } else if (newBal > 0) {
+                    balances.put(key2, Math.round(newBal * 100.0) / 100.0);
                 } else {
                     balances.remove(key2);
-                    balances.put(key1, -newVal);
+                    balances.put(key1, Math.round(-newBal * 100.0) / 100.0);
                 }
             } else {
-                if (amount >= 0) {
-                    balances.put(key1, amount);
+                if (amount > 0) {
+                    balances.put(key1, Math.round(amount * 100.0) / 100.0);
                 } else {
-                    balances.put(key2, -amount);
+                    balances.put(key2, Math.round(-amount * 100.0) / 100.0);
                 }
             }
         } finally {
@@ -159,7 +180,7 @@ public class SplitwiseRepository {
 
             settlementsByGroup.computeIfAbsent(settlement.getGroupId(), k -> new ArrayList<>()).add(settlement);
 
-            updateBalance(settlement.getFromUser().getId(), settlement.getToUser().getId(), -settlement.getAmount());
+            updateBalance(settlement.getToUser().getId(), settlement.getFromUser().getId(), -settlement.getAmount());
 
             return settlement;
         } finally {
