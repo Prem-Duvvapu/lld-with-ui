@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 @Repository
 public class ElevatorRepository {
 
-    private final Map<Integer, Elevator> elevators = new ConcurrentHashMap<>();
+    private final Map<Long, Elevator> elevators = new ConcurrentHashMap<>();
     private final Map<Long, Request> requests = new ConcurrentHashMap<>();
     private final AtomicLong requestIdGen = new AtomicLong(1);
     private final ReentrantLock lock = new ReentrantLock();
@@ -29,10 +29,10 @@ public class ElevatorRepository {
         Elevator b = new Elevator(2, "B", 6, 1);
         Elevator c = new Elevator(3, "C", 10, 5);
         Elevator d = new Elevator(4, "D", 8, 8);
-        elevators.put(1, a);
-        elevators.put(2, b);
-        elevators.put(3, c);
-        elevators.put(4, d);
+        elevators.put(1L, a);
+        elevators.put(2L, b);
+        elevators.put(3L, c);
+        elevators.put(4L, d);
     }
 
     public void saveElevator(Elevator elevator) {
@@ -44,8 +44,12 @@ public class ElevatorRepository {
         }
     }
 
-    public Elevator getElevator(int id) {
+    public Elevator getElevator(long id) {
         return elevators.get(id);
+    }
+
+    public Elevator getElevator(int id) {
+        return elevators.get((long) id);
     }
 
     public List<Elevator> getAllElevators() {

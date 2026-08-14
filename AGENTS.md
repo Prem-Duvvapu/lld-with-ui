@@ -96,6 +96,17 @@
 - 5 tabs: 🎬 Movies & Booking, 📊 Booking History, 🕹️ Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Real-time seat map polling every 3s, hold countdown timer (`⏱ 4:58`), payment method selector, idempotency key support, and 8-step interactive 2D simulation scene calling isolated `/api/movie-ticket/sim/*` endpoints.
 
+## Elevator System Module
+### Backend
+- `ElevatorControllerService`: Manages 4 elevators across 10 floors with atomic LOOK/SCAN dispatch scoring, fallback queueing, and state machine (`IDLE`, `MOVING_UP`, `MOVING_DOWN`, `DOOR_OPEN`, `MAINTENANCE`).
+- `LookScanDispatchStrategy`: Distance + direction penalty scoring with 3-tier tie-breaking.
+- `Elevator`: Thread-safe per-elevator state, `AtomicInteger` occupancy limit, dual `ConcurrentSkipListSet`s (`upStops`, `downStops`), and `ReentrantLock`.
+- `ElevatorNotifier`: Observer pattern broadcasting telemetry events to observers.
+
+### Frontend
+- 5 tabs: Live Elevator Shafts, Controller Dashboard, 8-step Interactive Simulation, Class Diagram, Design Details.
+- Real-time shaft visualizer with animated sliding doors, occupancy gauges, floor call buttons, and interactive simulation replay.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar

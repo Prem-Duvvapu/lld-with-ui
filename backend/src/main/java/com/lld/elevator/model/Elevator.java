@@ -1,28 +1,36 @@
 package com.lld.elevator.model;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Elevator {
 
-    private int id;
+    private long id;
     private String name;
-    private int currentFloor;
-    private int destinationFloor;
-    private Direction direction;
-    private ElevatorStatus status;
+    private volatile int currentFloor;
+    private volatile int destinationFloor;
+    private volatile Direction direction;
+    private volatile ElevatorState state;
     private int capacity;
-    private int currentLoad;
-    private List<Integer> pendingFloors;
+    private final AtomicInteger currentOccupancy = new AtomicInteger(0);
+
+    // Concurrent skip list sets for LOOK/SCAN algorithm stops
+    private final Set<Integer> upStops = new ConcurrentSkipListSet<>();
+    private final Set<Integer> downStops = new ConcurrentSkipListSet<>(Collections.reverseOrder());
+
+    private final ReentrantLock elevatorLock = new ReentrantLock(true);
 
     public Elevator() {
         this.direction = Direction.IDLE;
-        this.status = ElevatorStatus.STOPPED;
-        this.currentLoad = 0;
-        this.pendingFloors = new ArrayList<>();
+        this.state = ElevatorState.IDLE;
+        this.currentFloor = 1;
+        this.destinationFloor = 1;
+        this.capacity = 8;
     }
 
-    public Elevator(int id, String name, int capacity, int currentFloor) {
+    public Elevator(long id, String name, int capacity, int currentFloor) {
         this();
         this.id = id;
         this.name = name;
@@ -31,22 +39,16 @@ public class Elevator {
         this.destinationFloor = currentFloor;
     }
 
-    public void addStop(int floor) {
-        if (!pendingFloors.contains(floor)) {
-            pendingFloors.add(floor);
-        }
+    public Elevator(int id, String name, int capacity, int currentFloor) {
+        this((long) id, name, capacity, currentFloor);
     }
 
-    public void removeStop(int floor) {
-        pendingFloors.remove(Integer.valueOf(floor));
-    }
-
-    public boolean isFull() {
-        return currentLoad >= capacity;
-    }
-
-    public int getId() {
+    public long getId() {
         return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 
     public void setId(int id) {
@@ -85,12 +87,28 @@ public class Elevator {
         this.direction = direction;
     }
 
+    public ElevatorState getState() {
+        return state;
+    }
+
+    public void setState(ElevatorState state) {
+        this.state = state;
+    }
+
     public ElevatorStatus getStatus() {
-        return status;
+        if (state == ElevatorState.MAINTENANCE) return ElevatorStatus.OUT_OF_ORDER;
+        if (state == ElevatorState.MOVING_UP || state == ElevatorState.MOVING_DOWN) return ElevatorStatus.MOVING;
+        return ElevatorStatus.STOPPED;
     }
 
     public void setStatus(ElevatorStatus status) {
-        this.status = status;
+        if (status == ElevatorStatus.OUT_OF_ORDER) {
+            this.state = ElevatorState.MAINTENANCE;
+        } else if (status == ElevatorStatus.MOVING) {
+            this.state = (direction == Direction.DOWN) ? ElevatorState.MOVING_DOWN : ElevatorState.MOVING_UP;
+        } else {
+            this.state = ElevatorState.IDLE;
+        }
     }
 
     public int getCapacity() {
@@ -101,19 +119,107 @@ public class Elevator {
         this.capacity = capacity;
     }
 
-    public int getCurrentLoad() {
-        return currentLoad;
+    public int getCurrentOccupancy() {
+        return currentOccupancy.get();
     }
 
-    public void setCurrentLoad(int currentLoad) {
-        this.currentLoad = currentLoad;
+    public int getCurrentLoad() {
+        return currentOccupancy.get();
+    }
+
+    public void setCurrentLoad(int load) {
+        this.currentOccupancy.set(load);
+    }
+
+    public boolean boardPassenger() {
+        elevatorLock.lock();
+        try {
+            if (currentOccupancy.get() < capacity) {
+                currentOccupancy.incrementAndGet();
+                return true;
+            }
+            return false;
+        } finally {
+            elevatorLock.unlock();
+        }
+    }
+
+    public void deboardPassenger(int count) {
+        elevatorLock.lock();
+        try {
+            int cur = currentOccupancy.get();
+            currentOccupancy.set(Math.max(0, cur - count));
+        } finally {
+            elevatorLock.unlock();
+        }
+    }
+
+    public boolean isFull() {
+        return currentOccupancy.get() >= capacity;
+    }
+
+    public void addDestination(int floor) {
+        addStop(floor);
+    }
+
+    public void addStop(int floor) {
+        elevatorLock.lock();
+        try {
+            if (floor > currentFloor) {
+                upStops.add(floor);
+            } else if (floor < currentFloor) {
+                downStops.add(floor);
+            } else {
+                if (direction == Direction.DOWN) {
+                    downStops.add(floor);
+                } else {
+                    upStops.add(floor);
+                }
+            }
+        } finally {
+            elevatorLock.unlock();
+        }
+    }
+
+    public void removeStop(int floor) {
+        elevatorLock.lock();
+        try {
+            upStops.remove(floor);
+            downStops.remove(floor);
+        } finally {
+            elevatorLock.unlock();
+        }
     }
 
     public List<Integer> getPendingFloors() {
-        return pendingFloors;
+        elevatorLock.lock();
+        try {
+            List<Integer> list = new ArrayList<>();
+            list.addAll(upStops);
+            list.addAll(downStops);
+            return list;
+        } finally {
+            elevatorLock.unlock();
+        }
     }
 
-    public void setPendingFloors(List<Integer> pendingFloors) {
-        this.pendingFloors = pendingFloors;
+    public Set<Integer> getUpStops() {
+        return upStops;
+    }
+
+    public Set<Integer> getDownStops() {
+        return downStops;
+    }
+
+    public ReentrantLock getLock() {
+        return elevatorLock;
+    }
+
+    public ElevatorSnapshot createSnapshot() {
+        return new ElevatorSnapshot(
+            id, name, currentFloor, state, direction,
+            currentOccupancy.get(), capacity,
+            new ArrayList<>(upStops), new ArrayList<>(downStops)
+        );
     }
 }
