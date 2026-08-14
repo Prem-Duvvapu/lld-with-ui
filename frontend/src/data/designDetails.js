@@ -1,4 +1,45 @@
 const designDetails = {
+  shoppingcart: {
+    title: 'Online Shopping System (Shopping Cart) — Design Details',
+    tldr: [
+      'E-commerce shopping cart system with Command Pattern for cart actions (Undo/Redo), Strategy Pattern for flexible payment processing, and fine-grained per-product locking',
+      'Deadlock prevention during multi-item checkout by sorting required product locks in ascending order by productId before lock acquisition',
+      'Atomic stock check-and-decrement preventing negative inventory under high-concurrency race conditions',
+      'Guarded order state machine (PLACED → PROCESSING → SHIPPED → DELIVERED / CANCELLED) with automatic inventory restocking upon cancellation',
+      'Idempotency key caching protecting against duplicate payment charges on retried requests'
+    ],
+    tradeoffs: [
+      'Used Command Pattern for cart operations to easily support single-step atomic Undo functionality.',
+      'Adopted per-product ReentrantLocks rather than global repository lock to maximize concurrency during checkout.',
+      'Sorted lock acquisition order by productId ascending to eliminate circular wait deadlock vulnerabilities.'
+    ],
+    requirements: [
+      'Product Catalog & Search: Filter catalog by keyword, category, price range, and stock availability',
+      'Cart Operations: Add, remove, and update cart item quantities with full Undo support',
+      'Multi-Strategy Payment: Process checkout via UPI, Credit Card, Debit Card, or Digital Wallet strategies',
+      'High-Concurrency Inventory Check: Prevent overselling when multiple users checkout low-stock items concurrently',
+      'Order Lifecycle Management: Transition order states and restock items when orders are cancelled',
+      'Idempotent API Checkout: Prevent duplicate orders using unique idempotency keys'
+    ],
+    entities: [
+      { name: 'Product', description: 'Catalog item with atomic stock counter and per-product ReentrantLock.', fields: [{ name: 'stockQuantity', type: 'AtomicInteger' }, { name: 'productLock', type: 'ReentrantLock' }], methods: [{ name: 'decrementStock(...)', returns: 'boolean', description: 'CAS atomic decrement' }] },
+      { name: 'CartCommand', description: 'Command interface supporting execute() and undo().', fields: [], methods: [{ name: 'undo()', returns: 'void', description: 'Reverts cart modification' }] },
+      { name: 'ShoppingCartService', description: 'Core domain service orchestrating catalog, cart commands, deadlock-free checkout, and orders.', fields: [], methods: [{ name: 'placeOrder(...)', returns: 'Order', description: 'Ascending lock order checkout' }] }
+    ],
+    designPatterns: [
+      { name: 'Command Pattern', usage: 'Cart operations (AddItem, RemoveItem, UpdateQuantity) encapsulated as Command objects for undo capability.' },
+      { name: 'Strategy Pattern', usage: 'Payment processing dynamically delegates to concrete PaymentStrategy implementations (UPI, Card, Wallet).' },
+      { name: 'Singleton Pattern', usage: 'ShoppingCartService managed as a Spring @Service singleton.' }
+    ],
+    solid: [
+      { principle: 'Single Responsibility', details: 'Product manages stock; Cart handles items; PaymentProcessor handles checkout routing.' },
+      { principle: 'Open/Closed', details: 'New payment methods can be added by implementing PaymentStrategy without altering ShoppingCartService.' }
+    ],
+    extensibility: [
+      'Discount Engine: Decorator pattern for applying promotional coupon codes.',
+      'Distributed Locking: Replace ReentrantLock with Redis Redlock for multi-node deployments.'
+    ]
+  },
   pubsub: {
     title: 'Pub/Sub System (Message Broker) — Design Details',
     tldr: [

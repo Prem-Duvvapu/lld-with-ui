@@ -107,6 +107,16 @@
 - 5 tabs: Live Elevator Shafts, Controller Dashboard, 8-step Interactive Simulation, Class Diagram, Design Details.
 - Real-time shaft visualizer with animated sliding doors, occupancy gauges, floor call buttons, and interactive simulation replay.
 
+## Shopping Cart Module
+### Backend
+- `ShoppingCartInitializer`: Seed products across categories (Electronics, Fashion, Home, Books) and sample users.
+- `ShoppingCartService`: Catalog search, Command Pattern execution stack for cart actions (`AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand`), deadlock-free ascending `productId` lock ordering during checkout, atomic stock check-and-decrement, idempotency cache, guarded order lifecycle state transitions, and isolated `/sim/*` engine.
+- Strategy Pattern: `PaymentStrategy` interface with `CreditCardPaymentStrategy`, `DebitCardPaymentStrategy`, `UpiPaymentStrategy`, and `WalletPaymentStrategy`, routed via `ShoppingCartPaymentProcessor`.
+
+### Frontend
+- 7 tabs: Shop Catalog, Cart & Checkout with Undo, Orders Timeline, Seller Dashboard, Interactive 2D Concurrency Simulation, Class Diagram, Design Details.
+- Real-time stock alerts, single-step Undo cart button, multi-method payment selector, and low-stock race condition interactive timeline visualizer.
+
 ## Pub Sub System Module
 ### Backend
 - `PubSubService`: Singleton Spring service facade managing high-throughput `Broker` and topics.

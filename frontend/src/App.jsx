@@ -25,6 +25,7 @@ const LLD_ROUTES = [
   { path: 'ludo', title: 'Ludo', module: './lld/ludo/LudoPage.jsx' },
   { path: 'inventory', title: 'Inventory Management', module: './lld/inventory/InventoryPage.jsx' },
   { path: 'shopping-cart', title: 'Shopping Cart', module: './lld/shoppingcart/ShoppingCartPage.jsx' },
+  { path: 'shoppingcart', title: 'Shopping Cart', module: './lld/shoppingcart/ShoppingCartPage.jsx' },
   { path: 'minesweeper', title: 'Minesweeper', module: './lld/minesweeper/MinesweeperPage.jsx' },
   { path: 'vending-machine', title: 'Vending Machine', module: './lld/vendingmachine/VendingMachinePage.jsx' },
   { path: 'logging-framework', title: 'Logging Framework', module: './lld/logging-framework/LoggingFrameworkPage.jsx' },

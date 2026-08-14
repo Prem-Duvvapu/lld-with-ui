@@ -1,349 +1,525 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { getProducts, addToCart, removeFromCart, updateQuantity, checkout, updateOrderStatus, getOrders } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import DesignDetails from '../../components/DesignDetails';
+import React, { useState, useEffect } from 'react'
+import * as api from './api'
+import ClassDiagram from '../../components/ClassDiagram'
+import DesignDetails from '../../components/DesignDetails'
+import '../../styles/theme.css'
 
-const styles = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: linear-gradient(135deg, #0f172a, #1e293b, #334155); min-height: 100vh; font-family: 'Segoe UI', system-ui, sans-serif; color: #e2e8f0; }
-.sc-app { max-width: 1000px; margin: 0 auto; padding: 20px 16px; }
-.sc-header { text-align: center; padding: 24px 0; }
-.sc-header h1 { font-size: 28px; background: linear-gradient(135deg, #f59e0b, #ef4444); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.sc-header p { color: #94a3b8; font-size: 13px; margin-top: 4px; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; color: #ccc; text-decoration: none; font-size: 13px; transition: all 0.2s; }
-.back-home:hover { background: rgba(255,255,255,0.1); }
-.sc-nav { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
-.sc-nav button { padding: 8px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.08); color: #94a3b8; }
-.sc-nav button.active { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; box-shadow: 0 4px 15px rgba(245,158,11,0.3); }
-.sc-main { background: rgba(255,255,255,0.04); border-radius: 16px; padding: 24px; min-height: 400px; border: 1px solid rgba(255,255,255,0.08); }
-.sc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
-.sc-card { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.08); text-align: center; transition: all 0.2s; }
-.sc-card:hover { transform: translateY(-2px); border-color: rgba(245,158,11,0.3); }
-.sc-card .emoji { font-size: 36px; margin-bottom: 6px; }
-.sc-card h3 { font-size: 14px; }
-.sc-card .price { font-size: 15px; font-weight: 700; color: #f59e0b; margin: 6px 0; }
-.sc-card .stock { font-size: 11px; color: #64748b; }
-.sc-btn { padding: 7px 16px; background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.sc-btn:hover { box-shadow: 0 4px 15px rgba(245,158,11,0.3); }
-.sc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.sc-btn-secondary { background: rgba(255,255,255,0.1); color: #e2e8f0; }
-.sc-btn-secondary:hover { box-shadow: none; background: rgba(255,255,255,0.15); }
-.sc-btn-small { padding: 4px 10px; font-size: 11px; }
-.sc-cart-summary { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; margin-top: 16px; }
-.sc-cart-summary h3 { font-size: 15px; color: #f59e0b; margin-bottom: 10px; }
-.sc-cart-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13px; }
-.sc-cart-item:last-child { border-bottom: none; }
-.sc-cart-qty { display: flex; align-items: center; gap: 6px; }
-.sc-cart-total { font-size: 16px; font-weight: 700; text-align: right; margin-top: 10px; color: #f59e0b; }
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 14px; align-items: center; }
-.step-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15); transition: all 0.3s; }
-.step-dot.active { background: #f59e0b; box-shadow: 0 0 8px rgba(245,158,11,0.5); }
-.step-dot.done { background: #3fb950; }
-.sc-scene { width: 100%; min-height: 420px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); padding: 20px; margin-bottom: 12px; position: relative; overflow: hidden; }
-.sc-store-shelf { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
-.sc-product-tile { width: 72px; padding: 8px; border-radius: 8px; text-align: center; transition: all 0.5s; opacity: 0; transform: translateY(20px); }
-.sc-product-tile.visible { opacity: 1; transform: translateY(0); }
-.sc-product-tile .emoji { font-size: 28px; }
-.sc-product-tile .name { font-size: 9px; color: #94a3b8; }
-.sc-cart-visual { max-width: 260px; margin: 12px auto; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px dashed rgba(245,158,11,0.3); min-height: 60px; transition: all 0.5s; }
-.sc-cart-visual .item { display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0; }
-.sc-truck { font-size: 36px; text-align: center; transition: all 1.5s ease-in-out; }
-.sc-truck.delivering { transform: translateX(200px); }
-.sc-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(15,23,42,0.96); border: 2px solid #f59e0b; border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.5); animation: popIn 0.4s ease-out; min-width: 220px; }
-@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-.sc-loading { text-align: center; color: #94a3b8; padding: 40px; }
-.sc-error { text-align: center; color: #f85149; padding: 16px; }
-`;
+export default function ShoppingCartPage() {
+  const [activeTab, setActiveTab] = useState('catalog')
+  const [products, setProducts] = useState([])
+  const [users, setUsers] = useState([])
+  const [selectedUser, setSelectedUser] = useState('u-alice')
+  const [cart, setCart] = useState(null)
+  const [orders, setOrders] = useState([])
+  const [allOrders, setAllOrders] = useState([])
+  const [paymentMethod, setPaymentMethod] = useState('UPI')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [message, setMessage] = useState(null)
 
-function StoreView() {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState(null);
-  const [cartId, setCartId] = useState(0);
-  const [actionLoading, setActionLoading] = useState(false);
+  // Simulation state
+  const [simState, setSimState] = useState(null)
+  const [simStepIndex, setSimStepIndex] = useState(0)
+  const [isSimRunning, setIsSimRunning] = useState(false)
 
-  const load = async () => {
+  useEffect(() => {
+    fetchInitialData()
+  }, [])
+
+  useEffect(() => {
+    if (selectedUser) {
+      fetchUserCartAndOrders(selectedUser)
+    }
+  }, [selectedUser])
+
+  const fetchInitialData = async () => {
     try {
-      const p = await getProducts();
-      setProducts(p);
-      if (cartId > 0) {
-        const c = await (await fetch(`/api/shopping-cart/cart/${cartId}`)).json();
-        if (!c.error) setCart(c);
+      const [prodRes, userRes] = await Promise.all([
+        api.getProducts(),
+        api.getUsers()
+      ])
+      setProducts(prodRes)
+      setUsers(userRes)
+      if (userRes && userRes.length > 0) {
+        setSelectedUser(userRes[0].id)
       }
-    } catch {} finally { setLoading(false); }
-  };
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
-  useEffect(() => { load(); }, [cartId]);
-
-  const handleAdd = async (productId) => {
-    setActionLoading(true);
+  const fetchUserCartAndOrders = async (userId) => {
     try {
-      const c = await addToCart(cartId, 'user1', productId, 1);
-      if (!c.error) { setCart(c); setCartId(c.id); }
-    } catch {} finally { setActionLoading(false); }
-  };
+      const [cartData, userOrderData, allOrderData] = await Promise.all([
+        api.getCart(userId),
+        api.getUserOrders(userId),
+        api.getAllOrders()
+      ])
+      setCart(cartData)
+      setOrders(userOrderData)
+      setAllOrders(allOrderData)
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
-  const handleUpdateQty = async (productId, qty) => {
-    setActionLoading(true);
+  const handleAddToCart = async (productId) => {
     try {
-      const c = await updateQuantity(cartId, productId, qty);
-      if (!c.error) setCart(c);
-    } catch {} finally { setActionLoading(false); }
-  };
+      const updatedCart = await api.addToCart(selectedUser, productId, 1)
+      setCart(updatedCart)
+      showBanner('Item added to cart! (Command recorded)', 'success')
+    } catch (err) {
+      showBanner(err.message || 'Failed to add item', 'error')
+    }
+  }
 
-  const handleRemove = async (productId) => {
-    setActionLoading(true);
+  const handleRemoveFromCart = async (productId) => {
     try {
-      const c = await removeFromCart(cartId, productId);
-      if (!c.error) setCart(c);
-    } catch {} finally { setActionLoading(false); }
-  };
+      const updatedCart = await api.removeFromCart(selectedUser, productId)
+      setCart(updatedCart)
+      showBanner('Item removed from cart! (Command recorded)', 'info')
+    } catch (err) {
+      showBanner(err.message || 'Failed to remove item', 'error')
+    }
+  }
+
+  const handleUndo = async () => {
+    try {
+      const updatedCart = await api.undoLastCartAction(selectedUser)
+      setCart(updatedCart)
+      showBanner('Undone last cart operation! (Command Pattern)', 'success')
+    } catch (err) {
+      showBanner(err.message || 'Nothing to undo', 'error')
+    }
+  }
 
   const handleCheckout = async () => {
-    setActionLoading(true);
     try {
-      const o = await checkout(cartId, '123 Main St, City');
-      if (!o.error) { setCart(null); setCartId(0); alert('Order placed! Order ID: ' + o.id); }
-    } catch {} finally { setActionLoading(false); }
-  };
+      const idempKey = 'IDEMP-' + Date.now()
+      const newOrder = await api.placeOrder(selectedUser, paymentMethod, idempKey)
+      showBanner(`Order ${newOrder.orderId} placed successfully! Transaction: ${newOrder.paymentTransactionId}`, 'success')
+      fetchUserCartAndOrders(selectedUser)
+      fetchInitialData()
+      setActiveTab('orders')
+    } catch (err) {
+      showBanner(err.message || 'Checkout failed due to stock/payment error', 'error')
+    }
+  }
 
-  if (loading) return <div className="sc-loading">Loading store...</div>;
+  const handleCancelOrder = async (orderId) => {
+    try {
+      await api.cancelOrder(orderId)
+      showBanner(`Order ${orderId} cancelled and items restocked!`, 'info')
+      fetchUserCartAndOrders(selectedUser)
+      fetchInitialData()
+    } catch (err) {
+      showBanner(err.message || 'Failed to cancel order', 'error')
+    }
+  }
+
+  const handleUpdateStatus = async (orderId, newStatus) => {
+    try {
+      await api.updateOrderStatus(orderId, newStatus)
+      showBanner(`Order ${orderId} updated to ${newStatus}`, 'success')
+      fetchUserCartAndOrders(selectedUser)
+    } catch (err) {
+      showBanner(err.message || 'Update failed', 'error')
+    }
+  }
+
+  const showBanner = (msg, type) => {
+    setMessage({ text: msg, type })
+    setTimeout(() => setMessage(null), 4000)
+  }
+
+  // SIMULATION CONTROLS
+  const startSimulation = async () => {
+    setIsSimRunning(true)
+    const resetData = await api.simReset()
+    setSimState(resetData)
+    setSimStepIndex(0)
+
+    const steps = [
+      async () => {
+        const snap = await api.simAddToCart('User_Alice', 'P101', 1)
+        setSimState(snap)
+        setSimStepIndex(1)
+      },
+      async () => {
+        const snap = await api.simAddToCart('User_Bob', 'P101', 2) // P101 stock is 2 -> Bob requests 2
+        setSimState(snap)
+        setSimStepIndex(2)
+      },
+      async () => {
+        const snap = await api.simPlaceOrder('User_Bob', 'UPI') // Bob completes checkout -> consumes all 2 units
+        setSimState(snap)
+        setSimStepIndex(3)
+      },
+      async () => {
+        // Alice attempts checkout for P101, but stock is now 0 -> InsufficientStockException rejection
+        const snap = await api.simPlaceOrder('User_Alice', 'CREDIT_CARD')
+        setSimState(snap)
+        setSimStepIndex(4)
+      },
+      async () => {
+        const snap = await api.simUpdateStatus('SIM-ORD-101', 'SHIPPED')
+        setSimState(snap)
+        setSimStepIndex(5)
+      },
+      async () => {
+        const snap = await api.simUpdateStatus('SIM-ORD-101', 'DELIVERED')
+        setSimState(snap)
+        setSimStepIndex(6)
+      }
+    ]
+
+    for (let i = 0; i < steps.length; i++) {
+      await new Promise(r => setTimeout(r, 2200))
+      await steps[i]()
+    }
+    setIsSimRunning(false)
+  }
+
+  const cartTotal = cart ? Object.values(cart.items || {}).reduce((acc, item) => acc + item.totalPrice, 0) : 0
+
+  const filteredProducts = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCat = !categoryFilter || p.category === categoryFilter
+    return matchesSearch && matchesCat
+  })
 
   return (
-    <div>
-      <div className="sc-grid">
-        {products.map(p => (
-          <div key={p.id} className="sc-card">
-            <div className="emoji">{p.imageUrl || '📦'}</div>
-            <h3>{p.name}</h3>
-            <div className="price">₹{p.price.toFixed(2)}</div>
-            <div className="stock">{p.availableQuantity} in stock</div>
-            <button className="sc-btn sc-btn-small" style={{ marginTop: 8 }} onClick={() => handleAdd(p.id)} disabled={actionLoading}>+ Add to Cart</button>
-          </div>
-        ))}
+    <div style={{ padding: '24px', maxWidth: '1280px', margin: '0 auto', color: 'var(--text-primary)' }}>
+      {/* HEADER */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: 'var(--accent-violet)' }}>
+            🛒 Online Shopping System (Amazon / Flipkart LLD)
+          </h1>
+          <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '14px' }}>
+            Command Pattern (Undo/Redo Cart Actions) • Strategy Pattern (Multi-Payment) • Deadlock-Free Ascending Lock Ordering
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          <label style={{ fontSize: '13px', fontWeight: '600' }}>Active Customer:</label>
+          <select
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            style={{ padding: '6px 12px', borderRadius: '6px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', outline: 'none' }}
+          >
+            {users.map(u => (
+              <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {cart && (
-        <div className="sc-cart-summary">
-          <h3>🛒 Your Cart</h3>
-          {Object.values(cart.items || {}).length === 0 && <div style={{ fontSize: 13, color: '#64748b' }}>Cart is empty</div>}
-          {Object.values(cart.items || {}).map(item => {
-            const prod = products.find(p => p.id === item.productId);
-            return (
-              <div key={item.productId} className="sc-cart-item">
-                <span>{prod?.name || 'Product'} — ₹{item.unitPrice?.toFixed(2)}</span>
-                <div className="sc-cart-qty">
-                  <button className="sc-btn sc-btn-secondary sc-btn-small" onClick={() => handleUpdateQty(item.productId, item.quantity - 1)}>−</button>
-                  <span style={{ minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
-                  <button className="sc-btn sc-btn-secondary sc-btn-small" onClick={() => handleUpdateQty(item.productId, item.quantity + 1)}>+</button>
-                  <button className="sc-btn sc-btn-small" style={{ background: '#f85149', marginLeft: 6 }} onClick={() => handleRemove(item.productId)}>✕</button>
-                </div>
-              </div>
-            );
-          })}
-          {Object.values(cart.items || {}).length > 0 && (
-            <>
-              <div className="sc-cart-total">Total: ₹{cart.totalAmount?.toFixed(2)}</div>
-              <button className="sc-btn" style={{ width: '100%', marginTop: 10 }} onClick={handleCheckout} disabled={actionLoading}>Proceed to Checkout</button>
-            </>
-          )}
+      {/* NOTIFICATION BANNER */}
+      {message && (
+        <div style={{
+          padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontWeight: '600',
+          background: message.type === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)',
+          color: message.type === 'error' ? '#ef4444' : '#22c55e',
+          border: `1px solid ${message.type === 'error' ? '#ef4444' : '#22c55e'}`
+        }}>
+          {message.text}
         </div>
       )}
-    </div>
-  );
-}
 
-function AnimatedFlow() {
-  const [step, setStep] = useState(0);
-  const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState(null);
-  const [cartId, setCartId] = useState(0);
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showTiles, setShowTiles] = useState(0);
-  const [cartItems, setCartItems] = useState([]);
-  const [truckDelivering, setTruckDelivering] = useState(false);
-  const [popup, setPopup] = useState(null);
-  const mountedRef = useRef(true);
-  const steps = ['Browse', 'Add', 'Cart', 'Checkout', 'Delivered', 'Done'];
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  const reset = () => {
-    setStep(0); setProducts([]); setCart(null); setCartId(0);
-    setOrder(null); setLoading(false); setError('');
-    setShowTiles(0); setCartItems([]); setTruckDelivering(false); setPopup(null);
-  };
-
-  const startSim = async () => {
-    setError('');
-    try {
-      const p = await getProducts();
-      if (!mountedRef.current) return;
-      setProducts(p);
-      setStep(1);
-      for (let i = 0; i <= Math.min(6, p.length); i++) {
-        await new Promise(r => setTimeout(r, 300));
-        if (!mountedRef.current) return;
-        setShowTiles(i);
-      }
-    } catch { if (mountedRef.current) setError('Failed to load'); }
-  };
-
-  const addToCartAction = async () => {
-    if (!products.length) return; setError(''); setLoading(true);
-    try {
-      const p1 = products[0], p2 = products[1] || products[0];
-      let c = await addToCart(cartId, 'user1', p1.id, 2);
-      if (!mountedRef.current) return;
-      if (c.error) { setError(c.error); setLoading(false); return; }
-      setCart(c); setCartId(c.id);
-      c = await addToCart(c.id, 'user1', p2.id, 1);
-      if (!mountedRef.current) return;
-      if (c.error) { setError(c.error); setLoading(false); return; }
-      setCart(c);
-      setCartItems(Object.values(c.items || {}));
-      setPopup({ title: '🛒 Added to Cart', detail: `${p1.name} ×2, ${p2.name} ×1`, color: '#f59e0b' });
-      setLoading(false); setStep(3);
-    } catch { if (mountedRef.current) { setError('Failed to add'); setLoading(false); } }
-  };
-
-  const viewCartAction = () => {
-    setStep(4);
-  };
-
-  const checkoutAction = async () => {
-    if (!cartId) return; setError(''); setLoading(true);
-    try {
-      const o = await checkout(cartId, '123 Main St, City');
-      if (!mountedRef.current) return;
-      if (o.error) { setError(o.error); setLoading(false); return; }
-      setOrder(o);
-      setPopup({ title: '💳 Order Placed!', detail: `Order #${o.id} — ₹${o.totalAmount?.toFixed(2)}`, color: '#3fb950' });
-      setLoading(false); setStep(5);
-    } catch { if (mountedRef.current) { setError('Checkout failed'); setLoading(false); } }
-  };
-
-  const deliverAction = async () => {
-    if (!order) return; setError(''); setLoading(true);
-    try {
-      setTruckDelivering(true);
-      const o = await updateOrderStatus(order.id, 'DELIVERED');
-      if (!mountedRef.current) return;
-      if (o.error) { setError(o.error); setLoading(false); return; }
-      setOrder(o);
-      setLoading(false); setStep(6);
-    } catch { if (mountedRef.current) { setError('Delivery failed'); setLoading(false); } }
-  };
-
-  const tileEmojis = ['📱', '🔊', '👕', '👟', '🎒', '☕'];
-
-  return (
-    <div>
-      <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+      {/* TABS HEADER */}
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px', overflowX: 'auto' }}>
+        {[
+          { id: 'catalog', label: '🛍️ Shop Catalog' },
+          { id: 'cart', label: `🛒 Cart (${cart ? Object.keys(cart.items || {}).length : 0})` },
+          { id: 'orders', label: `📦 Orders (${orders.length})` },
+          { id: 'seller', label: '🏪 Seller Dashboard' },
+          { id: 'sim', label: '🕹️ Concurrency Sim' },
+          { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'details', label: '📋 Design Details' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '10px 18px', fontWeight: '600', borderRadius: '8px 8px 0 0', cursor: 'pointer', border: 'none',
+              background: activeTab === tab.id ? 'var(--accent-violet)' : 'transparent',
+              color: activeTab === tab.id ? '#ffffff' : 'var(--text-secondary)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            {tab.label}
+          </button>
         ))}
-        <span style={{ fontSize: 11, color: '#64748b', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
       </div>
 
-      <div className="sc-scene">
-        {/* Store shelf */}
-        <div className="sc-store-shelf">
-          {products.slice(0, 6).map((p, i) => (
-            <div key={p.id} className={`sc-product-tile ${i < showTiles ? 'visible' : ''}`} style={{ transitionDelay: `${i * 0.1}s`, background: i < showTiles ? 'rgba(255,255,255,0.06)' : 'transparent', border: i < showTiles ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
-              <div className="emoji">{tileEmojis[i % tileEmojis.length]}</div>
-              <div className="name">{p.name?.split(' ').slice(0, 2).join(' ')}</div>
-              <div style={{ fontSize: 10, color: '#f59e0b', fontWeight: 600 }}>₹{p.price}</div>
+      {/* TAB 1: SHOP CATALOG */}
+      {activeTab === 'catalog' && (
+        <div>
+          <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ flex: 1, minWidth: '220px', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+            />
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{ padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+            >
+              <option value="">All Categories</option>
+              <option value="ELECTRONICS">Electronics</option>
+              <option value="FASHION">Fashion</option>
+              <option value="HOME_KITCHEN">Home & Kitchen</option>
+              <option value="BOOKS">Books</option>
+            </select>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
+            {filteredProducts.map(p => (
+              <div key={p.id} style={{
+                background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)',
+                display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
+              }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', padding: '4px 8px', borderRadius: '4px', background: 'rgba(139, 92, 246, 0.2)', color: 'var(--accent-violet)' }}>
+                      {p.category}
+                    </span>
+                    <span style={{ fontSize: '12px', color: p.stockQuantity < 5 ? '#ef4444' : '#22c55e', fontWeight: '600' }}>
+                      {p.stockQuantity} in stock
+                    </span>
+                  </div>
+                  <h3 style={{ margin: '8px 0 4px', fontSize: '18px', fontWeight: '700' }}>{p.name}</h3>
+                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--accent-violet)', margin: '12px 0' }}>
+                    ₹{p.price.toLocaleString('en-IN')}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleAddToCart(p.id)}
+                  disabled={p.stockQuantity <= 0}
+                  style={{
+                    width: '100%', padding: '10px', borderRadius: '8px', fontWeight: '700', cursor: p.stockQuantity > 0 ? 'pointer' : 'not-allowed',
+                    background: p.stockQuantity > 0 ? 'var(--accent-violet)' : '#4b5563', color: '#fff', border: 'none'
+                  }}
+                >
+                  {p.stockQuantity > 0 ? 'Add to Cart 🛒' : 'Out of Stock'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 2: CART & CHECKOUT WITH UNDO */}
+      {activeTab === 'cart' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px' }}>Your Shopping Cart</h2>
+              <button
+                onClick={handleUndo}
+                style={{
+                  padding: '8px 16px', background: '#eab308', color: '#000', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer'
+                }}
+              >
+                ↩️ Undo Last Cart Action
+              </button>
+            </div>
+
+            {cart && Object.values(cart.items || {}).length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {Object.values(cart.items).map(item => (
+                  <div key={item.productId} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px',
+                    background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)'
+                  }}>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '16px' }}>{item.productName}</h4>
+                      <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        ₹{item.unitPrice.toLocaleString('en-IN')} x {item.quantity} = <strong>₹{item.totalPrice.toLocaleString('en-IN')}</strong>
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFromCart(item.productId)}
+                      style={{ padding: '6px 12px', background: '#ef4444', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>Your cart is empty.</p>
+            )}
+          </div>
+
+          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', height: 'fit-content' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Order Summary</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '18px', fontWeight: '700' }}>
+              <span>Total Amount:</span>
+              <span style={{ color: 'var(--accent-violet)' }}>₹{cartTotal.toLocaleString('en-IN')}</span>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Payment Method (Strategy Pattern):</label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+              >
+                <option value="UPI">UPI (Google Pay / PhonePe)</option>
+                <option value="CREDIT_CARD">Credit Card</option>
+                <option value="DEBIT_CARD">Debit Card</option>
+                <option value="WALLET">Digital Wallet</option>
+              </select>
+            </div>
+
+            <button
+              onClick={handleCheckout}
+              disabled={!cart || Object.values(cart.items || {}).length === 0}
+              style={{
+                width: '100%', padding: '14px', borderRadius: '8px', background: 'var(--accent-violet)', color: '#fff',
+                border: 'none', fontWeight: '700', cursor: 'pointer', fontSize: '16px'
+              }}
+            >
+              Proceed to Checkout 💳
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: ORDERS TIMELINE */}
+      {activeTab === 'orders' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {orders.map(o => (
+            <div key={o.orderId} style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--accent-violet)' }}>Order #{o.orderId}</h3>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Tx ID: {o.paymentTransactionId} | Method: {o.paymentMethod}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{
+                    padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700',
+                    background: o.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.2)' : o.status === 'DELIVERED' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                    color: o.status === 'CANCELLED' ? '#ef4444' : o.status === 'DELIVERED' ? '#22c55e' : '#eab308'
+                  }}>
+                    {o.status}
+                  </span>
+                  {o.status !== 'SHIPPED' && o.status !== 'DELIVERED' && o.status !== 'CANCELLED' && (
+                    <button
+                      onClick={() => handleCancelOrder(o.orderId)}
+                      style={{ padding: '6px 12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
+                    >
+                      Cancel & Restock
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                {o.items.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '4px' }}>
+                    <span>{item.productName} (x{item.quantity})</span>
+                    <span>₹{item.totalPrice.toLocaleString('en-IN')}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginTop: '8px', fontSize: '16px' }}>
+                  <span>Total Paid:</span>
+                  <span>₹{o.totalAmount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
             </div>
           ))}
         </div>
+      )}
 
-        {/* Cart visual */}
-        {step >= 3 && step < 6 && (
-          <div className="sc-cart-visual">
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b', marginBottom: 6 }}>🛒 Cart</div>
-            {cartItems.map((item, i) => {
-              const prod = products.find(p => p.id === item.productId);
-              return (
-                <div key={i} className="item">
-                  <span>{prod?.name || 'Item'} ×{item.quantity}</span>
-                  <span>₹{item.totalPrice?.toFixed(2)}</span>
+      {/* TAB 4: SELLER DASHBOARD */}
+      {activeTab === 'seller' && (
+        <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          <h2 style={{ margin: '0 0 20px', fontSize: '20px' }}>Seller Order Fulfillment Panel</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {allOrders.map(o => (
+              <div key={o.orderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div>
+                  <h4 style={{ margin: 0 }}>Order #{o.orderId} (Customer: {o.userId})</h4>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Amount: ₹{o.totalAmount} | Current Status: <strong>{o.status}</strong></p>
                 </div>
-              );
-            })}
-            {cart && <div className="sc-cart-total" style={{ fontSize: 13, marginTop: 4 }}>Total: ₹{cart.totalAmount?.toFixed(2)}</div>}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {['PROCESSING', 'SHIPPED', 'DELIVERED'].map(st => (
+                    <button
+                      key={st}
+                      onClick={() => handleUpdateStatus(o.orderId, st)}
+                      disabled={o.status === st || o.status === 'CANCELLED'}
+                      style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', fontWeight: '600', cursor: 'pointer', background: 'var(--accent-violet)', color: '#fff', opacity: o.status === st ? 0.5 : 1 }}
+                    >
+                      Mark {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Truck */}
-        {step >= 5 && (
-          <div className={`sc-truck ${truckDelivering ? 'delivering' : ''}`} style={{ marginTop: 16 }}>
-            🚚
+      {/* TAB 5: INTERACTIVE 2D SIMULATION */}
+      {activeTab === 'sim' && (
+        <div>
+          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '20px' }}>Low-Stock Concurrency Race Condition Simulation</h2>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                  Product P101 has 2 units in stock. User_Alice adds 1, User_Bob adds 2 and checks out first, consuming all stock. Alice's checkout fails safely with <code>InsufficientStockException</code>.
+                </p>
+              </div>
+              <button
+                onClick={startSimulation}
+                disabled={isSimRunning}
+                style={{ padding: '12px 24px', background: 'var(--accent-violet)', color: '#fff', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer' }}
+              >
+                {isSimRunning ? 'Running Concurrency Sim...' : '▶ Start Concurrency Demo'}
+              </button>
+            </div>
+
+            {/* SIMULATION TIMELINE & TELEMETRY */}
+            {simState && (
+              <div style={{ background: '#090d16', padding: '20px', borderRadius: '12px', border: '1px solid #1e293b' }}>
+                <h4 style={{ margin: '0 0 12px', color: '#38bdf8' }}>Live Warehouse Stock HUD</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                  {simState.products.map(p => (
+                    <div key={p.id} style={{ background: '#1e293b', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
+                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>{p.id}</span>
+                      <h5 style={{ margin: '4px 0', color: '#f8fafc' }}>{p.name}</h5>
+                      <span style={{ fontSize: '14px', fontWeight: '700', color: p.stockQuantity <= 0 ? '#ef4444' : '#22c55e' }}>
+                        Stock: {p.stockQuantity} units
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <h4 style={{ margin: '0 0 12px', color: '#eab308' }}>Simulation Log Stream</h4>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {simState.events.map(ev => (
+                    <div key={ev.id} style={{ fontSize: '13px', fontFamily: 'monospace', padding: '6px 10px', background: '#020617', borderRadius: '4px', borderLeft: `3px solid ${ev.type.includes('FAIL') || ev.type.includes('INSUFFICIENT') ? '#ef4444' : '#22c55e'}` }}>
+                      <span style={{ color: '#64748b' }}>[{ev.timestamp}]</span> <strong>{ev.actor}:</strong> {ev.description}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Popups */}
-        {popup && step < 6 && (
-          <div className="sc-popup" style={{ borderColor: popup.color }}>
-            <div style={{ fontSize: 32 }}>{popup.title.split(' ')[0]}</div>
-            <div style={{ fontWeight: 700, color: popup.color, fontSize: 14 }}>{popup.title}</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>{popup.detail}</div>
-            <button className="sc-btn sc-btn-small" style={{ marginTop: 10 }} onClick={() => setPopup(null)}>OK</button>
-          </div>
-        )}
+      {/* TAB 6: CLASS DIAGRAM */}
+      {activeTab === 'diagram' && <ClassDiagram module="shoppingcart" />}
 
-        {step === 6 && (
-          <div className="sc-popup" style={{ borderColor: '#3fb950' }}>
-            <div style={{ fontSize: 36 }}>🎉</div>
-            <div style={{ fontWeight: 700, color: '#3fb950', fontSize: 15 }}>Order Delivered!</div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>Order #{order?.id} completed</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#f59e0b', marginTop: 4 }}>₹{order?.totalAmount?.toFixed(2)}</div>
-            <button onClick={reset} className="sc-btn" style={{ marginTop: 10 }}>🔄 New</button>
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-        {step === 0 && <button onClick={startSim} className="sc-btn" style={{ padding: '10px 28px', fontSize: 14 }}>🏪 Browse Products</button>}
-        {step === 1 && <button onClick={() => setStep(2)} className="sc-btn">🏪 Browse → Ready</button>}
-        {step === 2 && <button onClick={addToCartAction} disabled={loading} className="sc-btn">🛒 Add to Cart {loading ? '...' : ''}</button>}
-        {step === 3 && <button onClick={viewCartAction} className="sc-btn">📋 View Cart</button>}
-        {step === 4 && <button onClick={checkoutAction} disabled={loading} className="sc-btn">💳 Checkout {loading ? '...' : ''}</button>}
-        {step === 5 && <button onClick={deliverAction} disabled={loading} className="sc-btn">🚚 Delivered {loading ? '...' : ''}</button>}
-      </div>
-
-      {error && <div className="sc-error">{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: 'rgba(255,255,255,0.1)', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+      {/* TAB 7: DESIGN DETAILS */}
+      {activeTab === 'details' && <DesignDetails module="shoppingcart" />}
     </div>
-  );
-}
-
-export default function ShoppingCartPage() {
-  const [tab, setTab] = useState('store');
-  const tabs = ['store', 'simulation', 'diagram', 'design'];
-  const tabLabels = { store: 'Store', simulation: 'Simulation', diagram: 'Class Diagram', design: 'Design Details' };
-
-  return (
-    <div className="sc-app">
-      <style>{styles}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header className="sc-header">
-        <h1>Shopping Cart</h1>
-        <p>Browse, add to cart, checkout & track orders</p>
-      </header>
-      <nav className="sc-nav">
-        {tabs.map(t => (
-          <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{tabLabels[t]}</button>
-        ))}
-      </nav>
-      <main className="sc-main">
-        {tab === 'store' && <StoreView />}
-        {tab === 'simulation' && <AnimatedFlow />}
-        {tab === 'diagram' && <ClassDiagram module="shoppingcart" />}
-        {tab === 'design' && <DesignDetails module="shoppingcart" />}
-      </main>
-    </div>
-  );
+  )
 }

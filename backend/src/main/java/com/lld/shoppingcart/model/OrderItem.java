@@ -1,12 +1,12 @@
 package com.lld.shoppingcart.model;
 
-public class CartItem {
+public class OrderItem {
     private final String productId;
     private final String productName;
     private final double unitPrice;
-    private int quantity;
+    private final int quantity;
 
-    public CartItem(String productId, String productName, double unitPrice, int quantity) {
+    public OrderItem(String productId, String productName, double unitPrice, int quantity) {
         this.productId = productId;
         this.productName = productName;
         this.unitPrice = unitPrice;
@@ -27,10 +27,6 @@ public class CartItem {
 
     public int getQuantity() {
         return quantity;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
     }
 
     public double getTotalPrice() {

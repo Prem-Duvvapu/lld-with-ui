@@ -1,163 +1,363 @@
 package com.lld.shoppingcart.service;
 
+import com.lld.shoppingcart.command.*;
+import com.lld.shoppingcart.exception.*;
 import com.lld.shoppingcart.model.*;
-import com.lld.shoppingcart.repository.ShoppingCartRepository;
+import com.lld.shoppingcart.payment.ShoppingCartPaymentProcessor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 @Service
 public class ShoppingCartService {
-    private final ShoppingCartRepository repository;
-    private final ReentrantLock lock = new ReentrantLock();
 
-    public ShoppingCartService(ShoppingCartRepository repository) {
-        this.repository = repository;
+    private final ConcurrentHashMap<String, Product> products = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, User> users = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Cart> carts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Order> orders = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Stack<CartCommand>> userCommandHistory = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Order> idempotencyCache = new ConcurrentHashMap<>();
+
+    private final ShoppingCartPaymentProcessor paymentProcessor;
+    private final AtomicLong orderIdGen = new AtomicLong(100);
+
+    // Isolated Simulation Engine State
+    private final ConcurrentHashMap<String, Product> simProducts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Cart> simCarts = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Order> simOrders = new ConcurrentHashMap<>();
+    private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
+    private final AtomicLong simEventIdGen = new AtomicLong(1);
+
+    public ShoppingCartService(ShoppingCartPaymentProcessor paymentProcessor) {
+        this.paymentProcessor = paymentProcessor;
+        initSimState();
     }
 
-    public List<Product> getProducts() {
-        return repository.findAllProducts();
+    public void addProduct(Product product) {
+        products.put(product.getId(), product);
     }
 
-    public Cart addToCart(long cartId, String userId, long productId, int quantity) {
-        lock.lock();
+    public Product getProduct(String id) {
+        Product p = products.get(id);
+        if (p == null) {
+            throw new ProductNotFoundException("Product not found with id: " + id);
+        }
+        return p;
+    }
+
+    public List<Product> getAllProducts() {
+        return new ArrayList<>(products.values());
+    }
+
+    public List<Product> searchProducts(String query, Category category, Double minPrice, Double maxPrice) {
+        return products.values().stream()
+                .filter(p -> (query == null || p.getName().toLowerCase().contains(query.toLowerCase())))
+                .filter(p -> (category == null || p.getCategory() == category))
+                .filter(p -> (minPrice == null || p.getPrice() >= minPrice))
+                .filter(p -> (maxPrice == null || p.getPrice() <= maxPrice))
+                .collect(Collectors.toList());
+    }
+
+    public void registerUser(User user) {
+        users.put(user.getId(), user);
+    }
+
+    public User getUser(String id) {
+        return users.get(id);
+    }
+
+    public List<User> getAllUsers() {
+        return new ArrayList<>(users.values());
+    }
+
+    public Cart getCart(String userId) {
+        return carts.computeIfAbsent(userId, Cart::new);
+    }
+
+    public void addToCart(String userId, String productId, int quantity) {
+        Product product = getProduct(productId);
+        Cart cart = getCart(userId);
+        CartCommand cmd = new AddItemCommand(cart, product, quantity);
+        executeCommand(userId, cmd);
+    }
+
+    public void removeFromCart(String userId, String productId) {
+        Cart cart = getCart(userId);
+        CartItem item = cart.getItems().get(productId);
+        if (item != null) {
+            CartCommand cmd = new RemoveItemCommand(cart, item);
+            executeCommand(userId, cmd);
+        }
+    }
+
+    public void updateCartQuantity(String userId, String productId, int quantity) {
+        Cart cart = getCart(userId);
+        CartItem item = cart.getItems().get(productId);
+        int oldQty = item != null ? item.getQuantity() : 0;
+        CartCommand cmd = new UpdateQuantityCommand(cart, productId, oldQty, quantity);
+        executeCommand(userId, cmd);
+    }
+
+    public void executeCommand(String userId, CartCommand command) {
+        command.execute();
+        userCommandHistory.computeIfAbsent(userId, k -> new Stack<>()).push(command);
+    }
+
+    public boolean undoLastCartCommand(String userId) {
+        Stack<CartCommand> history = userCommandHistory.get(userId);
+        if (history != null && !history.isEmpty()) {
+            CartCommand lastCmd = history.pop();
+            lastCmd.undo();
+            return true;
+        }
+        return false;
+    }
+
+    public Order placeOrder(String userId, PaymentMethod paymentMethod, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
+            Order cached = idempotencyCache.get(idempotencyKey);
+            if (cached != null) {
+                return cached;
+            }
+        }
+
+        Cart cart = getCart(userId);
+        if (cart.getItems().isEmpty()) {
+            throw new CartEmptyException("Cart is empty for user: " + userId);
+        }
+
+        // Sort items by Product ID in ascending order to prevent deadlocks
+        List<CartItem> cartItems = new ArrayList<>(cart.getItems().values());
+        List<Product> lockProducts = cartItems.stream()
+                .map(item -> getProduct(item.getProductId()))
+                .sorted(Comparator.comparing(Product::getId))
+                .collect(Collectors.toList());
+
+        // Acquire product locks in ascending ID order
+        List<ReentrantLock> acquiredLocks = new ArrayList<>();
         try {
-            Product product = repository.findProductById(productId);
-            if (product == null) {
-                throw new IllegalArgumentException("Product not found");
-            }
-            if (product.getAvailableQuantity() < quantity) {
-                throw new IllegalArgumentException("Insufficient stock");
+            for (Product p : lockProducts) {
+                p.getLock().lock();
+                acquiredLocks.add(p.getLock());
             }
 
-            Cart cart;
-            if (cartId == 0) {
-                cart = new Cart(repository.nextCartId(), userId);
-            } else {
-                cart = repository.findCartById(cartId);
-                if (cart == null) {
-                    throw new IllegalArgumentException("Cart not found");
+            // Validate stock for all items
+            for (CartItem item : cartItems) {
+                Product p = getProduct(item.getProductId());
+                if (p.getStockQuantity() < item.getQuantity()) {
+                    throw new InsufficientStockException(String.format("Insufficient stock for product '%s'. Requested: %d, Available: %d",
+                            p.getName(), item.getQuantity(), p.getStockQuantity()));
                 }
             }
 
-            Map<Long, CartItem> items = cart.getItems();
-            if (items.containsKey(productId)) {
-                CartItem existing = items.get(productId);
-                existing.setQuantity(existing.getQuantity() + quantity);
-            } else {
-                items.put(productId, new CartItem(productId, quantity, product.getPrice()));
+            // Decrement stock for all items
+            List<OrderItem> orderItems = new ArrayList<>();
+            for (CartItem item : cartItems) {
+                Product p = getProduct(item.getProductId());
+                p.decrementStock(item.getQuantity());
+                orderItems.add(new OrderItem(p.getId(), p.getName(), p.getPrice(), item.getQuantity()));
             }
 
-            cart.recalculateTotal();
-            repository.saveCart(cart);
-            return cart;
+            double totalAmount = cart.getTotalAmount();
+            String orderId = "ORD-" + orderIdGen.getAndIncrement();
+
+            String txId = paymentProcessor.executePayment(orderId, totalAmount, paymentMethod);
+            Order order = new Order(orderId, userId, orderItems, totalAmount, paymentMethod);
+            order.setPaymentTransactionId(txId);
+
+            orders.put(orderId, order);
+            cart.clear();
+
+            if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
+                idempotencyCache.put(idempotencyKey, order);
+            }
+
+            return order;
+
         } finally {
-            lock.unlock();
+            // Release acquired locks in reverse order
+            for (int i = acquiredLocks.size() - 1; i >= 0; i--) {
+                acquiredLocks.get(i).unlock();
+            }
         }
     }
 
-    public Cart removeFromCart(long cartId, long productId) {
-        lock.lock();
-        try {
-            Cart cart = repository.findCartById(cartId);
-            if (cart == null) {
-                throw new IllegalArgumentException("Cart not found");
-            }
-            cart.getItems().remove(productId);
-            cart.recalculateTotal();
-            repository.saveCart(cart);
-            return cart;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public Cart updateQuantity(long cartId, long productId, int quantity) {
-        lock.lock();
-        try {
-            Cart cart = repository.findCartById(cartId);
-            if (cart == null) {
-                throw new IllegalArgumentException("Cart not found");
-            }
-            if (quantity <= 0) {
-                cart.getItems().remove(productId);
-            } else {
-                CartItem item = cart.getItems().get(productId);
-                if (item == null) {
-                    throw new IllegalArgumentException("Item not in cart");
-                }
-                item.setQuantity(quantity);
-            }
-            cart.recalculateTotal();
-            repository.saveCart(cart);
-            return cart;
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public Cart getCart(long cartId) {
-        Cart cart = repository.findCartById(cartId);
-        if (cart == null) {
-            throw new IllegalArgumentException("Cart not found");
-        }
-        return cart;
-    }
-
-    public Order checkout(long cartId, String shippingAddress) {
-        lock.lock();
-        try {
-            Cart cart = repository.findCartById(cartId);
-            if (cart == null) {
-                throw new IllegalArgumentException("Cart not found");
-            }
-            if (cart.getItems().isEmpty()) {
-                throw new IllegalArgumentException("Cart is empty");
-            }
-
-            List<CartItem> items = new ArrayList<>(cart.getItems().values());
-            Order order = new Order(repository.nextOrderId(), cart.getUserId(), items, cart.getTotalAmount(), shippingAddress);
-
-            cart.getItems().clear();
-            cart.recalculateTotal();
-            repository.saveCart(cart);
-            return repository.saveOrder(order);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public Order updateOrderStatus(long orderId, String status) {
-        lock.lock();
-        try {
-            Order order = repository.findOrderById(orderId);
-            if (order == null) {
-                throw new IllegalArgumentException("Order not found");
-            }
-            OrderStatus newStatus = OrderStatus.valueOf(status.toUpperCase());
-            order.setStatus(newStatus);
-            if (newStatus == OrderStatus.DELIVERED) {
-                order.setDeliveryTime(LocalDateTime.now());
-            }
-            return repository.saveOrder(order);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    public Order getOrder(long orderId) {
-        Order order = repository.findOrderById(orderId);
+    public Order getOrder(String orderId) {
+        Order order = orders.get(orderId);
         if (order == null) {
-            throw new IllegalArgumentException("Order not found");
+            throw new InvalidOrderStateException("Order not found: " + orderId);
         }
         return order;
     }
 
-    public List<Order> getOrders() {
-        return repository.findAllOrders();
+    public List<Order> getUserOrders(String userId) {
+        return orders.values().stream()
+                .filter(o -> o.getUserId().equals(userId))
+                .sorted(Comparator.comparing(Order::getCreatedAtEpoch).reversed())
+                .collect(Collectors.toList());
+    }
+
+    public List<Order> getAllOrders() {
+        return orders.values().stream()
+                .sorted(Comparator.comparing(Order::getCreatedAtEpoch).reversed())
+                .collect(Collectors.toList());
+    }
+
+    public Order updateOrderStatus(String orderId, OrderStatus newStatus) {
+        Order order = getOrder(orderId);
+
+        if (newStatus == OrderStatus.CANCELLED) {
+            cancelOrder(orderId);
+            return getOrder(orderId);
+        }
+
+        order.setStatus(newStatus);
+        return order;
+    }
+
+    public void cancelOrder(String orderId) {
+        Order order = getOrder(orderId);
+        OrderStatus current = order.getStatus();
+
+        if (current == OrderStatus.SHIPPED || current == OrderStatus.DELIVERED || current == OrderStatus.CANCELLED) {
+            throw new InvalidOrderStateException(String.format("Cannot cancel order %s in status %s!", orderId, current));
+        }
+
+        // Restock inventory
+        for (OrderItem item : order.getItems()) {
+            Product p = products.get(item.getProductId());
+            if (p != null) {
+                p.incrementStock(item.getQuantity());
+            }
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+    }
+
+    // =========================================================================
+    // ISOLATED SIMULATION ENGINE
+    // =========================================================================
+
+    public synchronized void initSimState() {
+        simProducts.clear();
+        simCarts.clear();
+        simOrders.clear();
+        simEventLog.clear();
+
+        Product p1 = new Product("P101", "Gaming Laptop RTX 4080", Category.ELECTRONICS, 125000.0, 2); // Low stock = 2
+        Product p2 = new Product("P102", "Wireless Headphones", Category.ELECTRONICS, 4999.0, 15);
+        Product p3 = new Product("P103", "Ergonomic Desk Chair", Category.HOME_KITCHEN, 12999.0, 10);
+        Product p4 = new Product("P104", "Clean Code Book", Category.BOOKS, 899.0, 20);
+
+        simProducts.put(p1.getId(), p1);
+        simProducts.put(p2.getId(), p2);
+        simProducts.put(p3.getId(), p3);
+        simProducts.put(p4.getId(), p4);
+
+        logSimEvent("SIM_RESET", "System", "Initialized simulation catalog with 4 products (P101 low stock = 2 units)", null);
+    }
+
+    public synchronized Map<String, Object> simAddToCart(String userId, String productId, int quantity) {
+        Product p = simProducts.get(productId);
+        if (p == null) throw new ProductNotFoundException("Sim product not found: " + productId);
+
+        Cart cart = simCarts.computeIfAbsent(userId, Cart::new);
+        cart.addItem(p, quantity);
+
+        logSimEvent("ADD_TO_CART", userId, String.format("Added %d units of '%s' to cart", quantity, p.getName()), null);
+        return getSimSnapshots();
+    }
+
+    public synchronized Map<String, Object> simPlaceOrder(String userId, PaymentMethod method) {
+        Cart cart = simCarts.get(userId);
+        if (cart == null || cart.getItems().isEmpty()) {
+            logSimEvent("ORDER_FAILED", userId, "Cart empty for user " + userId, null);
+            return getSimSnapshots();
+        }
+
+        List<CartItem> cartItems = new ArrayList<>(cart.getItems().values());
+        List<Product> lockProducts = cartItems.stream()
+                .map(item -> simProducts.get(item.getProductId()))
+                .sorted(Comparator.comparing(Product::getId))
+                .collect(Collectors.toList());
+
+        // Validate stock
+        for (CartItem item : cartItems) {
+            Product p = simProducts.get(item.getProductId());
+            if (p.getStockQuantity() < item.getQuantity()) {
+                Map<String, Object> details = new HashMap<>();
+                details.put("productId", p.getId());
+                details.put("requested", item.getQuantity());
+                details.put("available", p.getStockQuantity());
+
+                logSimEvent("INSUFFICIENT_STOCK", userId, String.format("OUT OF STOCK! Checkout failed for '%s'. Requested: %d, Available: %d",
+                        p.getName(), item.getQuantity(), p.getStockQuantity()), details);
+                return getSimSnapshots();
+            }
+        }
+
+        // Decrement stock & create order
+        List<OrderItem> orderItems = new ArrayList<>();
+        for (CartItem item : cartItems) {
+            Product p = simProducts.get(item.getProductId());
+            p.decrementStock(item.getQuantity());
+            orderItems.add(new OrderItem(p.getId(), p.getName(), p.getPrice(), item.getQuantity()));
+        }
+
+        String orderId = "SIM-ORD-" + simOrders.size() + 101;
+        Order order = new Order(orderId, userId, orderItems, cart.getTotalAmount(), method);
+        order.setPaymentTransactionId("TX-SIM-" + System.currentTimeMillis() % 10000);
+        simOrders.put(orderId, order);
+        cart.clear();
+
+        logSimEvent("ORDER_PLACED", userId, String.format("Order %s PLACED successfully for ₹%.2f via %s", orderId, order.getTotalAmount(), method), null);
+        return getSimSnapshots();
+    }
+
+    public synchronized Map<String, Object> simUpdateOrderStatus(String orderId, OrderStatus status) {
+        Order order = simOrders.get(orderId);
+        if (order == null) throw new InvalidOrderStateException("Order not found: " + orderId);
+
+        if (status == OrderStatus.CANCELLED) {
+            if (order.getStatus() == OrderStatus.SHIPPED || order.getStatus() == OrderStatus.DELIVERED) {
+                logSimEvent("CANCEL_FAILED", order.getUserId(), String.format("CANNOT CANCEL! Order %s is already %s!", orderId, order.getStatus()), null);
+                return getSimSnapshots();
+            }
+            // Restock
+            for (OrderItem item : order.getItems()) {
+                Product p = simProducts.get(item.getProductId());
+                if (p != null) p.incrementStock(item.getQuantity());
+            }
+        }
+
+        order.setStatus(status);
+        logSimEvent("STATUS_UPDATED", "Admin", String.format("Order %s state changed to %s", orderId, status), null);
+        return getSimSnapshots();
+    }
+
+    public List<SimEvent> getSimEvents() {
+        return simEventLog;
+    }
+
+    public Map<String, Object> getSimSnapshots() {
+        Map<String, Object> res = new HashMap<>();
+        res.put("products", new ArrayList<>(simProducts.values()));
+        res.put("carts", simCarts);
+        res.put("orders", new ArrayList<>(simOrders.values()));
+        res.put("events", simEventLog);
+        return res;
+    }
+
+    private void logSimEvent(String type, String actor, String desc, Map<String, Object> data) {
+        String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"));
+        SimEvent event = new SimEvent(simEventIdGen.getAndIncrement(), ts, type, actor, desc, data);
+        simEventLog.add(event);
     }
 }
