@@ -1,6 +1,5 @@
 package com.lld.pubsub.service;
 
-import com.lld.pubsub.exception.QueueFullException;
 import com.lld.pubsub.exception.TopicNotFoundException;
 import com.lld.pubsub.model.*;
 import com.lld.pubsub.worker.SubscriberWorker;

@@ -1,8 +1,6 @@
 package com.lld.elevator.repository;
 
-import com.lld.elevator.model.Direction;
 import com.lld.elevator.model.Elevator;
-import com.lld.elevator.model.ElevatorStatus;
 import com.lld.elevator.model.Request;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Repository;

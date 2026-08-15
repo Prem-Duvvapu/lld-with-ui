@@ -1,8 +1,5 @@
 package com.lld.shoppingcart;
 
-import com.lld.shoppingcart.command.AddItemCommand;
-import com.lld.shoppingcart.command.CartCommand;
-import com.lld.shoppingcart.exception.CartEmptyException;
 import com.lld.shoppingcart.exception.InsufficientStockException;
 import com.lld.shoppingcart.exception.InvalidOrderStateException;
 import com.lld.shoppingcart.model.*;

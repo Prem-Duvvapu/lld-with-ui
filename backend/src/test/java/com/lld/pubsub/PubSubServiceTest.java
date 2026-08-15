@@ -1,8 +1,6 @@
 package com.lld.pubsub;
 
 import com.lld.pubsub.model.Message;
-import com.lld.pubsub.model.PrintSubscriber;
-import com.lld.pubsub.model.SlowSubscriber;
 import com.lld.pubsub.model.Topic;
 import com.lld.pubsub.service.PubSubService;
 import org.junit.jupiter.api.BeforeEach;

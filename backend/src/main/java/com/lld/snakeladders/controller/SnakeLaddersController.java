@@ -1,6 +1,5 @@
 package com.lld.snakeladders.controller;
 
-import com.lld.snakeladders.model.Game;
 import com.lld.snakeladders.service.SnakeLaddersService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

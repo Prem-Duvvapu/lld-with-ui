@@ -1,6 +1,5 @@
 package com.lld.elevator.controller;
 
-import com.lld.elevator.model.Direction;
 import com.lld.elevator.model.Elevator;
 import com.lld.elevator.model.Request;
 import com.lld.elevator.model.SimEvent;

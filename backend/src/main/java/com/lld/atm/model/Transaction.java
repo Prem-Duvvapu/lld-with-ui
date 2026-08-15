@@ -1,6 +1,5 @@
 package com.lld.atm.model;
 
-import java.util.Map;
 
 public abstract class Transaction {
     private final String transactionId;

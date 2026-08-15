@@ -1,6 +1,5 @@
 package com.lld.vendingmachine.controller;
 
-import com.lld.vendingmachine.model.Transaction;
 import com.lld.vendingmachine.service.VendingMachineService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

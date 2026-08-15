@@ -7,7 +7,6 @@ import com.lld.hotel.model.Room.RoomStatus;
 import com.lld.hotel.model.Booking;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;

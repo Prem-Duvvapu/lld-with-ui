@@ -1,13 +1,11 @@
 package com.lld.hotel.config;
 
-import com.lld.hotel.model.Hotel;
 import com.lld.hotel.model.Room;
 import com.lld.hotel.model.Room.RoomType;
 import com.lld.hotel.repository.HotelRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 
 @Component
 public class HotelInitializer implements CommandLineRunner {

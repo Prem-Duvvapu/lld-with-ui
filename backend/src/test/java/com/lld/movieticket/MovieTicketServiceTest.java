@@ -1,8 +1,6 @@
 package com.lld.movieticket;
 
-import com.lld.movieticket.exception.BookingFailedException;
 import com.lld.movieticket.exception.SeatNotAvailableException;
-import com.lld.movieticket.factory.SeatFactory;
 import com.lld.movieticket.model.*;
 import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
@@ -13,7 +11,6 @@ import com.lld.movieticket.strategy.BasePricingStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;

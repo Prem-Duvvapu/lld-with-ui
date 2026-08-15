@@ -7,7 +7,6 @@ import com.lld.movieticket.model.Seat;
 import com.lld.movieticket.model.SeatStatus;
 import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.*;

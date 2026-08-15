@@ -1,6 +1,5 @@
 package com.lld.lrucache;
 
-import com.lld.lrucache.model.LruCache;
 import com.lld.lrucache.service.LruCacheService;
 import com.lld.lrucache.strategy.EvictionPolicyType;
 import org.junit.jupiter.api.BeforeEach;

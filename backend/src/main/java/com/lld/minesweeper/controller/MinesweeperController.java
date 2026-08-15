@@ -1,6 +1,5 @@
 package com.lld.minesweeper.controller;
 
-import com.lld.minesweeper.model.Game;
 import com.lld.minesweeper.service.MinesweeperService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

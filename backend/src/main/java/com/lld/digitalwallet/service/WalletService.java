@@ -1,6 +1,5 @@
 package com.lld.digitalwallet.service;
 
-import com.lld.digitalwallet.model.PaymentMethod;
 import com.lld.digitalwallet.model.Transaction;
 import com.lld.digitalwallet.model.Wallet;
 import com.lld.digitalwallet.repository.WalletRepository;
