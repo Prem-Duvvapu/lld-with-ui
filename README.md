@@ -32,7 +32,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 22 | Logging Framework | Log sink engine | Chain of Responsibility, Singleton |
 | 23 | Traffic Signal | Signal timing engine | State Pattern, Observer |
 | 24 | Task Management System | Task workflow | State Pattern, Strategy |
-| 25 | LinkedIn | Professional network | Graph Model, Observer |
+| 25 | [LinkedIn](#25-linkedin) | Professional network | Graph Model, Strategy (ranking), Observer (alerts), Pair Locking |
 | 26 | LRU Cache | In-memory cache | Doubly Linked List + HashMap |
 | 27 | [Pub Sub System](#27-pubsub-system-message-broker) | Message broker | Observer, Dedicated Per-Subscriber FIFO Worker Threads |
 | 28 | Car Rental System | Vehicle fleet & booking | State Machine, Strategy |
@@ -360,6 +360,34 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 - `POST /api/shoppingcart/orders/{id}/cancel`
 - `POST /api/shoppingcart/sim/reset`
 - `POST /api/shoppingcart/sim/place-order`
+
+---
+
+### 25. LinkedIn
+
+#### Key Features
+- **Professional Graph & Canonical Pair Locking**: User profiles, connection requests (`PENDING`, `ACCEPTED`, `REJECTED`), and deadlock-free pair locking (`min(u1, u2) + "#" + max(u1, u2)`).
+- **Strategy Pattern for Weighted Ranking**: `UserSearchRankingStrategy` (4-factor scoring: name, headline, skill overlap, network degree) and `JobSearchRankingStrategy` (title, skills, location, recency).
+- **Observer Pattern for Event Dispatching**: `NotificationObserver` pipeline broadcasting in-app alerts and log records for connection requests, direct messages, and job applications.
+- **Direct Messaging Guards**: Enforces 1st-degree `ACCEPTED` connection status prior to message delivery.
+- **Interactive 6-Tab React UI**: My Profile & Network, Jobs & Applications, Messaging & Inboxes, 2D Sandbox Simulation, Class Diagram, and Design Details.
+
+#### API Endpoints
+- `GET /api/linkedin/users`
+- `GET /api/linkedin/users/{id}/profile`
+- `POST /api/linkedin/users/{id}/profile`
+- `POST /api/linkedin/connections/request`
+- `POST /api/linkedin/connections/accept`
+- `POST /api/linkedin/messages`
+- `GET /api/linkedin/messages/{u1}/{u2}`
+- `GET /api/linkedin/jobs`
+- `POST /api/linkedin/jobs`
+- `POST /api/linkedin/jobs/{id}/apply`
+- `GET /api/linkedin/search/users?query=`
+- `GET /api/linkedin/search/jobs?query=`
+- `POST /api/linkedin/sim/reset`
+- `POST /api/linkedin/sim/connect`
+- `POST /api/linkedin/sim/message`
 
 ---
 
