@@ -2,7 +2,7 @@ package com.lld.uber.payment;
 
 import org.springframework.stereotype.Component;
 
-@Component
+@Component("uberPaymentProcessor")
 public class PaymentProcessor {
 
     public boolean validate(Payment payment) {

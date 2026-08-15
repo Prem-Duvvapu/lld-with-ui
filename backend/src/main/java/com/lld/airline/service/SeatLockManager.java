@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-@Component
+@Component("airlineSeatLockManager")
 public class SeatLockManager {
 
     private final Map<String, ReentrantLock> seatLocks = new ConcurrentHashMap<>();

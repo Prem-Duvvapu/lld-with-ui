@@ -13,7 +13,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-@Component
+@Component("movieTicketSeatLockManager")
 public class SeatLockManager {
     private final Map<String, ReentrantLock> seatLocks = new ConcurrentHashMap<>();
 
