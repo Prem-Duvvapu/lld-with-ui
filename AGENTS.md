@@ -139,6 +139,18 @@
 - 4 tabs: 🏧 ATM Terminal, 🔒 Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Hardware keypad terminal with PIN entry, cash slot animation, note breakdown badges, printable receipt modal, and interactive simulation timeline for 10-thread balance races, denomination mismatch compensation, and PIN lockout.
 
+## LinkedIn Module
+### Backend
+- `LinkedInService`: Singleton facade managing professional profiles, connections, direct messaging, job postings, and weighted search ranking algorithms.
+- Concurrency & Graph Safety: `ConcurrentHashMap` repository + canonical pair locking (`min(u1, u2) + "#" + max(u1, u2)`) preventing connection request race conditions.
+- Strategy Pattern: `UserSearchRankingStrategy` (weighted 4-factor scoring: name, headline, skills, network degree) and `JobSearchRankingStrategy` (weighted 4-factor scoring: title, skill overlap, location, recency).
+- Observer Pattern: `NotificationObserver` interface with `InAppNotificationObserver` and `LoggingNotificationObserver` for asynchronous event dispatching.
+- Direct Messaging Guard: Enforces 1st-degree `ACCEPTED` connection status prior to message transmission.
+
+### Frontend
+- 6 tabs: 👤 My Profile & Network, 💼 Jobs & Applications, 💬 Messaging & Inboxes, 🕹️ Interactive 2D Simulation, 📐 Class Diagram, 📋 Design Details.
+- Real-time profile skill editor, 1-click job application with match scoring, live direct chat bubble feed, and 4-node interactive simulation sandbox with visual network topology map and real-time telemetry event stream.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar

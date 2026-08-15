@@ -1,4 +1,50 @@
 const designDetails = {
+  linkedin: {
+    title: 'LinkedIn Professional Network — Design Details',
+    tldr: [
+      'Professional networking platform with bidirectional connections, state-machine connection lifecycles, and real-time observer alerts',
+      'Weighted search ranking algorithms evaluating candidate relevance across name match, headline tokens, skill overlap, and 1st/2nd/3rd network distance',
+      'Observer Pattern for decoupled in-app notifications and audit logging on connection requests, messages, and job applications',
+      'Fine-grained canonical pair locks (min(u1, u2) + "#" + max(u1, u2)) preventing race conditions during concurrent connection requests',
+      'Direct messaging security guard enforcing 1st-degree connection status before message routing',
+      'Job posting ledger with atomic applicant registration preventing duplicate applications under high concurrency'
+    ],
+    tradeoffs: [
+      'Used canonical string pair locking rather than a global repository mutex to maximize connection throughput.',
+      'Adopted Strategy Pattern for user and job search ranking to allow dynamic formula tweaking without modifying core services.',
+      'Employed CopyOnWriteArrayList for observer lists and conversation feeds for lock-free iteration.'
+    ],
+    requirements: [
+      'User Management & Authentication: Register, authenticate, and manage professional profiles (headline, summary, experiences, education, skills)',
+      'Connection Lifecycle: Send, accept, and reject connection requests with status machine (PENDING → ACCEPTED / REJECTED)',
+      'Direct Messaging: Send secure end-to-end messages exclusively between accepted 1st-degree connections',
+      'Job Board & 1-Click Apply: Post open positions with skill requirements and atomic candidate application ledger',
+      'Search & Relevance Ranking: Multi-factor weighted search scoring for both talent discovery and job matching',
+      'Observer Notification System: Real-time event broadcasting to user inboxes upon platform events'
+    ],
+    entities: [
+      { name: 'User', description: 'Core user entity with authentication secret, profile reference, and timestamp metadata.', fields: [{ name: 'id', type: 'String' }, { name: 'email', type: 'String' }, { name: 'profile', type: 'Profile' }], methods: [{ name: 'validatePassword(raw)', returns: 'boolean', description: 'Validates credential hash' }] },
+      { name: 'Profile', description: 'Professional portfolio with headline, experiences, education, and skill tag set.', fields: [{ name: 'skills', type: 'Set<Skill>' }, { name: 'experiences', type: 'List<Experience>' }], methods: [{ name: 'addSkill(skill)', returns: 'void', description: 'Adds skill to concurrent set' }] },
+      { name: 'Connection', description: 'Models relationship edge between two users with ConnectionStatus lifecycle state.', fields: [{ name: 'requesterId', type: 'String' }, { name: 'targetId', type: 'String' }, { name: 'status', type: 'ConnectionStatus' }], methods: [{ name: 'involves(userId)', returns: 'boolean', description: 'Checks user participation' }] },
+      { name: 'JobPosting', description: 'Employment opportunity with required skills, employment type, and applicant user set.', fields: [{ name: 'requiredSkills', type: 'Set<String>' }, { name: 'applicantUserIds', type: 'Set<String>' }], methods: [{ name: 'addApplicant(userId)', returns: 'boolean', description: 'Atomic CAS application' }] },
+      { name: 'LinkedInService', description: 'Spring @Service facade orchestrating thread-safe graph operations, search ranking, and observers.', fields: [], methods: [{ name: 'sendConnectionRequest(...)', returns: 'Connection', description: 'Canonical pair lock guarded request' }] }
+    ],
+    designPatterns: [
+      { name: 'Singleton Pattern', usage: 'LinkedInService instantiated as a thread-safe Spring Singleton with Double-Checked Locking.' },
+      { name: 'Observer Pattern', usage: 'NotificationObserver interface implemented by InAppNotificationObserver and LoggingNotificationObserver.' },
+      { name: 'Strategy Pattern', usage: 'UserSearchRankingStrategy and JobSearchRankingStrategy interfaces allowing swappable relevance scoring.' }
+    ],
+    solid: [
+      { principle: 'Single Responsibility Principle', details: 'Profile manages professional resume data; Connection manages relationship states; NotificationObserver handles alert delivery.' },
+      { principle: 'Open/Closed Principle', details: 'New search ranking formulas and notification channels can be added without modifying the LinkedInService orchestrator.' },
+      { principle: 'Liskov Substitution Principle', details: 'Any NotificationObserver implementation can be registered and invoked transparently by the event dispatcher.' }
+    ],
+    extensibility: [
+      'Skill Endorsements: Wrap Skill into an Endorsement model tracking endorser user IDs and timestamps.',
+      'Company Pages & Following: Introduce asymmetric 1-way Follow relationships distinct from 2-way symmetric Connections.',
+      'Activity Stream / Posts: Introduce a feed generator strategy aggregating 1st-degree connection posts.'
+    ]
+  },
   shoppingcart: {
     title: 'Online Shopping System (Shopping Cart) — Design Details',
     tldr: [

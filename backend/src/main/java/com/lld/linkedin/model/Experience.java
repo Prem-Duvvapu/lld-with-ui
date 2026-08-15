@@ -1,0 +1,101 @@
+package com.lld.linkedin.model;
+
+import java.time.LocalDate;
+import java.util.UUID;
+
+public class Experience {
+    private final String id;
+    private String title;
+    private String company;
+    private String location;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private boolean isCurrent;
+    private String description;
+
+    public Experience(String title, String company, String location, LocalDate startDate, LocalDate endDate, boolean isCurrent, String description) {
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Title cannot be null or empty");
+        }
+        if (company == null || company.trim().isEmpty()) {
+            throw new IllegalArgumentException("Company cannot be null or empty");
+        }
+        if (startDate == null) {
+            throw new IllegalArgumentException("Start date cannot be null");
+        }
+        if (!isCurrent && endDate != null && endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("End date cannot be before start date");
+        }
+        this.id = UUID.randomUUID().toString();
+        this.title = title.trim();
+        this.company = company.trim();
+        this.location = location != null ? location.trim() : "";
+        this.startDate = startDate;
+        this.endDate = isCurrent ? null : endDate;
+        this.isCurrent = isCurrent;
+        this.description = description != null ? description.trim() : "";
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getCompany() {
+        return company;
+    }
+
+    public void setCompany(String company) {
+        this.company = company;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    public boolean isCurrent() {
+        return isCurrent;
+    }
+
+    public void setCurrent(boolean current) {
+        isCurrent = current;
+        if (current) {
+            this.endDate = null;
+        }
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+}
