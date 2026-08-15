@@ -1,407 +1,797 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { getFlights, searchFlights, getSeats, bookFlight, checkInBooking, getBooking } from './api';
+import React, { useState, useEffect } from 'react';
+import {
+  getFlights,
+  searchFlights,
+  getFlightSeats,
+  holdSeats,
+  bookFlight,
+  cancelBooking,
+  getUserBookings,
+  simReset,
+  simHold,
+  simBook,
+  simCancel,
+  simExpire,
+  simGetSnapshots,
+  simGetEvents,
+} from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
-
-const CSS = `
-.airline-app { max-width: 1100px; margin: 0 auto; padding: 20px; }
-.airline-header { text-align: center; margin-bottom: 20px; }
-.airline-header h1 { font-size: 28px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.airline-header p { color: var(--text-muted); font-size: 14px; }
-.airline-nav { display: flex; gap: 6px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
-.airline-nav button { padding: 8px 18px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-.airline-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.airline-nav button:hover:not(.active) { background: var(--border-primary); }
-.airline-main { background: var(--bg-secondary); border-radius: 12px; padding: 24px; border: 1px solid var(--border-primary); }
-.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; transition: all 0.2s; }
-.back-home:hover { border-color: var(--accent); color: var(--accent); }
-.form-card { max-width: 500px; margin: 0 auto; }
-.form-card h2 { margin-bottom: 16px; font-size: 18px; color: var(--info); }
-.form-group { margin-bottom: 14px; }
-.form-group label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-.form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid var(--border-primary); border-radius: 6px; font-size: 14px; background: var(--bg-input); color: var(--text-primary); transition: border-color 0.2s; }
-.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
-.btn-primary { width: 100%; padding: 12px; background: var(--accent-gradient); color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102,126,234,0.3); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-.btn-secondary { padding: 8px 16px; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; margin: 0 4px; }
-.btn-secondary:hover { opacity: 0.9; }
-.result-card { margin-top: 16px; padding: 16px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-primary); }
-.result-card h3 { margin-bottom: 10px; font-size: 15px; color: var(--info); }
-.result-card .detail { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; border-bottom: 1px solid var(--border-secondary); }
-.result-card .detail:last-child { border-bottom: none; }
-.result-card .label { color: var(--text-muted); } .result-card .value { font-weight: 600; color: var(--text-primary); }
-.error { margin-top: 12px; padding: 10px; background: var(--danger-bg); color: var(--danger); border-radius: 8px; border: 1px solid var(--danger-bg); font-size: 13px; }
-.flight-list { display: flex; flex-direction: column; gap: 12px; }
-.flight-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; }
-.flight-card:hover { border-color: var(--accent); }
-.flight-card .flight-no { font-weight: 700; color: var(--text-primary); }
-.flight-card .airline { color: var(--text-muted); font-size: 13px; }
-.flight-card .route { font-size: 16px; margin: 6px 0; color: var(--info); }
-.flight-card .time { font-size: 12px; color: var(--text-muted); }
-.flight-card .fare { font-size: 20px; font-weight: 700; color: var(--accent); }
-.seat-map { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 16px 0; }
-.seat-row { display: flex; gap: 4px; align-items: center; }
-.seat-row-label { width: 20px; font-size: 11px; color: var(--text-muted); text-align: center; }
-.seat-cell { width: 34px; height: 34px; border-radius: 4px; border: 1px solid var(--border-primary); display: flex; align-items: center; justify-content: center; font-size: 9px; cursor: pointer; transition: all 0.2s; background: var(--bg-tertiary); color: var(--text-muted); }
-.seat-cell.available { background: var(--success-bg); border-color: var(--success); color: var(--success); }
-.seat-cell.available:hover { background: var(--success); color: #fff; }
-.seat-cell.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
-.seat-cell.booked { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); cursor: not-allowed; }
-.seat-cell.economy { border-color: #4ecdc4; } .seat-cell.business { border-color: #ffd700; } .seat-cell.first { border-color: #ff6b6b; }
-.seat-gap { width: 12px; }
-.flow-section { display: flex; flex-direction: column; align-items: center; }
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
-.step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-primary); transition: all 0.3s; }
-.step-dot.active { background: var(--accent); box-shadow: 0 0 8px rgba(102,126,234,0.5); }
-.step-dot.done { background: var(--success); }
-.airport-scene { position: relative; width: 100%; height: 340px; background: linear-gradient(180deg, #0f0c29, #1a1a3e); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-primary); margin-bottom: 16px; }
-.airport-terminal { position: absolute; left: 20px; top: 20px; width: 120px; height: 100px; background: #2a3a6a; border-radius: 8px; border: 1px solid #4a6a9a; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.8s; }
-.airport-terminal .term-name { color: #ffd700; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
-.airport-terminal .term-label { color: #8899bb; font-size: 9px; }
-.airport-terminal .flight-info { font-size: 9px; color: #4ecdc4; margin-top: 4px; }
-.airplane { position: absolute; right: 30px; top: 30px; width: 200px; height: 100px; background: #2a3a5a; border-radius: 50px 50px 20px 20px; border: 2px solid #4a6a9a; transition: all 0.8s; overflow: hidden; }
-.airplane .cockpit { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 30px; height: 16px; background: #4a6a9a; border-radius: 50%; }
-.airplane .tail { position: absolute; bottom: 0; right: -10px; width: 0; height: 0; border-left: 20px solid transparent; border-right: 20px solid transparent; border-bottom: 40px solid #4a6a9a; }
-.airplane .engines { position: absolute; bottom: -6px; left: 30%; width: 12px; height: 8px; background: #888; border-radius: 0 0 6px 6px; } .airplane .engines.e2 { left: 60%; }
-.airplane-windows { position: absolute; top: 30px; left: 20px; right: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-.airplane-window { width: 16px; height: 16px; background: #1a2a4a; border: 1px solid #4a6a9a; border-radius: 3px; transition: all 0.5s; }
-.airplane-window.lit { background: #ffd700; box-shadow: 0 0 6px rgba(255,215,0,0.3); }
-.airplane-window.booked { background: #ff6b6b; }
-.runway { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: #2d2d2d; border-top: 2px solid #555; }
-.runway-line { position: absolute; bottom: 18px; left: 0; right: 0; height: 1px; background: repeating-linear-gradient(90deg, #fff 0px, #fff 15px, transparent 15px, transparent 30px); opacity: 0.2; }
-.airport-departure { position: absolute; left: 50%; transform: translateX(-50%); top: 10px; font-size: 9px; color: #4ecdc4; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 4px; z-index: 3; transition: all 0.5s; }
-.flow-btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; color: #fff; margin: 0 4px; }
-.flow-btn:hover { transform: translateY(-2px); }
-.flow-btn.primary { background: var(--accent-gradient); }
-.flow-btn.success { background: var(--success); }
-.flow-btn.danger { background: var(--danger); }
-.flow-btn.warning { background: var(--warning); }
-.flow-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-.airport-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 220px; text-align: center; animation: popIn 0.5s ease-out; }
-@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-.airport-popup.done { border-color: var(--success); }
-.airport-popup h3 { color: var(--info); margin-bottom: 8px; font-size: 16px; }
-.airport-popup .detail { font-size: 12px; color: var(--text-secondary); padding: 3px 0; }
-.passenger-icon { position: absolute; font-size: 26px; z-index: 5; transition: all 1s cubic-bezier(0.4, 0, 0.2, 1); }
-`;
-
-function FlightsTab() {
-  const [flights, setFlights] = useState([]);
-  const [selectedFlight, setSelectedFlight] = useState(null);
-  const [seats, setSeats] = useState([]);
-  const [selectedSeats, setSelectedSeats] = useState([]);
-  const [passengerName, setPassengerName] = useState('');
-  const [bookingResult, setBookingResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [source, setSource] = useState('');
-  const [dest, setDest] = useState('');
-
-  useEffect(() => {
-    getFlights().then(setFlights).catch(() => setError('Failed to load flights'));
-  }, []);
-
-  const doSearch = async () => {
-    if (!source || !dest) return;
-    setError('');
-    try {
-      const data = await searchFlights(source, dest);
-      setFlights(data);
-    } catch { setError('Search failed'); }
-  };
-
-  const selectFlight = async (flight) => {
-    setSelectedFlight(flight);
-    setSelectedSeats([]);
-    setBookingResult(null);
-    setError('');
-    try {
-      const data = await getSeats(flight.id);
-      setSeats(data);
-    } catch { setError('Failed to load seats'); }
-  };
-
-  const toggleSeat = (seat) => {
-    if (seat.status !== 'AVAILABLE') return;
-    setSelectedSeats((prev) => {
-      if (prev.find((s) => s.id === seat.id)) return prev.filter((s) => s.id !== seat.id);
-      return [...prev, seat];
-    });
-  };
-
-  const doBook = async () => {
-    if (!passengerName || selectedSeats.length === 0) { setError('Fill name and select seats'); return; }
-    setError(''); setLoading(true);
-    try {
-      const data = await bookFlight(selectedFlight.id, selectedSeats.map(s => s.id), 'user1', passengerName);
-      if (data.error) setError(data.error);
-      else { setBookingResult(data); setPassengerName(''); }
-    } catch { setError('Booking failed'); }
-    finally { setLoading(false); }
-  };
-
-  const seatClassColor = { ECONOMY: '#4ecdc4', BUSINESS: '#ffd700', FIRST: '#ff6b6b' };
-
-  const rows = {};
-  seats.forEach(s => {
-    if (!rows[s.row]) rows[s.row] = [];
-    rows[s.row].push(s);
-  });
-
-  return (
-    <div>
-      {!selectedFlight ? (
-        <>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-            <input type="text" placeholder="Source (e.g. Mumbai)" value={source} onChange={(e) => setSource(e.target.value)}
-              style={{ flex: 1, minWidth: 120, padding: '10px 12px', borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
-            <input type="text" placeholder="Destination (e.g. Delhi)" value={dest} onChange={(e) => setDest(e.target.value)}
-              style={{ flex: 1, minWidth: 120, padding: '10px 12px', borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-input)', color: 'var(--text-primary)' }} />
-            <button onClick={doSearch} className="btn-secondary">✈️ Search</button>
-          </div>
-          <div className="flight-list">
-            {flights.map((f) => (
-              <div key={f.id} className="flight-card" onClick={() => selectFlight(f)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <div><span className="flight-no">{f.flightNumber}</span> <span className="airline">{f.airline}</span></div>
-                  <div className="fare">₹{f.fare.toLocaleString()}</div>
-                </div>
-                <div className="route">{f.source} <span style={{ color: 'var(--text-muted)' }}>→</span> {f.destination}</div>
-                <div className="time">{new Date(f.departureTime).toLocaleString()} - {new Date(f.arrivalTime).toLocaleString()}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{f.availableSeats}/{f.totalSeats} seats available</div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div>
-          <button onClick={() => { setSelectedFlight(null); setBookingResult(null); setSelectedSeats([]); }} style={{ padding: '8px 16px', border: '1px solid var(--border-primary)', borderRadius: 6, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13, marginBottom: 16 }}>← Back to Flights</button>
-          <h2 style={{ color: 'var(--info)', fontSize: 18 }}>{selectedFlight.airline} {selectedFlight.flightNumber}</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 12 }}>{selectedFlight.source} → {selectedFlight.destination}</p>
-
-          <h3 style={{ fontSize: 15, color: 'var(--text-primary)', marginBottom: 8 }}>Select Seats</h3>
-          <div className="seat-map">
-            {Object.entries(rows).map(([row, rowSeats]) => (
-              <div key={row} className="seat-row">
-                <div className="seat-row-label">{row}</div>
-                {rowSeats.map((s, i) => (
-                  <>
-                    {i === 3 && <div className="seat-gap" />}
-                    <div key={s.id}
-                      className={`seat-cell ${s.classType.toLowerCase()} ${s.status === 'AVAILABLE' ? 'available' : 'booked'} ${selectedSeats.find(ss => ss.id === s.id) ? 'selected' : ''}`}
-                      onClick={() => toggleSeat(s)}
-                      title={`${s.classType} - ₹${s.price}`}>
-                      {s.col}
-                    </div>
-                  </>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>
-            <span style={{ color: 'var(--success)' }}>■ Available</span>
-            <span style={{ color: 'var(--accent)' }}>■ Selected</span>
-            <span style={{ color: 'var(--danger)' }}>■ Booked</span>
-          </div>
-
-          <div className="form-card">
-            <div className="form-group"><label>Passenger Name</label><input type="text" value={passengerName} onChange={(e) => setPassengerName(e.target.value)} placeholder="e.g. Alice" /></div>
-            {selectedSeats.length > 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 8 }}>{selectedSeats.length} seat(s) selected: ₹{selectedSeats.reduce((s, x) => s + x.price, 0).toLocaleString()}</div>}
-            <button onClick={doBook} className="btn-primary" disabled={loading}>{loading ? 'Booking...' : '🎫 Book Flight'}</button>
-          </div>
-
-          {error && <div className="error">{error}</div>}
-          {bookingResult && (
-            <div className="result-card">
-              <h3>Flight Booked!</h3>
-              <div className="detail"><span className="label">Booking ID</span><span className="value">{bookingResult.id}</span></div>
-              <div className="detail"><span className="label">Passenger</span><span className="value">{bookingResult.passengerName}</span></div>
-              <div className="detail"><span className="label">Seats</span><span className="value">{bookingResult.seatIds?.join(', ')}</span></div>
-              <div className="detail"><span className="label">Total</span><span className="value">₹{bookingResult.totalAmount?.toFixed(2)}</span></div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AnimatedFlow() {
-  const [step, setStep] = useState(0);
-  const [booking, setBooking] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [windowsLit, setWindowsLit] = useState(0);
-  const [passengerX, setPassengerX] = useState(-60);
-  const [boarded, setBoarded] = useState(false);
-  const [showTicket, setShowTicket] = useState(false);
-  const mountedRef = useRef(true);
-
-  const steps = ['Search', 'Select', 'Book', 'CheckIn', 'Board', 'Done'];
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  const reset = () => {
-    setStep(0); setBooking(null); setLoading(false); setError('');
-    setWindowsLit(0); setPassengerX(-60); setBoarded(false); setShowTicket(false);
-  };
-
-  const startSim = async () => {
-    setError(''); setStep(1);
-    for (let i = 1; i <= 10; i++) {
-      await new Promise(r => setTimeout(r, 200));
-      if (!mountedRef.current) return;
-      setWindowsLit(i);
-    }
-  };
-
-  const doSelect = async () => {
-    setError('');
-    setStep(2);
-    setTimeout(() => { if (mountedRef.current) setShowTicket(true); }, 400);
-  };
-
-  const doBook = async () => {
-    setError(''); setLoading(true);
-    try {
-      const data = await bookFlight('F1', ['S8'], 'user1', 'Alice');
-      if (!mountedRef.current) return;
-      if (data.error) { setError(data.error); setLoading(false); return; }
-      setBooking(data);
-      setShowTicket(false);
-      setPassengerX(60);
-      setLoading(false); setStep(3);
-    } catch { if (mountedRef.current) { setError('Booking failed'); setLoading(false); } }
-  };
-
-  const doCheckIn = async () => {
-    if (!booking) return;
-    setLoading(true);
-    try {
-      const data = await checkInBooking(booking.id);
-      if (!mountedRef.current) return;
-      if (data.error) { setError(data.error); setLoading(false); return; }
-      setBooking(data);
-      setPassengerX(120);
-      setLoading(false); setStep(4);
-    } catch { if (mountedRef.current) { setError('Check-in failed'); setLoading(false); } }
-  };
-
-  const doBoard = async () => {
-    setError('');
-    setBoarded(true);
-    setPassengerX(220);
-    setTimeout(() => { if (mountedRef.current) { setPassengerX(-60); setBoarded(false); setStep(5); } }, 1500);
-  };
-
-  return (
-    <div className="flow-section">
-      <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
-        ))}
-        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
-      </div>
-
-      <div className="airport-scene">
-        <div className="airport-terminal">
-          <div className="term-name">TERMINAL 1</div>
-          <div className="term-label">{step > 0 ? 'Departures' : 'Airport'}</div>
-          {step > 1 && <div className="flight-info">6E-201 → DEL</div>}
-        </div>
-
-        <div className="airplane">
-          <div className="cockpit" />
-          <div className="tail" />
-          <div className="engines" />
-          <div className="engines e2" />
-          <div className="airplane-windows">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className={`airplane-window ${windowsLit > i ? 'lit' : ''} ${step >= 4 && i < 3 ? 'booked' : ''}`} />
-            ))}
-          </div>
-        </div>
-
-        {step > 0 && <div className="airport-departure">✈️ {step >= 4 ? 'Now Boarding' : step >= 3 ? 'Check-in Open' : 'Scheduled'}</div>}
-
-        <div className="runway" />
-        <div className="runway-line" />
-
-        <div className="passenger-icon" style={{ left: passengerX, bottom: 10 }}>🧑</div>
-
-        {showTicket && (
-          <div className="airport-popup">
-            <h3>💺 Seats Available</h3>
-            <div className="detail">6E-201 Mumbai → Delhi</div>
-            <div className="detail">Economy: ₹5,000 | Business: ₹12,000</div>
-          </div>
-        )}
-
-        {step === 3 && booking && (
-          <div className="airport-popup">
-            <h3>🎫 Booked!</h3>
-            <div className="detail"><strong>{booking.id}</strong></div>
-            <div className="detail">{booking.passengerName}</div>
-            <div className="detail">₹{booking.totalAmount?.toFixed(2)}</div>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="airport-popup done">
-            <h3>✅ Done!</h3>
-            <div className="detail">Flight boarded successfully</div>
-            <div className="detail" style={{ fontSize: 20 }}>✈️ Have a safe flight!</div>
-          </div>
-        )}
-      </div>
-
-      {error && <div style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        {step === 0 && <button onClick={startSim} className="flow-btn primary">✈️ Search Flights</button>}
-        {step === 1 && <button onClick={doSelect} className="flow-btn success">💺 Select Seats</button>}
-        {step === 2 && <button onClick={doBook} disabled={loading} className="flow-btn warning">🎫 Book Flight {loading ? '...' : ''}</button>}
-        {step === 3 && <button onClick={doCheckIn} disabled={loading} className="flow-btn primary">✅ Check In {loading ? '...' : ''}</button>}
-        {step === 4 && !boarded && <button onClick={doBoard} className="flow-btn danger">🛫 Boarding</button>}
-        {step === 4 && boarded && <span style={{ fontSize: 13, color: '#888' }}>🛫 Boarding...</span>}
-        {step === 5 && <button onClick={reset} className="flow-btn primary">🔄 New Simulation</button>}
-      </div>
-    </div>
-  );
-}
+import ThemeToggle from '../../components/ThemeToggle';
 
 export default function AirlinePage() {
   const [activeTab, setActiveTab] = useState('flights');
 
-  const tabs = [
-    { key: 'flights', label: 'Flights' },
-    { key: 'simulation', label: 'Simulation' },
-    { key: 'diagram', label: 'Class Diagram' },
-    { key: 'design', label: 'Design Details' },
-  ];
+  // Real App State
+  const [flights, setFlights] = useState([]);
+  const [selectedFlight, setSelectedFlight] = useState(null);
+  const [seats, setSeats] = useState([]);
+  const [selectedSeats, setSelectedSeats] = useState([]);
+  const [heldSeats, setHeldSeats] = useState([]);
+  const [holdTimer, setHoldTimer] = useState(0);
+
+  const [currentUserId, setCurrentUserId] = useState('user-alice');
+  const [userBookings, setUserBookings] = useState([]);
+  const [passengers, setPassengers] = useState([]);
+
+  // Search State
+  const [searchSource, setSearchSource] = useState('');
+  const [searchDestination, setSearchDestination] = useState('');
+
+  // Simulation State
+  const [simSnapshots, setSimSnapshots] = useState(null);
+  const [simEvents, setSimEvents] = useState([]);
+  const [simSelectedSeats, setSimSelectedSeats] = useState(['12A']);
+  const [simUserId, setSimUserId] = useState('Sim-Alice');
+  const [simPassengerName, setSimPassengerName] = useState('Alice Vance');
+  const [simCancelHours, setSimCancelHours] = useState(25);
+  const [simLoading, setSimLoading] = useState(false);
+
+  // Status Banner
+  const [statusMsg, setStatusMsg] = useState({ text: '', type: 'info' });
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  useEffect(() => {
+    if (selectedFlight) {
+      loadFlightSeats(selectedFlight.flightId);
+    }
+  }, [selectedFlight]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      loadUserBookings(currentUserId);
+    }
+  }, [currentUserId]);
+
+  // Hold Countdown Timer
+  useEffect(() => {
+    if (holdTimer <= 0) return;
+    const interval = setInterval(() => {
+      setHoldTimer(prev => {
+        if (prev <= 1) {
+          showBanner('Seat hold TTL expired. Please reselect your seats.', 'error');
+          if (selectedFlight) loadFlightSeats(selectedFlight.flightId);
+          setHeldSeats([]);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [holdTimer, selectedFlight]);
+
+  const showBanner = (text, type = 'info') => {
+    setStatusMsg({ text, type });
+    setTimeout(() => setStatusMsg({ text: '', type: 'info' }), 4000);
+  };
+
+  const loadInitialData = async () => {
+    try {
+      const flightList = await getFlights();
+      if (Array.isArray(flightList) && flightList.length > 0) {
+        setFlights(flightList);
+        setSelectedFlight(flightList[0]);
+      }
+    } catch (err) {
+      console.error(err);
+      showBanner('Failed to connect to backend on port 9090.', 'error');
+    }
+  };
+
+  const loadFlightSeats = async (flightId) => {
+    try {
+      const seatList = await getFlightSeats(flightId);
+      setSeats(seatList || []);
+      setSelectedSeats([]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadUserBookings = async (userId) => {
+    try {
+      const bList = await getUserBookings(userId);
+      setUserBookings(bList || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await searchFlights(searchSource, searchDestination, null);
+      setFlights(res || []);
+      if (res && res.length > 0) {
+        setSelectedFlight(res[0]);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSeatClick = (seat) => {
+    if (seat.status === 'BOOKED' || (seat.status === 'HELD' && !heldSeats.includes(seat.seatNumber))) {
+      return; // Unavailable
+    }
+
+    if (selectedSeats.includes(seat.seatNumber)) {
+      const filtered = selectedSeats.filter(s => s !== seat.seatNumber);
+      setSelectedSeats(filtered);
+      setPassengers(prev => prev.slice(0, filtered.length));
+    } else {
+      const updated = [...selectedSeats, seat.seatNumber];
+      setSelectedSeats(updated);
+      setPassengers(prev => [
+        ...prev,
+        { passengerId: `P-${updated.length}`, name: `Passenger ${updated.length}`, email: `${currentUserId}@travel.com`, passportOrId: `A${Math.floor(100000 + Math.random() * 900000)}` }
+      ]);
+    }
+  };
+
+  const handleHoldSeats = async () => {
+    if (selectedSeats.length === 0 || !selectedFlight) return;
+    try {
+      await holdSeats(selectedFlight.flightId, selectedSeats, currentUserId);
+      setHeldSeats([...selectedSeats]);
+      setHoldTimer(300); // 5-minute TTL
+      showBanner(`Successfully held seats ${selectedSeats.join(', ')} for 5 minutes!`, 'success');
+      loadFlightSeats(selectedFlight.flightId);
+    } catch (err) {
+      showBanner(err.message, 'error');
+    }
+  };
+
+  const handleBookFlight = async (e) => {
+    e.preventDefault();
+    if (heldSeats.length === 0 || !selectedFlight) {
+      showBanner('Please hold your seats before confirming payment.', 'error');
+      return;
+    }
+
+    try {
+      const booking = await bookFlight({
+        flightId: selectedFlight.flightId,
+        seatNumbers: heldSeats,
+        passengers,
+        userId: currentUserId,
+        paymentMethod: 'CARD',
+        idempotencyKey: `IDEMP-${Date.now()}`,
+      });
+
+      showBanner(`Booking Confirmed! Reference ID: ${booking.bookingId}`, 'success');
+      setHeldSeats([]);
+      setSelectedSeats([]);
+      setHoldTimer(0);
+      loadFlightSeats(selectedFlight.flightId);
+      loadUserBookings(currentUserId);
+    } catch (err) {
+      showBanner(err.message, 'error');
+    }
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      const cancelled = await cancelBooking(bookingId);
+      showBanner(`Booking cancelled. Refund Amount: ₹${cancelled.refundAmount.toFixed(2)}`, 'info');
+      loadUserBookings(currentUserId);
+      if (selectedFlight) loadFlightSeats(selectedFlight.flightId);
+    } catch (err) {
+      showBanner(err.message, 'error');
+    }
+  };
+
+  // Simulation Handlers
+  const handleSimReset = async () => {
+    setSimLoading(true);
+    try {
+      const snap = await simReset();
+      setSimSnapshots(snap);
+      const events = await simGetEvents();
+      setSimEvents(events || []);
+      showBanner('Simulation sandbox reset to default flight state.', 'info');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSimLoading(false);
+    }
+  };
+
+  const handleSimHold = async () => {
+    try {
+      const snap = await simHold('SIM-AI-202', simSelectedSeats, simUserId);
+      setSimSnapshots(snap);
+      const events = await simGetEvents();
+      setSimEvents(events || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSimBook = async () => {
+    try {
+      const snap = await simBook('SIM-AI-202', simSelectedSeats, simPassengerName, simUserId);
+      setSimSnapshots(snap);
+      const events = await simGetEvents();
+      setSimEvents(events || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSimCancel = async (bookingId) => {
+    try {
+      const snap = await simCancel(bookingId, simCancelHours);
+      setSimSnapshots(snap);
+      const events = await simGetEvents();
+      setSimEvents(events || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSimExpire = async () => {
+    try {
+      const snap = await simExpire('SIM-AI-202');
+      setSimSnapshots(snap);
+      const events = await simGetEvents();
+      setSimEvents(events || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   return (
-    <div className="airline-app">
-      <style>{CSS}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header className="airline-header">
-        <h1>Airline Reservation System</h1>
-        <p>Search flights, select seats, book and check-in with interactive simulation</p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* Header Bar */}
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'var(--bg-secondary, #1e293b)', borderBottom: '1px solid var(--border-primary, #334155)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 8, background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, boxShadow: '0 4px 12px rgba(2,132,199,0.35)' }}>
+            ✈️
+          </div>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>Airline Reservation System</h1>
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>LLD Portfolio Module #13 · Multi-Seat Locks, Hold TTL & Strategy Refunds</span>
+          </div>
+        </div>
+
+        {/* User Switcher & Theme */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f172a', padding: '6px 12px', borderRadius: 8, border: '1px solid #334155' }}>
+            <span style={{ fontSize: 12, color: '#94a3b8' }}>Passenger User:</span>
+            <select
+              value={currentUserId}
+              onChange={(e) => setCurrentUserId(e.target.value)}
+              style={{ background: 'transparent', color: '#f8fafc', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none' }}
+            >
+              <option value="user-alice" style={{ background: '#1e293b' }}>Alice Vance (user-alice)</option>
+              <option value="user-bob" style={{ background: '#1e293b' }}>Bob Smith (user-bob)</option>
+              <option value="user-charlie" style={{ background: '#1e293b' }}>Charlie Kim (user-charlie)</option>
+            </select>
+          </div>
+          <ThemeToggle />
+        </div>
       </header>
-      <nav className="airline-nav">
-        {tabs.map((tab) => (
-          <button key={tab.key} className={activeTab === tab.key ? 'active' : ''} onClick={() => setActiveTab(tab.key)}>
-            {tab.label}
+
+      {/* Status Banner */}
+      {statusMsg.text && (
+        <div style={{ padding: '10px 24px', background: statusMsg.type === 'error' ? '#ef4444' : '#10b981', color: '#fff', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+          {statusMsg.text}
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <nav style={{ display: 'flex', gap: 8, padding: '12px 24px', background: '#1e293b', borderBottom: '1px solid #334155', overflowX: 'auto' }}>
+        {[
+          { id: 'flights', label: '🛫 Flight Search & Seat Map', badge: flights.length },
+          { id: 'bookings', label: '🎫 My Bookings & Refunds', badge: userBookings.length },
+          { id: 'simulation', label: '🕹️ Concurrency Simulation' },
+          { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'details', label: '📋 Design Details' },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => {
+              setActiveTab(t.id);
+              if (t.id === 'simulation') handleSimReset();
+            }}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 8,
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 13,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: activeTab === t.id ? '#0284c7' : 'transparent',
+              color: activeTab === t.id ? '#fff' : '#94a3b8',
+              transition: 'all 0.2s',
+            }}
+          >
+            {t.label}
+            {t.badge > 0 && (
+              <span style={{ background: '#38bdf8', color: '#0f172a', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 800 }}>
+                {t.badge}
+              </span>
+            )}
           </button>
         ))}
       </nav>
-      <main className="airline-main">
-        {activeTab === 'flights' && <FlightsTab />}
-        {activeTab === 'simulation' && <AnimatedFlow />}
+
+      {/* Main Content Area */}
+      <main style={{ padding: 24, maxWidth: 1300, margin: '0 auto' }}>
+        {/* =================================================================== */}
+        {/* TAB 1: FLIGHT SEARCH & SEAT MAP */}
+        {/* =================================================================== */}
+        {activeTab === 'flights' && (
+          <div>
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 24, background: '#1e293b', padding: 16, borderRadius: 12, border: '1px solid #334155' }}>
+              <input
+                type="text"
+                placeholder="From (e.g. DEL)"
+                value={searchSource}
+                onChange={e => setSearchSource(e.target.value)}
+                style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 13 }}
+              />
+              <input
+                type="text"
+                placeholder="To (e.g. BOM)"
+                value={searchDestination}
+                onChange={e => setSearchDestination(e.target.value)}
+                style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 13 }}
+              />
+              <button type="submit" style={{ padding: '10px 20px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                Search Flights
+              </button>
+            </form>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
+              {/* Flight List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Available Flights</div>
+                {flights.map(f => {
+                  const isSelected = selectedFlight?.flightId === f.flightId;
+                  return (
+                    <div
+                      key={f.flightId}
+                      onClick={() => setSelectedFlight(f)}
+                      style={{
+                        background: isSelected ? 'rgba(2,132,199,0.15)' : '#1e293b',
+                        border: `1px solid ${isSelected ? '#0284c7' : '#334155'}`,
+                        borderRadius: 12,
+                        padding: 16,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontWeight: 800, fontSize: 16, color: '#38bdf8' }}>{f.flightNumber}</span>
+                        <span style={{ fontSize: 11, background: '#0f172a', padding: '2px 8px', borderRadius: 6, color: '#94a3b8' }}>
+                          {f.aircraft?.model}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, fontWeight: 700 }}>
+                        <span>{f.source} ➔ {f.destination}</span>
+                        <span style={{ color: '#34d399', fontSize: 12 }}>{f.availableSeatsCount} Seats Left</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                        Departure: {new Date(f.departureTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Aircraft Cabin Seat Map */}
+              <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>
+                      Aircraft Seat Map ({selectedFlight?.flightNumber})
+                    </h3>
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Select seats for multi-passenger checkout</div>
+                  </div>
+
+                  {/* Hold Timer Badge */}
+                  {holdTimer > 0 && (
+                    <div style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid #eab308', padding: '6px 14px', borderRadius: 8, color: '#eab308', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      ⏱ Hold Time Remaining: {formatTime(holdTimer)}
+                    </div>
+                  )}
+                </div>
+
+                {/* Seat Legend */}
+                <div style={{ display: 'flex', gap: 14, marginBottom: 20, fontSize: 11, color: '#94a3b8' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#10b981', borderRadius: 3 }}></span> Available</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#a855f7', borderRadius: 3 }}></span> Selected</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#eab308', borderRadius: 3 }}></span> Held</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#ef4444', borderRadius: 3 }}></span> Booked</span>
+                </div>
+
+                {/* Cabin Layout */}
+                <div style={{ background: '#0f172a', padding: 24, borderRadius: 14, border: '1px solid #334155', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>✈️ Front of Aircraft (Cockpit)</div>
+
+                  {/* Seats Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 44px)', gap: 8, justifyContent: 'center' }}>
+                    {seats.map(seat => {
+                      const isSelected = selectedSeats.includes(seat.seatNumber);
+                      const isHeld = seat.status === 'HELD';
+                      const isBooked = seat.status === 'BOOKED';
+
+                      let bg = '#10b981';
+                      if (isBooked) bg = '#ef4444';
+                      else if (isHeld) bg = '#eab308';
+                      else if (isSelected) bg = '#a855f7';
+
+                      return (
+                        <button
+                          key={seat.seatNumber}
+                          onClick={() => handleSeatClick(seat)}
+                          disabled={isBooked || (isHeld && !heldSeats.includes(seat.seatNumber))}
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 6,
+                            border: isSelected ? '2px solid #fff' : 'none',
+                            background: bg,
+                            color: '#fff',
+                            fontWeight: 800,
+                            fontSize: 11,
+                            cursor: isBooked ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            opacity: isBooked ? 0.35 : 1,
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          <span>{seat.seatNumber}</span>
+                          <span style={{ fontSize: 8, opacity: 0.8 }}>₹{(seat.basePrice / 1000).toFixed(0)}k</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Booking Action Panel */}
+                <div style={{ marginTop: 20, borderTop: '1px solid #334155', paddingTop: 16 }}>
+                  {heldSeats.length === 0 ? (
+                    <button
+                      onClick={handleHoldSeats}
+                      disabled={selectedSeats.length === 0}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: 8,
+                        background: selectedSeats.length > 0 ? '#0284c7' : '#334155',
+                        color: selectedSeats.length > 0 ? '#fff' : '#64748b',
+                        border: 'none',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        cursor: selectedSeats.length > 0 ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      {selectedSeats.length > 0 ? `Hold ${selectedSeats.length} Seat(s) (5-min TTL)` : 'Select Seats to Proceed'}
+                    </button>
+                  ) : (
+                    <form onSubmit={handleBookFlight} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>
+                        Passenger Information ({heldSeats.length} Passenger(s)):
+                      </div>
+                      {passengers.map((p, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: 8 }}>
+                          <input
+                            type="text"
+                            placeholder="Full Name"
+                            value={p.name}
+                            onChange={e => {
+                              const updated = [...passengers];
+                              updated[idx].name = e.target.value;
+                              setPassengers(updated);
+                            }}
+                            required
+                            style={{ flex: 1, padding: '8px 12px', borderRadius: 6, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 12 }}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Passport / ID"
+                            value={p.passportOrId}
+                            onChange={e => {
+                              const updated = [...passengers];
+                              updated[idx].passportOrId = e.target.value;
+                              setPassengers(updated);
+                            }}
+                            required
+                            style={{ width: 120, padding: '8px 12px', borderRadius: 6, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 12 }}
+                          />
+                          <span style={{ alignSelf: 'center', fontWeight: 800, color: '#a855f7', fontSize: 12 }}>
+                            {heldSeats[idx]}
+                          </span>
+                        </div>
+                      ))}
+                      <button
+                        type="submit"
+                        style={{ padding: '12px', borderRadius: 8, background: '#10b981', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', marginTop: 6 }}
+                      >
+                        Confirm & Pay (Total: ₹{heldSeats.length * 4500})
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 2: MY BOOKINGS & REFUNDS */}
+        {/* =================================================================== */}
+        {activeTab === 'bookings' && (
+          <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 24, maxWidth: 900, margin: '0 auto' }}>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 800 }}>
+              🎫 My Flight Bookings ({userBookings.length})
+            </h2>
+
+            {userBookings.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>
+                No active or past flight bookings found for {currentUserId}.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {userBookings.map(b => {
+                  const isCancelled = b.status === 'CANCELLED' || b.status === 'REFUNDED';
+                  return (
+                    <div key={b.bookingId} style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 10, padding: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontWeight: 800, fontSize: 16, color: '#38bdf8' }}>{b.bookingId}</span>
+                          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: isCancelled ? '#ef4444' : '#10b981', color: '#fff', fontWeight: 700 }}>
+                            {b.status}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 13, color: '#f8fafc', marginTop: 4 }}>
+                          Flight: <strong>{b.flightId}</strong> · Seats: <strong>{b.seatNumbers?.join(', ')}</strong>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+                          Passengers: {b.passengers?.map(p => p.name).join(', ')} · Total: ₹{b.totalAmount?.toFixed(2)}
+                        </div>
+                        {b.refundAmount > 0 && (
+                          <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginTop: 4 }}>
+                            ✓ Refunded Amount: ₹{b.refundAmount?.toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+
+                      {!isCancelled && (
+                        <button
+                          onClick={() => handleCancelBooking(b.bookingId)}
+                          style={{ padding: '8px 16px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                        >
+                          Cancel Booking
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 3: CONCURRENCY SIMULATION */}
+        {/* =================================================================== */}
+        {activeTab === 'simulation' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#38bdf8' }}>
+                    🕹️ Concurrency & Seat Collision Simulation
+                  </h2>
+                  <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                    Testing per-seat ReentrantLocks, multi-seat atomic rollback, and tiered cancellation refund policies.
+                  </div>
+                </div>
+                <button
+                  onClick={handleSimReset}
+                  disabled={simLoading}
+                  style={{ padding: '8px 16px', borderRadius: 8, background: '#334155', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                >
+                  🔄 Reset Simulation
+                </button>
+              </div>
+
+              {/* Simulation Controls Panel */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: '#0f172a', padding: 16, borderRadius: 10, marginBottom: 20 }}>
+                {/* 1. Hold Seats Collision */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>1. Trigger Seat Hold / Race Collision</div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                    <select
+                      value={simUserId}
+                      onChange={e => setSimUserId(e.target.value)}
+                      style={{ flex: 1, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                    >
+                      <option value="Sim-Alice">Alice (Thread A)</option>
+                      <option value="Sim-Bob">Bob (Thread B)</option>
+                      <option value="Sim-Charlie">Charlie (Thread C)</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Seats (e.g. 12A,12B)"
+                      value={simSelectedSeats.join(',')}
+                      onChange={e => setSimSelectedSeats(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                      style={{ width: 110, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={handleSimHold}
+                      style={{ flex: 1, padding: '6px', borderRadius: 6, background: '#0284c7', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
+                    >
+                      Hold Seats
+                    </button>
+                    <button
+                      onClick={handleSimBook}
+                      style={{ flex: 1, padding: '6px', borderRadius: 6, background: '#10b981', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
+                    >
+                      Commit Booking
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Hold TTL Expiration Test */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', marginBottom: 8 }}>2. Force Hold Expiry (TTL)</div>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '0 0 8px 0' }}>
+                    Simulates background TTL cleanup reverting all uncommitted HELD seats back to AVAILABLE.
+                  </p>
+                  <button
+                    onClick={handleSimExpire}
+                    style={{ width: '100%', padding: '6px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
+                  >
+                    Trigger Stale Hold Expiration
+                  </button>
+                </div>
+
+                {/* 3. Tiered Cancellation Refund */}
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#a855f7', marginBottom: 8 }}>3. Test Tiered Refund Policy</div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                    <select
+                      value={simCancelHours}
+                      onChange={e => setSimCancelHours(parseInt(e.target.value))}
+                      style={{ flex: 1, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                    >
+                      <option value={30}>&gt;24h Out (100% Refund)</option>
+                      <option value={12}>12h Out (50% Refund)</option>
+                      <option value={1}>1h Out (0% Refund - Imminent)</option>
+                    </select>
+                  </div>
+                  {simSnapshots?.bookings?.filter(b => b.status === 'CONFIRMED').map(b => (
+                    <button
+                      key={b.bookingId}
+                      onClick={() => handleSimCancel(b.bookingId)}
+                      style={{ width: '100%', padding: '4px 8px', borderRadius: 4, background: '#a855f7', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', fontWeight: 600, marginTop: 4 }}
+                    >
+                      Cancel {b.bookingId} at T-{simCancelHours}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2D Aircraft Cabin Visualizer & Log */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                {/* Aircraft Cabin */}
+                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
+                    ✈️ Boeing 737 Simulation Cabin (AI202)
+                  </div>
+
+                  {simSnapshots?.flights?.[0] && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 36px)', gap: 6, justifyContent: 'center' }}>
+                      {simSnapshots.flights[0].seats?.map(seat => {
+                        let bg = '#10b981';
+                        if (seat.status === 'BOOKED') bg = '#ef4444';
+                        else if (seat.status === 'HELD') bg = '#eab308';
+
+                        return (
+                          <div
+                            key={seat.seatNumber}
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 4,
+                              background: bg,
+                              color: '#fff',
+                              fontWeight: 800,
+                              fontSize: 10,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              opacity: seat.status === 'BOOKED' ? 0.35 : 1,
+                            }}
+                          >
+                            {seat.seatNumber}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Simulation Event Stream */}
+                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
+                    Live Simulation Event Stream ({simEvents.length})
+                  </div>
+                  <div style={{ flex: 1, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {simEvents.slice().reverse().map(ev => (
+                      <div key={ev.id} style={{
+                        background: '#1e293b',
+                        padding: '8px 10px',
+                        borderRadius: 6,
+                        borderLeft: `3px solid ${ev.type.includes('COLLISION') || ev.type.includes('FAILED') ? '#ef4444' : '#10b981'}`,
+                        fontSize: 11
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: 10 }}>
+                          <span style={{ fontWeight: 700, color: '#f8fafc' }}>{ev.type}</span>
+                          <span>{ev.timestamp}</span>
+                        </div>
+                        <div style={{ marginTop: 2, color: '#cbd5e1' }}>{ev.description}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================================== */}
+        {/* TAB 4: CLASS DIAGRAM */}
+        {/* =================================================================== */}
         {activeTab === 'diagram' && <ClassDiagram module="airline" />}
-        {activeTab === 'design' && <DesignDetails module="airline" />}
+
+        {/* =================================================================== */}
+        {/* TAB 5: DESIGN DETAILS */}
+        {/* =================================================================== */}
+        {activeTab === 'details' && <DesignDetails module="airline" />}
       </main>
     </div>
   );

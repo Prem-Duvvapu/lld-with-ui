@@ -1,54 +1,88 @@
 package com.lld.airline.model;
 
 import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Flight {
-    private String id;
-    private String airline;
-    private String flightNumber;
-    private String source;
-    private String destination;
-    private LocalDateTime departureTime;
-    private LocalDateTime arrivalTime;
-    private int totalSeats;
-    private int availableSeats;
-    private double fare;
+    private final String flightId;
+    private final String flightNumber;
+    private final String source;
+    private final String destination;
+    private final LocalDateTime departureTime;
+    private final LocalDateTime arrivalTime;
+    private final Aircraft aircraft;
+    private final Map<String, Seat> seats = new ConcurrentHashMap<>();
 
-    public Flight() {}
-
-    public Flight(String id, String airline, String flightNumber, String source,
-                  String destination, LocalDateTime departureTime, LocalDateTime arrivalTime,
-                  int totalSeats, double fare) {
-        this.id = id;
-        this.airline = airline;
+    public Flight(String flightId, String flightNumber, String source, String destination,
+                  LocalDateTime departureTime, LocalDateTime arrivalTime, Aircraft aircraft) {
+        this.flightId = flightId;
         this.flightNumber = flightNumber;
-        this.source = source;
-        this.destination = destination;
+        this.source = source != null ? source.toUpperCase() : "DEL";
+        this.destination = destination != null ? destination.toUpperCase() : "BOM";
         this.departureTime = departureTime;
         this.arrivalTime = arrivalTime;
-        this.totalSeats = totalSeats;
-        this.availableSeats = totalSeats;
-        this.fare = fare;
+        this.aircraft = aircraft;
+
+        // Generate independent per-flight Seat instances from Aircraft SeatTemplate
+        if (aircraft != null) {
+            for (SeatTemplate template : aircraft.getSeatTemplates()) {
+                double basePrice = calculateDefaultPrice(template.getSeatClass());
+                Seat seat = new Seat(template.getSeatNumber(), template.getSeatClass(), basePrice);
+                seats.put(seat.getSeatNumber(), seat);
+            }
+        }
     }
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getAirline() { return airline; }
-    public void setAirline(String airline) { this.airline = airline; }
-    public String getFlightNumber() { return flightNumber; }
-    public void setFlightNumber(String flightNumber) { this.flightNumber = flightNumber; }
-    public String getSource() { return source; }
-    public void setSource(String source) { this.source = source; }
-    public String getDestination() { return destination; }
-    public void setDestination(String destination) { this.destination = destination; }
-    public LocalDateTime getDepartureTime() { return departureTime; }
-    public void setDepartureTime(LocalDateTime departureTime) { this.departureTime = departureTime; }
-    public LocalDateTime getArrivalTime() { return arrivalTime; }
-    public void setArrivalTime(LocalDateTime arrivalTime) { this.arrivalTime = arrivalTime; }
-    public int getTotalSeats() { return totalSeats; }
-    public void setTotalSeats(int totalSeats) { this.totalSeats = totalSeats; }
-    public int getAvailableSeats() { return availableSeats; }
-    public void setAvailableSeats(int availableSeats) { this.availableSeats = availableSeats; }
-    public double getFare() { return fare; }
-    public void setFare(double fare) { this.fare = fare; }
+    private double calculateDefaultPrice(com.lld.airline.enums.SeatClass seatClass) {
+        if (seatClass == null) return 4500.0;
+        switch (seatClass) {
+            case FIRST: return 22500.0;
+            case BUSINESS: return 13500.0;
+            case PREMIUM_ECONOMY: return 6750.0;
+            case ECONOMY:
+            default: return 4500.0;
+        }
+    }
+
+    public String getFlightId() {
+        return flightId;
+    }
+
+    public String getFlightNumber() {
+        return flightNumber;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public String getDestination() {
+        return destination;
+    }
+
+    public LocalDateTime getDepartureTime() {
+        return departureTime;
+    }
+
+    public LocalDateTime getArrivalTime() {
+        return arrivalTime;
+    }
+
+    public Aircraft getAircraft() {
+        return aircraft;
+    }
+
+    public List<Seat> getAllSeats() {
+        return new ArrayList<>(seats.values());
+    }
+
+    public Seat getSeat(String seatNumber) {
+        return seats.get(seatNumber);
+    }
+
+    public int getAvailableSeatsCount() {
+        long now = System.currentTimeMillis();
+        return (int) seats.values().stream().filter(s -> s.isAvailable(now)).count();
+    }
 }

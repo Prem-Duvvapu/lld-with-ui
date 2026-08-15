@@ -1,48 +1,86 @@
 package com.lld.airline.model;
 
-import java.time.LocalDateTime;
+import com.lld.airline.enums.BookingStatus;
+
+import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 public class Booking {
-    public enum BookingStatus { CONFIRMED, CHECKED_IN, CANCELLED }
+    private final String bookingId;
+    private final String flightId;
+    private final String userId;
+    private final List<Passenger> passengers;
+    private final List<String> seatNumbers;
+    private final double totalAmount;
+    private volatile double refundAmount;
+    private volatile BookingStatus status;
+    private final Instant createdAt;
+    private volatile Instant cancelledAt;
 
-    private String id;
-    private String flightId;
-    private List<String> seatIds;
-    private String userId;
-    private String passengerName;
-    private BookingStatus status;
-    private double totalAmount;
-    private LocalDateTime bookingTime;
-
-    public Booking() {}
-
-    public Booking(String id, String flightId, List<String> seatIds, String userId,
-                   String passengerName, BookingStatus status, double totalAmount) {
-        this.id = id;
+    public Booking(String bookingId, String flightId, String userId, List<Passenger> passengers,
+                   List<String> seatNumbers, double totalAmount) {
+        this.bookingId = bookingId;
         this.flightId = flightId;
-        this.seatIds = seatIds;
         this.userId = userId;
-        this.passengerName = passengerName;
-        this.status = status;
+        this.passengers = passengers != null ? List.copyOf(passengers) : List.of();
+        this.seatNumbers = seatNumbers != null ? List.copyOf(seatNumbers) : List.of();
         this.totalAmount = totalAmount;
-        this.bookingTime = LocalDateTime.now();
+        this.refundAmount = 0.0;
+        this.status = BookingStatus.PENDING;
+        this.createdAt = Instant.now();
+        this.cancelledAt = null;
     }
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    public String getFlightId() { return flightId; }
-    public void setFlightId(String flightId) { this.flightId = flightId; }
-    public List<String> getSeatIds() { return seatIds; }
-    public void setSeatIds(List<String> seatIds) { this.seatIds = seatIds; }
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
-    public String getPassengerName() { return passengerName; }
-    public void setPassengerName(String passengerName) { this.passengerName = passengerName; }
-    public BookingStatus getStatus() { return status; }
-    public void setStatus(BookingStatus status) { this.status = status; }
-    public double getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(double totalAmount) { this.totalAmount = totalAmount; }
-    public LocalDateTime getBookingTime() { return bookingTime; }
-    public void setBookingTime(LocalDateTime bookingTime) { this.bookingTime = bookingTime; }
+    public String getBookingId() {
+        return bookingId;
+    }
+
+    public String getFlightId() {
+        return flightId;
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public List<Passenger> getPassengers() {
+        return Collections.unmodifiableList(passengers);
+    }
+
+    public List<String> getSeatNumbers() {
+        return Collections.unmodifiableList(seatNumbers);
+    }
+
+    public double getTotalAmount() {
+        return totalAmount;
+    }
+
+    public double getRefundAmount() {
+        return refundAmount;
+    }
+
+    public void setRefundAmount(double refundAmount) {
+        this.refundAmount = refundAmount;
+    }
+
+    public BookingStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(BookingStatus status) {
+        this.status = status;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getCancelledAt() {
+        return cancelledAt;
+    }
+
+    public void setCancelledAt(Instant cancelledAt) {
+        this.cancelledAt = cancelledAt;
+    }
 }

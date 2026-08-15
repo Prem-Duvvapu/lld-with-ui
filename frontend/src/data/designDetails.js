@@ -1,4 +1,47 @@
 const designDetails = {
+  airline: {
+    title: 'Airline Reservation System — Design Details',
+    tldr: [
+      'Multi-passenger flight booking system with seat map generation from Aircraft templates and fine-grained per-seat ReentrantLocks',
+      'Ascending-order multi-seat lock acquisition preventing circular wait deadlocks across concurrent multi-passenger bookings',
+      'Hold TTL state machine (AVAILABLE → HELD → BOOKED) with 5-minute hold windows and automated background expiration sweeps',
+      'Strategy Pattern for Class-Based Pricing and Tiered Cancellation Refunds (>24h full refund, 24h–2h partial 50% refund, <2h no refund)',
+      'Idempotent payment processing guaranteeing zero duplicate charges on retried checkout transactions'
+    ],
+    tradeoffs: [
+      'Employed Aircraft seat map templates to clone independent Seat instances per flight, preventing shared availability bugs.',
+      'Sorted seat locks alphabetically before acquisition to eliminate deadlock risks during multi-seat checkout.',
+      'Enforced re-validation of hold TTL and user ownership at the commit path before executing payment.'
+    ],
+    requirements: [
+      'Flight Search & Schedule: Query routes, departure/arrival schedules, and aircraft seat maps',
+      'Interactive Seat Selection: Multi-passenger seat assignment across Economy, Premium Economy, Business, and First class',
+      'Atomic Seat Hold & TTL: Hold requested seats for 5 minutes with atomic all-or-nothing rollback on collision',
+      'Booking & Payment Processing: Idempotent payment capture and instant booking confirmation',
+      'Tiered Refund Cancellations: Cancel bookings and automatically calculate tiered refunds based on time-to-departure'
+    ],
+    entities: [
+      { name: 'Aircraft', description: 'Template model defining physical layout, seat templates, and total cabin capacity.', fields: [{ name: 'model', type: 'String' }, { name: 'seatTemplates', type: 'List<SeatTemplate>' }], methods: [] },
+      { name: 'Flight', description: 'Operational flight instance with route, timestamps, and independent per-flight Seat entities.', fields: [{ name: 'flightNumber', type: 'String' }, { name: 'seats', type: 'Map<String, Seat>' }], methods: [{ name: 'getAvailableSeatsCount()', returns: 'int', description: 'Counts free seats' }] },
+      { name: 'Seat', description: 'Seat state model tracking status (AVAILABLE, HELD, BOOKED), heldByUserId, and holdExpiresAt.', fields: [{ name: 'status', type: 'SeatStatus' }, { name: 'holdExpiresAt', type: 'long' }], methods: [{ name: 'isAvailable(now)', returns: 'boolean', description: 'Evaluates TTL' }] },
+      { name: 'Booking', description: 'Transactional record pairing multiple passengers to assigned seats with status and refund tracking.', fields: [{ name: 'passengers', type: 'List<Passenger>' }, { name: 'seatNumbers', type: 'List<String>' }], methods: [] },
+      { name: 'SeatLockManager', description: 'Concurrency component managing per-seat ReentrantLocks with ascending lock order acquisition.', fields: [{ name: 'seatLocks', type: 'ConcurrentHashMap' }], methods: [{ name: 'holdSeats(...)', returns: 'void', description: 'Atomic multi-seat hold' }] }
+    ],
+    designPatterns: [
+      { name: 'State Machine Pattern', usage: 'SeatStatus (AVAILABLE → HELD → BOOKED) and BookingStatus (PENDING → CONFIRMED → CANCELLED/REFUNDED).' },
+      { name: 'Strategy Pattern', usage: 'PricingStrategy for seat classes and RefundPolicy for tiered departure-time cancellation refunds.' },
+      { name: 'Singleton Pattern', usage: 'AirlineService and PaymentProcessor managed as Spring Singletons.' }
+    ],
+    solid: [
+      { principle: 'Single Responsibility Principle', details: 'SeatLockManager manages concurrency; PaymentProcessor handles idempotency; RefundPolicy computes cancellation refunds.' },
+      { principle: 'Open/Closed Principle', details: 'New pricing strategies (e.g. surge pricing) and refund policies can be plugged in without modifying AirlineService.' }
+    ],
+    extensibility: [
+      'Multi-Leg / Connecting Flights: Model itineraries aggregating multiple flight legs with synchronized seat holds.',
+      'Frequent Flyer / Loyalty Programs: Extend PricingStrategy and Booking to calculate miles and tier discounts.',
+      'Baggage & Meal Ancillaries: Decorator pattern on Booking to attach optional add-ons.'
+    ]
+  },
   library: {
     title: 'Library Management System — Design Details',
     tldr: [

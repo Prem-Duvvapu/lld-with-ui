@@ -20,7 +20,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 10 | [Library Management](#10-library-management) | Book Catalog & Loans | Strategy (fines), Factory (members), Observer (due date), Per-Book ReentrantLock |
 | 11 | [Movie Ticket Booking](#11-movie-ticket-booking) | Cinema seats & shows | Per-Seat ReentrantLock, Hold TTL, Strategy, Observer |
 | 12 | Hotel Management | Room reservation | State Machine, Strategy, Factory |
-| 13 | Airline Reservation | Flight booking & seats | State Machine, Strategy |
+| 13 | [Airline Reservation](#13-airline-reservation) | Flight booking & seats | State Machine (holds/bookings), Strategy (pricing/refunds), Per-Seat ReentrantLock |
 | 14 | Coffee Machine | Ingredient & brew engine | State Pattern, Factory, Decorator |
 | 15 | Digital Wallet | Payment & ledger | Command Pattern, Transactional Lock |
 | 16 | Chess | 2-Player strategy game | Command, State, Strategy |
@@ -315,6 +315,31 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 - `POST /api/movie-ticket/shows/{id}/hold`
 - `POST /api/movie-ticket/book`
 - `POST /api/movie-ticket/cancel`
+
+---
+
+### 13. Airline Reservation
+
+#### Key Features
+- **Multi-Passenger Flight Booking**: Atomic reservation and booking of multiple seats paired to passenger details in a single transactional unit.
+- **Deadlock-Free Multi-Seat Locking**: Per-seat `ReentrantLock` keyed `flightId:seatNumber` acquired in ascending alphabetical order to eliminate circular-wait deadlocks.
+- **Seat Hold State Machine & TTL**: `AVAILABLE` ➔ `HELD` (5-minute TTL) ➔ `BOOKED` with automated background cleanup of stale holds.
+- **Strategy Pattern for Pricing & Refunds**: Class-based pricing (`Economy`, `Business`, `First`) and `TieredCancellationRefundPolicy` (>24h full refund, 24h–2h partial 50%, <2h no refund).
+- **Idempotent Payment Capture**: `PaymentProcessor` ensuring zero duplicate charges on retried bookings.
+
+#### API Endpoints
+- `GET /api/airline/flights`
+- `GET /api/airline/flights/search`
+- `GET /api/airline/flights/{flightId}/seats`
+- `POST /api/airline/flights/{flightId}/hold`
+- `POST /api/airline/bookings`
+- `POST /api/airline/bookings/{bookingId}/cancel`
+- `GET /api/airline/users/{userId}/bookings`
+- `POST /api/airline/sim/reset`
+- `POST /api/airline/sim/hold`
+- `POST /api/airline/sim/book`
+- `POST /api/airline/sim/cancel`
+- `POST /api/airline/sim/expire`
 
 ---
 
