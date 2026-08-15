@@ -1,0 +1,63 @@
+package com.lld.stockbroker.model;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class Portfolio {
+    private final String accountId;
+    private final Map<String, Holding> holdings = new ConcurrentHashMap<>();
+
+    public Portfolio(String accountId) {
+        this.accountId = accountId;
+    }
+
+    public String getAccountId() {
+        return accountId;
+    }
+
+    public List<Holding> getAllHoldings() {
+        return new ArrayList<>(holdings.values());
+    }
+
+    public Holding getHolding(String symbol) {
+        return holdings.get(symbol);
+    }
+
+    public int getAvailableQuantity(String symbol) {
+        Holding h = holdings.get(symbol);
+        return h != null ? h.getAvailableQuantity() : 0;
+    }
+
+    public void reserveShares(String symbol, int qty) {
+        Holding h = holdings.get(symbol);
+        if (h == null) {
+            throw new com.lld.stockbroker.exception.InsufficientStockException("No holdings found for " + symbol);
+        }
+        h.reserveShares(qty);
+    }
+
+    public void releaseReservedShares(String symbol, int qty) {
+        Holding h = holdings.get(symbol);
+        if (h != null) {
+            h.releaseReservedShares(qty);
+        }
+    }
+
+    public void executeSell(String symbol, int qty) {
+        Holding h = holdings.get(symbol);
+        if (h != null) {
+            h.deductShares(qty);
+        }
+    }
+
+    public void executeBuy(String symbol, int qty, double price) {
+        Holding h = holdings.computeIfAbsent(symbol, s -> new Holding(s, 0, price));
+        h.addShares(qty, price);
+    }
+
+    public void addInitialHolding(String symbol, int qty, double avgPrice) {
+        holdings.put(symbol, new Holding(symbol, qty, avgPrice));
+    }
+}

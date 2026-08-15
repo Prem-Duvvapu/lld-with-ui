@@ -42,7 +42,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 32 | Concert Ticket Booking | Event seats & reservation | Concurrency Lock, State Machine |
 | 33 | CricInfo | Live cricket scorecard | Observer Pattern, Event Listener |
 | 34 | Course Registration System | Student enrollment | Strategy, Observer |
-| 35 | Stock Brokerage Platform | Trading & portfolio | Strategy, Observer, Order Book |
+| 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy (Market/Limit), Observer Quotes |
 | 36 | Music Streaming Service | Audio catalog & playlists | Strategy, Factory |
 | 37 | FooBar Alternately | Multithreading concurrency | Semaphore / ReentrantLock |
 | 38 | Zero Even Odd | Multithreading concurrency | Semaphore Synchronization |
@@ -379,6 +379,32 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 - `GET /api/pubsub/subscribers/{id}/messages`
 - `POST /api/pubsub/sim/reset`
 - `POST /api/pubsub/sim/publish`
+
+---
+
+### 35. Stock Brokerage Platform
+
+#### Key Features
+- **In-Memory Limit Order Book**: Price-Time Priority matching engine with dual `TreeMap` price levels (`bids` descending, `asks` ascending) and FIFO queues.
+- **Strategy Pattern for Order Execution**: `MarketExecutionStrategy` (immediate liquidity sweep across multiple depth levels) and `LimitExecutionStrategy` (immediate match + resting in book).
+- **Atomic Pre-Trade Balance Reservation**: Mutex-guarded cash reservation for Buy orders and share reservation for Sell orders, preventing over-commitment and race conditions.
+- **Observer Pattern for Live Quotes**: Registered `StockPriceObserver` instances receive push updates on last-traded price and executed volume.
+- **Per-Symbol Concurrency Serialization**: Dedicated per-symbol `ReentrantLock` ensuring atomic matching while allowing independent stock tickers to trade in parallel.
+
+#### API Endpoints
+- `GET /api/stockbroker/stocks`
+- `GET /api/stockbroker/stocks/{symbol}`
+- `GET /api/stockbroker/orderbook/{symbol}`
+- `GET /api/stockbroker/accounts/{accountId}`
+- `GET /api/stockbroker/accounts/{accountId}/orders`
+- `POST /api/stockbroker/orders`
+- `POST /api/stockbroker/orders/{orderId}/cancel`
+- `GET /api/stockbroker/quotes`
+- `POST /api/stockbroker/sim/reset`
+- `POST /api/stockbroker/sim/order`
+- `POST /api/stockbroker/sim/cancel`
+- `GET /api/stockbroker/sim/snapshots`
+- `GET /api/stockbroker/sim/events`
 
 ---
 

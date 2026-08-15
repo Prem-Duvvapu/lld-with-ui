@@ -176,6 +176,19 @@
 - 5 tabs: 🛫 Flight Search & Seat Map, 🎫 My Bookings & Refunds, 🕹️ Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Interactive 2D aircraft cabin layout with seat classes, window/aisle indicators, hold countdown timer (`⏱ 04:59`), multi-passenger booking checkout, and simulation sandbox.
 
+## Stock Brokerage Module
+### Backend
+- `StockBrokerService`: Singleton facade managing stocks, accounts, order books, and real-time observer dispatching.
+- Order Book Pattern: Dual `TreeMap` price-time priority ladder (`bids` descending, `asks` ascending) with FIFO order queues per price level.
+- Strategy Pattern: `OrderExecutionStrategy` interface with `MarketExecutionStrategy` (immediate depth sweep) and `LimitExecutionStrategy` (immediate match + resting remainder).
+- Concurrency & Fund Reservation: Atomic balance and share pre-reservation under account mutexes (`account.getLock()`) plus per-symbol `ReentrantLock` for sequential matching engine mutation.
+- Observer Pattern: `StockPriceObserver` interface with `InAppPriceObserver` and `LoggingPriceObserver` for live price updates.
+- Custom Exceptions: `InsufficientFundsException` (400), `InsufficientStockException` (400), `InvalidOrderException` (400), `StockNotFoundException` (404), `AccountNotFoundException` (404), `OrderExecutionException` (422).
+
+### Frontend
+- 5 tabs: 📈 Trade & Portfolio, 📊 Live Order Book & Depth Ladder, 🕹️ Concurrency & Matching Simulation, 📐 Class Diagram, 📋 Design Details.
+- Real-time stock ticker tape, order placement console with Market/Limit toggle, portfolio P&L breakdown, visual Bid/Ask depth chart with cumulative volume bars, and matching engine sandbox.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar

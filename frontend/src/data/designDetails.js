@@ -1,4 +1,49 @@
 const designDetails = {
+  stockbroker: {
+    title: 'Online Stock Brokerage Platform — Design Details',
+    tldr: [
+      'In-memory Order Book matching engine with Price-Time Priority and partial fill execution',
+      'Strategy Pattern for Market Orders (immediate liquidity sweep) and Limit Orders (resting in book depth)',
+      'Observer Pattern for real-time stock price ticker updates upon matched trade execution',
+      'Atomic fund and share reservation preventing double-commitment across concurrent resting limit orders',
+      'Per-stock symbol ReentrantLock serialization guaranteeing sequential order book mutation while allowing concurrent trading across distinct tickers'
+    ],
+    tradeoffs: [
+      'Serialized matching engine per stock symbol using dedicated ReentrantLocks, achieving high throughput without multithreaded tree race conditions.',
+      'Implemented atomic check-and-reserve for funds and shares under account mutexes, eliminating negative balances or short-sell oversubscription.',
+      'Adopted Maker price priority (resting order price) for matched limit and market executions.'
+    ],
+    requirements: [
+      'Stock Catalog & Quotes: Query live prices, order books, and depth ladders',
+      'Limit & Market Orders: Place Buy and Sell orders with immediate execution or resting book placement',
+      'Fund & Share Reservation: Reserve required cash or holdings upon order creation, settling upon match and releasing upon cancellation',
+      'Price-Time Order Book: Maintain bid/ask queues ordered by best price and FIFO time priority',
+      'Real-Time Observer Notifications: Publish price changes to registered market ticker listeners'
+    ],
+    entities: [
+      { name: 'Stock', description: 'Subject entity maintaining symbol, name, volatile current price, and registered price observers.', fields: [{ name: 'symbol', type: 'String' }, { name: 'currentPrice', type: 'double' }], methods: [{ name: 'notifyPriceUpdate(...)', returns: 'void', description: 'Dispatches price change event' }] },
+      { name: 'OrderBook', description: 'Matching engine holding Bids (TreeMap descending) and Asks (TreeMap ascending) with FIFO queues.', fields: [{ name: 'bids', type: 'NavigableMap' }, { name: 'asks', type: 'NavigableMap' }], methods: [{ name: 'getDepthSnapshot(...)', returns: 'Map', description: 'Returns ladder snapshot' }] },
+      { name: 'Account', description: 'Patron entity tracking cash balance, reserved balance, and portfolio with mutex locking.', fields: [{ name: 'cashBalance', type: 'double' }, { name: 'reservedBalance', type: 'double' }], methods: [{ name: 'reserveFunds(...)', returns: 'void', description: 'Atomic cash reservation' }] },
+      { name: 'Holding', description: 'Position record tracking total quantity, reserved quantity, available quantity, and average buy price.', fields: [{ name: 'quantity', type: 'AtomicInteger' }, { name: 'reservedQuantity', type: 'AtomicInteger' }], methods: [{ name: 'reserveShares(...)', returns: 'void', description: 'Atomic share reservation' }] },
+      { name: 'Order', description: 'Abstract trade instruction extended by BuyOrder and SellOrder with status lifecycle.', fields: [{ name: 'status', type: 'OrderStatus' }, { name: 'filledQuantity', type: 'AtomicInteger' }], methods: [{ name: 'fill(qty)', returns: 'void', description: 'Fills matched quantity' }] }
+    ],
+    designPatterns: [
+      { name: 'Order Book Pattern', usage: 'Price-Time Priority matching engine maintaining sorted bid/ask levels.' },
+      { name: 'Strategy Pattern', usage: 'OrderExecutionStrategy with MarketExecutionStrategy and LimitExecutionStrategy.' },
+      { name: 'Observer Pattern', usage: 'StockPriceObserver for real-time stock quote feeds upon trade settlement.' },
+      { name: 'Factory Pattern', usage: 'OrderFactory creating typed BuyOrder and SellOrder instances.' },
+      { name: 'Singleton Pattern', usage: 'StockBrokerService managed as a Spring Singleton.' }
+    ],
+    solid: [
+      { principle: 'Single Responsibility Principle', details: 'OrderBook handles matching; Account manages balance reservations; Strategies encapsulate order type behaviors.' },
+      { principle: 'Open/Closed Principle', details: 'New order types (e.g. Stop-Loss, IOC, FOK) can be added by implementing OrderExecutionStrategy without modifying StockBrokerService.' }
+    ],
+    extensibility: [
+      'Stop-Loss & Bracket Orders: Extend OrderExecutionStrategy to trigger conditional orders when market price hits threshold.',
+      'Margin & Short Selling: Implement loan ledgers and maintenance margin calculation in Account.',
+      'WebSocket Live Streaming: Replace polling with STOMP/WebSocket pub-sub for sub-millisecond price ticks.'
+    ]
+  },
   airline: {
     title: 'Airline Reservation System — Design Details',
     tldr: [
