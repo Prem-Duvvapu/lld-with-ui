@@ -1,4 +1,48 @@
 const designDetails = {
+  library: {
+    title: 'Library Management System — Design Details',
+    tldr: [
+      'Multi-copy library catalog management system with Factory-created typed members (Student, Faculty, General) carrying distinct loan duration and quota policies',
+      'Strategy Pattern for overdue fine computation (StandardFineStrategy evaluating daily overdue rates)',
+      'Observer Pattern for background due-date reminder and overdue transition event dispatch to member inboxes',
+      'Dual-level concurrency locking: per-book ReentrantLocks preventing last-copy borrow races, and per-member mutexes preventing borrow quota oversubscription',
+      'Explicit LoanStatus state machine (ACTIVE → RETURNED / OVERDUE) with idempotent return validation'
+    ],
+    tradeoffs: [
+      'Used per-book ReentrantLocks instead of a global catalog lock to allow high concurrent borrow throughput across distinct titles.',
+      'Adopted Factory Pattern with LoanPolicy value objects to encapsulate quota limits cleanly without subclassing Member.',
+      'Employed CopyOnWriteArrayList for observer dispatch and active loan lists to ensure lock-free read operations.'
+    ],
+    requirements: [
+      'Catalog & Physical Copy Management: Track titles, ISBNs, categories, and discrete physical BookCopy barcodes with rack locations',
+      'Typed Members & Policies: Register Student (max 3 books / 14 days), Faculty (max 10 books / 30 days), and General (max 5 books / 21 days) members via MemberFactory',
+      'Borrow & Return Workflows: Atomic check-out with quota and copy availability guards, and idempotent returns replenishing shelf inventory',
+      'Overdue Fine Calculation: Calculate daily overdue fines via FineStrategy on late returns and maintain member accrued debt ledger',
+      'Due-Date Sweep & Observer Alerts: Background scheduled sweep detecting upcoming due dates (<= 2 days) and overdue transitions'
+    ],
+    entities: [
+      { name: 'Book', description: 'Catalog metadata entity aggregating physical BookCopy instances with atomic availability counts.', fields: [{ name: 'isbn', type: 'String' }, { name: 'copies', type: 'List<BookCopy>' }], methods: [{ name: 'findAvailableCopy()', returns: 'BookCopy', description: 'Returns first free copy' }] },
+      { name: 'BookCopy', description: 'Physical asset model with unique barcode ID, shelf rack location, and availability state.', fields: [{ name: 'copyId', type: 'String' }, { name: 'isAvailable', type: 'boolean' }], methods: [{ name: 'setAvailable(flag)', returns: 'void', description: 'Mutates availability' }] },
+      { name: 'Member', description: 'Library patron entity carrying MemberType, LoanPolicy, active loan counter, and accrued fine balance.', fields: [{ name: 'loanPolicy', type: 'LoanPolicy' }, { name: 'activeLoanCount', type: 'AtomicInteger' }, { name: 'memberLock', type: 'ReentrantLock' }], methods: [{ name: 'addFine(amount)', returns: 'void', description: 'Accrues overdue fee' }] },
+      { name: 'Loan', description: 'Tracks checkout relationship between member and copy with explicit LoanStatus state.', fields: [{ name: 'status', type: 'LoanStatus' }, { name: 'dueDate', type: 'LocalDate' }, { name: 'fineAmount', type: 'double' }], methods: [] },
+      { name: 'LibraryService', description: 'Core Spring @Service Singleton orchestrating catalog, borrow/return locks, fine strategies, and observers.', fields: [], methods: [{ name: 'borrowBook(...)', returns: 'Loan', description: 'Atomic copy & quota lock checkout' }] }
+    ],
+    designPatterns: [
+      { name: 'Factory Pattern', usage: 'MemberFactory instantiates typed members with associated LoanPolicy constraints.' },
+      { name: 'Strategy Pattern', usage: 'FineStrategy interface implemented by StandardFineStrategy for computing overdue debt.' },
+      { name: 'Observer Pattern', usage: 'DueDateNotifier publishes reminder and overdue alerts to LibraryNotificationObserver instances.' },
+      { name: 'Singleton Pattern', usage: 'LibraryService managed as a thread-safe Spring Singleton.' }
+    ],
+    solid: [
+      { principle: 'Single Responsibility Principle', details: 'Book manages copy aggregation; Member tracks quota and debt; FineStrategy computes late fees.' },
+      { principle: 'Open/Closed Principle', details: 'New member types with custom loan policies and alternative fine strategies can be added without altering LibraryService.' }
+    ],
+    extensibility: [
+      'Book Reservations: Introduce a waiting queue per ISBN prioritizing next available returned copies.',
+      'Tiered Fine Strategy: Implement exponential or grace-period fine calculations for specific categories.',
+      'Multi-Branch Inter-Library Loans: Model branch inventory transfers with transit states.'
+    ]
+  },
   linkedin: {
     title: 'LinkedIn Professional Network — Design Details',
     tldr: [

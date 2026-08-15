@@ -17,7 +17,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 7 | [ATM](#7-atm) | Banking ATM | State Machine, Denomination Strategy, ReentrantLock, Lockout |
 | 8 | [Splitwise](#8-splitwise) | Expense sharing | Split Strategies (Equal/Percentage/Exact), Graph Debt Simplification |
 | 9 | [Elevator](#9-elevator) | Elevator control | SCAN Scheduling Strategy, Proximity Scoring, ReentrantLock |
-| 10 | Library Management | Book Catalog & Loans | Strategy, Factory, Observer |
+| 10 | [Library Management](#10-library-management) | Book Catalog & Loans | Strategy (fines), Factory (members), Observer (due date), Per-Book ReentrantLock |
 | 11 | [Movie Ticket Booking](#11-movie-ticket-booking) | Cinema seats & shows | Per-Seat ReentrantLock, Hold TTL, Strategy, Observer |
 | 12 | Hotel Management | Room reservation | State Machine, Strategy, Factory |
 | 13 | Airline Reservation | Flight booking & seats | State Machine, Strategy |
@@ -270,6 +270,34 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 - `POST /api/elevator/sim/reset`
 - `POST /api/elevator/sim/request`
 - `POST /api/elevator/sim/step`
+
+---
+
+### 10. Library Management
+
+#### Key Features
+- **Multi-Copy Catalog Management**: Aggregates titles, ISBNs, and physical `BookCopy` assets with barcode tracking and rack locations.
+- **Factory Pattern for Typed Members**: `MemberFactory` creates `STUDENT` (3 books / 14 days), `FACULTY` (10 books / 30 days), and `GENERAL` (5 books / 21 days) members with distinct `LoanPolicy` constraints.
+- **Fine-Grained Concurrency**: Per-book `ReentrantLock` preventing last-copy race conditions, and per-member mutexes guarding quota oversubscription.
+- **Strategy & Observer Patterns**: `FineStrategy` (`StandardFineStrategy`) calculating daily overdue fees, and `DueDateNotifier` dispatching automated reminder/overdue alerts via background sweeps.
+- **Explicit Loan State Machine**: `ACTIVE` ➔ `RETURNED` / `OVERDUE` with idempotent return validation.
+
+#### API Endpoints
+- `GET /api/library/books`
+- `GET /api/library/books/search?query=`
+- `POST /api/library/books`
+- `POST /api/library/books/{isbn}/copies`
+- `GET /api/library/members`
+- `POST /api/library/members`
+- `POST /api/library/borrow`
+- `POST /api/library/return/{loanId}`
+- `POST /api/library/members/{memberId}/pay-fine`
+- `GET /api/library/members/{memberId}/loans/active`
+- `GET /api/library/members/{memberId}/notifications`
+- `POST /api/library/sim/reset`
+- `POST /api/library/sim/borrow`
+- `POST /api/library/sim/return/{loanId}`
+- `POST /api/library/sim/sweep`
 
 ---
 
