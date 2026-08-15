@@ -1,45 +1,81 @@
 package com.lld.vendingmachine.model;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Transaction {
     private long id;
-    private List<Long> selectedProductIds;
-    private List<Integer> quantities;
-    private double totalAmount;
+    private String slotCode;
+    private Long productId;
+    private String productName;
+    private double itemPrice;
     private double insertedAmount;
-    private double change;
-    private String status;
+    private double changeAmount;
+    private Map<String, Integer> denominationsInserted = new HashMap<>();
+    private Map<String, Integer> changeBreakdown = new HashMap<>();
+    private String status; // PENDING, PAID, DISPENSED, CANCELLED, REFUNDED, FAILED
     private LocalDateTime timestamp;
+    private String message;
 
-    public Transaction() {}
+    public Transaction() {
+        this.timestamp = LocalDateTime.now();
+        this.status = "PENDING";
+    }
 
-    public Transaction(long id, List<Long> selectedProductIds, List<Integer> quantities, double totalAmount) {
+    public Transaction(long id, String slotCode, Long productId, String productName, double itemPrice) {
         this.id = id;
-        this.selectedProductIds = selectedProductIds;
-        this.quantities = quantities;
-        this.totalAmount = totalAmount;
-        this.insertedAmount = 0;
-        this.change = 0;
+        this.slotCode = slotCode;
+        this.productId = productId;
+        this.productName = productName;
+        this.itemPrice = itemPrice;
+        this.insertedAmount = 0.0;
+        this.changeAmount = 0.0;
+        this.denominationsInserted = new HashMap<>();
+        this.changeBreakdown = new HashMap<>();
         this.status = "PENDING";
         this.timestamp = LocalDateTime.now();
+        this.message = "Transaction initiated for " + productName + " (" + slotCode + ")";
     }
 
     public long getId() { return id; }
     public void setId(long id) { this.id = id; }
-    public List<Long> getSelectedProductIds() { return selectedProductIds; }
-    public void setSelectedProductIds(List<Long> selectedProductIds) { this.selectedProductIds = selectedProductIds; }
-    public List<Integer> getQuantities() { return quantities; }
-    public void setQuantities(List<Integer> quantities) { this.quantities = quantities; }
-    public double getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(double totalAmount) { this.totalAmount = totalAmount; }
+
+    public String getSlotCode() { return slotCode; }
+    public void setSlotCode(String slotCode) { this.slotCode = slotCode; }
+
+    public Long getProductId() { return productId; }
+    public void setProductId(Long productId) { this.productId = productId; }
+
+    public String getProductName() { return productName; }
+    public void setProductName(String productName) { this.productName = productName; }
+
+    public double getItemPrice() { return itemPrice; }
+    public void setItemPrice(double itemPrice) { this.itemPrice = itemPrice; }
+
     public double getInsertedAmount() { return insertedAmount; }
     public void setInsertedAmount(double insertedAmount) { this.insertedAmount = insertedAmount; }
-    public double getChange() { return change; }
-    public void setChange(double change) { this.change = change; }
+
+    public double getChangeAmount() { return changeAmount; }
+    public void setChangeAmount(double changeAmount) { this.changeAmount = changeAmount; }
+
+    public Map<String, Integer> getDenominationsInserted() { return denominationsInserted; }
+    public void setDenominationsInserted(Map<String, Integer> denominationsInserted) { this.denominationsInserted = denominationsInserted; }
+
+    public Map<String, Integer> getChangeBreakdown() { return changeBreakdown; }
+    public void setChangeBreakdown(Map<String, Integer> changeBreakdown) { this.changeBreakdown = changeBreakdown; }
+
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+
+    public void addInsertedDenomination(Denomination denom) {
+        this.insertedAmount += denom.getValue();
+        this.denominationsInserted.merge(denom.name(), 1, Integer::sum);
+    }
 }

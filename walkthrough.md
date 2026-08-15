@@ -8,7 +8,8 @@ Completed end-to-end implementation and verification for core LLD modules and pa
 5. **Library Management System LLD (#10)**
 6. **Airline Reservation System LLD (#13)**
 7. **Online Stock Brokerage Platform LLD (#35)**
-8. **App Routing & Dynamic Navigation Integrations**
+8. **Vending Machine LLD (#21 Major Upgrade)**
+9. **App Routing & Dynamic Navigation Integrations**
 
 ---
 
@@ -88,14 +89,27 @@ Completed end-to-end implementation and verification for core LLD modules and pa
 
 ---
 
-## 8. Verification Results
+## 8. Vending Machine LLD (Project #21 Major Upgrade)
+
+### Key Architecture (`com.lld.vendingmachine`)
+- **State Pattern**: `VendingMachineState` interface with concrete states (`IdleState`, `HasSelectionState`, `HasMoneyState`, `DispensingState`) enforcing safe, type-level lifecycle transitions without nested if/else statements.
+- **Chain of Responsibility (CoR)**: `ChangeDispenserChain` pipeline managing descending denomination handlers (`₹500` → `₹100` → `₹50` → `₹20` → `₹10` → `₹5` → `₹2` → `₹1`) with coin/note hopper capacity bounds.
+- **Dual Workflow Flexibility**: Supports customer choosing slot first then paying, or inserting cash first then selecting product.
+- **Thread Safety**: `ReentrantLock` guarding atomic coil motor activations, stock decrements, and cashbox balance updates.
+- **Isolated Simulation Sandbox**: `/api/vendingmachine/sim/*` endpoints supporting an 8-step interactive educational walkthrough with live telemetry events.
+- **5-Tab React UI (`src/lld/vendingmachine/`)**: 3x4 Matrix Showcase with Spiral Coils, Alphanumeric Keypad, Coin/Banknote Acceptor, Admin Restock Drawer, 8-Step 2D Simulation, Class Diagram, Design Details.
+
+---
+
+## 9. Verification Results
 
 ### Automated Backend Tests
 - Executed full repository backend unit test suite:
   ```bash
   wsl bash -c "cd backend && mvn test"
   ```
-- **Results**: **101 tests run, 0 failures, 0 errors** (`BUILD SUCCESS`).
+- **Results**: **113 tests run, 0 failures, 0 errors** (`BUILD SUCCESS`).
+  - `VendingMachineServiceTest`: 12/12 passed
   - `StockBrokerServiceTest`: 8/8 passed
   - `AirlineServiceTest`: 7/7 passed
   - `LibraryServiceTest`: 7/7 passed
@@ -116,10 +130,10 @@ Completed end-to-end implementation and verification for core LLD modules and pa
   ```bash
   wsl bash -c "cd frontend && npx vite build"
   ```
-- **Result**: **153 modules transformed cleanly in 11.34s with 0 build errors**.
+- **Result**: **153 modules transformed cleanly in 10.80s with 0 build errors**.
 
 ---
 
-## 9. Git Repository Sync
+## 10. Git Repository Sync
 
 All updates, implementations, and documentation are committed and pushed to `main`.

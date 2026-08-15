@@ -28,7 +28,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 18 | Inventory Management | Stock & warehouse | Observer, Strategy |
 | 19 | [Shopping Cart](#19-online-shopping-system-shopping-cart) | E-commerce & checkout | Command (Undo), Strategy (Payment), Ascending Lock Ordering |
 | 20 | Minesweeper | Grid mine game | Recursion, Game Loop |
-| 21 | Vending Machine | State-based dispenser | State Pattern, Chain of Responsibility |
+| 21 | [Vending Machine](#21-vending-machine) | State-based dispenser | State Pattern (Idle/Selection/Money/Dispensing), Chain of Responsibility Change Hopper |
 | 22 | Logging Framework | Log sink engine | Chain of Responsibility, Singleton |
 | 23 | Traffic Signal | Signal timing engine | State Pattern, Observer |
 | 24 | Task Management System | Task workflow | State Pattern, Strategy |
@@ -360,6 +360,39 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 - `POST /api/shoppingcart/orders/{id}/cancel`
 - `POST /api/shoppingcart/sim/reset`
 - `POST /api/shoppingcart/sim/place-order`
+
+---
+
+### 21. Vending Machine
+
+#### Key Features
+- **State Pattern Lifecycle Management**: Encapsulates behavior into discrete state implementations (`IdleState`, `HasSelectionState`, `HasMoneyState`, `DispensingState`) preventing invalid hardware actions at the type level.
+- **Chain of Responsibility (CoR) for Change Dispensing**: `ChangeDispenserChain` coordinates descending denomination handlers (`₹500` → `₹100` → `₹50` → `₹20` → `₹10` → `₹5` → `₹2` → `₹1`) with coin/note hopper availability bounds.
+- **Dual-Path Operation**: Supports selecting product first then paying, or depositing cash first then choosing an item.
+- **Atomic Coil Motor Dispense & Concurrency Protection**: `ReentrantLock` guarantees thread-safe inventory decrements and hopper change deduction.
+- **Edge Case Exception Safety**: `OutOfStockException` (409), `InsufficientPaymentException` (402), `InsufficientChangeException` (409), `ProductNotFoundException` (404), and `InvalidStateException` (400) with automatic refund on failure.
+- **Interactive 5-Tab React UI**: Hardware Console with 3x4 Matrix Showcase, Alphanumeric Keypad, Bill/Coin Acceptor, Admin Restock Drawer, 8-Step 2D Simulation Sandbox, Class Diagram, and Design Details.
+
+#### API Endpoints
+- `GET /api/vendingmachine/slots`
+- `GET /api/vendingmachine/products`
+- `GET /api/vendingmachine/status`
+- `GET /api/vendingmachine/change-inventory`
+- `GET /api/vendingmachine/transactions`
+- `POST /api/vendingmachine/select`
+- `POST /api/vendingmachine/insert-money`
+- `POST /api/vendingmachine/dispense`
+- `POST /api/vendingmachine/cancel`
+- `POST /api/vendingmachine/restock`
+- `POST /api/vendingmachine/refill-change`
+- `POST /api/vendingmachine/sim/reset`
+- `POST /api/vendingmachine/sim/select`
+- `POST /api/vendingmachine/sim/insert-money`
+- `POST /api/vendingmachine/sim/dispense`
+- `POST /api/vendingmachine/sim/cancel`
+- `POST /api/vendingmachine/sim/restock`
+- `GET /api/vendingmachine/sim/events`
+- `GET /api/vendingmachine/sim/snapshot`
 
 ---
 

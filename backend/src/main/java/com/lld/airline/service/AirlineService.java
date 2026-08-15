@@ -400,8 +400,8 @@ public class AirlineService {
         Aircraft ac2 = registerAircraft("Airbus A320neo", "VT-IND", b737Templates);
 
         LocalDateTime now = LocalDateTime.now();
-        createFlight("AI-202", "DEL", "BOM", now.plusDays(1).withHour(8).withMinute(0), now.plusDays(1).withHour(10).withMinute(15), ac1);
-        createFlight("6E-505", "BOM", "BLR", now.plusDays(1).withHour(14).withMinute(30), now.plusDays(1).withHour(16).withMinute(15), ac2);
-        createFlight("UK-818", "DEL", "BLR", now.plusDays(2).withHour(18).withMinute(0), now.plusDays(2).withHour(20).withMinute(45), ac1);
+        createFlight("AI-202", "DEL", "BOM", now.plusDays(3).withHour(8).withMinute(0), now.plusDays(3).withHour(10).withMinute(15), ac1);
+        createFlight("6E-505", "BOM", "BLR", now.plusDays(3).withHour(14).withMinute(30), now.plusDays(3).withHour(16).withMinute(15), ac2);
+        createFlight("UK-818", "DEL", "BLR", now.plusDays(4).withHour(18).withMinute(0), now.plusDays(4).withHour(20).withMinute(45), ac1);
     }
 }

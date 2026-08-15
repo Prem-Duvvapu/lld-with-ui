@@ -189,6 +189,19 @@
 - 5 tabs: 📈 Trade & Portfolio, 📊 Live Order Book & Depth Ladder, 🕹️ Concurrency & Matching Simulation, 📐 Class Diagram, 📋 Design Details.
 - Real-time stock ticker tape, order placement console with Market/Limit toggle, portfolio P&L breakdown, visual Bid/Ask depth chart with cumulative volume bars, and matching engine sandbox.
 
+## Vending Machine Module
+### Backend
+- `VendingMachineService`: Singleton facade managing physical `VendingMachine` instance and isolated `simMachine` sandbox.
+- State Pattern: `VendingMachineState` interface with concrete states (`IdleState`, `HasSelectionState`, `HasMoneyState`, `DispensingState`) guaranteeing safe lifecycle transitions.
+- Chain of Responsibility Pattern: `ChangeDispenserChain` coordinates descending denomination handlers (`NOTE_500` → `NOTE_100` → `NOTE_50` → `NOTE_20` → `COIN_10` → `COIN_5` → `COIN_2` → `COIN_1`) with coin/note hopper inventory limits.
+- Concurrency & Lock Safety: `ReentrantLock` guarding machine state transitions, inventory decrements, and cashbox balance updates.
+- Initializer: `VendingMachineInitializer` seeds 12 matrix slots (3x4 grid: A1-A4 Beverages, B1-B4 Snacks, C1-C4 Confectionery/Fresh) and ₹3,550 in change hopper inventory.
+- Custom Exceptions: `OutOfStockException` (409), `InsufficientPaymentException` (402), `InsufficientChangeException` (409), `SlotNotFoundException` (404), `ProductNotFoundException` (404), `InvalidStateException` (400).
+
+### Frontend
+- 5 tabs: 🥤 Vending Machine Hardware Showcase, 🔧 Admin & Inventory Dashboard, 🕹️ 2D Interactive Simulation, 📐 Class Diagram, 📋 Design Details.
+- Realistic glass-front vending machine cabinet with illuminated 3x4 matrix slots, spiral coil animations, LCD monospace status screen, alphanumeric keypad (A-C, 1-4, CLR, ENT), coin/banknote acceptor, dispenser drop tray, and 8-step educational simulation sandbox.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar
