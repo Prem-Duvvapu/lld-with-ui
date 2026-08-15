@@ -101,14 +101,28 @@ Completed end-to-end implementation and verification for core LLD modules and pa
 
 ---
 
-## 9. Verification Results
+## 9. Coffee Machine LLD (Project #14)
+
+### Key Architecture (`com.lld.coffeemachine`)
+- **Decorator Pattern for Drink Customization**: `CoffeeComponent` contract with `BaseCoffee` and concrete decorators (`ExtraShotDecorator`, `ExtraMilkDecorator`, `WhippedCreamDecorator`, `CaramelSyrupDecorator`, `OatMilkDecorator`), dynamically assembling cumulative prices and combining multi-ingredient requirements.
+- **Factory Pattern for Recipe Registry**: `CoffeeFactory` encapsulates recipe lookups (`Espresso`, `Latte`, `Cappuccino`, `Americano`, `Mocha`) and supports runtime registration of new artisan formulas.
+- **Hardware Session State Machine**: `IDLE` ➔ `SELECTING` ➔ `PAYMENT_PENDING` ➔ `BREWING` ➔ `DISPENSED` ➔ `IDLE`, enforcing transition guards without tangled condition blocks.
+- **Deadlock-Free Multi-Ingredient Locking**: `IngredientStore` sorts all required `IngredientType` enums in deterministic ascending ordinal order before sequential `ReentrantLock` acquisition, eliminating circular wait during overlapping multi-ingredient demand.
+- **Single Physical Brew Head Mutex**: Dedicated `brewHeadLock` guaranteeing that only one cup extracts on the physical dispenser nozzle at any time.
+- **Isolated Simulation Engine**: `/api/coffeemachine/sim/*` endpoints powering an 8-step educational walkthrough and concurrent race simulation with real-time telemetry events.
+- **5-Tab React UI (`src/lld/coffeemachine/`)**: Interactive Barista Console with Dynamic Cup Visualizer, Ingredient Hoppers & Refill Dashboard, Concurrency Simulation, Class Diagram, Design Details.
+
+---
+
+## 10. Verification Results
 
 ### Automated Backend Tests
 - Executed full repository backend unit test suite:
   ```bash
   wsl bash -c "cd backend && mvn test"
   ```
-- **Results**: **113 tests run, 0 failures, 0 errors** (`BUILD SUCCESS`).
+- **Results**: **123 tests run, 0 failures, 0 errors** (`BUILD SUCCESS`).
+  - `CoffeeMachineServiceTest`: 10/10 passed
   - `VendingMachineServiceTest`: 12/12 passed
   - `StockBrokerServiceTest`: 8/8 passed
   - `AirlineServiceTest`: 7/7 passed
@@ -130,10 +144,10 @@ Completed end-to-end implementation and verification for core LLD modules and pa
   ```bash
   wsl bash -c "cd frontend && npx vite build"
   ```
-- **Result**: **153 modules transformed cleanly in 10.80s with 0 build errors**.
+- **Result**: **153 modules transformed cleanly in 8.16s with 0 build errors**.
 
 ---
 
-## 10. Git Repository Sync
+## 11. Git Repository Sync
 
 All updates, implementations, and documentation are committed and pushed to `main`.

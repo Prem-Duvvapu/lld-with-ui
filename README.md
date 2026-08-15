@@ -21,7 +21,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 11 | [Movie Ticket Booking](#11-movie-ticket-booking) | Cinema seats & shows | Per-Seat ReentrantLock, Hold TTL, Strategy, Observer |
 | 12 | Hotel Management | Room reservation | State Machine, Strategy, Factory |
 | 13 | [Airline Reservation](#13-airline-reservation) | Flight booking & seats | State Machine (holds/bookings), Strategy (pricing/refunds), Per-Seat ReentrantLock |
-| 14 | Coffee Machine | Ingredient & brew engine | State Pattern, Factory, Decorator |
+| 14 | [Coffee Machine](#14-coffee-machine) | Ingredient & brew engine | State Pattern, Factory (Recipes), Decorator (Customizations), Deadlock-Safe Multi-Ingredient Locking |
 | 15 | Digital Wallet | Payment & ledger | Command Pattern, Transactional Lock |
 | 16 | Chess | 2-Player strategy game | Command, State, Strategy |
 | 17 | Ludo | Multiplayer board game | State Machine, Game Loop |
@@ -340,6 +340,41 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 - `POST /api/airline/sim/book`
 - `POST /api/airline/sim/cancel`
 - `POST /api/airline/sim/expire`
+
+---
+
+### 14. Coffee Machine
+
+#### Key Features
+- **Decorator Pattern for Drink Customization**: Dynamically wrap base coffees with chained add-ons (`ExtraShotDecorator`, `ExtraMilkDecorator`, `WhippedCreamDecorator`, `CaramelSyrupDecorator`, `OatMilkDecorator`), computing cumulative prices and unwrapping aggregated multi-ingredient requirements.
+- **Factory Pattern for Recipe Creation**: `CoffeeFactory` encapsulates recipe lookups (`Espresso`, `Latte`, `Cappuccino`, `Americano`, `Mocha`) and supports runtime registration of new handcrafted coffee formulas.
+- **State Pattern Machine Lifecycle**: Hardware FSM transitions (`IDLE` ➔ `SELECTING` ➔ `PAYMENT_PENDING` ➔ `BREWING` ➔ `DISPENSED` ➔ `IDLE`), guarding operations against invalid invocations.
+- **Deadlock-Free Multi-Ingredient Locking**: Orders requiring multiple hoppers acquire fine-grained per-ingredient `ReentrantLock`s in strict ascending enum order, eliminating circular wait under concurrent overlapping demands.
+- **Telemetry & Low-Stock Alerts**: Continuous monitoring across 7 hoppers with low-stock warnings and isolated `/sim/*` educational test runner.
+
+#### API Endpoints
+- `GET /api/coffeemachine/menu`
+- `GET /api/coffeemachine/status`
+- `GET /api/coffeemachine/inventory`
+- `GET /api/coffeemachine/orders`
+- `POST /api/coffeemachine/order`
+- `POST /api/coffeemachine/customize`
+- `POST /api/coffeemachine/payment`
+- `POST /api/coffeemachine/brew`
+- `POST /api/coffeemachine/collect`
+- `POST /api/coffeemachine/cancel`
+- `POST /api/coffeemachine/refill`
+- `POST /api/coffeemachine/sim/reset`
+- `POST /api/coffeemachine/sim/select`
+- `POST /api/coffeemachine/sim/customize`
+- `POST /api/coffeemachine/sim/payment`
+- `POST /api/coffeemachine/sim/brew`
+- `POST /api/coffeemachine/sim/collect`
+- `POST /api/coffeemachine/sim/cancel`
+- `POST /api/coffeemachine/sim/refill`
+- `POST /api/coffeemachine/sim/race`
+- `GET /api/coffeemachine/sim/events`
+- `GET /api/coffeemachine/sim/snapshot`
 
 ---
 

@@ -202,6 +202,19 @@
 - 5 tabs: 🥤 Vending Machine Hardware Showcase, 🔧 Admin & Inventory Dashboard, 🕹️ 2D Interactive Simulation, 📐 Class Diagram, 📋 Design Details.
 - Realistic glass-front vending machine cabinet with illuminated 3x4 matrix slots, spiral coil animations, LCD monospace status screen, alphanumeric keypad (A-C, 1-4, CLR, ENT), coin/banknote acceptor, dispenser drop tray, and 8-step educational simulation sandbox.
 
+## Coffee Machine Module
+### Backend
+- `CoffeeMachineService`: Singleton facade managing physical `CoffeeMachine` instance and isolated `simMachine` sandbox.
+- Decorator Pattern: `CoffeeComponent` contract with `BaseCoffee` and chainable `CoffeeDecorator` classes (`ExtraShotDecorator`, `ExtraMilkDecorator`, `WhippedCreamDecorator`, `CaramelSyrupDecorator`, `OatMilkDecorator`), unwrapping multi-ingredient requirements and price deltas.
+- Factory Pattern: `CoffeeFactory` managing recipe formulas (`Espresso`, `Latte`, `Cappuccino`, `Americano`, `Mocha`) and supporting dynamic runtime recipe registration.
+- State Pattern: `CoffeeMachineState` interface with concrete states (`IdleState`, `SelectingState`, `PaymentPendingState`, `BrewingState`, `DispensedState`).
+- Concurrency & Deadlock Prevention: `IngredientStore` multi-ingredient locking acquiring per-ingredient `ReentrantLock`s in deterministic ascending enum order, preventing deadlocks during overlapping ingredient races.
+- Custom Exceptions: `InsufficientIngredientException` (409), `InvalidCoffeeTypeException` (404), `InsufficientPaymentException` (400), `InvalidStateOperationException` (400).
+
+### Frontend
+- 5 tabs: ☕ Order & Customize (Interactive Barista Console), 🎛️ Ingredient Inventory & Refill (Admin), 🔒 Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
+- Dynamic liquid layer cup visualizer, live decorator price builder, hopper fill gauges with low-stock badges, and 8-step educational concurrency simulation sandbox.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar

@@ -2686,6 +2686,137 @@ const designDetails = {
     ],
   },
 
+  coffeemachine: {
+    title: 'Coffee Vending Machine — Design Details',
+    requirements: [
+      'Artisan coffee menu with 5 handcrafted base recipes (Espresso, Caffe Latte, Cappuccino, Caffe Americano, Caffe Mocha)',
+      'Dynamic customization and add-ons via Decorator Pattern (Extra Shot, Extra Milk, Whipped Cream, Caramel Syrup, Oat Milk Substitution)',
+      'Recipe registry via Factory Pattern supporting dynamic runtime registration of new coffee formulas',
+      'Hardware lifecycle state machine (IDLE → SELECTING → PAYMENT_PENDING → BREWING → DISPENSED → IDLE)',
+      'Deadlock-free multi-ingredient check-and-decrement acquiring locks in deterministic ascending enum order',
+      'Real-time inventory tracking for 7 ingredient hoppers with configurable low-stock warning thresholds',
+      'Isolated simulation sandbox with 8-step educational walkthrough and concurrent overlapping race telemetry',
+    ],
+    entities: [
+      {
+        name: 'CoffeeMachineService',
+        description: 'Spring Singleton facade orchestrating production coffee machine operations and isolated simulation sandbox.',
+        fields: [
+          { name: 'mainMachine', type: 'CoffeeMachine', description: 'Primary production coffee machine instance' },
+          { name: 'simMachine', type: 'CoffeeMachine', description: 'Isolated simulation sandbox machine instance' },
+          { name: 'simEvents', type: 'List<SimEvent>', description: 'Thread-safe copy-on-write event stream for simulation telemetry' },
+        ],
+        methods: [
+          { name: 'getMenu()', returns: 'List<CoffeeRecipe>', description: 'Fetches all registered coffee recipes from factory' },
+          { name: 'startOrder(type)', returns: 'CoffeeOrder', description: 'Initiates a new base coffee order and transitions to SELECTING' },
+          { name: 'addCustomization(addOn)', returns: 'CoffeeOrder', description: 'Chains a new Decorator add-on to the active coffee component' },
+          { name: 'insertPayment(amount)', returns: 'CoffeeOrder', description: 'Accepts cash deposit and validates balance against order total' },
+          { name: 'brew()', returns: 'CoffeeOrder', description: 'Acquires brew head, deducts multi-ingredient stock atomically, and dispenses cup' },
+          { name: 'collectCoffee()', returns: 'CoffeeOrder', description: 'Customer picks up coffee cup and change; resets state to IDLE' },
+        ],
+      },
+      {
+        name: 'CoffeeComponent (Interface)',
+        description: 'Base interface in Decorator Pattern defining the uniform contract for coffees and customizations.',
+        fields: [],
+        methods: [
+          { name: 'getDescription()', returns: 'String', description: 'Returns combined description of base coffee and all chained add-ons' },
+          { name: 'getPrice()', returns: 'double', description: 'Returns cumulative price of base coffee plus all decorator price deltas' },
+          { name: 'getRequiredIngredients()', returns: 'Map<IngredientType, Integer>', description: 'Aggregates all ingredient requirements across the entire decorator chain' },
+        ],
+      },
+      {
+        name: 'CoffeeDecorator (Abstract)',
+        description: 'Abstract decorator wrapping an inner CoffeeComponent, delegating core methods and combining added ingredients.',
+        fields: [
+          { name: 'decoratedCoffee', type: 'CoffeeComponent', description: 'Wrapped inner coffee component' },
+        ],
+        methods: [
+          { name: 'getAddedIngredients()', returns: 'Map<IngredientType, Integer>', description: 'Abstract method defining this decorator\'s specific ingredient delta' },
+        ],
+      },
+      {
+        name: 'CoffeeFactory',
+        description: 'Factory pattern implementation maintaining a dynamic registry of CoffeeRecipes and instantiating BaseCoffee components.',
+        fields: [
+          { name: 'recipeRegistry', type: 'Map<CoffeeType, CoffeeRecipe>', description: 'Thread-safe registry mapping coffee types to ingredient formulas' },
+        ],
+        methods: [
+          { name: 'registerRecipe(recipe)', returns: 'void', description: 'Registers or updates a coffee recipe at runtime' },
+          { name: 'createBaseCoffee(type)', returns: 'CoffeeComponent', description: 'Instantiates a new BaseCoffee for the given CoffeeType' },
+        ],
+      },
+      {
+        name: 'IngredientStore',
+        description: 'Thread-safe inventory repository managing 7 hoppers with fine-grained per-ingredient ReentrantLocks.',
+        fields: [
+          { name: 'inventory', type: 'Map<IngredientType, AtomicInteger>', description: 'Current stock levels per ingredient' },
+          { name: 'ingredientLocks', type: 'Map<IngredientType, ReentrantLock>', description: 'Individual mutexes for each ingredient hopper' },
+        ],
+        methods: [
+          { name: 'checkAndDeductIngredients(required)', returns: 'boolean', description: 'Acquires locks in ascending enum order, verifies all quantities, and decrements atomically' },
+          { name: 'refill(type, amount)', returns: 'void', description: 'Refills a specific ingredient hopper up to max capacity' },
+        ],
+      },
+      {
+        name: 'CoffeeMachineState (Interface)',
+        description: 'State Pattern contract governing hardware session state transitions and operation validity.',
+        fields: [],
+        methods: [
+          { name: 'selectBaseCoffee(m, type)', returns: 'void', description: 'Validates selection and transitions to SelectingState' },
+          { name: 'addCustomization(m, addOn)', returns: 'void', description: 'Chains decorator in SelectingState' },
+          { name: 'insertPayment(m, amount)', returns: 'void', description: 'Records payment and transitions to PaymentPendingState' },
+          { name: 'brew(m)', returns: 'CoffeeOrder', description: 'Executes brew cycle in BrewingState and transitions to DispensedState' },
+          { name: 'collectCoffee(m)', returns: 'CoffeeOrder', description: 'Collects cup in DispensedState and resets to IdleState' },
+        ],
+      },
+    ],
+    designPatterns: [
+      { name: 'Decorator Pattern', description: 'Dynamically chains coffee customizations (Extra Shot, Whipped Cream, Caramel Syrup, Oat Milk) wrapping base coffees to calculate cumulative price and aggregate required ingredients.' },
+      { name: 'Factory Pattern', description: 'CoffeeFactory decouples coffee creation and recipe formulas from call-site code, supporting runtime registration of new artisan blends.' },
+      { name: 'State Pattern', description: 'Enforces hardware lifecycle transitions (IDLE -> SELECTING -> PAYMENT_PENDING -> BREWING -> DISPENSED -> IDLE) preventing invalid operations like brewing before payment.' },
+      { name: 'Singleton Pattern', description: 'CoffeeMachineService acts as a single Spring-managed coordinator for machine hardware access and simulation state.' },
+    ],
+    solid: [
+      { principle: 'S — Single Responsibility', description: 'IngredientStore manages stock and locking; CoffeeFactory handles recipe creation; CoffeeDecorator handles price/ingredient customization; State classes manage session transitions.' },
+      { principle: 'O — Open/Closed', description: 'New decorators (e.g. HazelnutSyrup, SoyMilk) or new coffee types (e.g. FlatWhite, Cortado) can be added without modifying existing core classes.' },
+      { principle: 'L — Liskov Substitution', description: 'BaseCoffee and all CoffeeDecorator classes conform to CoffeeComponent and can be substituted transparently in any recipe calculation.' },
+      { principle: 'I — Interface Segregation', description: 'CoffeeComponent, CoffeeMachineState, and REST interfaces provide concise, purposeful contracts without fat abstractions.' },
+      { principle: 'D — Dependency Inversion', description: 'CoffeeMachine depends on the CoffeeComponent interface and CoffeeMachineState abstraction rather than hardcoded concrete states or drinks.' },
+    ],
+    concurrency: [
+      {
+        mechanism: 'Ascending Enum Lock Ordering',
+        description: 'Multi-ingredient deduction sorts required IngredientType enums in natural ordinal order before acquisition, eliminating circular wait and preventing deadlocks between concurrent orders with overlapping ingredients.',
+      },
+      {
+        mechanism: 'Physical Brew Head Mutex',
+        description: 'A single ReentrantLock brewHeadLock guarantees that only one cup can brew on the physical nozzle at any moment, preventing mid-brew session collisions.',
+      },
+      {
+        mechanism: 'Atomic Stock Check-and-Deduct',
+        description: 'All required ingredients are validated simultaneously under multi-lock protection before any decrement occurs, preventing partial deduction on inventory exhaustion.',
+      },
+    ],
+    extensibility: [
+      {
+        area: 'Add New Customization Decorators',
+        description: 'Subclass CoffeeDecorator and implement getAddedIngredients() — no changes required to existing beverages or service logic.',
+        difficulty: 'Low',
+      },
+      {
+        area: 'Runtime Recipe Registration',
+        description: 'Invoke coffeeFactory.registerRecipe(new CoffeeRecipe(...)) to dynamically expand the barista menu at runtime.',
+        difficulty: 'Low',
+      },
+      {
+        area: 'Cup Size Selection (Small / Medium / Large)',
+        description: 'Create SizeDecorator multiplying base ingredients and price by a size factor (1.0x, 1.3x, 1.6x).',
+        difficulty: 'Medium',
+      },
+    ],
+  },
+
   inventory: {
     title: 'Inventory Management — Design Details',
     requirements: [
