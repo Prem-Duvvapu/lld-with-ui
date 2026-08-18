@@ -2,6 +2,7 @@
 
 ## Architecture
 - **Backend**: Java 17 + Spring Boot 3.2 (port 9090). Single JAR, all modules under `com.lld.*`
+- **Swagger / OpenAPI**: SpringDoc UI at `http://localhost:9090/swagger-ui.html` and JSON at `/v3/api-docs`
 - **Frontend**: React 19 + Vite + React Router 7. Single SPA, dynamically loads LLD pages
 - **Data**: In-memory only (no DB). State resets on restart.
 
@@ -78,10 +79,13 @@
 - `SplitwiseService`: createUser, createGroup, addExpense, settleUp, getSimplifiedDebts, getEventLog, and isolated sim methods (`simCreateUser`, `simCreateGroup`, `simAddExpense`, `simSettleUp`, `simGetSimplifiedDebts`).
 - Strategy Pattern: `SplitStrategy` interface with `EqualSplitStrategy`, `PercentageSplitStrategy`, `ExactSplitStrategy`, resolved via `SplitStrategyFactory`.
 - Debt Simplification: Greedy Min-Cash-Flow graph algorithm reducing settlement transactions.
+- Audit Event Logging: Type-safe `ExpenseEventType` enum (`USER_CREATED`, `GROUP_CREATED`, `MEMBER_ADDED`, `EXPENSE_ADDED`, `SETTLEMENT`) with IST (`Asia/Kolkata`) timestamps and balance snapshots.
+- Models: Clean Lombok `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor` entity models.
 - Thread Safety: `ConcurrentHashMap` repository + `ReentrantLock` for atomic balance ledger mutations.
 
 ### Frontend
 - 6 tabs: 💰 Expense Manager, 📊 Balance Dashboard, 📜 Activity Feed, 🕹️ Interactive 2D Simulation, Class Diagram, Design Details.
+- 1-click debt settlements in Balance Dashboard and custom settlement form in Expense Manager with instant ledger refresh.
 - 8-step Interactive 2D Simulation scene calling isolated `/api/splitwise/sim/*` endpoints with live balance HUD and debt graph topology.
 
 ## Movie Ticket Booking Module (BookMyShow)

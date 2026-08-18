@@ -90,11 +90,15 @@ lld-with-ui/
 # Terminal 1 — Start Java Spring Boot Backend (Port 9090)
 cd backend && mvn spring-boot:run
 
-# Terminal 2 — Start React + Vite Frontend (Port 5173)
+# Terminal 2 — Start React + Vite Frontend (Port 5173 / 3000)
 cd frontend && npm run dev
 ```
 
 Open **http://localhost:5173** to access the portfolio dashboard.
+
+### ⚡ Interactive Swagger API Documentation
+- **Swagger UI Console**: [http://localhost:9090/swagger-ui/index.html](http://localhost:9090/swagger-ui/index.html) *(or `/swagger-ui.html`)*
+- **OpenAPI 3.0 JSON Specification**: [http://localhost:9090/v3/api-docs](http://localhost:9090/v3/api-docs)
 
 ---
 
@@ -241,16 +245,36 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 ### 8. Splitwise
 
 #### Key Features
-- **Expense Split Strategies**: Equal, Percentage, and Exact split calculation rules.
-- **Debt Simplification**: Min-Cash-Flow graph algorithm minimizing settlement transactions.
-- **Group Ledger**: Thread-safe balance ledgers with settlement tracking.
+- **Expense Split Strategies**: Strategy Pattern resolving `SplitType` (`EQUAL`, `PERCENTAGE`, `EXACT`) via `SplitStrategyFactory` to calculate participant shares and remainder handling.
+- **Min-Cash-Flow Debt Simplification**: Greedy graph algorithm optimizing $O(N^2)$ pairwise debts down to at most $N-1$ settlement transactions in $O(N \log N)$ time.
+- **1-Click Settlement & Ledger Tracking**: Pairwise net balance computation with 1-click debt settlement in Balance Dashboard and custom settlement forms in Expense Manager.
+- **Type-Safe Audit Event Feed**: `ExpenseEventType` enum (`USER_CREATED`, `GROUP_CREATED`, `MEMBER_ADDED`, `EXPENSE_ADDED`, `SETTLEMENT`) logging chronological activity with Indian Standard Time (`Asia/Kolkata`) timestamps and balance snapshots.
+- **Thread Safety**: Service-level `ReentrantLock` ensuring atomic multi-user ledger updates and `ConcurrentHashMap` repository.
+- **Lombok Domain Models**: Clean `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor` entity models.
 
 #### API Endpoints
 - `POST /api/splitwise/users`
+- `GET /api/splitwise/users`
+- `GET /api/splitwise/users/{id}`
 - `POST /api/splitwise/groups`
+- `GET /api/splitwise/groups`
+- `GET /api/splitwise/groups/{id}`
+- `PUT /api/splitwise/groups/{groupId}/members/{userId}`
 - `POST /api/splitwise/expenses`
-- `GET /api/splitwise/users/{id}/balances`
+- `GET /api/splitwise/groups/{groupId}/expenses`
+- `GET /api/splitwise/users/{userId}/balances`
 - `POST /api/splitwise/settle`
+- `GET /api/splitwise/users/{userId}/transactions`
+- `GET /api/splitwise/groups/{groupId}/simplified-debts`
+- `GET /api/splitwise/events`
+- `POST /api/splitwise/sim/reset`
+- `POST /api/splitwise/sim/users`
+- `POST /api/splitwise/sim/groups`
+- `POST /api/splitwise/sim/expenses`
+- `POST /api/splitwise/sim/settle`
+- `GET /api/splitwise/sim/balances`
+- `GET /api/splitwise/sim/events`
+- `GET /api/splitwise/sim/groups/{groupId}/simplified-debts`
 
 ---
 
