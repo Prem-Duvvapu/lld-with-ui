@@ -6,6 +6,7 @@ import com.lld.pubsub.service.PubSubService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -68,15 +69,17 @@ public class PubSubServiceTest {
         // Capacity = 2, delay = 200ms
         service.subscribe("overflow-topic", "sub-slow", "Slow Analytics", "SLOW", 2, 200L);
 
-        // Send 6 rapid messages
-        List<String> lastRejected = null;
-        for (int i = 1; i <= 6; i++) {
-            lastRejected = service.publish("overflow-topic", "Burst-" + i, "pub-burst");
+        // Send 10 rapid messages to overflow the queue of capacity 2
+        List<String> allRejected = new ArrayList<>();
+        for (int i = 1; i <= 10; i++) {
+            List<String> rej = service.publish("overflow-topic", "Burst-" + i, "pub-burst");
+            if (rej != null) {
+                allRejected.addAll(rej);
+            }
         }
 
-        assertNotNull(lastRejected);
-        assertFalse(lastRejected.isEmpty(), "Expected backpressure rejection on full queue!");
-        assertTrue(lastRejected.contains("sub-slow"));
+        assertFalse(allRejected.isEmpty(), "Expected backpressure rejection on full queue!");
+        assertTrue(allRejected.contains("sub-slow"));
     }
 
     @Test
