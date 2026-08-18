@@ -7,6 +7,7 @@ import com.lld.splitwise.strategy.SplitStrategyFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class SplitwiseService {
+    public static final ZoneId ZONE_IST = ZoneId.of("Asia/Kolkata");
     private final SplitwiseRepository repository;
     private final SplitwiseRepository simRepository;
     private final SplitStrategyFactory strategyFactory;
@@ -149,7 +151,7 @@ public class SplitwiseService {
             settlement.setToUser(toUser);
             settlement.setAmount(amount);
             settlement.setGroupId(groupId);
-            settlement.setTimestamp(LocalDateTime.now());
+            settlement.setTimestamp(LocalDateTime.now(ZONE_IST));
 
             Settlement saved = repository.saveSettlement(settlement);
             logEvent(eventLog, eventIdCounter, "SETTLEMENT", fromUser.getName(), fromUser.getName() + " paid ₹" + String.format("%.2f", amount) + " to " + toUser.getName(), Map.of("fromUserId", fromUserId, "toUserId", toUserId, "amount", amount), repository);
@@ -283,7 +285,7 @@ public class SplitwiseService {
             settlement.setToUser(toUser);
             settlement.setAmount(amount);
             settlement.setGroupId(groupId);
-            settlement.setTimestamp(LocalDateTime.now());
+            settlement.setTimestamp(LocalDateTime.now(ZONE_IST));
 
             Settlement saved = simRepository.saveSettlement(settlement);
             logEvent(simEventLog, simEventIdCounter, "SETTLEMENT", fromUser.getName(), fromUser.getName() + " paid ₹" + String.format("%.2f", amount) + " to " + toUser.getName(), Map.of("fromUserId", fromUserId, "toUserId", toUserId, "amount", amount), simRepository);
@@ -392,7 +394,7 @@ public class SplitwiseService {
             double totalNet = net.values().stream().mapToDouble(Double::doubleValue).sum();
             balanceSnapshot.put(user.getName(), Math.round(totalNet * 100.0) / 100.0);
         }
-        ExpenseEvent event = new ExpenseEvent(counter.getAndIncrement(), type, actor, description, data, balanceSnapshot, LocalDateTime.now());
+        ExpenseEvent event = new ExpenseEvent(counter.getAndIncrement(), type, actor, description, data, balanceSnapshot, LocalDateTime.now(ZONE_IST));
         targetLog.add(event);
     }
 }

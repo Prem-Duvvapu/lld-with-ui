@@ -98,7 +98,7 @@ public class SplitwiseRepository {
         lock.lock();
         try {
             expense.setId(expenseIdCounter.getAndIncrement());
-            expense.setCreatedAt(java.time.LocalDateTime.now());
+            expense.setCreatedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
             expenses.put(expense.getId(), expense);
 
             String groupKey = String.valueOf(expense.getGroupId());
@@ -175,7 +175,7 @@ public class SplitwiseRepository {
         lock.lock();
         try {
             settlement.setId(settlementIdCounter.getAndIncrement());
-            settlement.setTimestamp(java.time.LocalDateTime.now());
+            settlement.setTimestamp(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Kolkata")));
 
             settlementsByGroup.computeIfAbsent(settlement.getGroupId(), k -> new ArrayList<>()).add(settlement);
 

@@ -38,7 +38,7 @@ const styles = `
 .sw-split-row input { width: 100px; padding: 8px 10px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); border-radius: 6px; font-size: 13px; text-align: right; outline: none; }
 .sw-section-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
 .sw-transactions { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-primary); }
-.sw-transaction-item { display: flex; justify-content: space-between; padding: 10px 0; font-size: 13px; border-bottom: 1px solid var(--border-primary); color: var(--text-primary); }
+.sw-transaction-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; font-size: 13px; border-bottom: 1px solid var(--border-primary); color: var(--text-primary); }
 .sw-loading { text-align: center; color: var(--text-secondary); padding: 40px 0; font-size: 14px; }
 .sw-error { text-align: center; color: #ef4444; padding: 16px; font-size: 14px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; margin-bottom: 12px; }
 .sw-success { text-align: center; color: #22c55e; padding: 16px; font-size: 14px; font-weight: 600; background: rgba(34, 197, 94, 0.1); border-radius: 8px; margin-bottom: 12px; }
@@ -103,6 +103,42 @@ const styles = `
 .sw-progress-bar-bg { width: 100%; height: 8px; background: var(--bg-primary); border-radius: 4px; overflow: hidden; border: 1px solid var(--border-primary); margin-top: 6px; }
 .sw-progress-bar-fill { height: 100%; transition: width 0.3s ease, background-color 0.3s ease; }
 `;
+
+const formatISTTime = (timestamp) => {
+  if (!timestamp) return '';
+  try {
+    const dateStr = String(timestamp);
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    }).format(date) + ' IST';
+  } catch {
+    return String(timestamp);
+  }
+};
+
+const formatISTDateTime = (timestamp) => {
+  if (!timestamp) return '';
+  try {
+    const dateStr = String(timestamp);
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true,
+    }).format(date) + ' IST';
+  } catch {
+    return String(timestamp);
+  }
+};
 
 function UserList({ onUserSelect, onUserCreated }) {
   const [users, setUsers] = useState([]);
@@ -581,7 +617,10 @@ function BalanceView({ user, onBack, onSettle }) {
           <div className="sw-section-title">Personal Transaction History</div>
           {transactions.map((tx, i) => (
             <div key={i} className="sw-transaction-item">
-              <span>{tx.description || `${tx.type} (${tx.fromUser || ''} → ${tx.toUser || ''})`}</span>
+              <div>
+                <div>{tx.description || `${tx.type} (${tx.fromUser || ''} → ${tx.toUser || ''})`}</div>
+                {tx.timestamp && <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>🕒 {formatISTDateTime(tx.timestamp)}</div>}
+              </div>
               <span style={{ fontWeight: 600 }}>₹{tx.amount.toFixed(2)}</span>
             </div>
           ))}
@@ -742,8 +781,11 @@ function BalanceDashboard() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
                   {expenses.map((e) => (
-                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', background: 'var(--bg-card)', borderRadius: 6, fontSize: 12 }}>
-                      <span>{e.description} (Paid by {e.paidBy?.name})</span>
+                    <div key={e.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-card)', borderRadius: 6, fontSize: 12 }}>
+                      <div>
+                        <div>{e.description} (Paid by {e.paidBy?.name})</div>
+                        {e.createdAt && <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>🕒 {formatISTDateTime(e.createdAt)}</div>}
+                      </div>
                       <span style={{ fontWeight: 700 }}>₹{e.amount?.toFixed(2)}</span>
                     </div>
                   ))}
@@ -788,7 +830,7 @@ function ActivityFeed() {
           <div key={ev.id} style={{ padding: '12px 16px', borderRadius: 10, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span className={`sw-badge badge-${ev.type.toLowerCase().includes('expense') ? 'expense' : ev.type.toLowerCase().includes('settle') ? 'settlement' : ev.type.toLowerCase().includes('user') ? 'user' : 'group'}`}>{ev.type}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{new Date(ev.timestamp).toLocaleTimeString()}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 }}>🕒 {formatISTDateTime(ev.timestamp)}</span>
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{ev.description}</div>
             {ev.balanceSnapshot && (
