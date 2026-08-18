@@ -79,6 +79,7 @@ lld-with-ui/
 │   │   ├── data/          ← Domain diagrams (classDiagrams.js, designDetails.js)
 │   │   └── lld/           ← Modular LLD UI views
 │   └── public/
+├── RCA.md                 ← Root Cause Analysis & Incident Post-Mortems
 └── README.md
 ```
 
@@ -99,6 +100,9 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 ### ⚡ Interactive Swagger API Documentation
 - **Swagger UI Console**: [http://localhost:9090/swagger-ui/index.html](http://localhost:9090/swagger-ui/index.html) *(or `/swagger-ui.html`)*
 - **OpenAPI 3.0 JSON Specification**: [http://localhost:9090/v3/api-docs](http://localhost:9090/v3/api-docs)
+
+### 🛠️ Incident Log & Root Cause Analysis (RCA)
+- All critical issues, port collisions, and concurrency post-mortems are tracked in [RCA.md](file:///c:/Users/Hp/OneDrive/Desktop/lld-with-ui/RCA.md).
 
 ---
 

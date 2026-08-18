@@ -13,7 +13,7 @@
 - Frontend: one folder per LLD in `src/lld/`, each with `{Name}Page.jsx` + `api.js`.
 - **Terminal Execution**: ALWAYS use WSL (`wsl <command>`) for running commands.
 - **Server Execution**: NEVER start backend or frontend automatically — the user starts/stops servers manually.
-- **Incident Tracking & RCAs**: Maintain `RCA.md` in root directory. Whenever a non-trivial issue, port collision, concurrency bug, or environment discrepancy occurs, document an RCA with symptoms, root cause, diagnostic commands, resolution, and preventative steps.
+- **Incident Tracking & Post-Resolution RCAs**: Maintain `RCA.md` in the root directory. Whenever an important/non-trivial issue is diagnosed and resolved (such as port collisions, concurrency races, build failures, serialization bugs, or environment discrepancies), ALWAYS add a structured Root Cause Analysis entry to `RCA.md` immediately after resolving it. Document: (1) Overview & Severity, (2) Symptoms & Error Logs, (3) Root Cause, (4) Diagnostic Commands, (5) Step-by-Step Resolution, and (6) Preventative Measures.
 
 ## Parking Lot Module
 ### Backend
