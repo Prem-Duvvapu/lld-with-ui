@@ -188,7 +188,7 @@ function UserList({ onUserSelect, onUserCreated }) {
   );
 }
 
-function GroupList({ user, onGroupSelect, onBack }) {
+function GroupList({ user, onGroupSelect, onViewBalances, onBack }) {
   const [groups, setGroups] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +219,12 @@ function GroupList({ user, onGroupSelect, onBack }) {
 
   return (
     <div>
-      <button className="sw-back-btn" onClick={onBack}>&larr; Switch User ({user.name})</button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <button className="sw-back-btn" onClick={onBack} style={{ margin: 0 }}>&larr; Switch User ({user.name})</button>
+        <button className="sw-btn" onClick={onViewBalances} style={{ padding: '6px 14px', fontSize: 13 }}>
+          📊 View Balances & Settle Up
+        </button>
+      </div>
       <form className="sw-form" onSubmit={handleCreate}>
         <h3>Create Expense Group</h3>
         <label>Group Name</label>
@@ -710,6 +715,18 @@ function BalanceDashboard() {
   const [simplifiedDebts, setSimplifiedDebts] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [settlingIdx, setSettlingIdx] = useState(null);
+  const [settleMsg, setSettleMsg] = useState(null);
+
+  const loadGroupData = (groupId) => {
+    Promise.all([
+      getSimplifiedDebts(groupId),
+      getGroupExpenses(groupId)
+    ]).then(([debts, exps]) => {
+      setSimplifiedDebts(debts || []);
+      setExpenses(exps || []);
+    });
+  };
 
   useEffect(() => {
     getGroups().then((data) => {
@@ -722,15 +739,24 @@ function BalanceDashboard() {
 
   useEffect(() => {
     if (selectedGroup) {
-      Promise.all([
-        getSimplifiedDebts(selectedGroup.id),
-        getGroupExpenses(selectedGroup.id)
-      ]).then(([debts, exps]) => {
-        setSimplifiedDebts(debts || []);
-        setExpenses(exps || []);
-      });
+      loadGroupData(selectedGroup.id);
     }
   }, [selectedGroup]);
+
+  const handleDirectSettle = async (s, idx) => {
+    if (!s.fromUser || !s.toUser || !selectedGroup) return;
+    setSettlingIdx(idx);
+    setSettleMsg(null);
+    try {
+      await settleUp(s.fromUser.id, s.toUser.id, selectedGroup.id, s.amount);
+      setSettleMsg(`✅ Successfully settled ₹${s.amount.toFixed(2)}: ${s.fromUser.name} paid ${s.toUser.name}`);
+      loadGroupData(selectedGroup.id);
+    } catch (err) {
+      setSettleMsg(`❌ Settlement failed: ${err.message}`);
+    } finally {
+      setSettlingIdx(null);
+    }
+  };
 
   if (loading) return <div className="sw-loading">Loading Debt Simplification Engine...</div>;
 
@@ -760,14 +786,29 @@ function BalanceDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
             <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-primary)' }}>
               <h4 style={{ margin: '0 0 12px 0', color: 'var(--text-primary)' }}>💡 Optimal Settlement Plan ({simplifiedDebts.length} txns)</h4>
+              {settleMsg && (
+                <div style={{ padding: '8px 12px', borderRadius: 8, fontSize: 12, marginBottom: 10, background: settleMsg.startsWith('✅') ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: settleMsg.startsWith('✅') ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
+                  {settleMsg}
+                </div>
+              )}
               {simplifiedDebts.length === 0 ? (
                 <div style={{ color: '#22c55e', fontSize: 13, fontWeight: 600 }}>🎉 Group is fully settled! Zero debts remaining.</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {simplifiedDebts.map((s, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 13 }}>
-                      <span><strong style={{ color: '#ef4444' }}>{s.fromUser?.name}</strong> &rarr; <strong style={{ color: '#22c55e' }}>{s.toUser?.name}</strong></span>
-                      <span style={{ fontWeight: 700, color: '#667eea' }}>₹{s.amount?.toFixed(2)}</span>
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 13 }}>
+                      <div>
+                        <div><strong style={{ color: '#ef4444' }}>{s.fromUser?.name}</strong> &rarr; <strong style={{ color: '#22c55e' }}>{s.toUser?.name}</strong></div>
+                        <span style={{ fontWeight: 700, color: '#667eea', fontSize: 14 }}>₹{s.amount?.toFixed(2)}</span>
+                      </div>
+                      <button
+                        className="sw-btn"
+                        style={{ padding: '6px 12px', fontSize: 12 }}
+                        disabled={settlingIdx === idx}
+                        onClick={() => handleDirectSettle(s, idx)}
+                      >
+                        {settlingIdx === idx ? 'Settling...' : '💸 Settle Debt'}
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -1067,7 +1108,7 @@ export default function SplitwisePage() {
             {activeTab === 'app' && (
               <>
                 {view === 'users' && <UserList onUserSelect={handleUserSelect} onUserCreated={() => {}} />}
-                {view === 'groups' && selectedUser && <GroupList user={selectedUser} onGroupSelect={handleGroupSelect} onBack={() => { setSelectedUser(null); setView('users'); }} />}
+                {view === 'groups' && selectedUser && <GroupList user={selectedUser} onGroupSelect={handleGroupSelect} onViewBalances={() => setView('balances')} onBack={() => { setSelectedUser(null); setView('users'); }} />}
                 {view === 'expense' && selectedGroup && selectedUser && <AddExpense user={selectedUser} group={selectedGroup} onBack={() => { setSelectedGroup(null); setView('groups'); }} onExpenseAdded={() => setView('balances')} />}
                 {view === 'balances' && selectedUser && <BalanceView user={selectedUser} onBack={() => setView('groups')} onSettle={(otherId) => { setTargetSettleUser(otherId); setView('settle'); }} />}
                 {view === 'settle' && selectedUser && <SettleUp user={selectedUser} targetUserId={targetSettleUser} onBack={() => setView('balances')} onSettled={() => setView('balances')} />}
