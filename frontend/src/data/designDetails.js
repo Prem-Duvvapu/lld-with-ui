@@ -5067,12 +5067,114 @@ const designDetails = {
       'Simulation & Event Log: Real-time event log with full timeline replay.'
     ],
     entities: [
-      { name: 'SplitwiseService', description: 'Central facade coordinating expense calculations, debt simplification, settlement, and event logging.' },
-      { name: 'SplitStrategyFactory', description: 'Factory resolving SplitType enum to concrete SplitStrategy implementation.' },
-      { name: 'SplitStrategy', description: 'Strategy interface defining calculateSplits method for expense distribution.' },
-      { name: 'Expense', description: 'Model storing amount, paidBy user, group reference, splits list, and timestamp.' },
-      { name: 'Settlement', description: 'Model representing transfer from one user to another within a group.' },
-      { name: 'ExpenseEvent', description: 'DTO storing event type, actor, description, and balance snapshot for simulation timeline.' }
+      {
+        name: 'SplitwiseService',
+        description: 'Central facade coordinating expense calculations, debt simplification, settlement, and event logging.',
+        fields: [
+          { name: 'repository', type: 'SplitwiseRepository', description: 'Primary production repository storing users, groups, expenses, and balance ledgers' },
+          { name: 'simRepository', type: 'SplitwiseRepository', description: 'Isolated simulation repository for zero-side-effect sandbox execution' },
+          { name: 'strategyFactory', type: 'SplitStrategyFactory', description: 'Factory resolving SplitType enum to appropriate SplitStrategy algorithm' },
+          { name: 'eventLog', type: 'List<ExpenseEvent>', description: 'Thread-safe copy-on-write event stream for live audit replay' },
+          { name: 'lock', type: 'ReentrantLock', description: 'Fine-grained mutex guarding atomic multi-user ledger updates and settlements' },
+        ],
+        methods: [
+          { name: 'createUser(name, email)', returns: 'User', description: 'Registers a new user and emits USER_CREATED event' },
+          { name: 'createGroup(name, memberIds)', returns: 'Group', description: 'Initializes a new expense group with member associations' },
+          { name: 'addExpense(desc, amount, paidBy, groupId, splits)', returns: 'Expense', description: 'Validates and executes split calculation, updates balance ledger atomically, and logs event' },
+          { name: 'settleUp(fromUser, toUser, groupId, amount)', returns: 'Settlement', description: 'Records settlement payment between two users and adjusts net balance ledger' },
+          { name: 'getSimplifiedDebts(groupId)', returns: 'List<SuggestedSettlement>', description: 'Executes greedy Min-Cash-Flow graph algorithm reducing group debts to optimal transactions' },
+          { name: 'getUserBalances(userId)', returns: 'Map<String, Double>', description: 'Fetches pairwise net owe/owed balances for a specific user' },
+          { name: 'getEventLog()', returns: 'List<ExpenseEvent>', description: 'Returns full chronological activity feed with balance snapshots' },
+        ],
+      },
+      {
+        name: 'SplitStrategyFactory',
+        description: 'Factory resolving SplitType enum to concrete SplitStrategy implementation.',
+        fields: [
+          { name: 'strategies', type: 'Map<SplitType, SplitStrategy>', description: 'Registry mapping SplitType enums to singleton SplitStrategy instances' },
+        ],
+        methods: [
+          { name: 'getStrategy(type)', returns: 'SplitStrategy', description: 'Returns appropriate strategy (Equal, Percentage, Exact) for the given SplitType' },
+        ],
+      },
+      {
+        name: 'SplitStrategy (Interface)',
+        description: 'Strategy interface defining calculateSplits method for expense distribution.',
+        fields: [],
+        methods: [
+          { name: 'calculateSplits(amount, group, splitsInput, repository)', returns: 'List<Split>', description: 'Computes exact monetary share amount for each participating group member' },
+        ],
+      },
+      {
+        name: 'Expense',
+        description: 'Domain model storing amount, paidBy user, group reference, splits list, and timestamp.',
+        fields: [
+          { name: 'id', type: 'long', description: 'Unique expense identifier' },
+          { name: 'description', type: 'String', description: 'Human-readable description/title of expense (e.g. "Dinner", "Goa Villa")' },
+          { name: 'amount', type: 'double', description: 'Total monetary amount of expense in INR' },
+          { name: 'paidBy', type: 'User', description: 'User entity who paid the upfront bill' },
+          { name: 'groupId', type: 'long', description: 'ID of group containing this expense (0 for non-group)' },
+          { name: 'splits', type: 'List<Split>', description: 'List of individual user split allocations' },
+          { name: 'createdAt', type: 'LocalDateTime', description: 'Creation timestamp of the expense' },
+        ],
+        methods: [
+          { name: 'getSplits()', returns: 'List<Split>', description: 'Returns member breakdown allocations' },
+          { name: 'getAmount()', returns: 'double', description: 'Returns total expense bill' },
+        ],
+      },
+      {
+        name: 'Settlement',
+        description: 'Domain model representing a balance settlement transfer from one user to another within a group.',
+        fields: [
+          { name: 'id', type: 'long', description: 'Unique settlement identifier' },
+          { name: 'fromUser', type: 'User', description: 'Debtor user paying off their balance' },
+          { name: 'toUser', type: 'User', description: 'Creditor user receiving payment' },
+          { name: 'amount', type: 'double', description: 'Settlement monetary amount in INR' },
+          { name: 'groupId', type: 'long', description: 'Associated group ID for this settlement' },
+          { name: 'timestamp', type: 'LocalDateTime', description: 'Timestamp when settlement was completed' },
+        ],
+        methods: [
+          { name: 'getAmount()', returns: 'double', description: 'Returns settled payment amount' },
+        ],
+      },
+      {
+        name: 'ExpenseEvent',
+        description: 'DTO capturing real-time telemetry event, actor, description, and balance snapshot for simulation timeline.',
+        fields: [
+          { name: 'id', type: 'long', description: 'Sequential event sequence number' },
+          { name: 'type', type: 'String', description: 'Event category: EXPENSE_ADDED, SETTLEMENT, USER_CREATED, GROUP_CREATED' },
+          { name: 'actor', type: 'String', description: 'Name of the user initiating the action' },
+          { name: 'description', type: 'String', description: 'Human-readable summary of what occurred' },
+          { name: 'data', type: 'Map<String, Object>', description: 'Contextual payload details (e.g. expense ID, splits breakdown)' },
+          { name: 'balanceSnapshot', type: 'Map<String, Double>', description: 'Complete pairwise ledger state snapshot immediately after event' },
+          { name: 'timestamp', type: 'LocalDateTime', description: 'Timestamp of the event execution' },
+        ],
+        methods: [],
+      },
+      {
+        name: 'Split',
+        description: 'Model capturing user, computed share amount, and percentage/exact metadata per expense participant.',
+        fields: [
+          { name: 'id', type: 'long', description: 'Split record ID' },
+          { name: 'user', type: 'User', description: 'User responsible for this split share' },
+          { name: 'amount', type: 'double', description: 'Calculated exact monetary share amount' },
+          { name: 'percentage', type: 'double', description: 'Percentage allocation (for percentage splits)' },
+          { name: 'type', type: 'SplitType', description: 'EQUAL, PERCENTAGE, or EXACT' },
+        ],
+        methods: [],
+      },
+      {
+        name: 'Group',
+        description: 'Domain model representing a shared expense group with member directory.',
+        fields: [
+          { name: 'id', type: 'long', description: 'Unique group identifier' },
+          { name: 'name', type: 'String', description: 'Group name (e.g. "Trip to Goa", "Flatmates")' },
+          { name: 'members', type: 'List<User>', description: 'List of registered members in this group' },
+        ],
+        methods: [
+          { name: 'addMember(user)', returns: 'void', description: 'Appends a new user to the group roster' },
+        ],
+      },
     ],
     designPatterns: [
       { name: 'Strategy Pattern', used: true, explanation: 'Encapsulates EQUAL, PERCENTAGE, and EXACT split calculation algorithms behind SplitStrategy interface.' },
@@ -5105,12 +5207,91 @@ const designDetails = {
       'Isolated Concurrency Simulation: 8-step interactive simulation demonstrating race conditions, double-booking prevention, hold TTL timeouts, and cancellations.'
     ],
     entities: [
-      { name: 'MovieTicketService', description: 'Central facade coordinating shows, seat maps, hold lifecycle, booking confirmation, and simulation engine.' },
-      { name: 'SeatLockManager', description: 'Fine-grained concurrency manager with per-seat ReentrantLocks, deadlock prevention via sorted lock acquisition, and hold TTL checks.' },
-      { name: 'MovieTicketRepository', description: 'Thread-safe repository indexing seats per show (showId → seatId → Seat) to avoid cross-show seat leaking.' },
-      { name: 'Seat', description: 'Domain model with row, col, seatType (SILVER, GOLD, PLATINUM), status (AVAILABLE, HELD, BOOKED), heldByUserId, holdExpiresAt, and version.' },
-      { name: 'PricingStrategy', description: 'Strategy pattern calculating seat prices (BasePricingStrategy and SurgePricingStrategy).' },
-      { name: 'SeatMapNotifier', description: 'Observer publisher broadcasting seat status change events to registered listeners.' }
+      {
+        name: 'MovieTicketService',
+        description: 'Central facade coordinating shows, seat maps, hold lifecycle, booking confirmation, and simulation engine.',
+        fields: [
+          { name: 'repository', type: 'MovieTicketRepository', description: 'Thread-safe in-memory store for movies, theaters, screens, shows, and bookings' },
+          { name: 'seatLockManager', type: 'SeatLockManager', description: 'Per-seat lock manager handling hold TTLs and multi-seat deadlock-free locking' },
+          { name: 'paymentProcessor', type: 'PaymentProcessor', description: 'Payment processor handling card, UPI, and net banking transactions' },
+          { name: 'seatMapNotifier', type: 'SeatMapNotifier', description: 'Observer publisher notifying listeners of seat status mutations' },
+          { name: 'pricingStrategy', type: 'PricingStrategy', description: 'Dynamic pricing strategy determining seat costs' },
+        ],
+        methods: [
+          { name: 'getMovies()', returns: 'List<Movie>', description: 'Fetches all featured movies' },
+          { name: 'getShows(movieId)', returns: 'List<Show>', description: 'Fetches active showtimes for a movie' },
+          { name: 'getSeats(showId)', returns: 'List<Seat>', description: 'Retrieves current real-time seat map layout' },
+          { name: 'holdSeats(showId, seatIds, userId)', returns: 'Map<String, Object>', description: 'Acquires 5-minute hold on selected seats in ascending order' },
+          { name: 'bookSeats(showId, seatIds, userId, method, key)', returns: 'Booking', description: 'Confirms held seats, validates payment idempotently, and issues ticket' },
+          { name: 'cancelBooking(bookingId)', returns: 'Booking', description: 'Cancels confirmed booking, processes refund, and releases seats' },
+        ],
+      },
+      {
+        name: 'SeatLockManager',
+        description: 'Fine-grained concurrency manager with per-seat ReentrantLocks, deadlock prevention via sorted lock acquisition, and hold TTL checks.',
+        fields: [
+          { name: 'seatLocks', type: 'Map<String, ReentrantLock>', description: 'Per-seat mutex map indexed by showId:seatId' },
+          { name: 'HOLD_DURATION_MINUTES', type: 'long', description: '5-minute seat hold timeout threshold' },
+        ],
+        methods: [
+          { name: 'holdSeats(showId, seatIds, userId, duration, repo, notifier)', returns: 'boolean', description: 'Locks seats in ascending ID order and transitions to HELD' },
+          { name: 'confirmSeats(showId, seatIds, userId, repo, notifier)', returns: 'boolean', description: 'Transitions HELD seats to BOOKED under lock protection' },
+          { name: 'releaseSeats(showId, seatIds, repo, notifier)', returns: 'void', description: 'Releases held or booked seats back to AVAILABLE' },
+          { name: 'expireStaleHolds(repo, notifier)', returns: 'int', description: 'Background sweep releasing seats whose hold TTL has expired' },
+        ],
+      },
+      {
+        name: 'MovieTicketRepository',
+        description: 'Thread-safe repository indexing seats per show (showId → seatId → Seat) to avoid cross-show seat leaking.',
+        fields: [
+          { name: 'movies', type: 'Map<Long, Movie>', description: 'Movie catalog indexed by ID' },
+          { name: 'shows', type: 'Map<Long, Show>', description: 'Showtimes indexed by ID' },
+          { name: 'showSeats', type: 'Map<Long, Map<Long, Seat>>', description: 'Auditorium seat maps indexed by showId' },
+          { name: 'bookings', type: 'Map<Long, Booking>', description: 'Customer bookings indexed by bookingId' },
+        ],
+        methods: [
+          { name: 'getSeatsByShow(showId)', returns: 'List<Seat>', description: 'Returns all seats for a show' },
+          { name: 'findSeatById(showId, seatId)', returns: 'Seat', description: 'Retrieves specific seat in a show' },
+          { name: 'saveBooking(booking)', returns: 'Booking', description: 'Persists new booking' },
+        ],
+      },
+      {
+        name: 'Seat',
+        description: 'Domain model with row, col, seatType (SILVER, GOLD, PLATINUM), status (AVAILABLE, HELD, BOOKED), heldByUserId, holdExpiresAt, and version.',
+        fields: [
+          { name: 'id', type: 'long', description: 'Unique seat identifier' },
+          { name: 'showId', type: 'long', description: 'Showtime ID containing this seat' },
+          { name: 'seatNumber', type: 'String', description: 'Seat label (e.g. A1, B5, C12)' },
+          { name: 'seatType', type: 'SeatType', description: 'SILVER, GOLD, PLATINUM' },
+          { name: 'price', type: 'double', description: 'Base seat price in INR' },
+          { name: 'status', type: 'SeatStatus', description: 'AVAILABLE, HELD, BOOKED' },
+          { name: 'heldByUserId', type: 'String', description: 'ID of user currently holding the seat' },
+          { name: 'holdExpiresAt', type: 'long', description: 'Epoch millisecond hold expiration timestamp' },
+        ],
+        methods: [
+          { name: 'isAvailable()', returns: 'boolean', description: 'Checks if seat is free to hold/book' },
+          { name: 'isHoldExpired()', returns: 'boolean', description: 'Checks if hold TTL has elapsed' },
+        ],
+      },
+      {
+        name: 'PricingStrategy (Interface)',
+        description: 'Strategy pattern calculating dynamic seat prices based on base rates, seat tiers, and surge demand.',
+        fields: [],
+        methods: [
+          { name: 'calculatePrice(show, seat)', returns: 'double', description: 'Computes seat ticket price' },
+        ],
+      },
+      {
+        name: 'SeatMapNotifier',
+        description: 'Observer publisher broadcasting seat status change events to registered listeners.',
+        fields: [
+          { name: 'observers', type: 'List<SeatAvailabilityObserver>', description: 'Registered event subscribers' },
+        ],
+        methods: [
+          { name: 'registerObserver(observer)', returns: 'void', description: 'Subscribes a listener to seat status updates' },
+          { name: 'notifyStatusChange(showId, seatId, newStatus)', returns: 'void', description: 'Broadcasts seat status transitions' },
+        ],
+      },
     ],
     designPatterns: [
       { name: 'Strategy Pattern', used: true, explanation: 'BasePricingStrategy and SurgePricingStrategy compute seat prices dynamically.' },
@@ -5146,12 +5327,90 @@ const designDetails = {
       'Isolated Concurrency Simulation: Step-by-step interactive timeline demonstrating balance races, denomination failures, and PIN lockouts.'
     ],
     entities: [
-      { name: 'AtmService', description: 'Spring @Service facade managing session state machine, PIN verification, withdrawal, deposit, and simulation engine.' },
-      { name: 'CashDispenser', description: 'Hardware cash dispenser tracking note inventory with fair ReentrantLock.' },
-      { name: 'DenominationDispenseStrategy', description: 'Strategy interface computing optimal note counts per denomination for requested amounts.' },
-      { name: 'Account', description: 'Account entity with balance and per-account ReentrantLock for fine-grained thread safety.' },
-      { name: 'Card', description: 'Card model tracking card number, PIN, failed attempt counter, and block status.' },
-      { name: 'Transaction', description: 'Abstract template base class for WithdrawalTransaction and DepositTransaction.' }
+      {
+        name: 'AtmService',
+        description: 'Spring @Service facade managing session state machine, PIN verification, withdrawal, deposit, and simulation engine.',
+        fields: [
+          { name: 'bankingService', type: 'BankingService', description: 'Core banking service managing accounts, cards, and balances' },
+          { name: 'cashDispenser', type: 'CashDispenser', description: 'Physical cash dispenser hardware tracking note inventory' },
+          { name: 'currentState', type: 'ATMState', description: 'Active session state in state machine lifecycle' },
+          { name: 'activeCard', type: 'Card', description: 'Card currently inserted in terminal slot' },
+          { name: 'activeAccount', type: 'Account', description: 'Authenticated customer bank account' },
+        ],
+        methods: [
+          { name: 'insertCard(cardNumber)', returns: 'Map<String, Object>', description: 'Validates card existence, checks block status, and transitions to CARD_INSERTED' },
+          { name: 'authenticate(cardNumber, pin)', returns: 'Account', description: 'Verifies PIN, tracks failed attempts (locks at 3), and transitions to AUTHENTICATED' },
+          { name: 'withdraw(accNum, amount)', returns: 'WithdrawalTransaction', description: 'Debits account under lock, dispenses notes, handles compensating refund if notes missing' },
+          { name: 'deposit(accNum, amount, notes)', returns: 'DepositTransaction', description: 'Accepts currency notes, adds to dispenser inventory, and credits account balance' },
+          { name: 'ejectCard()', returns: 'Map<String, Object>', description: 'Ejects active card and resets state to IDLE' },
+        ],
+      },
+      {
+        name: 'CashDispenser',
+        description: 'Hardware cash dispenser tracking note inventory with fair ReentrantLock and denomination strategy.',
+        fields: [
+          { name: 'noteInventory', type: 'Map<NoteDenomination, Integer>', description: 'Stock count of notes for ₹2000, ₹500, ₹200, ₹100' },
+          { name: 'dispenserLock', type: 'ReentrantLock', description: 'Fair lock synchronizing physical note dispensing' },
+          { name: 'dispenseStrategy', type: 'DenominationDispenseStrategy', description: 'Strategy calculating note breakdown' },
+        ],
+        methods: [
+          { name: 'dispenseCash(amount)', returns: 'Map<NoteDenomination, Integer>', description: 'Calculates notes, verifies inventory availability, and deducts counts atomically' },
+          { name: 'addNotes(denom, count)', returns: 'void', description: 'Restocks note hopper' },
+          { name: 'getTotalCashAvailable()', returns: 'int', description: 'Calculates total INR cash value in dispenser' },
+        ],
+      },
+      {
+        name: 'DenominationDispenseStrategy (Interface)',
+        description: 'Strategy interface computing optimal note counts per denomination for requested amounts.',
+        fields: [],
+        methods: [
+          { name: 'calculateNotes(amount, availableInventory)', returns: 'Map<NoteDenomination, Integer>', description: 'Computes greedy note breakdown or throws exception if amount cannot be satisfied' },
+        ],
+      },
+      {
+        name: 'Account',
+        description: 'Account entity with balance and per-account ReentrantLock for fine-grained thread safety.',
+        fields: [
+          { name: 'id', type: 'String', description: 'Account ID' },
+          { name: 'accountNumber', type: 'String', description: 'Bank account number' },
+          { name: 'holderName', type: 'String', description: 'Account holder legal name' },
+          { name: 'balance', type: 'double', description: 'Current available balance in INR' },
+          { name: 'accountLock', type: 'ReentrantLock', description: 'Fair mutex preventing race conditions on concurrent balance mutations' },
+        ],
+        methods: [
+          { name: 'debit(amount)', returns: 'boolean', description: 'Deducts funds if balance >= amount' },
+          { name: 'credit(amount)', returns: 'void', description: 'Adds funds to account' },
+        ],
+      },
+      {
+        name: 'Card',
+        description: 'Card model tracking card number, PIN, failed attempt counter, and block status.',
+        fields: [
+          { name: 'cardNumber', type: 'String', description: '16-digit debit card number' },
+          { name: 'pin', type: 'String', description: 'Hashed/plain 4-digit PIN' },
+          { name: 'accountNumber', type: 'String', description: 'Linked bank account number' },
+          { name: 'failedPinAttempts', type: 'AtomicInteger', description: 'Consecutive failed PIN counter' },
+          { name: 'isBlocked', type: 'boolean', description: 'Security block flag (set after 3 failed attempts)' },
+        ],
+        methods: [
+          { name: 'incrementFailedAttempts()', returns: 'int', description: 'Increments counter and blocks card if attempts >= 3' },
+          { name: 'resetFailedAttempts()', returns: 'void', description: 'Resets counter to 0 on successful authentication' },
+        ],
+      },
+      {
+        name: 'Transaction (Abstract)',
+        description: 'Abstract template base class for WithdrawalTransaction and DepositTransaction.',
+        fields: [
+          { name: 'transactionId', type: 'String', description: 'Unique transaction reference ID' },
+          { name: 'accountNumber', type: 'String', description: 'Target bank account number' },
+          { name: 'amount', type: 'double', description: 'Transaction monetary amount' },
+          { name: 'status', type: 'String', description: 'SUCCESS, FAILED, PENDING' },
+          { name: 'timestampEpoch', type: 'long', description: 'Execution epoch millisecond' },
+        ],
+        methods: [
+          { name: 'execute(bankingService, cashDispenser)', returns: 'void', description: 'Template method executing transaction lifecycle' },
+        ],
+      },
     ],
     designPatterns: [
       { name: 'State Pattern', used: true, explanation: 'ATMState enum enforces valid ATM hardware session transitions.' },
