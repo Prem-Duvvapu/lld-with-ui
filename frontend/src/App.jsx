@@ -65,6 +65,29 @@ function Layout({ children }) {
         position: 'fixed', top: 12, right: 12, zIndex: 1000,
         display: 'flex', gap: 8, alignItems: 'center',
       }}>
+        <a
+          href="http://localhost:9090/swagger-ui.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 12px',
+            borderRadius: 20,
+            fontSize: 12,
+            fontWeight: 700,
+            background: 'var(--bg-card)',
+            color: 'var(--accent)',
+            border: '1px solid var(--border-primary)',
+            textDecoration: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            cursor: 'pointer',
+          }}
+          title="Open Swagger OpenAPI Documentation"
+        >
+          ⚡ Swagger API
+        </a>
         <ThemeToggle />
       </div>
       {children}
