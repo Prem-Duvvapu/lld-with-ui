@@ -5,7 +5,7 @@ import java.util.Map;
 
 public class ExpenseEvent {
     private long id;
-    private String type; // "EXPENSE_ADDED", "SETTLEMENT", "USER_CREATED", "GROUP_CREATED"
+    private ExpenseEventType type;
     private String actor;
     private String description;
     private Map<String, Object> data;
@@ -14,7 +14,7 @@ public class ExpenseEvent {
 
     public ExpenseEvent() {}
 
-    public ExpenseEvent(long id, String type, String actor, String description, Map<String, Object> data, Map<String, Double> balanceSnapshot, LocalDateTime timestamp) {
+    public ExpenseEvent(long id, ExpenseEventType type, String actor, String description, Map<String, Object> data, Map<String, Double> balanceSnapshot, LocalDateTime timestamp) {
         this.id = id;
         this.type = type;
         this.actor = actor;
@@ -26,8 +26,8 @@ public class ExpenseEvent {
 
     public long getId() { return id; }
     public void setId(long id) { this.id = id; }
-    public String getType() { return type; }
-    public void setType(String type) { this.type = type; }
+    public ExpenseEventType getType() { return type; }
+    public void setType(ExpenseEventType type) { this.type = type; }
     public String getActor() { return actor; }
     public void setActor(String actor) { this.actor = actor; }
     public String getDescription() { return description; }

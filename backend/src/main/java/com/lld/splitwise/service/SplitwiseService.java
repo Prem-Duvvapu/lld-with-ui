@@ -50,7 +50,7 @@ public class SplitwiseService {
             user.setName(name);
             user.setEmail(email);
             User saved = repository.saveUser(user);
-            logEvent(eventLog, eventIdCounter, "USER_CREATED", saved.getName(), "User created: " + saved.getName(), Map.of("userId", saved.getId(), "name", saved.getName()), repository);
+            logEvent(eventLog, eventIdCounter, ExpenseEventType.USER_CREATED, saved.getName(), "User created: " + saved.getName(), Map.of("userId", saved.getId(), "name", saved.getName()), repository);
             return saved;
         } finally {
             lock.unlock();
@@ -68,7 +68,7 @@ public class SplitwiseService {
             group.setName(name);
             group.setMembers(members);
             Group saved = repository.saveGroup(group);
-            logEvent(eventLog, eventIdCounter, "GROUP_CREATED", "System", "Group created: " + saved.getName() + " with " + members.size() + " members", Map.of("groupId", saved.getId(), "name", saved.getName()), repository);
+            logEvent(eventLog, eventIdCounter, ExpenseEventType.GROUP_CREATED, "System", "Group created: " + saved.getName() + " with " + members.size() + " members", Map.of("groupId", saved.getId(), "name", saved.getName()), repository);
             return saved;
         } finally {
             lock.unlock();
@@ -84,7 +84,7 @@ public class SplitwiseService {
             if (group == null) throw new RuntimeException("Group not found: " + groupId);
             repository.addMemberToGroup(groupId, user);
             Group updated = repository.getGroup(groupId);
-            logEvent(eventLog, eventIdCounter, "MEMBER_ADDED", user.getName(), "Added " + user.getName() + " to group " + group.getName(), Map.of("groupId", groupId, "userId", userId), repository);
+            logEvent(eventLog, eventIdCounter, ExpenseEventType.MEMBER_ADDED, user.getName(), "Added " + user.getName() + " to group " + group.getName(), Map.of("groupId", groupId, "userId", userId), repository);
             return updated;
         } finally {
             lock.unlock();
@@ -117,7 +117,7 @@ public class SplitwiseService {
                 }
             }
 
-            logEvent(eventLog, eventIdCounter, "EXPENSE_ADDED", paidBy.getName(), paidBy.getName() + " paid ₹" + String.format("%.2f", amount) + " for " + description + " (" + splitType + " split)", Map.of("expenseId", expense.getId(), "amount", amount, "splitType", splitType.name(), "description", description), repository);
+            logEvent(eventLog, eventIdCounter, ExpenseEventType.EXPENSE_ADDED, paidBy.getName(), paidBy.getName() + " paid ₹" + String.format("%.2f", amount) + " for " + description + " (" + splitType + " split)", Map.of("expenseId", expense.getId(), "amount", amount, "splitType", splitType.name(), "description", description), repository);
 
             return expense;
         } finally {
@@ -154,7 +154,7 @@ public class SplitwiseService {
             settlement.setTimestamp(LocalDateTime.now(ZONE_IST));
 
             Settlement saved = repository.saveSettlement(settlement);
-            logEvent(eventLog, eventIdCounter, "SETTLEMENT", fromUser.getName(), fromUser.getName() + " paid ₹" + String.format("%.2f", amount) + " to " + toUser.getName(), Map.of("fromUserId", fromUserId, "toUserId", toUserId, "amount", amount), repository);
+            logEvent(eventLog, eventIdCounter, ExpenseEventType.SETTLEMENT, fromUser.getName(), fromUser.getName() + " paid ₹" + String.format("%.2f", amount) + " to " + toUser.getName(), Map.of("fromUserId", fromUserId, "toUserId", toUserId, "amount", amount), repository);
 
             return saved;
         } finally {
@@ -213,7 +213,7 @@ public class SplitwiseService {
             user.setName(name);
             user.setEmail(email);
             User saved = simRepository.saveUser(user);
-            logEvent(simEventLog, simEventIdCounter, "USER_CREATED", saved.getName(), "Sim User created: " + saved.getName(), Map.of("userId", saved.getId(), "name", saved.getName()), simRepository);
+            logEvent(simEventLog, simEventIdCounter, ExpenseEventType.USER_CREATED, saved.getName(), "Sim User created: " + saved.getName(), Map.of("userId", saved.getId(), "name", saved.getName()), simRepository);
             return saved;
         } finally {
             lock.unlock();
@@ -231,7 +231,7 @@ public class SplitwiseService {
             group.setName(name);
             group.setMembers(members);
             Group saved = simRepository.saveGroup(group);
-            logEvent(simEventLog, simEventIdCounter, "GROUP_CREATED", "System", "Sim Group created: " + saved.getName(), Map.of("groupId", saved.getId(), "name", saved.getName()), simRepository);
+            logEvent(simEventLog, simEventIdCounter, ExpenseEventType.GROUP_CREATED, "System", "Sim Group created: " + saved.getName(), Map.of("groupId", saved.getId(), "name", saved.getName()), simRepository);
             return saved;
         } finally {
             lock.unlock();
@@ -264,7 +264,7 @@ public class SplitwiseService {
                 }
             }
 
-            logEvent(simEventLog, simEventIdCounter, "EXPENSE_ADDED", paidBy.getName(), paidBy.getName() + " paid ₹" + String.format("%.2f", amount) + " for " + description + " (" + splitType + " split)", Map.of("expenseId", expense.getId(), "amount", amount, "splitType", splitType.name(), "description", description), simRepository);
+            logEvent(simEventLog, simEventIdCounter, ExpenseEventType.EXPENSE_ADDED, paidBy.getName(), paidBy.getName() + " paid ₹" + String.format("%.2f", amount) + " for " + description + " (" + splitType + " split)", Map.of("expenseId", expense.getId(), "amount", amount, "splitType", splitType.name(), "description", description), simRepository);
 
             return expense;
         } finally {
@@ -288,7 +288,7 @@ public class SplitwiseService {
             settlement.setTimestamp(LocalDateTime.now(ZONE_IST));
 
             Settlement saved = simRepository.saveSettlement(settlement);
-            logEvent(simEventLog, simEventIdCounter, "SETTLEMENT", fromUser.getName(), fromUser.getName() + " paid ₹" + String.format("%.2f", amount) + " to " + toUser.getName(), Map.of("fromUserId", fromUserId, "toUserId", toUserId, "amount", amount), simRepository);
+            logEvent(simEventLog, simEventIdCounter, ExpenseEventType.SETTLEMENT, fromUser.getName(), fromUser.getName() + " paid ₹" + String.format("%.2f", amount) + " to " + toUser.getName(), Map.of("fromUserId", fromUserId, "toUserId", toUserId, "amount", amount), simRepository);
 
             return saved;
         } finally {
@@ -387,7 +387,7 @@ public class SplitwiseService {
         return suggested;
     }
 
-    private void logEvent(List<ExpenseEvent> targetLog, AtomicLong counter, String type, String actor, String description, Map<String, Object> data, SplitwiseRepository targetRepo) {
+    private void logEvent(List<ExpenseEvent> targetLog, AtomicLong counter, ExpenseEventType type, String actor, String description, Map<String, Object> data, SplitwiseRepository targetRepo) {
         Map<String, Double> balanceSnapshot = new HashMap<>();
         for (User user : targetRepo.getAllUsers()) {
             Map<String, Double> net = targetRepo.getNetBalance(user.getId());
