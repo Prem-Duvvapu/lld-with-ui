@@ -12,6 +12,8 @@
 - CORS: `@CrossOrigin(origins = "*")` on every controller.
 - Frontend: one folder per LLD in `src/lld/`, each with `{Name}Page.jsx` + `api.js`.
 - **Terminal Execution**: ALWAYS use WSL (`wsl <command>`) for running commands.
+- **Server Execution**: NEVER start backend or frontend automatically — the user starts/stops servers manually.
+- **Incident Tracking & RCAs**: Maintain `RCA.md` in root directory. Whenever a non-trivial issue, port collision, concurrency bug, or environment discrepancy occurs, document an RCA with symptoms, root cause, diagnostic commands, resolution, and preventative steps.
 
 ## Parking Lot Module
 ### Backend
