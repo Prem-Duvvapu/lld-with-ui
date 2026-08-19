@@ -2997,7 +2997,6 @@ const designDetails = {
       },
       {
         area: 'Payment Integration',
-        description: 'Add PaymentService interface. Call processPayment() during checkout. Order status transitions to CONFIRMED only on payment success.',
         difficulty: 'Medium',
       },
       {
@@ -3017,67 +3016,50 @@ const designDetails = {
       },
     ],
   },
+
   loggingFramework: {
     title: 'Logging Framework — Design Details',
     requirements: [
-      'Support multiple log levels: DEBUG, INFO, WARN, ERROR, FATAL — each level has a numeric rank for comparison filtering',
-      'Multiple appender types: ConsoleAppender, FileAppender, DatabaseAppender — each writes formatted log messages to a different destination',
-      'Configurable log level per logger — fine-grained control with hierarchical parent-child level inheritance',
-      'Thread-safe logging — concurrent log calls from multiple threads must not interleave or corrupt output messages',
-      'Customizable message formatting with timestamp, level, logger name, thread name, and message text per appender',
-      'Logger hierarchy — child loggers inherit parent configuration unless explicitly overridden',
-      'Asynchronous logging support — queue log events and process them on a background thread to reduce main-thread latency',
+      'Support multiple log levels: TRACE (1), DEBUG (2), INFO (3), WARN (4), ERROR (5), FATAL (6) with numeric severity ranks',
+      'Chain of Responsibility Pattern for dynamic log level threshold evaluation and handler traversal',
+      'Multiple Appender Sinks (Observer & Strategy): ConsoleAppender, FileAppender (with file rotation app.log.1, app.log.2), DatabaseAppender, ElasticsearchAppender',
+      'Formatter Strategy Pattern: SimpleTextFormatter, JsonFormatter, and PatternFormatter with MDC context tags (traceId, userId, threadName)',
+      'Asynchronous non-blocking logging via AsyncLogDispatcher using bounded ArrayBlockingQueue (capacity 50) with drop metrics',
+      'Hierarchical Loggers: Named parent-child inheritance (Root -> com.lld -> auth / payment) with per-logger level overrides',
+      'Thread safety using ReentrantLock, ConcurrentHashMap, CopyOnWriteArrayList, and AtomicLong counters'
     ],
     entities: [
       {
         name: 'Logger',
-        description: 'Provides log methods (debug, info, warn, error, fatal). Checks effective level before dispatching LogEvent to all registered appenders.',
+        description: 'Hierarchical named logger supporting MDC context maps, parent-child level inheritance, and Chain of Responsibility dispatching.',
         fields: [
-          { name: 'name', type: 'String', description: 'Fully qualified class name used as logger identifier' },
-          { name: 'level', type: 'LogLevel', description: 'Effective log level (own or inherited from parent)' },
-          { name: 'parent', type: 'Logger', description: 'Parent logger in the hierarchy for level inheritance' },
-          { name: 'appenders', type: 'List<Appender>', description: 'Appenders attached to this specific logger' },
+          { name: 'name', type: 'String', description: 'Fully qualified logger identifier' },
+          { name: 'level', type: 'LogLevel', description: 'Log level threshold override (inherits from parent if null)' },
+          { name: 'parent', type: 'Logger', description: 'Parent logger in hierarchy' },
+          { name: 'appenders', type: 'List<LogAppender>', description: 'Appenders attached to this logger' },
         ],
         methods: [
-          { name: 'debug(message)', returns: 'void', description: 'Logs at DEBUG level if level is enabled' },
-          { name: 'info(message)', returns: 'void', description: 'Logs at INFO level if level is enabled' },
-          { name: 'warn(message)', returns: 'void', description: 'Logs at WARN level if level is enabled' },
-          { name: 'error(message)', returns: 'void', description: 'Logs at ERROR level if level is enabled' },
+          { name: 'log(level, msg, context)', returns: 'LogMessage', description: 'Processes log message through Chain of Responsibility and Appenders' },
+          { name: 'info(msg)', returns: 'LogMessage', description: 'Convenience helper for INFO level logging' },
+          { name: 'error(msg)', returns: 'LogMessage', description: 'Convenience helper for ERROR level logging' },
         ],
       },
       {
-        name: 'LogLevel',
-        description: 'Enum with values DEBUG, INFO, WARN, ERROR, FATAL. Each has an integer rank for comparison. Only messages at or above the configured level are logged.',
+        name: 'LogHandler (Chain of Responsibility)',
+        description: 'Abstract base handler for log level filtering. Concrete handlers (Trace, Debug, Info, Warn, Error, Fatal) form a processing pipeline.',
         fields: [
-          { name: 'DEBUG', type: 'int', value: '1', description: 'Fine-grained diagnostic information' },
-          { name: 'INFO', type: 'int', value: '2', description: 'General operational milestones' },
-          { name: 'WARN', type: 'int', value: '3', description: 'Potentially harmful situations' },
-          { name: 'ERROR', type: 'int', value: '4', description: 'Error events that might still allow the app to continue' },
-          { name: 'FATAL', type: 'int', value: '5', description: 'Severe errors causing premature termination' },
+          { name: 'level', type: 'LogLevel', description: 'Severity level this handler processes' },
+          { name: 'nextHandler', type: 'LogHandler', description: 'Next handler in execution chain' },
         ],
         methods: [
-          { name: 'isGreaterOrEqual(other)', returns: 'boolean', description: 'Compares ranks for level filtering decisions' },
+          { name: 'handle(msg, appenders, formatter, asyncDispatcher, isAsync)', returns: 'boolean', description: 'Evaluates severity and dispatches to appenders or forwards to next handler' },
         ],
       },
       {
-        name: 'Appender',
-        description: 'Abstract interface for log output destinations. Implementations format and write LogEvent to their respective targets.',
+        name: 'LogAppender (Strategy & Observer)',
+        description: 'Interface for output destinations. Concrete appenders format and write log messages to Console, Rotating Files, Database, or Elasticsearch.',
         fields: [
           { name: 'name', type: 'String', description: 'Unique appender identifier' },
-          { name: 'layout', type: 'Layout', description: 'Formats LogEvent into a string before writing' },
-        ],
-        methods: [
-          { name: 'append(event)', returns: 'void', description: 'Formats and writes the log event to the target' },
-        ],
-      },
-      {
-        name: 'LoggingFramework',
-        description: 'Singleton that manages global configuration: root log level, registered appenders, and logger factory.',
-        fields: [
-          { name: 'instance', type: 'LoggingFramework', description: 'Static singleton instance' },
-          { name: 'rootLogger', type: 'Logger', description: 'Root logger — parent of all loggers in the hierarchy' },
-          { name: 'appenders', type: 'List<Appender>', description: 'Global appenders inherited by all loggers' },
-        ],
         methods: [
           { name: 'getInstance()', returns: 'LoggingFramework', description: 'Returns the singleton instance (thread-safe lazy init)' },
           { name: 'getLogger(name)', returns: 'Logger', description: 'Returns or creates a logger with the given name' },

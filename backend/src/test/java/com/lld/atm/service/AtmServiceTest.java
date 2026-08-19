@@ -1,11 +1,9 @@
-package com.lld.atm;
+package com.lld.atm.service;
 
 import com.lld.atm.dispenser.CashDispenser;
 import com.lld.atm.dispenser.GreedyDenominationDispenseStrategy;
 import com.lld.atm.exception.*;
 import com.lld.atm.model.*;
-import com.lld.atm.service.AtmService;
-import com.lld.atm.service.BankingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

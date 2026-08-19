@@ -1,23 +1,24 @@
 package com.lld.logging.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Map;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class LogMessage {
     private long id;
     private LogLevel level;
-    private String message;
     private String loggerName;
-    private long timestamp;
-
-    public LogMessage(long id, LogLevel level, String message, String loggerName, long timestamp) {
-        this.id = id;
-        this.level = level;
-        this.message = message;
-        this.loggerName = loggerName;
-        this.timestamp = timestamp;
-    }
-
-    public long getId() { return id; }
-    public LogLevel getLevel() { return level; }
-    public String getMessage() { return message; }
-    public String getLoggerName() { return loggerName; }
-    public long getTimestamp() { return timestamp; }
+    private String message;
+    private String threadName;
+    private Map<String, Object> context;
+    private LocalDateTime timestamp;
+    private String formattedMessage;
 }
