@@ -1,16 +1,15 @@
 package com.lld.logging;
 
 import com.lld.logging.formatter.LogFormatterFactory;
-import com.lld.logging.logger.Logger;
 import com.lld.logging.model.*;
 import com.lld.logging.repository.LogRepository;
 import com.lld.logging.service.LoggingService;
+import com.lld.logging.service.LoggingSimulationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -18,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class LoggingServiceTest {
 
     private LoggingService service;
+    private LoggingSimulationService simService;
     private LogRepository repository;
 
     @BeforeEach
@@ -25,7 +25,9 @@ public class LoggingServiceTest {
         repository = new LogRepository();
         LogFormatterFactory factory = new LogFormatterFactory();
         service = new LoggingService(repository, factory);
+        simService = new LoggingSimulationService(factory);
         service.clear();
+        simService.simReset();
     }
 
     @Test
@@ -82,12 +84,12 @@ public class LoggingServiceTest {
     @DisplayName("Simulation Sandbox operations are isolated from production repository")
     void testSimulationIsolation() {
         service.log("ProdLogger", LogLevel.INFO, "Production event", null);
-        service.simEmitLog("SimLogger", LogLevel.INFO, "Simulation event", null);
+        simService.simEmitLog("SimLogger", LogLevel.INFO, "Simulation event", null);
 
         assertEquals(1, service.getLogs().size());
         assertEquals("ProdLogger", service.getLogs().get(0).getLoggerName());
 
-        assertEquals(1, service.simGetLogs().size());
-        assertEquals("SimLogger", service.simGetLogs().get(0).getLoggerName());
+        assertEquals(1, simService.simGetLogs().size());
+        assertEquals("SimLogger", simService.simGetLogs().get(0).getLoggerName());
     }
 }

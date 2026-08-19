@@ -2,6 +2,7 @@ package com.lld.logging.controller;
 
 import com.lld.logging.model.*;
 import com.lld.logging.service.LoggingService;
+import com.lld.logging.service.LoggingSimulationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +17,11 @@ import java.util.Map;
 @Tag(name = "Logging Framework API", description = "Endpoints for hierarchical logging, level thresholding, formatters, multi-appenders, and async processing")
 public class LoggingController {
     private final LoggingService loggingService;
+    private final LoggingSimulationService simulationService;
 
-    public LoggingController(LoggingService loggingService) {
+    public LoggingController(LoggingService loggingService, LoggingSimulationService simulationService) {
         this.loggingService = loggingService;
+        this.simulationService = simulationService;
     }
 
     @PostMapping("/configure")
@@ -115,7 +118,7 @@ public class LoggingController {
     @PostMapping("/sim/reset")
     @Operation(summary = "Reset simulation sandbox state")
     public ResponseEntity<Void> simReset() {
-        loggingService.simReset();
+        simulationService.simReset();
         return ResponseEntity.ok().build();
     }
 
@@ -128,25 +131,25 @@ public class LoggingController {
         @SuppressWarnings("unchecked")
         Map<String, Object> context = (Map<String, Object>) body.get("context");
 
-        LogMessage result = loggingService.simEmitLog(loggerName, level, message, context);
+        LogMessage result = simulationService.simEmitLog(loggerName, level, message, context);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/sim/logs")
     @Operation(summary = "Get logs from the simulation sandbox")
     public ResponseEntity<List<LogMessage>> simGetLogs() {
-        return ResponseEntity.ok(loggingService.simGetLogs());
+        return ResponseEntity.ok(simulationService.simGetLogs());
     }
 
     @GetMapping("/sim/telemetry")
     @Operation(summary = "Get simulation telemetry HUD metrics")
     public ResponseEntity<Map<String, Object>> simGetTelemetry() {
-        return ResponseEntity.ok(loggingService.simGetTelemetry());
+        return ResponseEntity.ok(simulationService.simGetTelemetry());
     }
 
     @GetMapping("/sim/appenders/{type}/logs")
     @Operation(summary = "Get simulation appender sink logs")
     public ResponseEntity<List<String>> simGetAppenderLogs(@PathVariable String type) {
-        return ResponseEntity.ok(loggingService.simGetAppenderLogs(type));
+        return ResponseEntity.ok(simulationService.simGetAppenderLogs(type));
     }
 }
