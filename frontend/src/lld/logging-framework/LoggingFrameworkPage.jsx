@@ -93,9 +93,13 @@ function InteractivePipelineSimulation() {
 
   const handleSimReset = async () => {
     await simReset();
-    await loadSimData();
+    setSimLevel('INFO');
+    setSimThreshold('INFO');
+    setSimLogger('AuthService');
+    setSimMsg('User JWT authentication verified');
     setActiveStep(0);
     setIsPlaying(false);
+    await loadSimData();
   };
 
   const isPassed = LEVELS.indexOf(simLevel) >= LEVELS.indexOf(simThreshold);
