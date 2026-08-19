@@ -221,6 +221,19 @@
 - 5 tabs: ☕ Order & Customize (Interactive Barista Console), 🎛️ Ingredient Inventory & Refill (Admin), 🔒 Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Dynamic liquid layer cup visualizer, live decorator price builder, hopper fill gauges with low-stock badges, and 8-step educational concurrency simulation sandbox.
 
+## Logging Framework Module
+### Backend
+- `LoggingService`: Singleton facade managing hierarchical loggers, formatters, and multi-appender sinks with isolated simulation engine (`/sim/*`).
+- Chain of Responsibility: `LogHandler` pipeline (`Trace` → `Debug` → `Info` → `Warn` → `Error` → `Fatal`) assembled via `LogHandlerChainBuilder`.
+- Strategy Pattern: `LogFormatter` interface with `SimpleTextFormatter`, `JsonFormatter`, and `PatternFormatter` (with token interpolation), resolved via `LogFormatterFactory`.
+- Observer & Strategy Pattern: `LogAppender` contract with `ConsoleAppender`, `FileAppender` (with simulated file rotation and byte limits), `DatabaseAppender` (SQL inserts), and `ElasticsearchAppender` (JSON document PUTs).
+- Async Logging: `AsyncLogDispatcher` using bounded `ArrayBlockingQueue` and dedicated background worker thread with dropped log telemetry.
+- Hierarchical Loggers: `Logger` (supporting parent-child level inheritance and MDC context tags like `traceId` / `userId`) managed by `LogManager` registry.
+
+### Frontend
+- 6 tabs: 🖥️ Live Logging Console & Stream, 🗄️ Multi-Appender Sinks, ⚙️ Logger Hierarchy & Configuration, 🕹️ 8-Step Interactive Pipeline Simulation with Telemetry HUD, 📐 Class Diagram, 📋 Design Details.
+- Real-time log stream with level badges, MDC tags, live appender sink inspectors, and step-by-step pipeline execution replay.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar
