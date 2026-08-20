@@ -10,6 +10,11 @@
 - Backend owns ALL business logic. Frontend is a thin API-calling shell.
 - All modules use in-memory `ConcurrentHashMap` + `ReentrantLock` for thread safety.
 - CORS: `@CrossOrigin(origins = "*")` on every controller.
+- **Error contract (all modules)**: a module's base exception extends `com.lld.config.DomainException`; each concrete exception carries `@ResponseStatus(...)`. `GlobalExceptionHandler` (`@RestControllerAdvice`) resolves the status from that annotation and returns a `com.lld.config.ErrorResponse` record (`error`, `code`, `status`, `timestamp`). Never build an error body with `Map.of("error", e.getMessage())` — `Map.of` rejects nulls and `getMessage()` is null for NPEs; use `ErrorResponse.of(e)` or `ErrorResponse.messageOf(e)`. Domain exceptions must never map to a 5xx.
+- **Design data**: one file per module — `frontend/src/data/design/{module}.js` and `frontend/src/data/diagrams/{module}.js` — registered in the `designDetails.js` / `classDiagrams.js` barrel. Never add a second key for the same module; the single shared object literal previously let JavaScript discard the richer duplicate at parse time (see RCA-002).
+- **Module key lookup**: `frontend/src/data/moduleKeys.js` is the only resolver (`resolveModuleData`). Add new spellings to its `ALIAS_MAP` rather than to a component.
+- **Design components take a `module` prop** — not `lldKey`, not `moduleKey`. `LldPage` renders the `design` / `diagram` tabs itself and suppresses `children` for them, so a page must not also render `<ClassDiagram>` for those tabs.
+- **Route pages lazily.** `App.jsx` globs `./lld/**/*Page.jsx` without `eager` and wraps each in `React.lazy` inside a `<Suspense>`; every page is its own chunk. Register a `path="*"` fallback so a bad URL is visible, not blank.
 - Frontend: one folder per LLD in `src/lld/`, each with `{Name}Page.jsx` + `api.js`.
 - **Terminal Execution**: ALWAYS use WSL (`wsl <command>`) for running commands.
 - **Server Execution**: NEVER start backend or frontend automatically — the user starts/stops servers manually.
@@ -38,7 +43,9 @@
 - `src/context/ThemeContext.jsx` — React context for theme state + toggle.
 - `src/components/ThemeToggle.jsx` — Sun/moon toggle button.
 - `src/components/DesignDetails.jsx` — Renders detailed design breakdown from data.
-- `src/data/designDetails.js` — Content for each module's design details.
+- `src/data/designDetails.js` — Barrel index; content lives in `src/data/design/{module}.js`.
+- `src/data/classDiagrams.js` — Barrel index; content lives in `src/data/diagrams/{module}.js`.
+- `src/data/moduleKeys.js` — The only module-id → data-key resolver, shared by both components.
 
 ## Uber Module
 ### Backend
@@ -236,13 +243,29 @@
 
 ## Running
 ```bash
-cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar
-cd frontend && npm run dev
+cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9090
+cd frontend && npm run dev                                                 # port 3000
 ```
+The Vite dev proxy and the Docker nginx config both forward `/api`, `/swagger-ui`, `/swagger-ui.html`
+and `/v3/api-docs` to the backend, so the in-app Swagger link works on either origin.
+Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href).
 
 ## Testing
 ```bash
-cd backend && mvn test
-cd frontend && npx vitest run
+cd backend && mvn test        # 203 tests, 30 classes
+cd frontend && npx vitest run # 250 tests, 3 files
 ```
+
+### Cross-cutting suites — keep these green
+| Suite | Guards |
+|---|---|
+| `config/DomainExceptionContractTest` | Every concrete `DomainException` declares `@ResponseStatus`, and none maps to a 5xx. A new exception cannot silently become a 500. |
+| `config/GlobalExceptionHandlerTest` | All 23 exception→status mappings, explicitly. Changing a documented status is now a visible edit. |
+| `config/ErrorContractIntegrationTest` | Drives real MockMvc requests, proving the advice is registered and that framework routing is untouched. |
+| `config/ErrorResponseTest` | Null/blank-message safety, including an assertion that the old `Map.of` idiom throws. |
+| `__tests__/designDataCoverage.test.js` | Every module id any page requests resolves to design data and a diagram; entry shape; no duplicate barrel keys; no dangling diagram edges. |
+| `__tests__/routing.test.js` | Every home card links to a real route; every route has a file; every page file is routed; catch-all exists. |
+
+When adding a module, these suites tell you what is missing — a new page with no design
+content, or a new exception with no status, fails the build rather than the user.
 
