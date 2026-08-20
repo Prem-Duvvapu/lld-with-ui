@@ -1,8 +1,28 @@
-import { Routes, Route } from 'react-router-dom'
+import { Suspense, lazy, useMemo } from 'react'
+import { Routes, Route, Link } from 'react-router-dom'
 import Home from './pages/Home'
 import ThemeToggle from './components/ThemeToggle'
+import Skeleton from './components/ui/Skeleton'
 
-const lldModules = import.meta.glob('./lld/**/*.jsx', { eager: true })
+// Lazy on purpose: an eager glob put all 45 module pages in the entry chunk, so
+// every visitor downloaded ~1.5 MB to look at one of them. Each page is now its
+// own chunk, fetched when its route is first visited.
+const lldModules = import.meta.glob('./lld/**/*Page.jsx')
+
+const pageCache = new Map()
+
+// In dev the Vite proxy fronts the API on the same origin; in the Docker image
+// nginx does. Either way "same origin" is the right default, and VITE_SWAGGER_URL
+// overrides it when the backend is somewhere else.
+const SWAGGER_URL = import.meta.env.VITE_SWAGGER_URL || '/swagger-ui.html'
+
+function lazyPage(modulePath) {
+  if (!pageCache.has(modulePath)) {
+    const loader = lldModules[modulePath]
+    pageCache.set(modulePath, loader ? lazy(loader) : null)
+  }
+  return pageCache.get(modulePath)
+}
 
 const LLD_ROUTES = [
   { path: 'parking-lot', title: 'Parking Lot', module: './lld/parking/ParkingLotPage.jsx' },
@@ -12,6 +32,7 @@ const LLD_ROUTES = [
   { path: 'tic-tac-toe', title: 'Tic Tac Toe', module: './lld/tictactoe/TicTacToePage.jsx' },
   { path: 'tictactoe', title: 'Tic Tac Toe', module: './lld/tictactoe/TicTacToePage.jsx' },
   { path: 'snake-ladders', title: 'Snake & Ladders', module: './lld/snakeladders/SnakeLaddersPage.jsx' },
+  { path: 'snakeladders', title: 'Snake & Ladders', module: './lld/snakeladders/SnakeLaddersPage.jsx' },
   { path: 'atm', title: 'ATM', module: './lld/atm/AtmPage.jsx' },
   { path: 'splitwise', title: 'Splitwise', module: './lld/splitwise/SplitwisePage.jsx' },
   { path: 'elevator', title: 'Elevator', module: './lld/elevator/ElevatorPage.jsx' },
@@ -66,7 +87,7 @@ function Layout({ children }) {
         display: 'flex', gap: 8, alignItems: 'center',
       }}>
         <a
-          href="http://localhost:9090/swagger-ui.html"
+          href={SWAGGER_URL}
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -95,16 +116,85 @@ function Layout({ children }) {
   )
 }
 
+function NotFound() {
+  return (
+    <div style={{
+      minHeight: '70vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      padding: 24,
+      textAlign: 'center',
+    }}>
+      <p style={{
+        margin: 0,
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        color: 'var(--text-muted)',
+      }}>
+        404
+      </p>
+      <h1 style={{ margin: 0, fontSize: 26, color: 'var(--text-primary)' }}>
+        No module at this address
+      </h1>
+      <p style={{ margin: 0, maxWidth: 460, fontSize: 14, color: 'var(--text-secondary)' }}>
+        The URL <code>{window.location.pathname}</code> doesn't match any of the LLD modules.
+        Pick one from the catalog.
+      </p>
+      <Link
+        to="/"
+        style={{
+          marginTop: 8,
+          padding: '8px 18px',
+          borderRadius: 20,
+          fontSize: 13,
+          fontWeight: 700,
+          background: 'var(--bg-card)',
+          color: 'var(--accent)',
+          border: '1px solid var(--border-primary)',
+          textDecoration: 'none',
+        }}
+      >
+        ← Back to all modules
+      </Link>
+    </div>
+  )
+}
+
+function PageLoading() {
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 24px', display: 'grid', gap: 14 }}>
+      <Skeleton height={34} width="42%" />
+      <Skeleton height={18} width="66%" />
+      <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} height={30} width={116} />)}
+      </div>
+      <Skeleton height={260} style={{ marginTop: 12 }} />
+    </div>
+  )
+}
+
 export default function App() {
+  const routes = useMemo(
+    () => LLD_ROUTES.map(({ path, module }) => ({ path, Page: lazyPage(module) })).filter((r) => r.Page),
+    [],
+  )
+
   return (
     <Layout>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        {LLD_ROUTES.map(({ path, module }) => {
-          const Page = lldModules[module]?.default
-          return Page ? <Route key={path} path={`/${path}`} element={<Page />} /> : null
-        })}
-      </Routes>
+      <Suspense fallback={<PageLoading />}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          {routes.map(({ path, Page }) => (
+            <Route key={path} path={`/${path}`} element={<Page />} />
+          ))}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </Layout>
   )
 }

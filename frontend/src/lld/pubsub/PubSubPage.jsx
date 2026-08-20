@@ -477,12 +477,12 @@ export default function PubSubPage() {
 
       {/* Tab 4: Class Diagram */}
       {activeTab === 'diagram' && (
-        <ClassDiagram moduleKey="pubsub" />
+        <ClassDiagram module="pubsub" />
       )}
 
       {/* Tab 5: Design Details */}
       {activeTab === 'details' && (
-        <DesignDetails moduleKey="pubsub" />
+        <DesignDetails module="pubsub" />
       )}
     </div>
   );

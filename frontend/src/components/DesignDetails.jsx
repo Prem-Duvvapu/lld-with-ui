@@ -1,31 +1,18 @@
 import React, { useState } from 'react';
 import designDetails from '../data/designDetails';
+import { resolveModuleData } from '../data/moduleKeys';
 import RequirementsTab from './design/RequirementsTab';
 import EntitiesTab from './design/EntitiesTab';
 import PatternsTab from './design/PatternsTab';
 import PrinciplesTab from './design/PrinciplesTab';
 import ExtensibilityTab from './design/ExtensibilityTab';
 
-const ALIAS_MAP = {
-  'parking-lot': 'parking',
-  'coffee-machine': 'coffee',
-  'coffeemachine': 'coffee',
-  'digital-wallet': 'wallet',
-  'digitalwallet': 'wallet',
-  'movie-ticket': 'movieticket',
-  'snake-ladders': 'snakeladders',
-  'tic-tac-toe': 'tictactoe'
-};
-
 export default function DesignDetails({ module, customData }) {
-  const resolvedKey = ALIAS_MAP[module] || module;
-  const camelKey = resolvedKey ? resolvedKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null;
-  const noHyphenKey = resolvedKey ? resolvedKey.replace(/-/g, '') : null;
+  const data = customData || resolveModuleData(designDetails, module);
 
-  const data = customData
-    || designDetails[resolvedKey]
-    || (camelKey ? designDetails[camelKey] : null)
-    || (noHyphenKey ? designDetails[noHyphenKey] : null);
+  if (import.meta.env?.DEV && !data && module) {
+    console.warn(`[designDetails] no entry for module "${module}" — add src/data/design/<module>.js and register it in the barrel.`);
+  }
 
   const [subTab, setSubTab] = useState('reqs');
 

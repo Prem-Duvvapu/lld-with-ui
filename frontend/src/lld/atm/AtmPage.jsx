@@ -497,12 +497,12 @@ export default function AtmPage() {
 
       {/* TAB 3: CLASS DIAGRAM */}
       {activeTab === 'diagram' && (
-        <ClassDiagram lldKey="atm" />
+        <ClassDiagram module="atm" />
       )}
 
       {/* TAB 4: DESIGN DETAILS */}
       {activeTab === 'details' && (
-        <DesignDetails lldKey="atm" />
+        <DesignDetails module="atm" />
       )}
     </div>
   );
