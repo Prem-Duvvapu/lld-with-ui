@@ -1,9 +1,12 @@
 package com.lld.uber.service;
 
+import com.lld.uber.exception.*;
 import com.lld.uber.model.*;
 import com.lld.uber.payment.Payment;
 import com.lld.uber.payment.PaymentProcessor;
 import com.lld.uber.repository.UberRepository;
+import com.lld.uber.strategy.FarePricingStrategy;
+import com.lld.uber.strategy.FarePricingStrategyFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,16 +15,33 @@ import java.util.UUID;
 @Service
 public class UberService {
 
-    private static final double RATE_GO = 12.0;
-    private static final double RATE_XL = 18.0;
-    private static final double RATE_PREMIUM = 25.0;
-
     private final UberRepository repository;
     private final PaymentProcessor paymentProcessor;
+    private final FarePricingStrategyFactory pricingFactory;
+    private final DriverAssignmentService driverAssignment;
 
-    public UberService(UberRepository repository, PaymentProcessor paymentProcessor) {
+    public UberService(UberRepository repository,
+                       PaymentProcessor paymentProcessor,
+                       FarePricingStrategyFactory pricingFactory,
+                       DriverAssignmentService driverAssignment) {
         this.repository = repository;
         this.paymentProcessor = paymentProcessor;
+        this.pricingFactory = pricingFactory;
+        this.driverAssignment = driverAssignment;
+    }
+
+    /**
+     * Single gate for every ride status change. Each caller used to carry its own list of
+     * acceptable source states, and nothing stopped a move out of a terminal state.
+     */
+    private void transition(Ride ride, RideStatus next) {
+        RideStatus current = ride.getStatus();
+        if (!current.canTransitionTo(next)) {
+            throw new InvalidRideTransitionException(
+                    "Ride " + ride.getId() + " cannot move from " + current + " to " + next
+                            + ". Allowed: " + current.allowedNext());
+        }
+        ride.setStatus(next);
     }
 
     public Rider registerRider(Rider rider) {
@@ -42,7 +62,7 @@ public class UberService {
 
     public Driver updateDriverStatus(String driverId, DriverStatus status) {
         Driver driver = repository.getDriver(driverId);
-        if (driver == null) throw new IllegalArgumentException("Driver not found: " + driverId);
+        if (driver == null) throw new DriverNotFoundException("Driver not found: " + driverId);
         driver.setStatus(status);
         repository.updateDriver(driver);
         return driver;
@@ -58,27 +78,22 @@ public class UberService {
 
     public FareEstimate estimate(String pickupLat, String pickupLng, String pickupLabel,
                                  String dropoffLat, String dropoffLng, String dropoffLabel,
-                                 String vehicleTypeStr) {
+                                 String vehicleTypeStr, boolean surgeActive) {
         VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr.toUpperCase());
         Location pickup = new Location(Double.parseDouble(pickupLat), Double.parseDouble(pickupLng), pickupLabel);
         Location dropoff = new Location(Double.parseDouble(dropoffLat), Double.parseDouble(dropoffLng), dropoffLabel);
 
         double distance = pickup.distanceTo(dropoff);
-        double rate = switch (vehicleType) {
-            case UBER_GO -> RATE_GO;
-            case UBER_XL -> RATE_XL;
-            case UBER_PREMIUM -> RATE_PREMIUM;
-        };
-
-        double baseFare = 25;
-        double fare = baseFare + distance * rate;
+        FarePricingStrategy pricing = pricingFactory.forDemand(surgeActive);
+        double fare = pricing.calculateFare(distance, vehicleType);
         int estimatedMinutes = (int) Math.round(distance * 3.0);
 
         return new FareEstimate(
                 Math.round(distance * 10.0) / 10.0,
-                Math.round(fare * 100.0) / 100.0,
+                fare,
                 estimatedMinutes,
-                vehicleType
+                vehicleType,
+                pricing.getName()
         );
     }
 
@@ -93,17 +108,9 @@ public class UberService {
         double distanceKm = (preCalculatedDistanceKm != null && preCalculatedDistanceKm > 0)
                 ? preCalculatedDistanceKm : pickup.distanceTo(dropoff);
 
-        double fare;
-        if (preCalculatedFare != null && preCalculatedFare > 0) {
-            fare = preCalculatedFare;
-        } else {
-            double rate = switch (vehicleType) {
-                case UBER_GO -> RATE_GO;
-                case UBER_XL -> RATE_XL;
-                case UBER_PREMIUM -> RATE_PREMIUM;
-            };
-            fare = Math.round((25 + distanceKm * rate) * 100.0) / 100.0;
-        }
+        double fare = (preCalculatedFare != null && preCalculatedFare > 0)
+                ? preCalculatedFare
+                : pricingFactory.forDemand(false).calculateFare(distanceKm, vehicleType);
 
         String rideId = repository.generateRideId();
         Ride ride = new Ride(rideId, userId, pickup, dropoff, distanceKm, fare, vehicleType);
@@ -133,59 +140,56 @@ public class UberService {
         return ride;
     }
 
+    /**
+     * Accepting a ride is the one genuinely contended operation here: several drivers may be
+     * looking at the same request, and one driver may be offered several. Both races are
+     * resolved under a per-driver lock inside DriverAssignmentService.
+     */
     public Ride assignDriver(String rideId, String driverId) {
         Ride ride = getRide(rideId);
-        Driver driver = repository.getDriver(driverId);
-        if (driver == null) throw new IllegalArgumentException("Driver not found: " + driverId);
-        if (!driver.isAvailable()) throw new IllegalStateException("Driver is not available");
-
-        assignDriverToRide(ride, driver);
+        if (ride.getStatus() != RideStatus.REQUESTED) {
+            throw new InvalidRideTransitionException(
+                    "Ride " + rideId + " is " + ride.getStatus() + " and can no longer be accepted");
+        }
+        driverAssignment.assign(ride, driverId);
         return ride;
-    }
-
-    private void assignDriverToRide(Ride ride, Driver driver) {
-        driver.setStatus(DriverStatus.ON_TRIP);
-        ride.setDriverId(driver.getId());
-        ride.setDriver(driver);
-        ride.setDriverName(driver.getName());
-        ride.setVehicleNumber(driver.getVehicleNumber());
-        ride.setStatus(RideStatus.ACCEPTED);
-        repository.updateDriver(driver);
-        repository.updateRide(ride);
     }
 
     public Ride verifyOtpAndStart(String rideId, String otp) {
         Ride ride = getRide(rideId);
         if (!ride.verifyOtp(otp)) {
-            throw new IllegalArgumentException("Invalid OTP! Verification failed.");
+            throw new OtpVerificationException("Invalid OTP for ride " + rideId + ". Verification failed.");
         }
         return startTrip(rideId);
     }
 
     public Ride startTrip(String rideId) {
         Ride ride = getRide(rideId);
-        if (ride.getStatus() != RideStatus.ACCEPTED && ride.getStatus() != RideStatus.REQUESTED) {
-            throw new IllegalStateException("Ride cannot be started from status: " + ride.getStatus());
-        }
-        ride.setStatus(RideStatus.ONGOING);
+        transition(ride, RideStatus.ONGOING);
         repository.updateRide(ride);
         return ride;
     }
 
     public Ride arriveAtDestination(String rideId) {
         Ride ride = getRide(rideId);
-        if (ride.getStatus() != RideStatus.ONGOING && ride.getStatus() != RideStatus.ACCEPTED) {
-            throw new IllegalStateException("Ride cannot be marked arrived from status: " + ride.getStatus());
-        }
-        ride.setStatus(RideStatus.PAYMENT_PENDING);
+        transition(ride, RideStatus.DESTINATION_REACHED);
+        transition(ride, RideStatus.PAYMENT_PENDING);
         repository.updateRide(ride);
         return ride;
     }
 
     public Ride completeTrip(String rideId, String paymentMethod) {
         Ride ride = getRide(rideId);
-        if (ride.getStatus() != RideStatus.ONGOING && ride.getStatus() != RideStatus.ACCEPTED && ride.getStatus() != RideStatus.DESTINATION_REACHED && ride.getStatus() != RideStatus.PAYMENT_PENDING && ride.getStatus() != RideStatus.PAYMENT_FAILED) {
-            throw new IllegalStateException("Ride cannot be completed from status: " + ride.getStatus());
+        if (ride.getStatus().isTerminal()) {
+            throw new InvalidRideTransitionException(
+                    "Ride " + rideId + " is already " + ride.getStatus() + " and cannot be completed");
+        }
+        // Payment is only attempted once the trip has actually finished.
+        if (ride.getStatus() == RideStatus.ONGOING) {
+            transition(ride, RideStatus.DESTINATION_REACHED);
+        }
+        if (ride.getStatus() == RideStatus.DESTINATION_REACHED) {
+            transition(ride, RideStatus.PAYMENT_PENDING);
         }
 
         String paymentId = "PAY-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
@@ -197,20 +201,10 @@ public class UberService {
         ride.setPayment(payment);
 
         if (payment.getStatus() == com.lld.uber.payment.PaymentStatus.COMPLETED) {
-            ride.setStatus(RideStatus.COMPLETED);
-            String driverId = ride.getDriverId();
-            if (driverId != null) {
-                Driver driver = repository.getDriver(driverId);
-                if (driver != null) {
-                    if (ride.getDropoff() != null) {
-                        driver.setCurrentLocation(ride.getDropoff());
-                    }
-                    driver.setStatus(DriverStatus.AVAILABLE);
-                    repository.updateDriver(driver);
-                }
-            }
+            transition(ride, RideStatus.COMPLETED);
+            driverAssignment.release(ride.getDriverId(), ride.getDropoff());
         } else {
-            ride.setStatus(RideStatus.PAYMENT_FAILED);
+            transition(ride, RideStatus.PAYMENT_FAILED);
         }
 
         repository.updateRide(ride);
@@ -219,24 +213,15 @@ public class UberService {
 
     public Ride cancelTrip(String rideId) {
         Ride ride = getRide(rideId);
-        ride.setStatus(RideStatus.CANCELLED);
-
-        String driverId = ride.getDriverId();
-        if (driverId != null) {
-            Driver driver = repository.getDriver(driverId);
-            if (driver != null) {
-                driver.setStatus(DriverStatus.AVAILABLE);
-                repository.updateDriver(driver);
-            }
-        }
-
+        transition(ride, RideStatus.CANCELLED);
+        driverAssignment.release(ride.getDriverId(), null);
         repository.updateRide(ride);
         return ride;
     }
 
     public Ride getRide(String rideId) {
         Ride ride = repository.getRide(rideId);
-        if (ride == null) throw new IllegalArgumentException("Ride not found: " + rideId);
+        if (ride == null) throw new RideNotFoundException("Ride not found: " + rideId);
         return ride;
     }
 
@@ -248,5 +233,6 @@ public class UberService {
         return repository.getAllRides();
     }
 
-    public record FareEstimate(double distanceKm, double fare, int estimatedMinutes, VehicleType vehicleType) {}
+    public record FareEstimate(double distanceKm, double fare, int estimatedMinutes,
+                               VehicleType vehicleType, String pricingStrategy) {}
 }

@@ -57,8 +57,9 @@ public class UberController {
     public UberService.FareEstimate estimate(
             @RequestParam String pickupLat, @RequestParam String pickupLng, @RequestParam(defaultValue = "Pickup") String pickupLabel,
             @RequestParam String dropoffLat, @RequestParam String dropoffLng, @RequestParam(defaultValue = "Dropoff") String dropoffLabel,
-            @RequestParam(defaultValue = "UBER_GO") String vehicleType) {
-        return service.estimate(pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType);
+            @RequestParam(defaultValue = "UBER_GO") String vehicleType,
+            @RequestParam(defaultValue = "false") boolean surge) {
+        return service.estimate(pickupLat, pickupLng, pickupLabel, dropoffLat, dropoffLng, dropoffLabel, vehicleType, surge);
     }
 
     @PostMapping("/rides")
