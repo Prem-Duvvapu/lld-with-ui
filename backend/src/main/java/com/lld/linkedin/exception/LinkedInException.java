@@ -1,6 +1,8 @@
 package com.lld.linkedin.exception;
 
-public class LinkedInException extends RuntimeException {
+import com.lld.config.DomainException;
+
+public class LinkedInException extends DomainException {
     public LinkedInException(String message) {
         super(message);
     }

@@ -1,5 +1,7 @@
 package com.lld.auction.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.auction.model.Auction;
 import com.lld.auction.model.Bid;
 import com.lld.auction.model.Bidder;
@@ -31,7 +33,7 @@ public class AuctionController {
             Auction auction = service.createAuction(itemName, description, startingBid, durationMinutes);
             return ResponseEntity.ok(auction);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -45,7 +47,7 @@ public class AuctionController {
         try {
             return ResponseEntity.ok(service.getAuction(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -57,7 +59,7 @@ public class AuctionController {
             Bidder bidder = service.registerBidder(name, email);
             return ResponseEntity.ok(bidder);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -75,7 +77,7 @@ public class AuctionController {
             Bid bid = service.placeBid(auctionId, bidderId, amount);
             return ResponseEntity.ok(bid);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -84,7 +86,7 @@ public class AuctionController {
         try {
             return ResponseEntity.ok(service.getBidsForAuction(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -93,7 +95,7 @@ public class AuctionController {
         try {
             return ResponseEntity.ok(service.closeAuction(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

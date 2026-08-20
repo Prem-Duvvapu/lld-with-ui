@@ -1,5 +1,7 @@
 package com.lld.ludo.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.ludo.service.LudoService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +23,7 @@ public class LudoController {
         try {
             return ResponseEntity.ok(service.createGame(body.get("players")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -30,7 +32,7 @@ public class LudoController {
         try {
             return ResponseEntity.ok(service.getGame(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -39,7 +41,7 @@ public class LudoController {
         try {
             return ResponseEntity.ok(service.rollDice(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -50,7 +52,7 @@ public class LudoController {
             int tokenIndex = ((Number) body.get("tokenIndex")).intValue();
             return ResponseEntity.ok(service.moveToken(id, playerIndex, tokenIndex));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

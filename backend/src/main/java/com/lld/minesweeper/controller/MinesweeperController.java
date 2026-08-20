@@ -1,5 +1,7 @@
 package com.lld.minesweeper.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.minesweeper.service.MinesweeperService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +26,7 @@ public class MinesweeperController {
             int mines = ((Number) body.getOrDefault("mines", 10)).intValue();
             return ResponseEntity.ok(service.createGame(rows, cols, mines));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -33,7 +35,7 @@ public class MinesweeperController {
         try {
             return ResponseEntity.ok(service.getGame(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -44,7 +46,7 @@ public class MinesweeperController {
             int col = ((Number) body.get("col")).intValue();
             return ResponseEntity.ok(service.revealCell(id, row, col));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -55,7 +57,7 @@ public class MinesweeperController {
             int col = ((Number) body.get("col")).intValue();
             return ResponseEntity.ok(service.flagCell(id, row, col));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

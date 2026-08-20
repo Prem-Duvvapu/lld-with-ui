@@ -1,6 +1,8 @@
 package com.lld.airline.exception;
 
-public class AirlineException extends RuntimeException {
+import com.lld.config.DomainException;
+
+public class AirlineException extends DomainException {
     public AirlineException(String message) {
         super(message);
     }

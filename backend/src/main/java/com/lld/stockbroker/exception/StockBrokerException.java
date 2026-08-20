@@ -1,6 +1,8 @@
 package com.lld.stockbroker.exception;
 
-public class StockBrokerException extends RuntimeException {
+import com.lld.config.DomainException;
+
+public class StockBrokerException extends DomainException {
     public StockBrokerException(String message) {
         super(message);
     }

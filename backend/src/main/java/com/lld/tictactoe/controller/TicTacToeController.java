@@ -1,5 +1,7 @@
 package com.lld.tictactoe.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.tictactoe.service.TicTacToeService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +26,7 @@ public class TicTacToeController {
             String p2 = (String) body.getOrDefault("player2", "Player O");
             return ResponseEntity.ok(service.createGame(p1, p2));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -33,7 +35,7 @@ public class TicTacToeController {
         try {
             return ResponseEntity.ok(service.getGame(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -45,7 +47,7 @@ public class TicTacToeController {
             String playerName = (String) body.get("playerName");
             return ResponseEntity.ok(service.makeMove(id, row, col, playerName));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -54,7 +56,7 @@ public class TicTacToeController {
         try {
             return ResponseEntity.ok(service.undoLastMove(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -63,7 +65,7 @@ public class TicTacToeController {
         try {
             return ResponseEntity.ok(service.resetGame(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

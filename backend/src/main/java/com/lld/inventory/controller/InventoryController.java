@@ -1,5 +1,7 @@
 package com.lld.inventory.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.inventory.model.Product;
 import com.lld.inventory.model.StockMovement;
 import com.lld.inventory.model.Supplier;
@@ -39,7 +41,7 @@ public class InventoryController {
             StockMovement movement = inventoryService.updateStock(productId, quantity, type, reason);
             return ResponseEntity.ok(movement);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -57,7 +59,7 @@ public class InventoryController {
             StockMovement movement = inventoryService.transferStock(productId, fromLocation, toLocation, quantity);
             return ResponseEntity.ok(movement);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 

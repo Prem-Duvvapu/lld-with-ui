@@ -1,5 +1,7 @@
 package com.lld.vendingmachine.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.vendingmachine.exception.*;
 import com.lld.vendingmachine.model.Product;
 import com.lld.vendingmachine.model.Slot;
@@ -68,11 +70,11 @@ public class VendingMachineController {
             }
             return ResponseEntity.ok(service.selectProduct(slotCode));
         } catch (SlotNotFoundException | ProductNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(e));
         } catch (OutOfStockException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(e));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -87,7 +89,7 @@ public class VendingMachineController {
             }
             return ResponseEntity.ok(service.insertMoney(amount));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -96,11 +98,11 @@ public class VendingMachineController {
         try {
             return ResponseEntity.ok(service.dispense());
         } catch (InsufficientPaymentException e) {
-            return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(ErrorResponse.of(e));
         } catch (InsufficientChangeException | OutOfStockException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(e));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -109,7 +111,7 @@ public class VendingMachineController {
         try {
             return ResponseEntity.ok(service.cancelTransaction());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -121,7 +123,7 @@ public class VendingMachineController {
             service.restockSlot(slotCode, quantity);
             return ResponseEntity.ok(Map.of("message", "Slot " + slotCode + " restocked successfully", "slots", service.getSlots()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -133,7 +135,7 @@ public class VendingMachineController {
             service.refillChange(denom, count);
             return ResponseEntity.ok(Map.of("message", "Refilled " + count + " units of ₹" + denom, "inventory", service.getChangeInventory()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -153,7 +155,7 @@ public class VendingMachineController {
             int step = ((Number) body.getOrDefault("stepNumber", 2)).intValue();
             return ResponseEntity.ok(service.simSelectProduct(slotCode, step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -164,7 +166,7 @@ public class VendingMachineController {
             int step = ((Number) body.getOrDefault("stepNumber", 3)).intValue();
             return ResponseEntity.ok(service.simInsertMoney(denom, step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -174,7 +176,7 @@ public class VendingMachineController {
             int step = body != null && body.containsKey("stepNumber") ? ((Number) body.get("stepNumber")).intValue() : 5;
             return ResponseEntity.ok(service.simDispense(step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -184,7 +186,7 @@ public class VendingMachineController {
             int step = body != null && body.containsKey("stepNumber") ? ((Number) body.get("stepNumber")).intValue() : 8;
             return ResponseEntity.ok(service.simCancel(step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -196,7 +198,7 @@ public class VendingMachineController {
             int step = ((Number) body.getOrDefault("stepNumber", 7)).intValue();
             return ResponseEntity.ok(service.simRestock(slotCode, qty, step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 

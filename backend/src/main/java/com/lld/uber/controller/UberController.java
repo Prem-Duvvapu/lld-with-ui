@@ -1,5 +1,7 @@
 package com.lld.uber.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.uber.model.*;
 import com.lld.uber.service.UberService;
 import org.springframework.http.ResponseEntity;
@@ -94,7 +96,7 @@ public class UberController {
             Ride ride = service.verifyOtpAndStart(id, body.get("otp"));
             return ResponseEntity.ok(ride);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 

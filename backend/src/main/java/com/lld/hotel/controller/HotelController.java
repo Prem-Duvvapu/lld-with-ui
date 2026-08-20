@@ -1,5 +1,7 @@
 package com.lld.hotel.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.hotel.model.Booking;
 import com.lld.hotel.model.Hotel;
 import com.lld.hotel.model.Room;
@@ -32,7 +34,7 @@ public class HotelController {
         try {
             return ResponseEntity.ok(service.getHotel(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -42,7 +44,7 @@ public class HotelController {
             List<Room> rooms = service.getRoomsByHotel(hotelId);
             return ResponseEntity.ok(rooms);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -56,7 +58,7 @@ public class HotelController {
             LocalDate co = checkOut != null ? LocalDate.parse(checkOut) : ci.plusDays(1);
             return ResponseEntity.ok(service.getAvailableRooms(hotelId, ci, co));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -71,7 +73,7 @@ public class HotelController {
                     LocalDate.parse(request.get("checkOut")));
             return ResponseEntity.ok(booking);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -80,7 +82,7 @@ public class HotelController {
         try {
             return ResponseEntity.ok(service.checkIn(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -89,7 +91,7 @@ public class HotelController {
         try {
             return ResponseEntity.ok(service.checkOut(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -98,7 +100,7 @@ public class HotelController {
         try {
             return ResponseEntity.ok(service.cancelBooking(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -107,7 +109,7 @@ public class HotelController {
         try {
             return ResponseEntity.ok(service.getBooking(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 

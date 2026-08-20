@@ -1,5 +1,7 @@
 package com.lld.taskmanagement.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.taskmanagement.model.Board;
 import com.lld.taskmanagement.model.Priority;
 import com.lld.taskmanagement.model.Task;
@@ -32,7 +34,7 @@ public class TaskController {
             Task task = service.createTask(title, description, priority, assignee);
             return ResponseEntity.ok(task);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -42,7 +44,7 @@ public class TaskController {
             Task task = service.updateStatus(id, TaskStatus.valueOf(status.toUpperCase()));
             return ResponseEntity.ok(task);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -52,7 +54,7 @@ public class TaskController {
             Task task = service.updatePriority(id, Priority.valueOf(priority.toUpperCase()));
             return ResponseEntity.ok(task);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -62,7 +64,7 @@ public class TaskController {
             Task task = service.updateAssignee(id, assignee);
             return ResponseEntity.ok(task);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -87,7 +89,7 @@ public class TaskController {
             service.deleteTask(id);
             return ResponseEntity.ok(Map.of("message", "Task deleted"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

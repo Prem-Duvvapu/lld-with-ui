@@ -1,5 +1,7 @@
 package com.lld.stackoverflow.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.stackoverflow.model.*;
 import com.lld.stackoverflow.service.StackOverflowService;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +34,7 @@ public class StackOverflowController {
         try {
             return ResponseEntity.ok(service.getQuestion(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -45,7 +47,7 @@ public class StackOverflowController {
             List<String> tags = (List<String>) body.get("tags");
             return ResponseEntity.ok(service.postQuestion(title, content, authorId, tags));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -54,7 +56,7 @@ public class StackOverflowController {
         try {
             return ResponseEntity.ok(service.postAnswer(id, body.get("body"), body.get("authorId")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -63,7 +65,7 @@ public class StackOverflowController {
         try {
             return ResponseEntity.ok(service.voteQuestion(id, body.get("userId"), body.get("voteType")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -72,7 +74,7 @@ public class StackOverflowController {
         try {
             return ResponseEntity.ok(service.acceptAnswer(id, body.get("answerId"), body.get("userId")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -81,7 +83,7 @@ public class StackOverflowController {
         try {
             return ResponseEntity.ok(service.voteAnswer(id, body.get("userId"), body.get("voteType")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -92,7 +94,7 @@ public class StackOverflowController {
                     body.get("targetType"), body.get("targetId"),
                     body.get("body"), body.get("authorId")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -101,7 +103,7 @@ public class StackOverflowController {
         try {
             return ResponseEntity.ok(service.getUser(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 

@@ -1,6 +1,8 @@
 package com.lld.library.exception;
 
-public class LibraryException extends RuntimeException {
+import com.lld.config.DomainException;
+
+public class LibraryException extends DomainException {
     public LibraryException(String message) {
         super(message);
     }
