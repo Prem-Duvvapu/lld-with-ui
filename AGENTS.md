@@ -20,6 +20,32 @@
 - **Server Execution**: NEVER start backend or frontend automatically — the user starts/stops servers manually.
 - **Incident Tracking & Post-Resolution RCAs**: Maintain `RCA.md` in the root directory. Whenever an important/non-trivial issue is diagnosed and resolved (such as port collisions, concurrency races, build failures, serialization bugs, or environment discrepancies), ALWAYS add a structured Root Cause Analysis entry to `RCA.md` immediately after resolving it. Document: (1) Overview & Severity, (2) Symptoms & Error Logs, (3) Root Cause, (4) Diagnostic Commands, (5) Step-by-Step Resolution, and (6) Preventative Measures.
 
+## Git Workflow (required for every change)
+
+**Never commit to `main` directly.** Every change — a feature, a fix, a doc edit — follows the
+same loop:
+
+1. **Branch off `main`.** `git checkout main && git pull && git checkout -b <type>/<short-slug>`
+   (e.g. `feat/uber-sim-engine`, `fix/chess-castling`). One branch per logical unit of work.
+2. **Commit** with conventional-commit messages, one commit per module or per concern.
+3. **Push and open a pull request** against `main`:
+   `gh pr create --base main --fill`
+4. **CI must pass before merge.** `.github/workflows/ci.yml` runs both suites, `mvn package`,
+   `vite build`, and the entry-chunk size budget on every push and PR. A red build never merges.
+5. **Merge only once every check is green**, then delete the branch.
+
+`main` should be protected so this is enforced rather than remembered — the required status
+checks are `Backend — mvn test` and `Frontend — vitest + build` (names must match the `name:`
+values in `ci.yml` exactly).
+
+Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
+
+```bash
+cd backend  && mvn test        # currently 203 tests
+cd frontend && npx vitest run  # currently 250 tests
+cd frontend && npm run build   # entry chunk must stay under 500 kB
+```
+
 ## Parking Lot Module
 ### Backend
 - `ParkingLotInitializer`: 3 floors, 10 spots each (4 CAR + 4 BIKE + 2 TRUCK). Gates: G1/G2=ENTRY, G3/G4=EXIT.

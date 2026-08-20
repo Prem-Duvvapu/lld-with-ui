@@ -16,6 +16,9 @@ tests green, `mvn package` and `vite build` clean, 16 defects closed.
 2. Then paste **one** task prompt (A–G). One prompt per session; they are sized to be done well, not fast.
 3. Ask for the per-module checklist against the 17 criteria when it reports back.
 
+**Every prompt assumes the git workflow in the preamble:** branch off `main`, open a PR, and merge
+only after CI is green. Nothing goes to `main` directly.
+
 | Prompt | Scope | Modules | State |
 |---|---|---|---|
 | A | Land Phase 0/1, CI gate, housekeeping | — | Pending |
@@ -145,7 +148,14 @@ Docs
 - CI (`.github/workflows/ci.yml`) runs both suites, `mvn package`, `vite build`, and an
   entry-chunk size budget on every push and PR. It must be green before anything merges.
 - Conventional commits, one commit per module: `feat(uber): ...`, `test(chess): ...`.
-- Do not commit to the default branch directly; work on a branch and open a PR.
+- GIT WORKFLOW — required, no exceptions:
+    1. Branch off main:  git checkout main && git pull && git checkout -b <type>/<slug>
+    2. Commit your work on that branch. NEVER commit to main directly.
+    3. Push and open a PR:  gh pr create --base main --fill
+    4. CI (.github/workflows/ci.yml) must be green — both suites, mvn package, vite build,
+       and the entry-chunk size budget. A red build never merges.
+    5. Merge only once every check passes, then delete the branch.
+  Run the suites locally BEFORE opening the PR so CI confirms rather than discovers.
 - Report honestly. If something is incomplete, say which part and why.
 ```
 
