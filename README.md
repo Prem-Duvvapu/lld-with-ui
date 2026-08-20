@@ -60,26 +60,39 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 
 ```
 lld-with-ui/
-├── backend/              ← Spring Boot App (Port 9090)
+├── backend/                     ← Spring Boot app, single JAR (Port 9090)
 │   └── src/main/java/com/lld/
-│       ├── atm/           ← Banking ATM Module
-│       ├── elevator/      ← Elevator Control Module
-│       ├── movieticket/   ← BookMyShow Movie Ticket Module
-│       ├── parkinglot/    ← Parking Lot Module
-│       ├── pubsub/        ← Pub/Sub Message Broker Module
-│       ├── shoppingcart/  ← Online Shopping Cart Module
-│       ├── splitwise/     ← Splitwise Expense Module
-│       ├── tictactoe/     ← Tic Tac Toe Arcade Module
-│       ├── uber/          ← Cab Booking Module
-│       ├── zomato/        ← Food Delivery Module
-│       └── config/        ← CORS & Web Configuration
-├── frontend/              ← React 19 + Vite SPA (Port 5173)
-│   ├── src/
-│   │   ├── components/    ← Reusable UI (ClassDiagram, DesignDetails, ThemeToggle)
-│   │   ├── data/          ← Domain diagrams (classDiagrams.js, designDetails.js)
-│   │   └── lld/           ← Modular LLD UI views
-│   └── public/
-├── RCA.md                 ← Root Cause Analysis & Incident Post-Mortems
+│       ├── config/              ← CORS, OpenAPI, and the shared error contract
+│       │   ├── DomainException      ← base class for every module's exceptions
+│       │   ├── GlobalExceptionHandler ← maps them to real HTTP statuses
+│       │   └── ErrorResponse        ← the one error body shape, null-safe
+│       │
+│       ├── airline/  atm/  auction/  chess/  coffeemachine/  digitalwallet/
+│       ├── elevator/  hotel/  inventory/  library/  linkedin/  logging/
+│       ├── lrucache/  ludo/  minesweeper/  movieticket/  parkinglot/  pubsub/
+│       ├── shoppingcart/  snakeladders/  socialnetwork/  splitwise/
+│       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
+│       └── trafficsignal/  uber/  vendingmachine/  zomato/     (30 modules)
+│
+│   Each module follows the same layering:
+│       controller/ · service/ · model/ · repository/ · exception/
+│       + a package per design pattern it actually uses
+│         (strategy/ factory/ observer/ state/ command/ decorator/ chain/)
+│
+├── frontend/                    ← React 19 + Vite SPA (Port 3000)
+│   └── src/
+│       ├── components/          ← ClassDiagram, DesignDetails, ThemeToggle, ui/
+│       ├── data/
+│       │   ├── design/          ← one designDetails file per module
+│       │   ├── diagrams/        ← one classDiagrams file per module
+│       │   ├── designDetails.js ← barrel index
+│       │   ├── classDiagrams.js ← barrel index
+│       │   └── moduleKeys.js    ← the single module-id → data-key resolver
+│       ├── lld/                 ← one folder per LLD: {Name}Page.jsx + api.js
+│       └── __tests__/           ← route + design-data coverage guards
+│
+├── AGENTS.md                    ← Working context and conventions
+├── RCA.md                       ← Root Cause Analysis & incident post-mortems
 └── README.md
 ```
 
@@ -91,15 +104,19 @@ lld-with-ui/
 # Terminal 1 — Start Java Spring Boot Backend (Port 9090)
 cd backend && mvn spring-boot:run
 
-# Terminal 2 — Start React + Vite Frontend (Port 5173 / 3000)
+# Terminal 2 — Start React + Vite Frontend (Port 3000)
 cd frontend && npm run dev
 ```
 
-Open **http://localhost:5173** to access the portfolio dashboard.
+Open **http://localhost:3000** to access the portfolio dashboard.
+(`vite.config.js` pins port 3000; `start.sh` and `docker-compose.yml` both agree.)
 
 ### ⚡ Interactive Swagger API Documentation
-- **Swagger UI Console**: [http://localhost:9090/swagger-ui/index.html](http://localhost:9090/swagger-ui/index.html) *(or `/swagger-ui.html`)*
+- **Swagger UI Console**: [http://localhost:9090/swagger-ui.html](http://localhost:9090/swagger-ui.html) *(or `/swagger-ui/index.html`)*
 - **OpenAPI 3.0 JSON Specification**: [http://localhost:9090/v3/api-docs](http://localhost:9090/v3/api-docs)
+- The in-app **⚡ Swagger API** button resolves on whatever origin you are on: the Vite dev
+  server and the Docker nginx both proxy `/swagger-ui` and `/v3/api-docs` to the backend.
+  Override with `VITE_SWAGGER_URL` if the backend lives elsewhere.
 
 ### 🛠️ Incident Log & Root Cause Analysis (RCA)
 - All critical issues, port collisions, and concurrency post-mortems are tracked in [RCA.md](file:///c:/Users/Hp/OneDrive/Desktop/lld-with-ui/RCA.md).
@@ -117,6 +134,63 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 | **State Machine** | `ATMState`, `OrderStatus`, `RideStatus`, `SeatStatus` | Formal lifecycle transitions with state guards |
 | **Template Method** | `Transaction` (`WithdrawalTransaction`, `DepositTransaction`) | Encapsulates invariant transaction lifecycle |
 | **Concurrency** | `ReentrantLock`, `AtomicInteger`, `ConcurrentHashMap` | Deadlock-free fine-grained thread safety |
+
+---
+
+## Error Handling Contract
+
+Every module reports failures the same way. A module's base exception extends
+`com.lld.config.DomainException`; each concrete exception declares its HTTP status:
+
+```java
+@ResponseStatus(HttpStatus.CONFLICT)
+public class SeatNotAvailableException extends AirlineException { ... }
+```
+
+`GlobalExceptionHandler` (`@RestControllerAdvice`) resolves that status and returns a
+consistent body, so the UI always has a reason to show:
+
+```json
+{
+  "error": "Seat 12A is already occupied or held by another passenger.",
+  "code": "SeatNotAvailableException",
+  "status": 409,
+  "timestamp": "2026-08-20T17:42:03.918Z"
+}
+```
+
+| Status | Meaning | Examples |
+|---|---|---|
+| `400 Bad Request` | Invalid input or a rejected state transition | `InvalidCancellationException`, `InvalidReturnException`, `InsufficientFundsException`, `InvalidOrderException` |
+| `401 / 403` | Bad credentials / action not permitted | `InvalidCredentialsException`, `UnauthorizedActionException` |
+| `404 Not Found` | Unknown identifier | `FlightNotFoundException`, `MemberNotFoundException`, `StockNotFoundException`, `AccountNotFoundException` |
+| `409 Conflict` | Lost a race, or a quota/uniqueness rule | `SeatNotAvailableException`, `BookNotAvailableException`, `BorrowLimitExceededException`, `UserAlreadyExistsException` |
+| `410 Gone` | A time-boxed hold expired | `HoldExpiredException` |
+| `422 Unprocessable` | Understood but not executable | `BookingFailedException`, `OrderExecutionException` |
+
+A domain exception never maps to a 5xx — a rule violation is the caller's problem, and
+`DomainExceptionContractTest` fails the build if one does.
+
+---
+
+## Testing
+
+```bash
+cd backend  && mvn test        # 203 tests across 30 classes
+cd frontend && npx vitest run  # 250 tests across 3 files
+```
+
+Six suites are cross-cutting rather than per-module, and they exist because each one
+corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
+
+| Suite | Guards against |
+|---|---|
+| `DomainExceptionContractTest` | A new exception silently returning 500 |
+| `GlobalExceptionHandlerTest` | A documented status code drifting from the code |
+| `ErrorContractIntegrationTest` | The advice not being registered, or swallowing framework routing |
+| `ErrorResponseTest` | An error handler throwing on a null message |
+| `designDataCoverage.test.js` | A page whose Design Details or Class Diagram tab is empty |
+| `routing.test.js` | A home-page card that navigates to a blank screen |
 
 ---
 
@@ -535,4 +609,4 @@ Open **http://localhost:5173** to access the portfolio dashboard.
 ## Tech Stack
 
 - **Backend**: Java 17, Spring Boot 3.2, Maven (Single Spring Boot JAR, Port 9090)
-- **Frontend**: React 19, Vite 8, React Router 7 (Single SPA, Port 5173)
+- **Frontend**: React 19, Vite 6, React Router 7 (Single SPA, Port 3000, route-level code splitting)

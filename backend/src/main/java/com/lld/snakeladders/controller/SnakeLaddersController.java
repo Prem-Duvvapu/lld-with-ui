@@ -1,5 +1,7 @@
 package com.lld.snakeladders.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.snakeladders.service.SnakeLaddersService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +25,7 @@ public class SnakeLaddersController {
         try {
             return ResponseEntity.ok(service.createGame(body.get("players")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -32,7 +34,7 @@ public class SnakeLaddersController {
         try {
             return ResponseEntity.ok(service.getGame(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -41,7 +43,7 @@ public class SnakeLaddersController {
         try {
             return ResponseEntity.ok(service.rollDice(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

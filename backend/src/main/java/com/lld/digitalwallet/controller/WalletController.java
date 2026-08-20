@@ -1,5 +1,7 @@
 package com.lld.digitalwallet.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.digitalwallet.model.Transaction;
 import com.lld.digitalwallet.model.Wallet;
 import com.lld.digitalwallet.service.WalletService;
@@ -25,7 +27,7 @@ public class WalletController {
             Wallet wallet = service.createWallet(request.get("userId"), request.get("userName"));
             return ResponseEntity.ok(wallet);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -41,7 +43,7 @@ public class WalletController {
             if (wallet == null) return ResponseEntity.badRequest().body(Map.of("error", "Wallet not found"));
             return ResponseEntity.ok(wallet);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -51,7 +53,7 @@ public class WalletController {
             double balance = service.getBalance(walletId);
             return ResponseEntity.ok(Map.of("balance", balance));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -62,7 +64,7 @@ public class WalletController {
             String paymentMethod = (String) request.getOrDefault("paymentMethod", "CARD");
             return ResponseEntity.ok(service.addFunds(walletId, amount, paymentMethod));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -75,7 +77,7 @@ public class WalletController {
             String description = (String) request.getOrDefault("description", "Transfer");
             return ResponseEntity.ok(service.sendMoney(fromWalletId, toWalletId, amount, description));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -85,7 +87,7 @@ public class WalletController {
             List<Transaction> transactions = service.getTransactions(walletId);
             return ResponseEntity.ok(transactions);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

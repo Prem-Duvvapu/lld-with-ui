@@ -1,5 +1,7 @@
 package com.lld.chess.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.chess.service.ChessService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +23,7 @@ public class ChessController {
         try {
             return ResponseEntity.ok(service.createGame(body.get("playerWhite"), body.get("playerBlack")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -30,7 +32,7 @@ public class ChessController {
         try {
             return ResponseEntity.ok(service.getGame(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -43,7 +45,7 @@ public class ChessController {
             int toCol = ((Number) body.get("toCol")).intValue();
             return ResponseEntity.ok(service.makeMove(id, fromRow, fromCol, toRow, toCol));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -52,7 +54,7 @@ public class ChessController {
         try {
             return ResponseEntity.ok(service.getValidMoves(id, row, col));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

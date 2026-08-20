@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Backend — mvn test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: maven
+
+      - name: Test
+        working-directory: backend
+        run: mvn --batch-mode --no-transfer-progress test
+
+      - name: Package
+        working-directory: backend
+        run: mvn --batch-mode --no-transfer-progress package -DskipTests
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+
+  frontend:
+    name: Frontend — vitest + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Test
+        working-directory: frontend
+        run: npx vitest run
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      # The eager-glob regression put all 45 module pages in one 1,474 kB entry
+      # chunk. Fail the build if the entry chunk creeps back over 500 kB.
+      - name: Check entry chunk size
+        working-directory: frontend
+        run: |
+          entry=$(ls -1 dist/assets/index-*.js | head -1)
+          size=$(stat -c%s "$entry")
+          limit=$((500 * 1024))
+          printf 'entry chunk %s = %s bytes (limit %s)\n' "$entry" "$size" "$limit"
+          if [ "$size" -gt "$limit" ]; then
+            echo "::error::Entry chunk is $size bytes, over the ${limit}-byte budget. Is a module page being imported eagerly?"
+            exit 1
+          fi

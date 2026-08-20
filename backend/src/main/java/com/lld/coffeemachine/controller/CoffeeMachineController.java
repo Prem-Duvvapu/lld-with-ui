@@ -1,5 +1,7 @@
 package com.lld.coffeemachine.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.coffeemachine.exception.*;
 import com.lld.coffeemachine.factory.CoffeeRecipe;
 import com.lld.coffeemachine.model.*;
@@ -58,11 +60,11 @@ public class CoffeeMachineController {
             CoffeeType type = CoffeeType.valueOf(typeStr.trim().toUpperCase());
             return ResponseEntity.ok(service.startOrder(type));
         } catch (InsufficientIngredientException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(e));
         } catch (InvalidCoffeeTypeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(e));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -78,7 +80,7 @@ public class CoffeeMachineController {
             }
             return ResponseEntity.ok(service.addCustomization(customization));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -88,9 +90,9 @@ public class CoffeeMachineController {
             double amount = ((Number) body.get("amount")).doubleValue();
             return ResponseEntity.ok(service.insertPayment(amount));
         } catch (InsufficientIngredientException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(e));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -99,11 +101,11 @@ public class CoffeeMachineController {
         try {
             return ResponseEntity.ok(service.brew());
         } catch (InsufficientPaymentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(e));
         } catch (InsufficientIngredientException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(e));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -112,7 +114,7 @@ public class CoffeeMachineController {
         try {
             return ResponseEntity.ok(service.collectCoffee());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -121,7 +123,7 @@ public class CoffeeMachineController {
         try {
             return ResponseEntity.ok(service.cancelOrder());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -134,7 +136,7 @@ public class CoffeeMachineController {
             service.refillIngredient(type, amount);
             return ResponseEntity.ok(Map.of("message", type + " refilled by " + amount, "inventory", service.getInventoryDetails()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -155,7 +157,7 @@ public class CoffeeMachineController {
             CoffeeType type = CoffeeType.valueOf(typeStr.trim().toUpperCase());
             return ResponseEntity.ok(service.simSelectBase(type, step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -166,7 +168,7 @@ public class CoffeeMachineController {
             int step = ((Number) body.getOrDefault("step", 3)).intValue();
             return ResponseEntity.ok(service.simAddCustomization(addOn, step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -177,7 +179,7 @@ public class CoffeeMachineController {
             int step = ((Number) body.getOrDefault("step", 4)).intValue();
             return ResponseEntity.ok(service.simInsertPayment(amount, step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -187,7 +189,7 @@ public class CoffeeMachineController {
             int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 5;
             return ResponseEntity.ok(service.simBrew(step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -197,7 +199,7 @@ public class CoffeeMachineController {
             int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 6;
             return ResponseEntity.ok(service.simCollect(step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -207,7 +209,7 @@ public class CoffeeMachineController {
             int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 7;
             return ResponseEntity.ok(service.simCancel(step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -220,7 +222,7 @@ public class CoffeeMachineController {
             IngredientType type = IngredientType.valueOf(ingStr.trim().toUpperCase());
             return ResponseEntity.ok(service.simRefill(type, amount, step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 
@@ -230,7 +232,7 @@ public class CoffeeMachineController {
             int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 8;
             return ResponseEntity.ok(service.simSimulateRace(step));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "snapshot", service.getSimSnapshot()));
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
         }
     }
 

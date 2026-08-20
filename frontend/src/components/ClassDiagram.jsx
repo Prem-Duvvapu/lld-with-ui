@@ -1,28 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import classDiagrams from '../data/classDiagrams';
+import { resolveModuleData } from '../data/moduleKeys';
 
 const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
 
-const ALIAS_MAP = {
-  'parking-lot': 'parking',
-  'coffee-machine': 'coffee',
-  'coffeemachine': 'coffee',
-  'digital-wallet': 'wallet',
-  'digitalwallet': 'wallet',
-  'movie-ticket': 'movieticket',
-  'snake-ladders': 'snakeladders',
-  'tic-tac-toe': 'tictactoe'
-};
-
 export default function ClassDiagram({ module, customData }) {
-  const resolvedKey = ALIAS_MAP[module] || module;
-  const camelKey = resolvedKey ? resolvedKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase()) : null;
-  const noHyphenKey = resolvedKey ? resolvedKey.replace(/-/g, '') : null;
+  const data = customData || resolveModuleData(classDiagrams, module);
 
-  const data = customData
-    || classDiagrams[resolvedKey]
-    || (camelKey ? classDiagrams[camelKey] : null)
-    || (noHyphenKey ? classDiagrams[noHyphenKey] : null);
+  if (import.meta.env?.DEV && !data && module) {
+    console.warn(`[classDiagrams] no entry for module "${module}" — add src/data/diagrams/<module>.js and register it in the barrel.`);
+  }
 
   const containerRef = useRef(null);
   const [hoveredClass, setHoveredClass] = useState(null);

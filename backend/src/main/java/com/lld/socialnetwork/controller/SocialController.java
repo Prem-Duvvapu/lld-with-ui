@@ -1,5 +1,7 @@
 package com.lld.socialnetwork.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.socialnetwork.model.*;
 import com.lld.socialnetwork.service.SocialService;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +27,7 @@ public class SocialController {
             User user = service.createUser(body.get("name"), body.get("email"), body.get("bio"));
             return ResponseEntity.ok(user);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -39,7 +41,7 @@ public class SocialController {
         try {
             return ResponseEntity.ok(service.getUser(id));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -49,7 +51,7 @@ public class SocialController {
             FriendRequest req = service.sendFriendRequest(body.get("fromUserId"), body.get("toUserId"));
             return ResponseEntity.ok(req);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -59,7 +61,7 @@ public class SocialController {
             service.respondToRequest(requestId, accept);
             return ResponseEntity.ok(Map.of("message", "Request " + (accept ? "accepted" : "rejected")));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -68,7 +70,7 @@ public class SocialController {
         try {
             return ResponseEntity.ok(service.getFriends(userId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -77,7 +79,7 @@ public class SocialController {
         try {
             return ResponseEntity.ok(service.getPendingRequests(userId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -89,7 +91,7 @@ public class SocialController {
             Post post = service.createPost(userId, content);
             return ResponseEntity.ok(post);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -98,7 +100,7 @@ public class SocialController {
         try {
             return ResponseEntity.ok(service.getFeed(userId));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -113,7 +115,7 @@ public class SocialController {
             service.likePost(postId, body.get("userId"));
             return ResponseEntity.ok(Map.of("message", "Liked"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -125,7 +127,7 @@ public class SocialController {
             Comment comment = service.addComment(postId, userId, content);
             return ResponseEntity.ok(comment);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.lld.parkinglot.controller;
 
+import com.lld.config.ErrorResponse;
+
 import com.lld.parkinglot.dto.ParkingSpotRequestDto;
 import com.lld.parkinglot.model.Floor;
 import com.lld.parkinglot.model.Gate;
@@ -47,7 +49,7 @@ public class ParkingLotController {
             Ticket ticket = service.entry(parkingSpotRequestDto);
             return ResponseEntity.ok(ticket);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -60,7 +62,7 @@ public class ParkingLotController {
             Ticket preview = service.scanTicket(gateId, ticketNumber, pricingStrategy);
             return ResponseEntity.ok(preview);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -74,7 +76,7 @@ public class ParkingLotController {
             Ticket ticket = service.payAndExit(gateId, ticketNumber, pricingStrategy, paymentMethod);
             return ResponseEntity.ok(ticket);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
@@ -87,7 +89,7 @@ public class ParkingLotController {
             Ticket ticket = service.exit(gateId, ticketNumber, pricingStrategy);
             return ResponseEntity.ok(ticket);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
         }
     }
 
