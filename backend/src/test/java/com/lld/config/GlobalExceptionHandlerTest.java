@@ -4,6 +4,7 @@ import com.lld.airline.exception.*;
 import com.lld.library.exception.*;
 import com.lld.linkedin.exception.*;
 import com.lld.stockbroker.exception.*;
+import com.lld.restaurant.exception.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,8 +18,8 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * These 24 domain exceptions used to surface as a bare HTTP 500 with the message
- * stripped, because none of the four modules had a @ResponseStatus, a
+ * These domain exceptions used to surface as a bare HTTP 500 with the message
+ * stripped, because none of the modules had a @ResponseStatus, a
  * @ControllerAdvice, or a single try/catch in its controller. The statuses
  * asserted here are the ones AGENTS.md and README already documented.
  */
@@ -54,7 +55,16 @@ class GlobalExceptionHandlerTest {
                 Arguments.of(new InvalidOrderException("bad qty"), 400),
                 Arguments.of(new StockNotFoundException("no symbol"), 404),
                 Arguments.of(new AccountNotFoundException("no account"), 404),
-                Arguments.of(new OrderExecutionException("no liquidity"), 422)
+                Arguments.of(new OrderExecutionException("no liquidity"), 422),
+                // restaurant
+                Arguments.of(new TableNotFoundException("table not found"), 404),
+                Arguments.of(new OrderNotFoundException("order not found"), 404),
+                Arguments.of(new MenuItemNotFoundException("item not found"), 404),
+                Arguments.of(new BillNotFoundException("bill not found"), 404),
+                Arguments.of(new TableUnavailableException("table unavailable"), 409),
+                Arguments.of(new InvalidOrderTransitionException("invalid transition"), 409),
+                Arguments.of(new MenuItemUnavailableException("item unavailable"), 409),
+                Arguments.of(new BillAlreadyPaidException("already paid"), 409)
         );
     }
 
