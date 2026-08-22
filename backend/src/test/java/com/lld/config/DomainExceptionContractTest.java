@@ -28,7 +28,8 @@ class DomainExceptionContractTest {
             "LinkedInException",
             "RestaurantException",
             "StockBrokerException",
-            "UberException"
+            "UberException",
+            "ZomatoException"
     );
 
     private static List<Class<?>> allDomainExceptions() {
