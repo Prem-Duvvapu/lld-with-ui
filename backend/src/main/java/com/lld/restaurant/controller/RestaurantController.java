@@ -133,9 +133,9 @@ public class RestaurantController {
 
     @PostMapping("/sim/reset")
     @Operation(summary = "Reset simulation sandbox state")
-    public ResponseEntity<Void> simReset() {
+    public ResponseEntity<Map<String, String>> simReset() {
         restaurantService.simReset();
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(Map.of("status", "RESET_COMPLETE"));
     }
 
     @GetMapping("/sim/state")

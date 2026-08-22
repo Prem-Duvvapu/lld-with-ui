@@ -136,10 +136,13 @@ function AppTab() {
     } catch (err) { setLog(`❌ ${err.message}`); }
   };
 
+  const [billsByOrder, setBillsByOrder] = useState({});
+
   const handleBill = async () => {
     if (!activeOrder) return;
     try {
       const bill = await api.generateBill(activeOrder.id);
+      setBillsByOrder(prev => ({ ...prev, [activeOrder.id]: bill }));
       setLog(`💵 Bill ${bill.id}: Subtotal ₹${bill.subtotal} | Tax ₹${bill.tax} | Service ₹${bill.serviceCharge} | Total ₹${bill.total} (${bill.strategyUsed})`);
       await refresh();
     } catch (err) { setLog(`❌ ${err.message}`); }
@@ -148,15 +151,9 @@ function AppTab() {
   const handlePay = async () => {
     if (!activeOrder) return;
     try {
-      const bills = orders.filter(o => o.id === activeOrder.id);
-      // Find the bill for this order by fetching order details
-      const orderDetail = await api.getOrder(activeOrder.id);
-      // Try to pay using the bill endpoint — we need the bill id
-      // We'll look it up from the table state
-      const allOrders = await api.getOrders();
-      const currentOrder = allOrders.find(o => o.id === activeOrder.id);
-      // The bill would have been generated, so try paying
-      const payment = await api.payBill(`BILL-${activeOrder.id.replace('ORD-', '')}`, 'CARD');
+      const bill = billsByOrder[activeOrder.id];
+      const billId = bill ? bill.id : `BILL-${activeOrder.id.replace('ORD-', '')}`;
+      const payment = await api.payBill(billId, 'CARD');
       setLog(`💳 Payment ${payment.id}: ₹${payment.amount} via ${payment.method}. Table released!`);
       await refresh();
     } catch (err) { setLog(`❌ ${err.message}`); }
