@@ -13,6 +13,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-003](#rca-003-domain-exceptions-surfacing-as-http-500-with-the-message-stripped) | 2026-08-20 | Backend / Error Contract | 23 domain exceptions across 4 modules returned bare `500` instead of the documented 4xx codes | Resolved |
 | [RCA-004](#rca-004-eager-import-metaglob-shipping-all-45-module-pages-in-the-entry-chunk) | 2026-08-20 | Frontend / Bundling | Every visitor downloaded a 1,474 kB entry chunk containing all 45 pages | Resolved |
 | [RCA-005](#rca-005-mismatched-prop-names-and-a-missing-route-alias-rendering-blank-pages) | 2026-08-20 | Frontend / Wiring | `lldKey` / `moduleKey` prop typos and a missing route alias produced blank tabs and a blank page | Resolved |
+| [RCA-006](#rca-006-check-then-act-race-assigning-one-uber-driver-to-two-riders) | 2026-08-21 | Backend / Uber / Concurrency | Unsynchronised read-then-write in driver assignment let two riders both claim the same driver | Resolved |
 
 ---
 
@@ -323,3 +324,97 @@ grep -rn '<ClassDiagram\|<DesignDetails' frontend/src/lld/ | grep -v 'module='
 1. **`routing.test.js`** asserts every home-page card links to a registered route, every card has a link target at all, no duplicate route paths, and that a catch-all route exists.
 2. **`designDataCoverage.test.js`** derives the module ids from the page sources — reading both the `<LldPage module=…>` and the direct `<ClassDiagram module=…>` positions — and asserts each one resolves. A prop typo now fails the build, because the id it scans for simply will not be there.
 3. The nine concurrency modules that genuinely have no content yet sit in an explicit `PENDING_DESIGN_CONTENT` allowlist, with a test asserting they are *still* uncovered — so the list cannot rot into a place where real gaps hide.
+
+---
+
+## RCA-006: Check-Then-Act Race Assigning One Uber Driver to Two Riders
+
+**Severity:** High
+**Date:** 2026-08-21
+**Status:** Resolved
+**Affected:** `com.lld.uber.service.UberService` (driver assignment), `com.lld.uber.model.Driver`
+
+### 1. Overview & Severity
+Accepting a ride read a driver's availability and then wrote their status with nothing holding
+the driver in between. Two riders accepting the same driver concurrently could both pass the
+availability check before either wrote, so both rides became `ACCEPTED` bound to the same driver
+and the same vehicle. High severity: it silently double-books a real resource, and the second
+rider has no way to detect it — the API returns success to both.
+
+### 2. Symptoms & Error Logs
+No exception, no log line, no failing request. That is what makes this class of bug dangerous:
+the failure is a corrupt end state, not an error. Reproduced by two threads released together:
+
+```
+rideA -> ACCEPTED, driverId=D1, vehicle=KA-01-D1
+rideB -> ACCEPTED, driverId=D1, vehicle=KA-01-D1   <-- same driver, both succeeded
+repository.getDriver("D1").getStatus() == ON_TRIP  <-- one write silently overwrote the other
+```
+
+### 3. Root Cause
+Textbook check-then-act. The code was:
+
+```java
+if (!driver.isAvailable()) {          // check  — thread A and thread B both pass
+    throw new RuntimeException(...);
+}
+driver.setStatus(DriverStatus.ON_TRIP); // act    — both write; the second wins
+```
+
+`ConcurrentHashMap` makes each individual `get` and `put` atomic, but it cannot make a
+*read-then-decide-then-write* sequence atomic — that requires the caller to hold a lock across
+the whole compound operation. The module had thread-safe storage and still had a race, which is
+the standard trap: a concurrent collection guarantees the safety of each operation, never the
+safety of a sequence of them.
+
+### 4. Diagnostic Commands
+```bash
+# Compound read-then-write on the same entity inside a service
+grep -rn "isAvailable()\|getStatus() ==" backend/src/main/java/com/lld/uber/service/
+
+# Does anything actually hold a lock across the decision?
+grep -rn "ReentrantLock\|synchronized" backend/src/main/java/com/lld/uber/
+
+# Confirm the race exists before fixing it — two threads, one driver
+mvn -o test -Dtest='UberConcurrencyTest#twoRidersRacingForOneDriver_onlyOneWins'
+```
+
+### 5. Step-by-Step Resolution
+1. Extracted assignment into `DriverAssignmentService`, so the contended operation has one owner
+   rather than being inlined in a general-purpose service method.
+2. Added a fair per-driver `ReentrantLock`, kept in a `ConcurrentHashMap` and created with
+   `computeIfAbsent` so two threads cannot mint two different locks for the same driver.
+3. **Re-read the driver from the repository inside the lock and re-checked availability there** —
+   the line the original was missing. Checking a stale object read before the lock would have
+   reproduced the same bug with more ceremony.
+4. Also re-checked that the ride has no driver yet, closing the mirror-image race where many
+   drivers accept one ride.
+5. Threw `DriverUnavailableException` (409) for the loser instead of a bare `RuntimeException`,
+   so the rejected rider gets a real status code rather than a 500.
+6. Documented the lock ordering in the class javadoc: only one lock is ever held, so deadlock is
+   not possible; a future change needing both a driver and a ride lock must take driver-then-ride.
+7. Verified by disabling the lock and re-running `UberConcurrencyTest`. The first attempt at this
+   was itself instructive: with the lock removed the tests still **passed**, because the delay used
+   to widen the window had been placed *before* the availability check rather than between the
+   check and the write — leaving the actual unguarded gap nanoseconds wide. Moving the delay into
+   the real window made four tests fail immediately (2 winners instead of 1, 14 of 20, 10 of 10),
+   proving the assertions do detect the defect. The lock was then restored and the file confirmed
+   byte-identical to the committed version.
+
+### 6. Preventative Measures
+1. **`UberConcurrencyTest`** guards it with four scenarios: two riders racing one driver, twenty
+   riders storming one driver, ten drivers racing one ride, and ten disjoint pairs that must all
+   succeed (proving the per-driver lock does not serialise unrelated work). All release their
+   threads from a single `CountDownLatch` — staggered starts do not race.
+2. Each test asserts an **invariant** (`exactly one winner`, `exactly one driver ON_TRIP`) rather
+   than a timing, so it cannot pass by luck, and every wait is bounded so a deadlock fails the
+   test instead of hanging CI.
+3. `repeatedRaceNeverProducesTwoWinners` runs the two-rider race 300 times with fresh state each
+   round. A single run can pass by luck — the unguarded window is only nanoseconds wide, so one
+   attempt may simply fail to interleave, which is exactly what the first verification attempt
+   showed. Repetition makes a narrow window overwhelmingly likely to be hit at least once.
+4. The tests were verified to fail against the unguarded implementation (see step 7 above). A
+   concurrency test that still passes against the broken code certifies the bug as fixed and is
+   worse than no test at all — and it is easy to write one by accident.
+5. `AGENTS.md` records the pattern for the other modules: `ConcurrentHashMap` for storage,
+   `ReentrantLock` for any compound mutation, and a comment stating the lock ordering.

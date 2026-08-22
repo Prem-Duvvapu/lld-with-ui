@@ -83,8 +83,12 @@ public class AsyncLoggingConcurrencyTest {
 
         List<LogAppender> appenders = List.of(appender);
 
-        // Emit 10 messages rapidly
-        for (int i = 0; i < 10; i++) {
+        // The worker thread drains continuously, so a 10-message burst could be consumed as
+        // fast as it is produced and drop nothing — this test failed intermittently for exactly
+        // that reason. A burst large enough to outrun any drain rate makes overflow certain.
+        int burst = 5000;
+        int accepted = 0;
+        for (int i = 0; i < burst; i++) {
             LogMessage msg = LogMessage.builder()
                     .id((long) i)
                     .level(LogLevel.ERROR)
@@ -92,11 +96,17 @@ public class AsyncLoggingConcurrencyTest {
                     .message("Burst message " + i)
                     .timestamp(LocalDateTime.now())
                     .build();
-            dispatcher.dispatch(msg, appenders, formatter);
+            if (dispatcher.dispatch(msg, appenders, formatter)) {
+                accepted++;
+            }
         }
 
-        // At least some logs should be dropped due to small queue capacity
-        assertTrue(dispatcher.getDroppedCount() > 0, "Dropped logs counter should be > 0 when capacity is exceeded");
+        long dropped = dispatcher.getDroppedCount();
+
+        assertTrue(dropped > 0,
+                "a " + burst + "-message burst into a capacity-3 queue must overflow; dropped=" + dropped);
+        assertEquals(burst, accepted + dropped,
+                "every message must be either accepted or counted as dropped — none may vanish");
         dispatcher.stop();
     }
 }

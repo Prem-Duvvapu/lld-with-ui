@@ -76,9 +76,14 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 ## Uber Module
 ### Backend
 - `UberInitializer`: Sample riders & drivers (UBER_GO, UBER_XL, UBER_PREMIUM).
-- `UberService`: estimate, requestRide, acceptRide, declineRide, verifyOtpAndStart, arriveAtDestination, completeTrip, cancelTrip.
-- `RideStatus`: REQUESTED, ACCEPTED, ONGOING, DESTINATION_REACHED, PAYMENT_PENDING, COMPLETED, PAYMENT_FAILED, CANCELLED.
+- `UberService`: Facade over estimate, requestRide, acceptRide, declineRide, verifyOtpAndStart, arriveAtDestination, completeTrip, cancelTrip. Every status change goes through one private `transition(ride, next)` gate instead of each method carrying its own list of acceptable source states.
+- `RideStatus`: REQUESTED, ACCEPTED, ONGOING, DESTINATION_REACHED, PAYMENT_PENDING, COMPLETED, PAYMENT_FAILED, CANCELLED — with the legal transitions declared in one `Map<RideStatus, Set<RideStatus>>` and exposed via `canTransitionTo`, `allowedNext` and `isTerminal`. COMPLETED and CANCELLED are terminal; PAYMENT_FAILED is retryable.
+- `VehicleType`: Per-km rate and seat count live on the enum (`UBER_GO` ₹12/km, `UBER_XL` ₹18/km, `UBER_PREMIUM` ₹25/km), so adding a class is one edit rather than a new arm in every pricing `switch`.
+- Strategy Pattern: `FarePricingStrategy` with `StandardFarePricingStrategy` (₹25 base + distance × rate) and `SurgeFarePricingStrategy` (1.8x default, clamped to 1.0–5.0), resolved by `FarePricingStrategyFactory.forDemand(surgeActive)`. `FareEstimate` carries the strategy name so the UI can show which pricing applied.
+- `DriverAssignmentService`: Per-driver `ReentrantLock` (fair) serialising assignment, with availability **re-read and re-checked inside the lock**. This closes a check-then-act race where two riders could both pass `isAvailable()` before either wrote, and both rides ended up ACCEPTED with the same driver. Only one lock is ever held at a time, so no ordering rule is needed; `release()` returns the driver to the pool under the same lock.
+- Exception hierarchy: `UberException extends com.lld.config.DomainException` with `RideNotFoundException` (404), `DriverNotFoundException` (404), `RiderNotFoundException` (404), `DriverUnavailableException` (409), `InvalidRideTransitionException` (400), `OtpVerificationException` (400), `RidePaymentFailedException` (422).
 - `PaymentProcessor`: Validates and completes rider payments (`UPI`, `CARD`, `CASH`).
+- Tests: `UberServiceTest` (workflow + every rejection), `FarePricingStrategyTest` (fare arithmetic, rounding, surge bounds, factory), `UberRepositoryTest` (storage, filtering, atomic ride-id generation), `RideStatusTest` (transition table), `UberConcurrencyTest` (riders racing for one driver, drivers racing for one ride, disjoint pairs, reclaim after release).
 
 ### Frontend
 - 6 tabs: Passenger Booking, Driver Dashboard, Trip History, Interactive 2D Simulation, Class Diagram, Design Details.

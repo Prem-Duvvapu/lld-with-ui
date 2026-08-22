@@ -10,7 +10,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 |---|---------|--------|--------------------------------|
 | 1 | [Parking Lot](#1-parking-lot) | Multi-level parking | Singleton, Strategy (pricing/spot), Factory, ReentrantLock |
 | 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy (payment), Observer, OTP Handoff |
-| 3 | [Uber](#3-uber) | Ride-hailing | State Machine, Strategy (pricing), Haversine Distance, OTP |
+| 3 | [Uber](#3-uber) | Ride-hailing | State Machine (transition table), Strategy (standard/surge pricing), Per-Driver Lock, Haversine Distance, OTP |
 | 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy (reputation), Factory, Tag Search |
 | 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Minimax AI Strategy, Undo History |
 | 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | State Machine, Board & Snakes/Ladders Mapping |
@@ -236,8 +236,12 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 #### Key Features
 - **Fare Estimation**: Haversine distance and duration calculation across Go, XL, and Premium rides.
+- **Pricing Strategy**: `FarePricingStrategy` with standard (₹25 base + distance × per-km rate) and surge (1.8x default, clamped 1.0–5.0) implementations resolved by `FarePricingStrategyFactory`. Per-km rates live on the `VehicleType` enum. The estimate reports which strategy priced it.
+- **Ride State Machine**: `RideStatus` declares its legal transitions in one table (`canTransitionTo` / `allowedNext` / `isTerminal`) and `UberService` routes every status change through a single gate. COMPLETED and CANCELLED are terminal; a failed payment is retryable.
+- **Race-Free Driver Assignment**: `DriverAssignmentService` claims a driver under a fair per-driver `ReentrantLock`, re-reading availability **inside** the lock. Two riders accepting the same driver can no longer both win.
 - **Driver Request Dispatch**: Broadcasts ride requests with explicit Accept/Decline decision options.
-- **Ride State Machine**: Formal state tracking with 4-digit OTP ride verification.
+- **OTP Handoff**: 4-digit OTP verification before a trip may start.
+- **Typed Exceptions**: `UberException` on the shared `DomainException` contract — 404 for unknown ride/driver/rider, 409 for an unavailable driver, 400 for an illegal transition or bad OTP, 422 for a failed payment.
 
 #### API Endpoints
 - `GET /api/uber/estimate`
