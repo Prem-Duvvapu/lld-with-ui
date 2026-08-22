@@ -125,3 +125,17 @@ export function simPay(billId, method) {
 export function simEvents() {
   return apiFetch('/restaurant/sim/events');
 }
+
+export function simRace(tableId, waiters, partySize) {
+  return apiFetch('/restaurant/sim/race', {
+    method: 'POST',
+    body: JSON.stringify({ tableId, waiters, partySize }),
+  });
+}
+
+export function simCancel(orderId) {
+  return apiFetch('/restaurant/sim/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ orderId }),
+  });
+}

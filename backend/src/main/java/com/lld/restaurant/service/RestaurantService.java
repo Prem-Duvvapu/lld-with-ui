@@ -12,6 +12,10 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Service
@@ -367,6 +371,97 @@ public class RestaurantService {
                 Map.of("billId", billId, "amount", bill.getTotal(), "method", payment.getMethod().name(), "tableReleased", bill.getTableId()));
 
         return payment;
+    }
+
+    /**
+     * Runs {@code waiters} threads that all try to seat a party at the same table at the
+     * same instant. The per-table lock in TableAllocationService means exactly one can win —
+     * this endpoint exists so the UI can show that, rather than asserting it in prose.
+     *
+     * <p>A CountDownLatch releases every thread together, so they genuinely contend instead
+     * of running one after another.
+     */
+    public Map<String, Object> simRace(String tableId, int waiters, int partySize) {
+        int n = Math.max(2, Math.min(waiters, 12));
+
+        simTableAllocationService.release(tableId);
+
+        ExecutorService pool = Executors.newFixedThreadPool(n);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(n);
+        List<Map<String, Object>> results = new CopyOnWriteArrayList<>();
+
+        try {
+            for (int i = 1; i <= n; i++) {
+                final String waiter = "Waiter-" + i;
+                pool.submit(() -> {
+                    try {
+                        start.await();
+                        simTableAllocationService.occupy(tableId, partySize);
+                        results.add(Map.of("waiter", waiter, "outcome", "WON",
+                                "reason", "acquired the lock on " + tableId + " and seated the party"));
+                    } catch (TableUnavailableException rejected) {
+                        results.add(Map.of("waiter", waiter, "outcome", "REJECTED",
+                                "reason", rejected.getMessage()));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+
+            start.countDown();
+            if (!done.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Race did not settle within 5 seconds");
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Race was interrupted");
+        } finally {
+            pool.shutdown();
+        }
+
+        results.sort(Comparator.comparing(r -> String.valueOf(r.get("waiter"))));
+        String winner = results.stream()
+                .filter(r -> "WON".equals(r.get("outcome")))
+                .map(r -> String.valueOf(r.get("waiter")))
+                .findFirst()
+                .orElse("none");
+        long rejected = results.stream().filter(r -> "REJECTED".equals(r.get("outcome"))).count();
+
+        addSimEvent("RACE", winner,
+                n + " waiters raced for " + tableId + " — " + winner + " won, " + rejected + " rejected",
+                Map.of("tableId", tableId, "attempts", n, "winner", winner, "rejected", rejected));
+
+        return Map.of(
+                "tableId", tableId,
+                "attempts", n,
+                "winner", winner,
+                "rejected", rejected,
+                "results", results
+        );
+    }
+
+    /** Sandbox order cancellation — the transition table rejects it once the order is SERVED. */
+    public Order simCancel(String orderId) {
+        Order order = simRepository.findOrderById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
+
+        if (!order.getStatus().canTransitionTo(OrderStatus.CANCELLED)) {
+            addSimEvent("REJECTED", "Waiter",
+                    "Cancel refused: order " + orderId + " is " + order.getStatus()
+                            + ", which allows " + order.getStatus().allowedNext(),
+                    Map.of("orderId", orderId, "status", order.getStatus().name()));
+            throw new InvalidOrderTransitionException(
+                    "Cannot cancel order " + orderId + " in status " + order.getStatus());
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        Order saved = simRepository.saveOrder(order);
+        addSimEvent("CANCELLED", "Waiter", "Order " + orderId + " cancelled",
+                Map.of("orderId", orderId, "status", saved.getStatus().name()));
+        return saved;
     }
 
     public List<RestaurantEvent> simEvents() {

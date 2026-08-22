@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -226,5 +227,48 @@ class RestaurantConcurrencyTest {
 
         assertEquals(n, orderIds.size(), "all orders should persist");
         assertEquals(n, Set.copyOf(orderIds).size(), "no duplicate order ids");
+    }
+
+    // ------------------------------------------------------------------
+    // simRace — the /sim/race engine the Simulation tab drives
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("simRace settles with exactly one winner, every round")
+    void simRace_alwaysProducesExactlyOneWinner() {
+        // The UI renders "winner" and "rejected" straight from this payload, so a
+        // flaky result would render a lie about what the lock guarantees.
+        for (int round = 0; round < 25; round++) {
+            Map<String, Object> result = service.simRace("T1", 5, 2);
+
+            assertEquals(5, result.get("attempts"), "round " + round);
+            assertEquals(4L, result.get("rejected"), "round " + round + " must reject all but one");
+            assertNotEquals("none", result.get("winner"), "round " + round + " must have a winner");
+
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rows = (List<Map<String, Object>>) result.get("results");
+            long won = rows.stream().filter(r -> "WON".equals(r.get("outcome"))).count();
+            assertEquals(1, won, "round " + round + " handed one table to " + won + " waiters");
+            assertEquals(5, rows.size(), "round " + round + " must report every attempt");
+        }
+    }
+
+    @Test
+    @DisplayName("simRace runs in the sandbox and never touches live tables")
+    void simRace_doesNotTouchLiveState() {
+        assertEquals(TableStatus.AVAILABLE, repository.findTableById("T1").orElseThrow().getStatus());
+
+        service.simRace("T1", 6, 2);
+
+        assertEquals(TableStatus.AVAILABLE, repository.findTableById("T1").orElseThrow().getStatus(),
+                "the demo must not mutate the data the operational tabs show");
+        assertTrue(repository.findAllOrders().isEmpty(), "no live orders may appear from a sim race");
+    }
+
+    @Test
+    @DisplayName("simRace clamps the waiter count into a sane range")
+    void simRace_clampsWaiterCount() {
+        assertEquals(2, service.simRace("T2", 1, 2).get("attempts"), "below the floor clamps up to 2");
+        assertEquals(12, service.simRace("T3", 500, 2).get("attempts"), "above the ceiling clamps to 12");
     }
 }

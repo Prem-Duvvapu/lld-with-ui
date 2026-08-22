@@ -208,6 +208,21 @@ public class RestaurantController {
         return ResponseEntity.ok(restaurantService.simPay(billId, method));
     }
 
+    @PostMapping("/sim/cancel")
+    @Operation(summary = "Cancel a sandbox order — rejected by the transition table once SERVED")
+    public ResponseEntity<Order> simCancel(@RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(restaurantService.simCancel(body.get("orderId")));
+    }
+
+    @PostMapping("/sim/race")
+    @Operation(summary = "Run N waiters contending for one table — proves the per-table lock")
+    public ResponseEntity<Map<String, Object>> simRace(@RequestBody Map<String, Object> body) {
+        String tableId = String.valueOf(body.getOrDefault("tableId", "T1"));
+        int waiters = body.get("waiters") instanceof Number w ? w.intValue() : 5;
+        int partySize = body.get("partySize") instanceof Number p ? p.intValue() : 2;
+        return ResponseEntity.ok(restaurantService.simRace(tableId, waiters, partySize));
+    }
+
     @GetMapping("/sim/events")
     @Operation(summary = "Get simulation event audit log")
     public ResponseEntity<List<RestaurantEvent>> simEvents() {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import LldPage from '../../components/LldPage';
 import * as api from './api';
 
@@ -23,6 +23,54 @@ const CSS = `
 .sim-events { margin-top: 16px; max-height: 200px; overflow-y: auto; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border-primary); padding: 12px; }
 .sim-event { padding: 4px 0; font-size: 11px; color: var(--text-secondary); border-bottom: 1px solid var(--border-primary); }
 .sim-event:last-child { border-bottom: none; }
+
+/* ---------- Simulation scene ---------- */
+.sim-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1px; background: var(--border-primary); border: 1px solid var(--border-primary); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+.sim-hud-cell { background: var(--bg-primary); padding: 10px 12px; }
+.sim-hud-cell dt { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 4px; font-weight: 700; }
+.sim-hud-cell dd { margin: 0; font-size: 15px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.sim-hud-cell dd.ok { color: var(--success); }
+.sim-hud-cell dd.warn { color: var(--warning); }
+.sim-hud-cell dd.bad { color: var(--danger); }
+.sim-hud-cell dd.idle { color: var(--text-muted); font-weight: 600; }
+
+.step-indicator { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.step-dot { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border-primary); background: var(--bg-primary); color: var(--text-muted); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all var(--duration-normal, 0.25s) ease; }
+.step-dot.done { border-color: var(--success); background: var(--success-bg); color: var(--success); }
+.step-dot.active { border-color: var(--accent); background: var(--accent-gradient); color: #fff; transform: scale(1.15); }
+.step-rule { flex: 0 0 14px; height: 2px; background: var(--border-primary); }
+.step-rule.done { background: var(--success); }
+
+.pass-lane { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 16px 0 4px; }
+.pass-station { position: relative; border: 1px dashed var(--border-primary); border-radius: 8px; padding: 10px 6px; text-align: center; background: var(--bg-primary); transition: all var(--duration-normal, 0.25s) ease; }
+.pass-station .ps-icon { font-size: 18px; opacity: 0.35; }
+.pass-station .ps-label { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 2px; }
+.pass-station.reached { border-style: solid; border-color: var(--success); background: var(--success-bg); }
+.pass-station.reached .ps-icon { opacity: 1; }
+.pass-station.reached .ps-label { color: var(--success); }
+.pass-station.current { border-color: var(--accent); background: var(--bg-tertiary); animation: passPulse 1.6s ease-in-out infinite; }
+.pass-station.current .ps-icon { opacity: 1; }
+.pass-station.current .ps-label { color: var(--accent); }
+@keyframes passPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(102,126,234,0.35); } 50% { box-shadow: 0 0 0 6px rgba(102,126,234,0); } }
+
+.race-panel { border: 1px solid var(--border-primary); border-radius: 10px; overflow: hidden; margin-top: 14px; }
+.race-head { background: var(--bg-tertiary); padding: 8px 12px; font-size: 11px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.04em; }
+.race-row { display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-top: 1px solid var(--border-primary); background: var(--bg-primary); font-size: 11.5px; }
+.race-badge { flex: 0 0 74px; text-align: center; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 10px; letter-spacing: 0.05em; }
+.race-badge.won { background: var(--success-bg); color: var(--success); }
+.race-badge.lost { background: var(--danger-bg); color: var(--danger); }
+.race-who { flex: 0 0 72px; font-weight: 700; color: var(--text-primary); }
+.race-why { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.race-row.won-row { animation: raceWin 0.5s ease-out; }
+@keyframes raceWin { from { background: var(--success-bg); } to { background: var(--bg-primary); } }
+
+.sim-log-bad { color: var(--danger); }
+.table-card.contended { animation: contend 0.7s ease-out 2; }
+@keyframes contend { 0%, 100% { transform: none; } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pass-station.current, .race-row.won-row, .table-card.contended { animation: none; }
+}
 `;
 
 function getTableEmoji(tableStatus, orderStatus) {
@@ -239,7 +287,7 @@ function AppTab() {
         </button>
         <button className="rest-action-btn" onClick={handleReady}
           disabled={activeOrder?.status !== 'PREPARING'}
-          style={{ background: '#10b981' }}>
+          style={{ background: 'var(--success)' }}>
           ✅ Ready
         </button>
         <button className="rest-action-btn" onClick={handleServe}
@@ -254,12 +302,12 @@ function AppTab() {
         </button>
         <button className="rest-action-btn" onClick={handlePay}
           disabled={activeOrder?.status !== 'BILLED'}
-          style={{ background: '#f59e0b' }}>
+          style={{ background: 'var(--warning)' }}>
           💳 Pay
         </button>
         <button className="rest-action-btn" onClick={handleCancel}
           disabled={!activeOrder || (activeOrder.status !== 'PLACED' && activeOrder.status !== 'PREPARING')}
-          style={{ background: 'var(--danger, #ef4444)' }}>
+          style={{ background: 'var(--danger)' }}>
           ❌ Cancel
         </button>
       </div>
@@ -270,164 +318,330 @@ function AppTab() {
 }
 
 /* ============================================================
- *  Simulation Tab — drives /api/restaurant/sim/* only
+ *  Simulation Tab — drives /api/restaurant/sim/* only.
+ *  Every number on screen came back from the backend; nothing
+ *  here is faked in React state.
  * ============================================================ */
+
+const PASS_STATIONS = [
+  { key: 'PLACED', icon: '\uD83D\uDCDD', label: 'ORDERED' },
+  { key: 'PREPARING', icon: '\uD83C\uDF73', label: 'KITCHEN' },
+  { key: 'READY', icon: '\uD83D\uDD14', label: 'READY' },
+  { key: 'SERVED', icon: '\uD83C\uDF7D\uFE0F', label: 'SERVED' },
+];
+
+const SIM_STEPS = [
+  { label: 'Reset', detail: 'Reseed the sandbox — six tables, twelve menu items, empty ledger.' },
+  { label: 'Race', detail: 'Five waiters call occupy("T1") at the same instant. The per-table lock lets exactly one through.' },
+  { label: 'Order', detail: 'The winning waiter places an order. It is validated against the menu and priced by the backend.' },
+  { label: 'Prepare', detail: 'Kitchen claims the ticket: PLACED to PREPARING through the transition table.' },
+  { label: 'Ready', detail: 'Chef marks it READY. Any transition not in the table is refused.' },
+  { label: 'Serve', detail: 'Waiter delivers: READY to SERVED. The order is now billable.' },
+  { label: 'Refuse', detail: 'Try to cancel a SERVED order. The state machine rejects it with 409 — the failure path.' },
+  { label: 'Bill & Pay', detail: 'Bill priced by the active BillingStrategy, then paid — which releases the table.' },
+];
+
+const TABLE_UNDER_RACE = 'T1';
+
 function SimulationTab() {
   const [simTables, setSimTables] = useState([]);
   const [simOrders, setSimOrders] = useState([]);
   const [events, setEvents] = useState([]);
-  const [log, setLog] = useState('Simulation sandbox. Click Reset to begin.');
+  const [race, setRace] = useState(null);
+  const [bill, setBill] = useState(null);
+  const [log, setLog] = useState('Sandbox ready. Step through the eight stages below.');
+  const [logBad, setLogBad] = useState(false);
   const [step, setStep] = useState(0);
+  const [busy, setBusy] = useState(false);
 
   const refreshSim = useCallback(async () => {
-    try {
-      const [state, evts] = await Promise.all([api.simState(), api.simEvents()]);
-      setSimTables(state.tables || []);
-      setSimOrders(state.orders || []);
-      setEvents(evts || []);
-    } catch (err) {
-      setLog(`❌ ${err.message}`);
-    }
+    const [state, evts] = await Promise.all([api.simState(), api.simEvents()]);
+    setSimTables(state.tables || []);
+    setSimOrders(state.orders || []);
+    setEvents(evts || []);
+    return state;
   }, []);
 
+  const say = (message, bad = false) => { setLog(message); setLogBad(bad); };
+
+  // Steps look the order up from the sandbox rather than trusting React state.
+  // If someone hits Reset mid-flow the order is gone, so fail with a sentence
+  // instead of a TypeError from `undefined.id`.
+  const findOrderBy = async (status) => {
+    const state = await api.simState();
+    const found = (state.orders || []).find(o => o.status === status);
+    if (!found) {
+      throw new Error(`No ${status} order in the sandbox — press Reset and start from step 1.`);
+    }
+    return found;
+  };
+
   useEffect(() => {
-    api.simReset().then(refreshSim).catch(err => setLog(`❌ ${err.message}`));
+    api.simReset().then(refreshSim).catch(err => say(`\u274C ${err.message}`, true));
   }, [refreshSim]);
 
+  const activeOrder = simOrders.find(o => o.status !== 'CANCELLED' && o.status !== 'BILLED')
+    || simOrders.find(o => o.status === 'BILLED');
+  const racedTable = simTables.find(t => t.id === TABLE_UNDER_RACE);
+
+  const resetAll = async () => {
+    await api.simReset();
+    setRace(null);
+    setBill(null);
+    setStep(0);
+    say('\uD83D\uDD04 Sandbox reset. Six tables AVAILABLE, no orders.');
+    await refreshSim();
+  };
+
   const runStep = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
       switch (step) {
-        case 0: {
-          await api.simReset();
-          setLog('🔄 Sandbox reset. Ready to begin.');
+        case 0:
+          await resetAll();
           break;
-        }
+
         case 1: {
-          await api.simSeat('T1', 2);
-          setLog('👥 Step 1: Seated party of 2 at Table T1.');
+          const result = await api.simRace(TABLE_UNDER_RACE, 5, 2);
+          setRace(result);
+          say(`\uD83D\uDD10 ${result.attempts} waiters raced for ${result.tableId}: `
+            + `${result.winner} won, ${result.rejected} were rejected by the lock.`);
           break;
         }
+
         case 2: {
-          const order = await api.simOrder('T1', 'Rahul', [
+          const order = await api.simOrder(TABLE_UNDER_RACE, race?.winner || 'Waiter-1', [
             { menuItemId: 'M-001', quantity: 2 },
-            { menuItemId: 'M-004', quantity: 1 }
+            { menuItemId: 'M-004', quantity: 1 },
+            { menuItemId: 'M-011', quantity: 2 },
           ], 'Extra spicy');
-          setLog(`📝 Step 2: Order ${order.id} placed (₹${order.subtotal}).`);
+          say(`\uD83D\uDCDD Order ${order.id} placed \u2014 backend priced it at \u20B9${order.subtotal}.`);
           break;
         }
+
         case 3: {
-          const orders = (await api.simState()).orders || [];
-          const active = orders.find(o => o.status === 'PLACED');
-          if (active) {
-            await api.simPrepare(active.id);
-            setLog(`🍳 Step 3: Kitchen preparing ${active.id}.`);
-          }
+          const target = await findOrderBy('PLACED');
+          const order = await api.simPrepare(target.id);
+          say(`\uD83C\uDF73 ${order.id}: PLACED \u2192 PREPARING.`);
           break;
         }
+
         case 4: {
-          const orders = (await api.simState()).orders || [];
-          const active = orders.find(o => o.status === 'PREPARING');
-          if (active) {
-            await api.simReady(active.id);
-            setLog(`✅ Step 4: ${active.id} is ready for pickup.`);
-          }
+          const target = await findOrderBy('PREPARING');
+          const order = await api.simReady(target.id);
+          say(`\uD83D\uDD14 ${order.id} is READY. Allowed next: ${['SERVED'].join(', ')}.`);
           break;
         }
+
         case 5: {
-          const orders = (await api.simState()).orders || [];
-          const active = orders.find(o => o.status === 'READY');
-          if (active) {
-            await api.simServe(active.id);
-            setLog(`🍽️ Step 5: ${active.id} served to table.`);
-          }
+          const target = await findOrderBy('READY');
+          const order = await api.simServe(target.id);
+          say(`\uD83C\uDF7D\uFE0F ${order.id} served. It can now be billed.`);
           break;
         }
+
         case 6: {
-          const orders = (await api.simState()).orders || [];
-          const active = orders.find(o => o.status === 'SERVED');
-          if (active) {
-            const bill = await api.simBill(active.id);
-            setLog(`💵 Step 6: Bill ${bill.id} — Total ₹${bill.total} (${bill.strategyUsed}).`);
+          const target = await findOrderBy('SERVED');
+          try {
+            await api.simCancel(target.id);
+            say(`\u26A0\uFE0F Expected the cancel to be refused, but it succeeded.`, true);
+          } catch (err) {
+            // The rejection is the point of this step, not an error in the demo.
+            say(`\uD83D\uDEAB Refused as designed \u2014 ${err.message}`, true);
           }
           break;
         }
+
         case 7: {
-          const state = await api.simState();
-          const unpaid = (state.bills || []).find(b => !b.paid);
-          if (unpaid) {
-            const payment = await api.simPay(unpaid.id, 'CARD');
-            setLog(`💳 Step 7: Paid ₹${payment.amount} via ${payment.method}. Table released! ✨`);
-          }
+          const target = await findOrderBy('SERVED');
+          const generated = await api.simBill(target.id);
+          setBill(generated);
+          const payment = await api.simPay(generated.id, 'CARD');
+          say(`\uD83D\uDCB3 ${generated.id} priced by ${generated.strategyUsed}: `
+            + `\u20B9${generated.subtotal} \u2212 \u20B9${generated.discount} + tax \u20B9${generated.tax} `
+            + `+ service \u20B9${generated.serviceCharge} = \u20B9${generated.total}. `
+            + `Paid via ${payment.method}; ${TABLE_UNDER_RACE} released.`);
           break;
         }
+
         default:
-          setLog('🎉 Simulation complete! Click Reset to start over.');
-          setStep(0);
-          await refreshSim();
-          return;
+          break;
       }
-      setStep(s => s + 1);
-      await refreshSim();
+
+      if (step > 0) await refreshSim();
+      setStep(s => Math.min(s + 1, SIM_STEPS.length));
     } catch (err) {
-      setLog(`❌ ${err.message}`);
+      say(`\u274C ${err.message}`, true);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleReset = async () => {
-    try {
-      await api.simReset();
-      setStep(0);
-      setLog('🔄 Sandbox reset. Ready to begin.');
-      await refreshSim();
-    } catch (err) { setLog(`❌ ${err.message}`); }
-  };
+  const done = step >= SIM_STEPS.length;
+  const orderStatus = activeOrder?.status;
+  const reachedIndex = orderStatus === 'BILLED'
+    ? PASS_STATIONS.length - 1
+    : PASS_STATIONS.findIndex(st => st.key === orderStatus);
 
   return (
     <div className="rest-container">
       <style>{CSS}</style>
 
+      <div className="step-indicator">
+        {SIM_STEPS.map((s, i) => (
+          <Fragment key={s.label}>
+            {i > 0 && <span className={`step-rule ${i <= step ? 'done' : ''}`} />}
+            <span
+              className={`step-dot ${i < step ? 'done' : ''} ${i === step ? 'active' : ''}`}
+              title={`${s.label} — ${s.detail}`}
+            >
+              {i < step ? '\u2713' : i + 1}
+            </span>
+          </Fragment>
+        ))}
+      </div>
+
+      {/* Telemetry — every value here came from the sandbox API */}
+      <dl className="sim-hud">
+        <div className="sim-hud-cell">
+          <dt>Table {TABLE_UNDER_RACE}</dt>
+          <dd className={racedTable?.status === 'AVAILABLE' ? 'ok' : 'warn'}>
+            {racedTable?.status || '—'}
+          </dd>
+        </div>
+        <div className="sim-hud-cell">
+          <dt>Lock winner</dt>
+          <dd className={race ? 'ok' : 'idle'}>{race?.winner || 'not run'}</dd>
+        </div>
+        <div className="sim-hud-cell">
+          <dt>Rejected</dt>
+          <dd className={race && race.rejected > 0 ? 'bad' : 'idle'}>
+            {race ? race.rejected : '—'}
+          </dd>
+        </div>
+        <div className="sim-hud-cell">
+          <dt>Active order</dt>
+          <dd className={activeOrder ? '' : 'idle'}>{activeOrder?.id || 'none'}</dd>
+        </div>
+        <div className="sim-hud-cell">
+          <dt>Order status</dt>
+          <dd className={orderStatus ? 'warn' : 'idle'}>{orderStatus || '—'}</dd>
+        </div>
+        <div className="sim-hud-cell">
+          <dt>Subtotal</dt>
+          <dd className={activeOrder ? '' : 'idle'}>
+            {activeOrder ? `\u20B9${activeOrder.subtotal}` : '—'}
+          </dd>
+        </div>
+        <div className="sim-hud-cell">
+          <dt>Strategy</dt>
+          <dd className={bill ? 'ok' : 'idle'}>{bill?.strategyUsed || '—'}</dd>
+        </div>
+        <div className="sim-hud-cell">
+          <dt>Total billed</dt>
+          <dd className={bill ? 'ok' : 'idle'}>{bill ? `\u20B9${bill.total}` : '—'}</dd>
+        </div>
+      </dl>
+
+      {/* Floor plan */}
       <div className="rest-stage">
         <div style={{ textAlign: 'center', fontSize: 14, fontWeight: 700, color: 'var(--accent)', marginBottom: 8 }}>
-          🕹️ INTERACTIVE RESTAURANT SIMULATION
+          SANDBOX FLOOR PLAN
         </div>
         <div className="table-grid">
           {simTables.map(t => {
             const order = simOrders.find(o => o.tableId === t.id && o.status !== 'CANCELLED');
-            const orderStatus = order?.status;
+            const status = t.status === 'AVAILABLE' ? undefined : order?.status;
             return (
-              <div key={t.id} className={`table-card ${getTableCssClass(t.status, orderStatus)}`}>
-                <div style={{ fontSize: 24 }}>{getTableEmoji(t.status, orderStatus)}</div>
-                <div style={{ fontWeight: 700, fontSize: 14, marginTop: 4 }}>Table {t.id} ({t.capacity} Seats)</div>
+              <div
+                key={t.id}
+                className={`table-card ${getTableCssClass(t.status, status)} `
+                  + `${step === 2 && t.id === TABLE_UNDER_RACE ? 'contended' : ''}`}
+                style={{ cursor: 'default' }}
+              >
+                <div style={{ fontSize: 24 }}>{getTableEmoji(t.status, status)}</div>
+                <div style={{ fontWeight: 700, fontSize: 14, marginTop: 4 }}>
+                  Table {t.id} ({t.capacity} Seats)
+                </div>
                 <div style={{
-                  fontSize: 11,
+                  fontSize: 11, fontWeight: 600, marginTop: 2,
                   color: t.status === 'AVAILABLE' ? 'var(--text-muted)' : 'var(--warning)',
-                  fontWeight: 600, marginTop: 2
                 }}>
-                  {getDisplayStatus(t.status, orderStatus)}
+                  {getDisplayStatus(t.status, status)}
                 </div>
               </div>
             );
           })}
         </div>
+
+        {/* Kitchen pass — the order ticket's journey through the state machine */}
+        <div className="pass-lane">
+          {PASS_STATIONS.map((st, i) => (
+            <div
+              key={st.key}
+              className={`pass-station ${reachedIndex > i ? 'reached' : ''} ${reachedIndex === i ? 'current' : ''}`}
+            >
+              <div className="ps-icon">{st.icon}</div>
+              <div className="ps-label">{st.label}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
+          KITCHEN PASS — OrderStatus transitions, enforced server-side
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
-        <button className="rest-action-btn" onClick={handleReset} style={{ background: 'var(--danger, #ef4444)' }}>
-          🔄 Reset
+      {/* Controls */}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 14 }}>
+        <button className="rest-action-btn" onClick={resetAll} disabled={busy}
+          style={{ background: 'var(--danger)' }}>
+          \uD83D\uDD04 Reset
         </button>
-        <button className="rest-action-btn" onClick={runStep} style={{ background: 'var(--accent-gradient)' }}>
-          ▶️ Step {step + 1}: {['Reset', 'Seat', 'Order', 'Prepare', 'Ready', 'Serve', 'Bill', 'Pay', 'Done'][step] || 'Done'}
+        <button className="rest-action-btn" onClick={runStep} disabled={busy || done}
+          style={{ background: 'var(--accent-gradient)' }}>
+          {done
+            ? '\u2713 Simulation complete'
+            : `\u25B6 Step ${step + 1} of ${SIM_STEPS.length}: ${SIM_STEPS[step].label}`}
         </button>
       </div>
 
-      <div className="rest-log">{log}</div>
+      {!done && (
+        <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, maxWidth: 620, marginInline: 'auto' }}>
+          {SIM_STEPS[step].detail}
+        </div>
+      )}
+
+      <div className={`rest-log ${logBad ? 'sim-log-bad' : ''}`}>{log}</div>
+
+      {/* Contention detail — who took the lock and who was turned away */}
+      {race && (
+        <div className="race-panel">
+          <div className="race-head">
+            CONTENTION ON {race.tableId} — {race.attempts} concurrent occupy() calls, one lock
+          </div>
+          {race.results.map(r => (
+            <div key={r.waiter} className={`race-row ${r.outcome === 'WON' ? 'won-row' : ''}`}>
+              <span className={`race-badge ${r.outcome === 'WON' ? 'won' : 'lost'}`}>
+                {r.outcome}
+              </span>
+              <span className="race-who">{r.waiter}</span>
+              <span className="race-why">{r.reason}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {events.length > 0 && (
         <div className="sim-events">
-          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Event Log ({events.length})</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+            Event Log ({events.length})
+          </div>
           {events.map(e => (
             <div key={e.id} className="sim-event">
-              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>[{e.type}]</span>{' '}
+              <span style={{ color: e.type === 'REJECTED' ? 'var(--danger)' : 'var(--accent)', fontWeight: 600 }}>
+                [{e.type}]
+              </span>{' '}
               <span style={{ color: 'var(--text-muted)' }}>{e.actor}:</span>{' '}
               {e.message}
             </div>
