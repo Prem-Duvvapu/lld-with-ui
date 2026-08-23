@@ -2,9 +2,18 @@ package com.lld.hotel;
 
 import com.lld.hotel.model.Booking;
 import com.lld.hotel.model.Hotel;
+import com.lld.hotel.model.ReservationStatus;
 import com.lld.hotel.model.Room;
 import com.lld.hotel.repository.HotelRepository;
 import com.lld.hotel.service.HotelService;
+import com.lld.hotel.service.RoomBookingService;
+import com.lld.hotel.strategy.CancellationRefundStrategyFactory;
+import com.lld.hotel.strategy.FullRefundStrategy;
+import com.lld.hotel.strategy.NoRefundStrategy;
+import com.lld.hotel.strategy.PartialRefundStrategy;
+import com.lld.hotel.strategy.StandardTariffStrategy;
+import com.lld.hotel.strategy.TariffStrategyFactory;
+import com.lld.hotel.strategy.WeekendTariffStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +30,13 @@ public class HotelServiceTest {
     @BeforeEach
     public void setUp() {
         repository = new HotelRepository();
-        service = new HotelService(repository);
+        TariffStrategyFactory tariffStrategyFactory =
+                new TariffStrategyFactory(new StandardTariffStrategy(), new WeekendTariffStrategy());
+        CancellationRefundStrategyFactory refundStrategyFactory = new CancellationRefundStrategyFactory(
+                new FullRefundStrategy(), new PartialRefundStrategy(), new NoRefundStrategy());
+        RoomBookingService bookingService =
+                new RoomBookingService(repository, tariffStrategyFactory, refundStrategyFactory);
+        service = new HotelService(repository, bookingService);
     }
 
     @Test
@@ -58,14 +73,19 @@ public class HotelServiceTest {
         LocalDate co = LocalDate.now().plusDays(3);
         Booking booking = service.bookRoom("R1", "user100", "John Doe", ci, co);
         assertNotNull(booking);
-        assertEquals(Booking.BookingStatus.CONFIRMED, booking.getStatus());
-        assertEquals(6000.0, booking.getTotalAmount());
+        assertEquals(ReservationStatus.CONFIRMED, booking.getStatus());
+        // Pricing now varies with weekend nights (WeekendTariffStrategy), so assert against the
+        // same strategy resolution rather than a hardcoded 6000.0 that would be flaky on Fri/Sat.
+        TariffStrategyFactory tariffs =
+                new TariffStrategyFactory(new StandardTariffStrategy(), new WeekendTariffStrategy());
+        double expected = tariffs.resolve(ci, co).calculateTariff(repository.getRoom("R1"), ci, co);
+        assertEquals(expected, booking.getTotalAmount());
 
         Booking checkedIn = service.checkIn(booking.getId());
-        assertEquals(Booking.BookingStatus.CHECKED_IN, checkedIn.getStatus());
+        assertEquals(ReservationStatus.CHECKED_IN, checkedIn.getStatus());
 
         Booking checkedOut = service.checkOut(booking.getId());
-        assertEquals(Booking.BookingStatus.CHECKED_OUT, checkedOut.getStatus());
+        assertEquals(ReservationStatus.CHECKED_OUT, checkedOut.getStatus());
     }
 
     @Test
@@ -74,6 +94,6 @@ public class HotelServiceTest {
         LocalDate co = LocalDate.now().plusDays(2);
         Booking booking = service.bookRoom("R2", "user200", "Jane Doe", ci, co);
         Booking cancelled = service.cancelBooking(booking.getId());
-        assertEquals(Booking.BookingStatus.CANCELLED, cancelled.getStatus());
+        assertEquals(ReservationStatus.CANCELLED, cancelled.getStatus());
     }
 }
