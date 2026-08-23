@@ -6,9 +6,11 @@
 // Add a module by creating its file and registering it here.
 
 import _uber from './sequences/uber.js';
+import _splitwise from './sequences/splitwise.js';
 
 const sequenceDiagrams = {
   uber: _uber,
+  splitwise: _splitwise,
 };
 
 export default sequenceDiagrams;
