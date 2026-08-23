@@ -1,16 +1,27 @@
 package com.lld.zomato.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class DeliveryAgent {
     private String id;
     private String name;
     private String phone;
     private String vehicleNumber;
-    private boolean available;
-    private double currentLat;
-    private double currentLng;
-    private int totalDeliveries;
-
-    public DeliveryAgent() {}
+    @Builder.Default
+    private boolean available = true;
+    @Builder.Default
+    private double currentLat = 12.9716;
+    @Builder.Default
+    private double currentLng = 77.5946;
+    @Builder.Default
+    private int totalDeliveries = 0;
 
     public DeliveryAgent(String id, String name, String phone, String vehicleNumber, boolean available) {
         this.id = id;
@@ -23,27 +34,7 @@ public class DeliveryAgent {
         this.totalDeliveries = 0;
     }
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
-
-    public String getVehicleNumber() { return vehicleNumber; }
-    public void setVehicleNumber(String vehicleNumber) { this.vehicleNumber = vehicleNumber; }
-
-    public boolean isAvailable() { return available; }
-    public void setAvailable(boolean available) { this.available = available; }
-
-    public double getCurrentLat() { return currentLat; }
-    public void setCurrentLat(double currentLat) { this.currentLat = currentLat; }
-
-    public double getCurrentLng() { return currentLng; }
-    public void setCurrentLng(double currentLng) { this.currentLng = currentLng; }
-
-    public int getTotalDeliveries() { return totalDeliveries; }
-    public void incrementDeliveries() { this.totalDeliveries++; }
+    public void incrementDeliveries() {
+        this.totalDeliveries++;
+    }
 }

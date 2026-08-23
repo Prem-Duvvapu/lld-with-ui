@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import LldPage from '../../components/LldPage';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
@@ -1055,48 +1055,109 @@ export default function ZomatoPage() {
   );
 }
 
-// Sub-component: Upgraded Interactive 2D Simulation Scene Connected directly to Backend REST APIs
+// Sub-component: Upgraded Interactive 2D Simulation Scene Connected directly to Backend REST APIs (/sim/*)
 function InteractiveZomatoSimulation() {
   const [step, setStep] = useState(0);
-  const [autoPlay, setAutoPlay] = useState(false);
   const [payMethod, setPayMethod] = useState('UPI');
   const [scooterLeft, setScooterLeft] = useState(150);
   const [inputOtp, setInputOtp] = useState('');
   const [otpError, setOtpError] = useState('');
   const [realOrder, setRealOrder] = useState(null);
+  const [simStateData, setSimStateData] = useState(null);
+  const [raceResult, setRaceResult] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [log, setLog] = useState('Simulation sandbox ready. Click step to begin.');
+  const [logBad, setLogBad] = useState(false);
   const [apiLoading, setApiLoading] = useState(false);
   const { showToast } = useToast();
-  const timerRef = useRef(null);
 
-  const steps = [
-    'Select Items',
-    'Order Placed',
-    'Restaurant Confirmed',
-    'Kitchen Cooking',
-    'Food Ready & Agent Assigned',
-    'Scooter Out for Delivery',
-    'Verify OTP Handoff',
-    'Delivered & Settled'
+  const SIM_STEPS = [
+    { label: 'Reset Sandbox', detail: 'Reset in-memory simulation repository to fresh seed data.' },
+    { label: 'Contention Race', detail: '5 concurrent orders contend for 1 delivery agent via DeliveryAssignmentService lock.' },
+    { label: 'Place Order', detail: 'Place order priced by DeliveryFeeStrategy in Spring Boot backend.' },
+    { label: 'Confirm Order', detail: 'Restaurant accepts order (PLACED \u2192 CONFIRMED).' },
+    { label: 'Kitchen Cooking', detail: 'Chef prepares food (CONFIRMED \u2192 PREPARING). Smoke animates in 2D scene.' },
+    { label: 'Ready & Assign', detail: 'Food ready; backend atomically claims available delivery agent.' },
+    { label: 'Out / Cancel Guard', detail: 'Scooter departs. Cancel attempt is rejected (409 Conflict) once out for delivery.' },
+    { label: 'Verify OTP & Settle', detail: 'Verify 4-digit OTP, transition to DELIVERED, and release agent back to pool.' }
   ];
+
+  const refreshSim = useCallback(async () => {
+    try {
+      const [state, evts] = await Promise.all([api.simState(), api.simEvents()]);
+      setSimStateData(state);
+      setEvents(evts || []);
+    } catch (err) {
+      console.error('Error refreshing sim state:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    api.simReset().then(refreshSim).catch(err => console.error(err));
+  }, [refreshSim]);
 
   // Animate scooter position based on step
   useEffect(() => {
-    if (step === 5) {
+    if (step === 6) {
       setScooterLeft(150);
       const timer = setTimeout(() => setScooterLeft(720), 100);
       return () => clearTimeout(timer);
-    } else if (step >= 6) {
+    } else if (step >= 7) {
       setScooterLeft(720);
     } else {
       setScooterLeft(150);
     }
   }, [step]);
 
-  // Step 0 -> Step 1: Call Real Backend Place Order API
-  const handleStep0PlaceOrder = async () => {
+  const say = (msg, bad = false) => {
+    setLog(msg);
+    setLogBad(bad);
+  };
+
+  const handleReset = async () => {
     setApiLoading(true);
     try {
-      const newOrder = await api.placeOrder({
+      await api.simReset();
+      setStep(0);
+      setScooterLeft(150);
+      setInputOtp('');
+      setOtpError('');
+      setRealOrder(null);
+      setRaceResult(null);
+      say('\uD83D\uDD04 Sandbox reset to clean seed state.');
+      showToast('Simulation sandbox reset!', 'info');
+      await refreshSim();
+    } catch (err) {
+      say(`\u274C ${err.message}`, true);
+      showToast(err.message, 'error');
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  // Step 0 -> 1: Race Contention Test
+  const handleStep1Race = async () => {
+    setApiLoading(true);
+    try {
+      const race = await api.simRace('AGENT-201', 5);
+      setRaceResult(race);
+      setStep(1);
+      say(`\uD83D\uDD10 Contention on ${race.agentId}: ${race.attempts} orders raced, ${race.winner} won, ${race.rejected} rejected by per-agent lock.`);
+      showToast(`Lock race settled: ${race.winner} won!`, 'success');
+      await refreshSim();
+    } catch (err) {
+      say(`\u274C ${err.message}`, true);
+      showToast(err.message, 'error');
+    } finally {
+      setApiLoading(false);
+    }
+  };
+
+  // Step 1 -> 2: Place Order
+  const handleStep2PlaceOrder = async () => {
+    setApiLoading(true);
+    try {
+      const newOrder = await api.simOrder({
         customerId: 'CUST-101',
         restaurantId: 'REST-01',
         items: [
@@ -1108,87 +1169,109 @@ function InteractiveZomatoSimulation() {
       });
 
       setRealOrder(newOrder);
-      setInputOtp(newOrder.deliveryOtp || '4821');
-      setStep(1);
-      showToast(`Order #${newOrder.id} placed in backend! Secret OTP: ${newOrder.deliveryOtp}`, 'success');
+      setInputOtp(newOrder.deliveryOtp);
+      setStep(2);
+      say(`\uD83D\uDCDD Order #${newOrder.id} placed: Subtotal \u20B9${newOrder.itemTotal} + Delivery \u20B9${newOrder.deliveryFee} + Tax \u20B9${newOrder.tax} = \u20B9${newOrder.totalAmount}. Secret OTP: ${newOrder.deliveryOtp}`);
+      showToast(`Order #${newOrder.id} placed with delivery fee \u20B9${newOrder.deliveryFee}!`, 'success');
+      await refreshSim();
     } catch (err) {
-      showToast(err.message || 'Failed to place order in backend', 'error');
+      say(`\u274C ${err.message}`, true);
+      showToast(err.message, 'error');
     } finally {
       setApiLoading(false);
     }
   };
 
-  // Step 1 -> Step 2: Call Real Backend Confirm Order API
-  const handleStep1ConfirmOrder = async () => {
-    if (!realOrder) {
-      setStep(2);
-      return;
-    }
+  // Step 2 -> 3: Restaurant Confirms
+  const handleStep3Confirm = async () => {
+    if (!realOrder) return;
     setApiLoading(true);
     try {
-      const updated = await api.confirmOrder(realOrder.id);
-      setRealOrder(updated);
-      setStep(2);
-      showToast(`Restaurant confirmed order #${realOrder.id} in backend!`, 'success');
-    } catch (err) {
-      showToast(err.message || 'Failed to confirm order', 'error');
-    } finally {
-      setApiLoading(false);
-    }
-  };
-
-  // Step 2 -> Step 3: Call Real Backend Start Preparing API
-  const handleStep2StartPreparing = async () => {
-    if (!realOrder) {
-      setStep(3);
-      return;
-    }
-    setApiLoading(true);
-    try {
-      const updated = await api.startPreparingOrder(realOrder.id);
+      const updated = await api.simConfirm(realOrder.id);
       setRealOrder(updated);
       setStep(3);
-      showToast(`Kitchen started cooking order #${realOrder.id} in backend!`, 'info');
+      say(`\uD83C\uDFEA Spice Garden confirmed order #${realOrder.id} (Status: CONFIRMED).`);
+      showToast(`Order #${realOrder.id} confirmed!`, 'success');
+      await refreshSim();
     } catch (err) {
-      showToast(err.message || 'Failed to start cooking', 'error');
+      say(`\u274C ${err.message}`, true);
+      showToast(err.message, 'error');
     } finally {
       setApiLoading(false);
     }
   };
 
-  // Step 3 -> Step 4: Call Real Backend Mark Ready for Pickup API
-  const handleStep3MarkReady = async () => {
-    if (!realOrder) {
-      setStep(4);
-      return;
-    }
+  // Step 3 -> 4: Kitchen Cooking
+  const handleStep4Prepare = async () => {
+    if (!realOrder) return;
     setApiLoading(true);
     try {
-      const updated = await api.markReadyForPickup(realOrder.id);
+      const updated = await api.simPrepare(realOrder.id);
       setRealOrder(updated);
       setStep(4);
-      showToast(`Order #${realOrder.id} ready! Assigned agent: ${updated.deliveryAgentName || 'Ramesh Kumar'}`, 'success');
+      say(`\uD83C\uDF73 Chef started cooking order #${realOrder.id} (Status: PREPARING).`);
+      showToast(`Kitchen cooking order #${realOrder.id}!`, 'info');
+      await refreshSim();
     } catch (err) {
-      showToast(err.message || 'Failed to mark ready', 'error');
+      say(`\u274C ${err.message}`, true);
+      showToast(err.message, 'error');
     } finally {
       setApiLoading(false);
     }
   };
 
-  // Step 4 -> Step 5: Scooter Departs
-  const handleStep4Depart = () => {
-    setStep(5);
-    showToast(`Agent ${realOrder?.deliveryAgentName || 'Ramesh Kumar'} departed for delivery!`, 'info');
+  // Step 4 -> 5: Mark Ready & Assign Agent
+  const handleStep5Ready = async () => {
+    if (!realOrder) return;
+    setApiLoading(true);
+    try {
+      const updated = await api.simReady(realOrder.id);
+      setRealOrder(updated);
+      setStep(5);
+      if (updated.status === 'OUT_FOR_DELIVERY') {
+        say(`\uD83D\uDCE6 Food ready! DeliveryAssignmentService claimed agent ${updated.deliveryAgentName} under per-agent lock (Status: OUT_FOR_DELIVERY).`);
+        showToast(`Agent ${updated.deliveryAgentName} assigned!`, 'success');
+      } else {
+        say(`\uD83D\uDCE6 Food ready! No delivery agent was available \u2014 order stays READY_FOR_PICKUP until one frees up.`);
+        showToast(`Order ready, but no agent is free yet.`, 'info');
+      }
+      await refreshSim();
+    } catch (err) {
+      say(`\u274C ${err.message}`, true);
+      showToast(err.message, 'error');
+    } finally {
+      setApiLoading(false);
+    }
   };
 
-  // Step 5 -> Step 6: Arrive at Customer House
-  const handleStep5Arrive = () => {
-    setStep(6);
-    showToast('Agent arrived at customer address! Please verify 4-digit OTP.', 'info');
+  // Step 5 -> 6: Scooter Departs & Failure Guard Check
+  const handleStep6DepartAndGuards = async () => {
+    if (!realOrder) return;
+    setApiLoading(true);
+    try {
+      // Test the failure path: cancelling once OUT_FOR_DELIVERY must be rejected with 409
+      let refused = false;
+      try {
+        await api.simCancel(realOrder.id, 'Cancel while out for delivery');
+      } catch (err) {
+        refused = true;
+        say(`\uD83D\uDEAB State Machine Guard: Cancel rejected with 409 (${err.message}). Scooter en route to customer!`, false);
+      }
+      if (!refused) {
+        say('\u26A0\uFE0F Cancellation unexpectedly succeeded when it should be refused.', true);
+      }
+      setStep(6);
+      showToast('Cancel guard asserted & scooter en route!', 'info');
+      await refreshSim();
+    } catch (err) {
+      say(`\u274C ${err.message}`, true);
+    } finally {
+      setApiLoading(false);
+    }
   };
 
-  // Step 6 -> Step 7: Call Real Backend Verify OTP & Deliver API
-  const handleStep6VerifyOtp = async () => {
+  // Step 6 -> 7: Verify OTP and Deliver
+  const handleStep7VerifyOtp = async () => {
     if (!inputOtp || inputOtp.length !== 4) {
       setOtpError('Please enter a valid 4-digit OTP');
       showToast('Please enter a valid 4-digit OTP', 'error');
@@ -1197,41 +1280,87 @@ function InteractiveZomatoSimulation() {
     setApiLoading(true);
     try {
       if (realOrder) {
-        const updated = await api.verifyOtpAndDeliver(realOrder.id, inputOtp.trim());
+        const updated = await api.simDeliver(realOrder.id, inputOtp.trim());
         setRealOrder(updated);
       }
       setOtpError('');
       setStep(7);
-      showToast(`✅ OTP verified in backend! Order #${realOrder?.id || 'ORD-10101'} status set to DELIVERED.`, 'success');
+      say(`\u2705 OTP verified! Order #${realOrder?.id} status set to DELIVERED. Agent released back to available pool.`);
+      showToast(`Order delivered and settled!`, 'success');
+      await refreshSim();
     } catch (err) {
       const msg = err.message || 'Invalid OTP! Verification failed in backend.';
-      setOtpError(`❌ ${msg}`);
-      showToast(`❌ ${msg}`, 'error');
+      setOtpError(`\u274C ${msg}`);
+      say(`\u274C ${msg}`, true);
+      showToast(`\u274C ${msg}`, 'error');
     } finally {
       setApiLoading(false);
     }
   };
 
-  const handleReset = () => {
-    setStep(0);
-    setAutoPlay(false);
-    setScooterLeft(150);
-    setInputOtp('');
-    setOtpError('');
-    setRealOrder(null);
-  };
+  const availableAgentsCount = (simStateData?.agents || []).filter(a => a.available).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Telemetry HUD */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+        gap: '1px',
+        background: 'var(--border-color, #334155)',
+        border: '1px solid var(--border-color, #334155)',
+        borderRadius: 'var(--radius-md, 8px)',
+        overflow: 'hidden'
+      }}>
+        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Order ID</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#facc15' }}>{realOrder?.id || '\u2014'}</div>
+        </div>
+        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Order Status</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: realOrder?.status === 'DELIVERED' ? '#22c55e' : '#38bdf8' }}>
+            {realOrder?.status || 'IDLE'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Assigned Agent</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: realOrder?.deliveryAgentName ? '#22c55e' : 'var(--text-muted, #94a3b8)' }}>
+            {realOrder?.deliveryAgentName || 'Unassigned'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Available Agents</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: availableAgentsCount > 0 ? '#22c55e' : '#ef4444' }}>
+            {availableAgentsCount}
+          </div>
+        </div>
+        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Delivery Fee</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#facc15' }}>
+            {realOrder ? `\u20B9${realOrder.deliveryFee}` : '\u2014'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Total Payable</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#e23744' }}>
+            {realOrder ? `\u20B9${realOrder.totalAmount?.toFixed(2)}` : '\u2014'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Audit Events</div>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#38bdf8' }}>{events.length}</div>
+        </div>
+      </div>
+
       {/* Top StepIndicator */}
       <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700 }}>🎬 Interactive 2D Order Simulation</h3>
+          <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700 }}>\uD83C\uDFAC Interactive 2D Order Simulation (Backend Driven)</h3>
           <div style={{ fontSize: 'var(--font-xs)', fontWeight: 700, color: '#e23744' }}>
-            Step {step + 1} of 8: {steps[step]}
+            Step {step + 1} of {SIM_STEPS.length}: {SIM_STEPS[step].label}
           </div>
         </div>
-        <StepIndicator steps={steps} currentStep={step} />
+        <StepIndicator steps={SIM_STEPS.map(s => s.label)} currentStep={step} />
       </div>
 
       {/* 2D Graphic City Scene SVG */}
@@ -1286,8 +1415,8 @@ function InteractiveZomatoSimulation() {
             <rect x="85" y="90" width="40" height="50" fill="#fef08a" opacity="0.8" />
             <rect x="60" y="130" width="30" height="50" fill="#7f1d1d" />
 
-            {/* Animated Smoke Particles when Kitchen Cooking (Step 3) */}
-            {step === 3 && (
+            {/* Animated Smoke Particles when Kitchen Cooking (Step 4) */}
+            {step === 4 && (
               <g className="smoke-animation">
                 <circle cx="75" cy="-12" r="10" fill="#cbd5e1" opacity="0.7" />
                 <circle cx="85" cy="-30" r="15" fill="#94a3b8" opacity="0.5" />
@@ -1364,24 +1493,14 @@ function InteractiveZomatoSimulation() {
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
         }}>
           <div style={{ fontWeight: 800, color: '#e23744', fontSize: 'var(--font-sm)', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📍 ZOMATO LIVE HUD</span>
-            <span style={{ fontSize: '10px', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>REAL BACKEND</span>
+            <span>\uD83D\uDCCD ZOMATO SIM HUD</span>
+            <span style={{ fontSize: '10px', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>ISOLATED SANDBOX</span>
           </div>
-          <div>Order ID: <strong style={{ color: '#facc15' }}>#{realOrder?.id || 'ORD-10101'}</strong></div>
-          <div>Status: <strong style={{ color: '#22c55e' }}>{
-            realOrder?.status || (
-              step === 0 ? 'CONFIGURING_ORDER' :
-              step === 1 ? 'PLACED' :
-              step === 2 ? 'CONFIRMED' :
-              step === 3 ? 'PREPARING (COOKING)' :
-              step === 4 ? 'READY_FOR_PICKUP' :
-              step === 5 ? 'OUT_FOR_DELIVERY' :
-              step === 6 ? 'VERIFYING_OTP' : 'DELIVERED'
-            )
-          }</strong></div>
+          <div>Order ID: <strong style={{ color: '#facc15' }}>#{realOrder?.id || 'ORD-SIM'}</strong></div>
+          <div>Status: <strong style={{ color: '#22c55e' }}>{realOrder?.status || 'IDLE'}</strong></div>
           <div>Restaurant: <strong>Spice Garden</strong></div>
-          <div>Secret OTP: <strong style={{ color: '#38bdf8' }}>{realOrder?.deliveryOtp || (step >= 1 ? '4821' : '---')}</strong></div>
-          <div>Agent: <strong>{realOrder?.deliveryAgentName || (step >= 4 ? 'Ramesh Kumar (KA-01-EQ-1234)' : 'Unassigned')}</strong></div>
+          <div>Secret OTP: <strong style={{ color: '#38bdf8' }}>{realOrder?.deliveryOtp || '—'}</strong></div>
+          <div>Agent: <strong>{realOrder?.deliveryAgentName || 'Unassigned'}</strong></div>
         </div>
       </div>
 
@@ -1398,14 +1517,28 @@ function InteractiveZomatoSimulation() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button
             onClick={handleReset}
+            disabled={apiLoading}
             style={{ padding: '8px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
           >
-            ↺ Reset Simulation
+            \u21BA Reset Simulation
           </button>
         </div>
         <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-          All buttons execute real Spring Boot REST API calls!
+          Step: {SIM_STEPS[step].detail}
         </div>
+      </div>
+
+      <div style={{
+        padding: '12px 16px',
+        borderRadius: 'var(--radius-md)',
+        background: logBad ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-primary)',
+        border: `1px solid ${logBad ? 'var(--danger, #ef4444)' : 'var(--border-color)'}`,
+        color: logBad ? 'var(--danger, #ef4444)' : 'var(--info, #38bdf8)',
+        fontSize: 'var(--font-xs)',
+        fontWeight: 600,
+        textAlign: 'center'
+      }}>
+        {log}
       </div>
 
       {/* Dynamic Interactive Workflow Panel per Step */}
@@ -1415,192 +1548,140 @@ function InteractiveZomatoSimulation() {
         borderRadius: 'var(--radius-lg)',
         padding: '24px'
       }}>
-        {/* STEP 0: CONFIGURE ORDER */}
+        {/* STEP 0: RESET SANDBOX */}
         {step === 0 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#e23744' }}>
-              Step 1: Select Items & Configure Food Order
+              Step 1: Sandbox Initialization & Contention Verification
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Customer Rahul Sharma is ordering food from Spice Garden restaurant via Spring Boot API.
+              Before placing a normal order, simulate 5 orders contending concurrently for 1 delivery agent to verify the per-agent lock.
             </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px', fontSize: 'var(--font-xs)' }}>
-              <div style={{ background: 'var(--bg-primary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontWeight: 700, marginBottom: '6px' }}>Selected Food Items:</div>
-                <div>• Paneer Butter Masala (1 × ₹260.00)</div>
-                <div>• Garlic Naan (2 × ₹55.00)</div>
-                <div style={{ marginTop: '8px', color: 'var(--text-muted)' }}>Subtotal: ₹370.00 | Delivery: ₹35.00 | GST: ₹18.50</div>
-                <div style={{ fontWeight: 800, fontSize: 'var(--font-sm)', color: '#e23744', marginTop: '4px' }}>Total Amount: ₹423.50</div>
-              </div>
-
-              <div style={{ background: 'var(--bg-primary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                <div style={{ fontWeight: 700, marginBottom: '6px' }}>Payment Method:</div>
-                <select
-                  value={payMethod}
-                  onChange={(e) => setPayMethod(e.target.value)}
-                  style={{ width: '100%', padding: '6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', marginBottom: '8px' }}
-                >
-                  <option value="UPI">UPI (Google Pay / PhonePe)</option>
-                  <option value="CREDIT_CARD">Credit Card</option>
-                  <option value="WALLET">Zomato Wallet</option>
-                </select>
-                <div>📍 Address: Green Glen Layout, Bellandur</div>
-              </div>
-            </div>
-
             <button
-              onClick={handleStep0PlaceOrder}
+              onClick={handleStep1Race}
               disabled={apiLoading}
-              style={{ padding: '12px 24px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
+              style={{ padding: '12px 24px', background: 'var(--accent-gradient, #e23744)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              {apiLoading ? 'Placing Order...' : '🛒 Place Food Order via API (₹423.50) ➔'}
+              {apiLoading ? 'Running Lock Contention...' : '\uD83D\uDD10 Run 5-Order Agent Contention Race ➔'}
             </button>
           </div>
         )}
 
-        {/* STEP 1: ORDER PLACED */}
+        {/* STEP 1: RACE RESULTS */}
         {step === 1 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#eab308' }}>
-              Step 2: Order Placed (Status: {realOrder?.status || 'PLACED'})
+              Step 2: Lock Race Settled — Configure Live Food Order
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Order <strong>#{realOrder?.id || 'ORD-10101'}</strong> created in backend with payment transaction <strong>{realOrder?.payment?.transactionRef || 'TXN-881920'}</strong>.
+              Exactly 1 order acquired the lock on AGENT-201 and 4 orders were rejected with <code>NoAgentAvailableException</code>. Now place a normal order.
             </p>
-
-            <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', padding: '16px', borderRadius: 'var(--radius-md)', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 800, color: '#22c55e', fontSize: 'var(--font-base)' }}>🔑 Secret Delivery OTP: {realOrder?.deliveryOtp || '4821'}</div>
-                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>Generated by Java backend `ZomatoService.placeOrder`.</div>
-              </div>
-              <span className="badge badge-warning" style={{ padding: '6px 12px', borderRadius: '4px', fontWeight: 700 }}>{realOrder?.status || 'PLACED'}</span>
-            </div>
-
             <button
-              onClick={handleStep1ConfirmOrder}
+              onClick={handleStep2PlaceOrder}
               disabled={apiLoading}
-              style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
+              style={{ padding: '12px 24px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              {apiLoading ? 'Calling API...' : '🏪 Restaurant Accepts & Confirms Order via API ➔'}
+              {apiLoading ? 'Placing Order...' : '\uD83D\uDED2 Place Food Order via /sim/order ➔'}
             </button>
           </div>
         )}
 
-        {/* STEP 2: RESTAURANT CONFIRMED */}
+        {/* STEP 2: ORDER PLACED */}
         {step === 2 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#3b82f6' }}>
-              Step 3: Restaurant Confirms Order (Status: {realOrder?.status || 'CONFIRMED'})
+              Step 3: Order Placed (Status: {realOrder?.status || 'PLACED'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Spice Garden kitchen accepts order <strong>#{realOrder?.id || 'ORD-10101'}</strong> via Spring Boot API.
+              Order <strong>#{realOrder?.id}</strong> created with secret OTP <strong>{realOrder?.deliveryOtp}</strong>. Restaurant can now confirm it.
             </p>
-
-            <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
-              <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', color: '#3b82f6' }}>📩 Real-Time Notification Dispatched</div>
-              <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                "Restaurant Spice Garden accepted your order! Estimated cooking time: 12 minutes."
-              </div>
-            </div>
-
             <button
-              onClick={handleStep2StartPreparing}
+              onClick={handleStep3Confirm}
               disabled={apiLoading}
-              style={{ padding: '12px 24px', background: '#eab308', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
+              style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              {apiLoading ? 'Calling API...' : '🍳 Start Cooking in Kitchen via API ➔'}
+              {apiLoading ? 'Confirming...' : '\uD83C\uDFEA Restaurant Accepts & Confirms Order ➔'}
             </button>
           </div>
         )}
 
-        {/* STEP 3: KITCHEN COOKING */}
+        {/* STEP 3: RESTAURANT CONFIRMED */}
         {step === 3 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#eab308' }}>
-              Step 4: Kitchen Cooking (Status: {realOrder?.status || 'PREPARING'})
+              Step 4: Restaurant Confirmed (Status: {realOrder?.status || 'CONFIRMED'})
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Chef is cooking Paneer Butter Masala and baking fresh Garlic Naan in the oven. Smoke particles are rising from the stove in the 2D graphic scene above!
+              Spice Garden kitchen is ready to prepare food for order <strong>#{realOrder?.id}</strong>.
             </p>
-
             <button
-              onClick={handleStep3MarkReady}
+              onClick={handleStep4Prepare}
+              disabled={apiLoading}
+              style={{ padding: '12px 24px', background: '#eab308', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
+            >
+              {apiLoading ? 'Starting Cooking...' : '\uD83C\uDF73 Start Cooking in Kitchen ➔'}
+            </button>
+          </div>
+        )}
+
+        {/* STEP 4: KITCHEN COOKING */}
+        {step === 4 && (
+          <div>
+            <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#22c55e' }}>
+              Step 5: Kitchen Cooking (Status: {realOrder?.status || 'PREPARING'})
+            </h4>
+            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
+              Chef is cooking Paneer Butter Masala and baking Garlic Naan. Marking ready will atomically claim an available delivery agent under lock.
+            </p>
+            <button
+              onClick={handleStep5Ready}
               disabled={apiLoading}
               style={{ padding: '12px 24px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              {apiLoading ? 'Matching Agent in Backend...' : '📦 Mark Ready & Match Agent via API ➔'}
+              {apiLoading ? 'Assigning Agent...' : '\uD83D\uDCE6 Mark Ready & Claim Agent under Lock ➔'}
             </button>
           </div>
         )}
 
-        {/* STEP 4: FOOD READY & AGENT ASSIGNED */}
-        {step === 4 && (
-          <div>
-            <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#8b5cf6' }}>
-              Step 5: Food Ready & Delivery Agent Assigned (Status: {realOrder?.status || 'READY_FOR_PICKUP'})
-            </h4>
-            <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Food packed. Backend assigned delivery agent <strong>{realOrder?.deliveryAgentName || 'Ramesh Kumar'} ({realOrder?.deliveryAgentPhone || '+91 91111 22222'})</strong>.
-            </p>
-
-            <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontWeight: 700 }}>🛵 Assigned Agent: {realOrder?.deliveryAgentName || 'Ramesh Kumar'}</div>
-                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>Status: {realOrder?.status} | Phone: {realOrder?.deliveryAgentPhone || '+91 91111 22222'}</div>
-              </div>
-              <span className="badge badge-secondary" style={{ padding: '6px 12px', borderRadius: '4px', fontWeight: 700 }}>{realOrder?.status || 'OUT_FOR_DELIVERY'}</span>
-            </div>
-
-            <button
-              onClick={handleStep4Depart}
-              style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
-            >
-              🛵 Scooter Departs for Delivery ➔
-            </button>
-          </div>
-        )}
-
-        {/* STEP 5: SCOOTER OUT FOR DELIVERY */}
+        {/* STEP 5: READY & ASSIGNED */}
         {step === 5 && (
           <div>
-            <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#3b82f6' }}>
-              Step 6: Scooter Out for Delivery (Status: {realOrder?.status || 'OUT_FOR_DELIVERY'})
+            <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#8b5cf6' }}>
+              Step 6: Agent Assigned & Out for Delivery Guard Check
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              {realOrder?.deliveryAgentName || 'Ramesh Kumar'} is driving the Zomato delivery scooter across the asphalt road network to Green Glen Layout.
+              Agent <strong>{realOrder?.deliveryAgentName || 'the winner'}</strong> claimed the order. Next step will test the state-machine cancellation guard (rejects with 409).
             </p>
-
             <button
-              onClick={handleStep5Arrive}
-              style={{ padding: '12px 24px', background: '#e23744', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: 'pointer' }}
+              onClick={handleStep6DepartAndGuards}
+              disabled={apiLoading}
+              style={{ padding: '12px 24px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
-              📍 Arrive at Customer House ➔
+              \uD83D\uDEF5 Scooter Departs & Test Cancel Guard ➔
             </button>
           </div>
         )}
 
-        {/* STEP 6: OTP VERIFICATION HANDOFF */}
+        {/* STEP 6: OUT FOR DELIVERY */}
         {step === 6 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#38bdf8' }}>
-              Step 7: Verify Secret Delivery OTP via Backend
+              Step 7: Arrived at Customer House — Verify OTP
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Agent arrived at customer address. Enter customer's 4-digit secret OTP (<strong>{realOrder?.deliveryOtp || '4821'}</strong>) to execute backend verification.
+              Scooter arrived at destination. Enter secret OTP (<strong>{realOrder?.deliveryOtp}</strong>) to complete verification in backend.
             </p>
 
-            <div style={{ background: 'var(--bg-primary)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', maxWidth: '400px', marginBottom: '20px' }}>
-              <div style={{ fontSize: 'var(--font-xs)', color: '#38bdf8', fontWeight: 700, marginBottom: '8px' }}>🔑 Handoff Verification (Secret OTP: {realOrder?.deliveryOtp || '4821'})</div>
+            <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', maxWidth: '400px', marginBottom: '16px' }}>
               <input
                 type="text"
                 maxLength={4}
                 value={inputOtp}
                 onChange={(e) => setInputOtp(e.target.value)}
-                placeholder={`e.g. ${realOrder?.deliveryOtp || '4821'}`}
+                placeholder="4-digit OTP"
                 style={{
                   width: '100%',
-                  padding: '12px',
+                  padding: '10px',
                   fontSize: 'var(--font-xl)',
                   letterSpacing: '8px',
                   textAlign: 'center',
@@ -1614,42 +1695,96 @@ function InteractiveZomatoSimulation() {
               />
               {otpError && <div style={{ color: '#ef4444', fontSize: 'var(--font-xs)', marginBottom: '8px' }}>{otpError}</div>}
               <button
-                onClick={handleStep6VerifyOtp}
+                onClick={handleStep7VerifyOtp}
                 disabled={apiLoading}
                 style={{ width: '100%', padding: '10px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: apiLoading ? 'wait' : 'pointer' }}
               >
-                {apiLoading ? 'Verifying OTP in Backend...' : '🔑 Verify OTP via Backend API'}
+                {apiLoading ? 'Verifying...' : '\uD83D\uDD11 Verify OTP & Complete Delivery'}
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 7: ORDER DELIVERED & SETTLED */}
+        {/* STEP 7: DELIVERED */}
         {step === 7 && (
           <div>
             <h4 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '12px', color: '#22c55e' }}>
-              Step 8: Order Delivered & Payment Settled (Status: {realOrder?.status || 'DELIVERED'})
+              Step 8: Order Delivered & Agent Released
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Order successfully verified and delivered in Spring Boot backend! Payment settled via {realOrder?.payment?.paymentMethod || 'UPI'}.
+              Order #{realOrder?.id} completed and verified. Agent was returned to the available pool.
             </p>
-
-            <div style={{ background: 'rgba(34, 197, 94, 0.1)', border: '1px solid #22c55e', padding: '20px', borderRadius: 'var(--radius-md)', marginBottom: '20px', fontSize: 'var(--font-xs)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 'var(--font-sm)', color: '#22c55e' }}>✅ Order #{realOrder?.id || 'ORD-10101'} Completed in Backend!</div>
-                <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>Amount Paid: ₹{realOrder?.totalAmount?.toFixed(2) || '423.50'} | Agent freed for next delivery.</div>
-                <div style={{ marginTop: '6px', color: '#facc15' }}>Customer Rating: ★★★★★ (5.0)</div>
-              </div>
-              <button
-                onClick={handleReset}
-                style={{ padding: '10px 20px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
-              >
-                ↺ Reset Simulation
-              </button>
-            </div>
+            <button
+              onClick={handleReset}
+              style={{ padding: '10px 20px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
+            >
+              \u21BA Reset Simulation
+            </button>
           </div>
         )}
       </div>
+
+      {/* Contention Race Breakdown Panel */}
+      {raceResult && (
+        <div style={{
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-lg)',
+          overflow: 'hidden',
+          background: 'var(--card-bg)'
+        }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '10px 16px', fontWeight: 700, fontSize: 'var(--font-xs)' }}>
+            \uD83D\uDD10 CONTENTION ON {raceResult.agentId} \u2014 {raceResult.attempts} Concurrent Assign Requests
+          </div>
+          <div style={{ padding: '8px 16px' }}>
+            {raceResult.results.map((r, idx) => (
+              <div key={idx} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '6px 0',
+                borderBottom: idx < raceResult.results.length - 1 ? '1px solid var(--border-color)' : 'none',
+                fontSize: '12px'
+              }}>
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontWeight: 700,
+                  fontSize: '10px',
+                  background: r.outcome === 'WON' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                  color: r.outcome === 'WON' ? '#22c55e' : '#ef4444'
+                }}>
+                  {r.outcome}
+                </span>
+                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{r.order}</span>
+                <span style={{ color: 'var(--text-muted)' }}>{r.reason}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Event Audit Log */}
+      {events.length > 0 && (
+        <div style={{
+          background: 'var(--card-bg)',
+          border: '1px solid var(--border-color)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px',
+          maxHeight: '220px',
+          overflowY: 'auto'
+        }}>
+          <div style={{ fontSize: 'var(--font-xs)', fontWeight: 700, marginBottom: '8px' }}>
+            \uD83D\uDCDC Simulation Audit Log ({events.length} events)
+          </div>
+          {events.map((e) => (
+            <div key={e.id} style={{ padding: '4px 0', fontSize: '11px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '8px' }}>
+              <span style={{ color: '#38bdf8', fontWeight: 700 }}>[{e.type}]</span>
+              <span style={{ color: 'var(--text-muted)' }}>{e.actor}:</span>
+              <span style={{ color: 'var(--text-primary)' }}>{e.message}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -57,3 +57,22 @@ export const cancelOrder = (id, reason) =>
 // Notifications
 export const getNotifications = (recipientId) =>
   apiFetch(`/zomato/notifications${recipientId ? `?recipientId=${recipientId}` : ''}`);
+
+// Simulation Sandbox Endpoints (/sim/*)
+export const simReset = () => apiFetch('/zomato/sim/reset', { method: 'POST' });
+export const simState = () => apiFetch('/zomato/sim/state');
+export const simOrder = (data = {}) =>
+  apiFetch('/zomato/sim/order', { method: 'POST', body: JSON.stringify(data) });
+export const simConfirm = (orderId) =>
+  apiFetch('/zomato/sim/confirm', { method: 'POST', body: JSON.stringify({ orderId }) });
+export const simPrepare = (orderId) =>
+  apiFetch('/zomato/sim/prepare', { method: 'POST', body: JSON.stringify({ orderId }) });
+export const simReady = (orderId) =>
+  apiFetch('/zomato/sim/ready', { method: 'POST', body: JSON.stringify({ orderId }) });
+export const simDeliver = (orderId, otp) =>
+  apiFetch('/zomato/sim/deliver', { method: 'POST', body: JSON.stringify({ orderId, otp }) });
+export const simCancel = (orderId, reason) =>
+  apiFetch('/zomato/sim/cancel', { method: 'POST', body: JSON.stringify({ orderId, reason }) });
+export const simRace = (agentId = 'AGENT-201', orders = 5) =>
+  apiFetch('/zomato/sim/race', { method: 'POST', body: JSON.stringify({ agentId, orders }) });
+export const simEvents = () => apiFetch('/zomato/sim/events');
