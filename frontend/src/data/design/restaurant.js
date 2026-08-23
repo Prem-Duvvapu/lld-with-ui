@@ -317,8 +317,8 @@ export default {
     },
     {
       name: 'Strategy',
-      used: false,
-      explanation: 'PricingStrategy could handle different billing models: FixedPrice, HappyHourDiscount, MembershipDiscount, or DynamicPricing based on demand.'
+      used: true,
+      explanation: 'BillingStrategy (STANDARD vs HAPPY_HOUR_20%) is picked by BillingStrategyFactory.forTime() and computes the discount/tax/service breakdown, so RestaurantService never hard-codes the pricing rule.'
     }
   ],
   principles: [
