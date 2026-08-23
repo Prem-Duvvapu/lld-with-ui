@@ -6,9 +6,11 @@
 // Add a module by creating its file and registering it here.
 
 import _uber from './sequences/uber.js';
+import _zomato from './sequences/zomato.js';
 
 const sequenceDiagrams = {
   uber: _uber,
+  zomato: _zomato,
 };
 
 export default sequenceDiagrams;

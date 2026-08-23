@@ -270,7 +270,7 @@ export default function ZomatoPage() {
       module="zomato"
       title="Zomato Food Delivery Service"
       icon="🍕"
-      tabs={['browse', 'restaurant', 'driver', 'simulation', 'diagram', 'details']}
+      tabs={['browse', 'restaurant', 'driver', 'simulation', 'diagram', 'sequence', 'details']}
     >
       {(tab) => (
         <>
