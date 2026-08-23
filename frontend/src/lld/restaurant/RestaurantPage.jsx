@@ -105,6 +105,7 @@ function AppTab() {
   const [orders, setOrders] = useState([]);
   const [selectedTableId, setSelectedTableId] = useState('T1');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [partySize, setPartySize] = useState(2);
   const [log, setLog] = useState('Select a table to seat guests and place order.');
 
   const refresh = useCallback(async () => {
@@ -126,8 +127,16 @@ function AppTab() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const getOrderForTable = (tableId) =>
-    orders.find(o => o.tableId === tableId && o.status !== 'CANCELLED');
+  // Re-derives the table's active order from RestaurantTable.currentOrderId — the backend's
+  // source of truth — rather than scanning order history by tableId. History keeps every past
+  // order (including paid/BILLED ones) forever, so a tableId+status scan would keep matching a
+  // table's last completed order even after payBill() released the table and cleared
+  // currentOrderId, showing stale line items for a table that is actually AVAILABLE again.
+  const getOrderForTable = (tableId) => {
+    const table = tables.find(t => t.id === tableId);
+    if (!table?.currentOrderId) return undefined;
+    return orders.find(o => o.id === table.currentOrderId);
+  };
 
   const toggleMenuItem = (itemId) => {
     setSelectedItems(prev =>
@@ -140,8 +149,10 @@ function AppTab() {
 
   const handleSeat = async () => {
     try {
-      await api.seatGuests(selectedTableId, activeTable?.capacity || 2);
-      setLog(`👥 Guests seated at Table ${selectedTableId}.`);
+      const capacity = activeTable?.capacity || 1;
+      const size = Math.min(Math.max(1, partySize || 1), capacity);
+      await api.seatGuests(selectedTableId, size);
+      setLog(`👥 Party of ${size} seated at Table ${selectedTableId}.`);
       await refresh();
     } catch (err) { setLog(`❌ ${err.message}`); }
   };
@@ -266,6 +277,22 @@ function AppTab() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Party size */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12 }}>
+        <label htmlFor="rest-party-size" style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>
+          Party size for Table {selectedTableId} (max {activeTable?.capacity ?? '—'}):
+        </label>
+        <input
+          id="rest-party-size"
+          type="number"
+          min={1}
+          max={activeTable?.capacity || 12}
+          value={partySize}
+          onChange={(e) => setPartySize(Math.max(1, Math.min(Number(e.target.value) || 1, activeTable?.capacity || 12)))}
+          style={{ width: 60, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
+        />
       </div>
 
       {/* Action Buttons */}
