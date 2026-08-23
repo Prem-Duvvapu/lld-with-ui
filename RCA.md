@@ -14,6 +14,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-004](#rca-004-eager-import-metaglob-shipping-all-45-module-pages-in-the-entry-chunk) | 2026-08-20 | Frontend / Bundling | Every visitor downloaded a 1,474 kB entry chunk containing all 45 pages | Resolved |
 | [RCA-005](#rca-005-mismatched-prop-names-and-a-missing-route-alias-rendering-blank-pages) | 2026-08-20 | Frontend / Wiring | `lldKey` / `moduleKey` prop typos and a missing route alias produced blank tabs and a blank page | Resolved |
 | [RCA-006](#rca-006-check-then-act-race-assigning-one-uber-driver-to-two-riders) | 2026-08-21 | Backend / Uber / Concurrency | Unsynchronised read-then-write in driver assignment let two riders both claim the same driver | Resolved |
+| [RCA-007](#rca-007-zomato-branch-shipped-non-compiling-a-dead-applicationcontext-and-an-untested-agent-leak) | 2026-08-22 | Backend / Zomato / Build & Concurrency | Two build blockers took down all 30 modules' `ApplicationContext`, and the pool-scan agent-assignment path shipped with zero concurrency coverage for a real leaked-agent race | Resolved |
 
 ---
 
@@ -418,3 +419,186 @@ mvn -o test -Dtest='UberConcurrencyTest#twoRidersRacingForOneDriver_onlyOneWins'
    worse than no test at all — and it is easy to write one by accident.
 5. `AGENTS.md` records the pattern for the other modules: `ConcurrentHashMap` for storage,
    `ReentrantLock` for any compound mutation, and a comment stating the lock ordering.
+
+---
+
+## RCA-007: Zomato Branch Shipped Non-Compiling, a Dead ApplicationContext, and an Untested Agent Leak
+
+**Severity:** Critical
+**Date:** 2026-08-22
+**Status:** Resolved
+**Affected:** `com.lld.zomato.service.{ZomatoService,DeliveryAssignmentService}`,
+`com.lld.zomato.strategy.DeliveryFeeStrategyFactory`, `ZomatoServiceTest`, `ZomatoConcurrencyTest`,
+`frontend/src/lld/zomato/ZomatoPage.jsx` — and, transitively, every one of the other 29 backend
+modules via the shared Spring `ApplicationContext`.
+
+### 1. Overview & Severity
+Commit `510ee6e` landed on `feat/zomato-module-depth` under time pressure and was explicitly
+flagged in its own commit message as "WIP" with a "Not yet done" list. Two of the four problems it
+fixed were build blockers: `mvn test` could not even compile, which means **no test in the entire
+203-test suite had ever run on this branch** — not just zomato's. The second blocker was worse than
+a red build: `ZomatoService` had two public constructors with no `@Autowired` hint, so Spring could
+not disambiguate which one to use and the whole `ApplicationContext` failed to start. Since
+`LldApplication` boots all 30 module packages in one context, one module's ambiguous bean took down
+every module's integration tests, including `ErrorContractIntegrationTest`. Separately, the commit
+fixed a real concurrency defect — two threads assigning the *same* order could each claim a
+*different* agent and leak the loser out of the pool forever — but left the fix's only regression
+test covering a secondary code path that production code never calls. Combined severity: Critical.
+A non-compiling branch and a dead `ApplicationContext` are total build failures; the untested
+production path meant the leaked-agent race could still resurface with zero test signal.
+
+### 2. Symptoms & Error Logs
+```
+# Blocker 1 — test sources do not compile
+[ERROR] .../ZomatoServiceTest.java:[NN,NN] local variables referenced from a lambda expression
+        must be final or effectively final
+        (order was reassigned by service.markReadyForPickup(...) and then captured in a
+        lambda passed to assertThrows/assertDoesNotThrow later in the same test method)
+
+# Blocker 2 — ambiguous constructor, whole context fails to load
+[ERROR] Parameter 0 of constructor in com.lld.zomato.service.ZomatoService required a single
+        constructor, but 2 were found
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with
+        name 'zomatoController' ... nested exception is
+        org.springframework.beans.factory.BeanCreationException: ... Ambiguous constructors
+[ERROR] Tests run: 5, Failures: 0, Errors: 5  -- ErrorContractIntegrationTest (every module,
+        not just zomato — the whole context refused to start)
+
+# Leaked-agent race (pre-fix), reproduced by two threads sharing one order
+Thread-A: candidates = [AGENT-1, AGENT-2]; locks AGENT-1; claims it; order.agentId = AGENT-1
+Thread-B: candidates = [AGENT-1, AGENT-2]; locks AGENT-2 (AGENT-1 still "available" from B's
+          stale read of the candidate list); claims it; order.agentId = AGENT-2  <-- overwrites A
+repository.getDeliveryAgent("AGENT-1").isAvailable() == false   <-- permanently unavailable
+repository.getOrder(orderId).getDeliveryAgentId() == "AGENT-2"  <-- but no order references AGENT-1
+# AGENT-1 is now leaked: unavailable forever, assigned to no order, never released.
+```
+
+### 3. Root Cause
+Three independent root causes bundled into one WIP commit:
+
+1. **Effectively-final violation.** A test method reassigned a local `order` variable (rebinding it
+   to the result of `service.markReadyForPickup(...)`) and then referenced that same variable
+   inside a lambda passed to `assertThrows`/`assertDoesNotThrow` later in the method. Java requires
+   captured locals to be final or effectively final; a lambda closes over the *variable*, not a
+   snapshot of its value, so the compiler rejects any capture of a variable that is reassigned
+   anywhere in its scope — this is a hard compile error, not a warning.
+2. **Ambiguous bean constructor.** `ZomatoService` had grown a second, one-argument constructor
+   (probably left over from before `DeliveryAssignmentService` was introduced) alongside the
+   two-argument constructor Spring was actually meant to use. With more than one public constructor
+   and no `@Autowired` to pick a winner, Spring's constructor-resolution strategy has no rule to
+   apply and fails bean creation outright — and because `LldApplication` boots all 30 module
+   packages into a single context, that failure is global, not scoped to zomato.
+3. **Leaked-agent race — lock scope too narrow.** `DeliveryAssignmentService.assignAgent()` (and
+   `assign()`) originally serialised only on a per-*agent* `ReentrantLock`. That is sufficient to
+   stop two orders from claiming the *same* agent, but it does nothing when two threads are
+   assigning the *same order* to two *different* agents: each thread takes a different agent's
+   lock, so they never contend, and both write `order.setDeliveryAgentId(...)` — the second write
+   silently wins, permanently stranding the first agent as `unavailable` with no order pointing
+   back at it. Classic check-then-act, but at the *order* granularity rather than the *agent*
+   granularity the original lock protected.
+
+A fourth, adjacent gap was caught but is process rather than product: the regression test added for
+root cause 3 (`ZomatoConcurrencyTest`) exercised only `assign(orderId, agentId)` — the path that
+claims one pre-chosen agent. `assignAgent(orderId)` — the pool-scan path that `ZomatoService`
+actually calls in both the real flow (`markReadyForPickup`) and the `/sim/*` engine (`simReady`) —
+had no concurrency test at all. Disabling the per-agent lock inside `assign()` failed 4 of 7
+existing tests; disabling it inside `assignAgent()` left all 7 green. A fix with no test on its own
+call path is one refactor away from silently regressing.
+
+### 4. Diagnostic Commands
+```bash
+# Blocker 1: does the branch even compile?
+mvn -o -q compile
+mvn -o test 2>&1 | grep -i "must be final or effectively final"
+
+# Blocker 2: is a @Service hiding more than one public constructor?
+grep -n "public ZomatoService(" backend/src/main/java/com/lld/zomato/service/ZomatoService.java
+mvn -o test -Dtest='com.lld.config.ErrorContractIntegrationTest' 2>&1 | tail -30
+
+# Root cause 3: which lock actually guards assignAgent vs assign?
+grep -n "orderLockFor\|lockFor\|assignAgent\|public DeliveryAgent assign" \
+  backend/src/main/java/com/lld/zomato/service/DeliveryAssignmentService.java
+
+# Which path does production code actually call?
+grep -n "assignAgent(orderId)\|\.assign(" backend/src/main/java/com/lld/zomato/service/ZomatoService.java
+
+# Does the fix's own regression suite cover that path? (it didn't, before this RCA)
+grep -n "assignAgent(" backend/src/test/java/com/lld/zomato/ZomatoConcurrencyTest.java
+```
+
+### 5. Step-by-Step Resolution
+1. Fixed the lambda capture in `ZomatoServiceTest` by not reusing the reassigned `order` variable
+   inside the later lambda, restoring compilability so the suite could run at all.
+2. Removed the unused one-argument `ZomatoService` constructor, leaving the two-argument
+   `(ZomatoRepository, DeliveryAssignmentService)` constructor as the sole public constructor so
+   Spring's implicit single-constructor autowiring applies with no ambiguity.
+3. Added a per-*order* `ReentrantLock` (`orderLockFor`), taken **before** the per-agent lock in
+   both `assignAgent()` and `assign()`, with lock ordering fixed as order-then-agent everywhere so
+   the two lock types can never deadlock. Re-verified inside the order lock that the order can
+   still transition to `OUT_FOR_DELIVERY` (`claimableOrder`), closing the same-order/different-agent
+   race at its actual granularity.
+4. Also fixed a related but separate bug found in the same pass: `DeliveryFeeStrategyFactory` had
+   been sharing one static, mutable `SurgeDeliveryFeeStrategy` instance across all callers, letting
+   any order's surge multiplier bleed into every other order's pricing in the same process.
+5. Replaced three of the seven fabricated frontend fallbacks in `ZomatoPage.jsx` (fake OTP `1234`,
+   fake agent name `Ramesh Kumar`) with honest placeholders, and explicitly logged the remaining
+   four (lines ~1172, 1231, 1232, 1667) as not yet done rather than leaving them undocumented.
+6. **This RCA's own contribution — closed the test-coverage gap the commit had flagged:** added
+   `fiveOrdersRacingForOneAgentViaAssignAgent_onlyOneWins`,
+   `disjointAssignAgentCallsAllSucceedWithDistinctAgents`, and
+   `repeatedAssignAgentRaceNeverProducesTwoWinners` (300 rounds) to `ZomatoConcurrencyTest`, all
+   calling `assignAgent(orderId)` — the path production and the sim engine actually use — instead
+   of the already-covered `assign(orderId, agentId)`.
+7. Finished the remaining fallback cleanup: `newOrder.deliveryOtp` and `realOrder?.deliveryOtp` no
+   longer fall back to `'1234'` (both `placeOrder` and `simOrder` always populate `deliveryOtp`
+   before returning the order, so the fallback could never legitimately fire). The two
+   `deliveryAgentName || 'Ramesh Kumar'` fallbacks in `handleStep5Ready`, however, turned out to
+   guard a value that genuinely *can* be absent — `markReadyForPickup`/`simReady` swallow
+   `NoAgentAvailableException` internally and return the order unchanged when no agent is free,
+   exactly mirroring the already-honest `updated.status === 'OUT_FOR_DELIVERY'` branch used
+   elsewhere in the same file for the non-sim restaurant flow (`handleMarkReady`). Rather than
+   inventing a new fake name, that call site was changed to branch on `updated.status` the same
+   way, showing a genuine "no agent available yet" message instead of a fabricated assignment.
+8. Verified the new tests actually detect the defect they claim to: commented out the
+   `lock.lock()`/`lock.unlock()` pair inside `assignAgent`'s candidate loop, reran only the three
+   new tests, and watched `repeatedAssignAgentRaceNeverProducesTwoWinners` fail —
+   `Round 119 produced 2 winners instead of 1 via assignAgent ==> expected: <1> but was: <2>` —
+   while the two single-shot tests happened to pass by luck in that run (the unguarded window is
+   nanoseconds wide, same lesson as RCA-006 step 7). Restored the lock, confirmed via `git diff`
+   that `DeliveryAssignmentService.java` was byte-identical to the committed version, and reran the
+   full suite green.
+
+### 6. Preventative Measures
+1. **Compile before you commit "WIP."** `mvn -o -q compile` (or at minimum `test-compile`) is fast
+   and would have caught the lambda-capture failure before it reached the branch at all; a branch
+   that has never compiled cannot have run any of its 203 tests, which is a much larger blast
+   radius than the one module being touched.
+2. **One public constructor per `@Service`, or an explicit `@Autowired`.** Because `LldApplication`
+   shares one `ApplicationContext` across all 30 modules, an ambiguous bean in any single module
+   fails every module's context-dependent test, not just its own — `DomainExceptionContractTest`,
+   `GlobalExceptionHandlerTest` and `ErrorContractIntegrationTest` exist precisely to catch
+   cross-module fallout like this, and did.
+3. **Lock at the granularity of the invariant you're protecting, not the resource that happens to
+   be nearby.** "One agent serves one order" needed a lock on the *order* as much as the *agent* —
+   protecting only the agent looked sufficient because the common case (two orders racing one
+   agent) worked, but the actual bug was the mirror-image case (one order racing across two
+   agents). `DeliveryAssignmentService`'s class javadoc now states the order-then-agent lock
+   ordering explicitly so a future change never reverses it and reintroduces deadlock risk.
+4. **A regression test must cover the code path production actually calls, not a sibling with the
+   same name.** `assign(orderId, agentId)` and `assignAgent(orderId)` look almost interchangeable
+   from the outside, but only `assignAgent` is reachable from `markReadyForPickup` and `simReady`.
+   `ZomatoConcurrencyTest` now exercises both, and the pattern established in RCA-006 — assert an
+   invariant, never a timing, and repeat the narrow-window case ~300 times with fresh state per
+   round — was reused rather than re-derived, catching a race that a single run could easily miss
+   (as it did for the two single-shot `assignAgent` tests in the verification run above).
+5. **Never trust a concurrency test until you have watched it fail.** Every new test added here was
+   verified against a deliberately broken implementation before being trusted against the fixed
+   one, and the broken implementation was restored to a byte-identical `git diff` afterward so the
+   experiment left no trace in the shipped code.
+6. **A `|| 'fake value'` fallback is not automatically dishonest — check what the field actually
+   guarantees before deciding.** Two of the four remaining fallbacks (`deliveryOtp`) were removable
+   outright because the backend always populates that field before returning the order. The other
+   two (`deliveryAgentName`) were not — the backend explicitly supports a "ready, but no agent yet"
+   state — so the fix there was conditional rendering that tells the truth in both states, matching
+   the pattern the same file already used for the equivalent non-sim flow, rather than another
+   fabricated placeholder.
