@@ -1169,7 +1169,7 @@ function InteractiveZomatoSimulation() {
       });
 
       setRealOrder(newOrder);
-      setInputOtp(newOrder.deliveryOtp || '1234');
+      setInputOtp(newOrder.deliveryOtp);
       setStep(2);
       say(`\uD83D\uDCDD Order #${newOrder.id} placed: Subtotal \u20B9${newOrder.itemTotal} + Delivery \u20B9${newOrder.deliveryFee} + Tax \u20B9${newOrder.tax} = \u20B9${newOrder.totalAmount}. Secret OTP: ${newOrder.deliveryOtp}`);
       showToast(`Order #${newOrder.id} placed with delivery fee \u20B9${newOrder.deliveryFee}!`, 'success');
@@ -1228,8 +1228,13 @@ function InteractiveZomatoSimulation() {
       const updated = await api.simReady(realOrder.id);
       setRealOrder(updated);
       setStep(5);
-      say(`\uD83D\uDCE6 Food ready! DeliveryAssignmentService claimed agent ${updated.deliveryAgentName || 'Ramesh Kumar'} under per-agent lock (Status: OUT_FOR_DELIVERY).`);
-      showToast(`Agent ${updated.deliveryAgentName || 'Ramesh Kumar'} assigned!`, 'success');
+      if (updated.status === 'OUT_FOR_DELIVERY') {
+        say(`\uD83D\uDCE6 Food ready! DeliveryAssignmentService claimed agent ${updated.deliveryAgentName} under per-agent lock (Status: OUT_FOR_DELIVERY).`);
+        showToast(`Agent ${updated.deliveryAgentName} assigned!`, 'success');
+      } else {
+        say(`\uD83D\uDCE6 Food ready! No delivery agent was available \u2014 order stays READY_FOR_PICKUP until one frees up.`);
+        showToast(`Order ready, but no agent is free yet.`, 'info');
+      }
       await refreshSim();
     } catch (err) {
       say(`\u274C ${err.message}`, true);
@@ -1664,7 +1669,7 @@ function InteractiveZomatoSimulation() {
               Step 7: Arrived at Customer House — Verify OTP
             </h4>
             <p style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Scooter arrived at destination. Enter secret OTP (<strong>{realOrder?.deliveryOtp || '1234'}</strong>) to complete verification in backend.
+              Scooter arrived at destination. Enter secret OTP (<strong>{realOrder?.deliveryOtp}</strong>) to complete verification in backend.
             </p>
 
             <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', maxWidth: '400px', marginBottom: '16px' }}>

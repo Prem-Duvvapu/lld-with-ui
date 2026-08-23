@@ -175,6 +175,131 @@ class ZomatoConcurrencyTest {
     }
 
     @Test
+    @DisplayName("assignAgent: five orders racing for one agent — exactly one wins")
+    void fiveOrdersRacingForOneAgentViaAssignAgent_onlyOneWins() throws InterruptedException {
+        int n = 5;
+        for (int i = 1; i <= n; i++) {
+            createReadyOrder("ORD-" + i);
+        }
+
+        ExecutorService pool = Executors.newFixedThreadPool(n);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(n);
+        AtomicInteger wins = new AtomicInteger(0);
+        AtomicInteger rejections = new AtomicInteger(0);
+
+        for (int i = 1; i <= n; i++) {
+            final String orderId = "ORD-" + i;
+            pool.submit(() -> {
+                try {
+                    start.await();
+                    assignmentService.assignAgent(orderId);
+                    wins.incrementAndGet();
+                } catch (NoAgentAvailableException e) {
+                    rejections.incrementAndGet();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        start.countDown();
+        assertTrue(done.await(5, TimeUnit.SECONDS), "Threads did not finish in time");
+        pool.shutdown();
+
+        assertEquals(1, wins.get(), "Exactly one order must win the agent via assignAgent's pool scan");
+        assertEquals(n - 1, rejections.get(), "All other orders must be rejected with NoAgentAvailableException");
+    }
+
+    @Test
+    @DisplayName("assignAgent: M orders racing for M agents — all succeed with distinct agents")
+    void disjointAssignAgentCallsAllSucceedWithDistinctAgents() throws InterruptedException {
+        int n = 6;
+        for (int i = 1; i <= n; i++) {
+            repository.saveDeliveryAgent(new DeliveryAgent("POOL-AGENT-" + i, "Pool Agent " + i, "888888888" + i, "KA-02-" + i, true));
+            createReadyOrder("POOL-ORD-" + i);
+        }
+
+        ExecutorService pool = Executors.newFixedThreadPool(n);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(n);
+        ConcurrentLinkedQueue<String> claimedAgentIds = new ConcurrentLinkedQueue<>();
+
+        for (int i = 1; i <= n; i++) {
+            final String orderId = "POOL-ORD-" + i;
+            pool.submit(() -> {
+                try {
+                    start.await();
+                    DeliveryAgent agent = assignmentService.assignAgent(orderId);
+                    claimedAgentIds.add(agent.getId());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    done.countDown();
+                }
+            });
+        }
+
+        start.countDown();
+        assertTrue(done.await(5, TimeUnit.SECONDS), "Threads did not finish in time");
+        pool.shutdown();
+
+        assertEquals(n, claimedAgentIds.size(), "All " + n + " assignAgent calls must succeed under contention");
+        assertEquals(n, new java.util.HashSet<>(claimedAgentIds).size(),
+                "The pool scan must not double-claim the same agent for two different orders");
+    }
+
+    @Test
+    @DisplayName("assignAgent: repeated race never produces two winners — 300 rounds")
+    void repeatedAssignAgentRaceNeverProducesTwoWinners() throws InterruptedException {
+        for (int round = 0; round < 300; round++) {
+            ZomatoRepository freshRepo = new ZomatoRepository();
+            DeliveryAssignmentService freshAssign = new DeliveryAssignmentService(freshRepo);
+            freshRepo.saveDeliveryAgent(new DeliveryAgent("AGENT-1", "Agent", "9999999999", "KA-01-1234", true));
+
+            Order o1 = new Order();
+            o1.setId("ORD-1");
+            o1.setStatus(OrderStatus.READY_FOR_PICKUP);
+            freshRepo.saveOrder(o1);
+
+            Order o2 = new Order();
+            o2.setId("ORD-2");
+            o2.setStatus(OrderStatus.READY_FOR_PICKUP);
+            freshRepo.saveOrder(o2);
+
+            ExecutorService pool = Executors.newFixedThreadPool(2);
+            CountDownLatch start = new CountDownLatch(1);
+            CountDownLatch done = new CountDownLatch(2);
+            AtomicInteger wins = new AtomicInteger(0);
+
+            for (int i = 1; i <= 2; i++) {
+                final String orderId = "ORD-" + i;
+                pool.submit(() -> {
+                    try {
+                        start.await();
+                        freshAssign.assignAgent(orderId);
+                        wins.incrementAndGet();
+                    } catch (NoAgentAvailableException expected) {
+                        // Expected rejection
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+
+            start.countDown();
+            assertTrue(done.await(5, TimeUnit.SECONDS), "Round " + round + " timed out");
+            pool.shutdown();
+
+            assertEquals(1, wins.get(), "Round " + round + " produced " + wins.get() + " winners instead of 1 via assignAgent");
+        }
+    }
+
+    @Test
     @DisplayName("Repeated race never produces two winners — 300 rounds")
     void repeatedRaceNeverProducesTwoWinners() throws InterruptedException {
         for (int round = 0; round < 300; round++) {
