@@ -1,25 +1,34 @@
 package com.lld.hotel.service;
 
+import com.lld.hotel.exception.HotelNotFoundException;
 import com.lld.hotel.model.Booking;
-import com.lld.hotel.model.Booking.BookingStatus;
 import com.lld.hotel.model.Hotel;
 import com.lld.hotel.model.Room;
-import com.lld.hotel.model.Room.RoomStatus;
 import com.lld.hotel.repository.HotelRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
+/**
+ * Facade the controller delegates to wholesale. All booking-lifecycle mutation is delegated
+ * further to {@link RoomBookingService}, which owns the per-room locking; this class owns
+ * lookups and translates repository state into API-shaped results.
+ *
+ * <p>NOTE: the interactive simulation sandbox (/sim/*), the 8-step frontend walkthrough and the
+ * design/diagram content are not yet wired up — this facade currently only covers the
+ * operational booking lifecycle. See the commit message / PR description for what remains.
+ */
 @Service
 public class HotelService {
-    private final HotelRepository repository;
-    private final ReentrantLock lock = new ReentrantLock();
 
-    public HotelService(HotelRepository repository) {
+    private final HotelRepository repository;
+    private final RoomBookingService bookingService;
+
+    public HotelService(HotelRepository repository, RoomBookingService bookingService) {
         this.repository = repository;
+        this.bookingService = bookingService;
     }
 
     public List<Hotel> getAllHotels() {
@@ -28,13 +37,10 @@ public class HotelService {
 
     public Hotel getHotel(String id) {
         Hotel hotel = repository.getHotel(id);
-        if (hotel == null) throw new IllegalArgumentException("Hotel not found: " + id);
+        if (hotel == null) {
+            throw new HotelNotFoundException("Hotel not found: " + id);
+        }
         return hotel;
-    }
-
-    public List<Room> getAvailableRooms(String hotelId, LocalDate checkIn, LocalDate checkOut) {
-        Hotel hotel = getHotel(hotelId);
-        return repository.getAvailableRooms(hotelId);
     }
 
     public List<Room> getRoomsByHotel(String hotelId) {
@@ -42,94 +48,33 @@ public class HotelService {
         return repository.getRoomsByHotel(hotelId);
     }
 
+    public List<Room> getAvailableRooms(String hotelId, LocalDate checkIn, LocalDate checkOut) {
+        getHotel(hotelId);
+        LocalDate ci = checkIn != null ? checkIn : LocalDate.now();
+        LocalDate co = checkOut != null ? checkOut : ci.plusDays(1);
+        return repository.getRoomsByHotel(hotelId).stream()
+                .filter(r -> bookingService.isAvailable(r.getId(), ci, co))
+                .collect(Collectors.toList());
+    }
+
     public Booking bookRoom(String roomId, String userId, String guestName, LocalDate checkIn, LocalDate checkOut) {
-        lock.lock();
-        try {
-            Room room = repository.getRoom(roomId);
-            if (room == null) throw new IllegalArgumentException("Room not found: " + roomId);
-            if (room.getStatus() != RoomStatus.AVAILABLE) throw new IllegalArgumentException("Room is not available");
-
-            long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
-            if (nights <= 0) throw new IllegalArgumentException("Check-out must be after check-in");
-
-            double totalAmount = room.getPrice() * nights;
-
-            room.setStatus(RoomStatus.BOOKED);
-            repository.updateRoom(room);
-
-            String bookingId = repository.generateBookingId();
-            Booking booking = new Booking(bookingId, room.getHotelId(), roomId, userId,
-                    guestName, checkIn, checkOut, BookingStatus.CONFIRMED, totalAmount);
-            repository.saveBooking(booking);
-            return booking;
-        } finally {
-            lock.unlock();
-        }
+        return bookingService.book(roomId, userId, guestName, checkIn, checkOut);
     }
 
     public Booking checkIn(String bookingId) {
-        lock.lock();
-        try {
-            Booking booking = repository.getBooking(bookingId);
-            if (booking == null) throw new IllegalArgumentException("Booking not found: " + bookingId);
-            if (booking.getStatus() != BookingStatus.CONFIRMED)
-                throw new IllegalArgumentException("Booking must be CONFIRMED to check in");
-
-            booking.setStatus(BookingStatus.CHECKED_IN);
-            Room room = repository.getRoom(booking.getRoomId());
-            if (room != null) {
-                room.setStatus(RoomStatus.OCCUPIED);
-                repository.updateRoom(room);
-            }
-            repository.updateBooking(booking);
-            return booking;
-        } finally {
-            lock.unlock();
-        }
+        return bookingService.checkIn(bookingId);
     }
 
     public Booking checkOut(String bookingId) {
-        lock.lock();
-        try {
-            Booking booking = repository.getBooking(bookingId);
-            if (booking == null) throw new IllegalArgumentException("Booking not found: " + bookingId);
-            if (booking.getStatus() != BookingStatus.CHECKED_IN)
-                throw new IllegalArgumentException("Booking must be CHECKED_IN to check out");
-
-            booking.setStatus(BookingStatus.CHECKED_OUT);
-            Room room = repository.getRoom(booking.getRoomId());
-            if (room != null) {
-                room.setStatus(RoomStatus.AVAILABLE);
-                repository.updateRoom(room);
-            }
-            repository.updateBooking(booking);
-            return booking;
-        } finally {
-            lock.unlock();
-        }
+        return bookingService.checkOut(bookingId);
     }
 
     public Booking cancelBooking(String bookingId) {
-        lock.lock();
-        try {
-            Booking booking = repository.getBooking(bookingId);
-            if (booking == null) throw new IllegalArgumentException("Booking not found: " + bookingId);
-            if (booking.getStatus() == BookingStatus.CHECKED_OUT)
-                throw new IllegalArgumentException("Cannot cancel checked-out booking");
-            if (booking.getStatus() == BookingStatus.CANCELLED)
-                throw new IllegalArgumentException("Booking already cancelled");
+        return bookingService.cancel(bookingId, LocalDate.now());
+    }
 
-            booking.setStatus(BookingStatus.CANCELLED);
-            Room room = repository.getRoom(booking.getRoomId());
-            if (room != null) {
-                room.setStatus(RoomStatus.AVAILABLE);
-                repository.updateRoom(room);
-            }
-            repository.updateBooking(booking);
-            return booking;
-        } finally {
-            lock.unlock();
-        }
+    public Booking markNoShow(String bookingId) {
+        return bookingService.markNoShow(bookingId);
     }
 
     public List<Booking> getActiveBookings() {
@@ -138,7 +83,9 @@ public class HotelService {
 
     public Booking getBooking(String id) {
         Booking booking = repository.getBooking(id);
-        if (booking == null) throw new IllegalArgumentException("Booking not found: " + id);
+        if (booking == null) {
+            throw new com.lld.hotel.exception.BookingNotFoundException("Booking not found: " + id);
+        }
         return booking;
     }
 }

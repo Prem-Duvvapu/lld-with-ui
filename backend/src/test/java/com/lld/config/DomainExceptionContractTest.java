@@ -25,6 +25,7 @@ class DomainExceptionContractTest {
     private static final Set<String> BASES = Set.of(
             "AirlineException",
             "CarRentalException",
+            "HotelException",
             "LibraryException",
             "LinkedInException",
             "RestaurantException",
