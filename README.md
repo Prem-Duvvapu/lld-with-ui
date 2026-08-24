@@ -25,7 +25,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 15 | Digital Wallet | Payment & ledger | Command Pattern, Transactional Lock |
 | 16 | Chess | 2-Player strategy game | Command, State, Strategy |
 | 17 | Ludo | Multiplayer board game | State Machine, Game Loop |
-| 18 | Inventory Management | Stock & warehouse | Observer, Strategy |
+| 18 | [Inventory Management](#18-inventory-management) | Stock & warehouse | Observer, Strategy + Factory (reorder policies), Per-Product ReentrantLock |
 | 19 | [Shopping Cart](#19-online-shopping-system-shopping-cart) | E-commerce & checkout | Command (Undo), Strategy (Payment), Ascending Lock Ordering |
 | 20 | Minesweeper | Grid mine game | Recursion, Game Loop |
 | 21 | [Vending Machine](#21-vending-machine) | State-based dispenser | State Pattern (Idle/Selection/Money/Dispensing), Chain of Responsibility Change Hopper |
@@ -491,6 +491,38 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/coffeemachine/sim/race`
 - `GET /api/coffeemachine/sim/events`
 - `GET /api/coffeemachine/sim/snapshot`
+
+---
+
+### 18. Inventory Management
+
+#### Key Features
+- **Observer Pattern**: `StockAlertNotifier` (Subject) fans every `StockAlert` out to independent observers — `InAppStockAlertObserver` (the queryable feed behind `GET /alerts`) and `LoggingStockAlertObserver` — neither aware the other exists.
+- **Strategy + Factory (Reorder Policies)**: `ReorderStrategyFactory` resolves `MIN_RESTOCK` (exact shortfall to reorder level), `EOQ` (classic Harris economic-order-quantity lot size), or `URGENT_BUFFER` (5× reorder level on a stock-out, 3× otherwise) via an `EnumMap` — `InventoryService` never branches on the policy itself.
+- **Per-Product ReentrantLock with Crossing Detection**: `updateStock`/`reorder` take a fair per-product lock (`computeIfAbsent`, same idiom as `DriverAssignmentService`) around the stock arithmetic AND the low-stock/out-of-stock/restocked crossing check, so two concurrent sales of the last unit can never both succeed and a crossing alert fires exactly once, not on every subsequent mutation while already in that state.
+- **Shared Live/Sim Mutation Path**: `updateStock`, `transferStock`, `simSell`, `simRestock`, `simTransfer` and `simRace` all funnel through one private `doUpdateStock()`, so validation, arithmetic and alerting can never drift between the live and sandboxed paths.
+- **Isolated Simulation Sandbox with a Live Race**: `/api/inventory/sim/*` runs against a second repository/notifier pair; `simRace` fires N concurrent single-unit purchases at one product via a `CountDownLatch` and returns exactly how many succeeded, how many were rejected, and the final stock.
+
+#### API Endpoints
+- `GET /api/inventory/products`
+- `POST /api/inventory/products`
+- `POST /api/inventory/products/{id}/stock`
+- `GET /api/inventory/products/low-stock`
+- `POST /api/inventory/products/{id}/reorder`
+- `POST /api/inventory/products/{id}/transfer`
+- `GET /api/inventory/products/{id}/movements`
+- `GET /api/inventory/suppliers`
+- `GET /api/inventory/alerts`
+- `GET /api/inventory/events`
+- `POST /api/inventory/sim/reset`
+- `GET /api/inventory/sim/state`
+- `POST /api/inventory/sim/sell`
+- `POST /api/inventory/sim/restock`
+- `POST /api/inventory/sim/transfer`
+- `POST /api/inventory/sim/reorder`
+- `POST /api/inventory/sim/race`
+- `GET /api/inventory/sim/alerts`
+- `GET /api/inventory/sim/events`
 
 ---
 

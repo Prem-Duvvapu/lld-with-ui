@@ -1,331 +1,365 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { getProducts, updateStock, transferStock, getSuppliers } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import DesignDetails from '../../components/DesignDetails';
+import { useState, useEffect, useCallback } from 'react';
+import LldPage from '../../components/LldPage';
+import { usePolling } from '../../hooks/usePolling';
+import * as api from './api';
+
+const CATEGORIES = ['ELECTRONICS', 'CLOTHING', 'FOOD', 'STATIONERY', 'MEDICINE', 'OTHER'];
+const POLICIES = ['MIN_RESTOCK', 'EOQ', 'URGENT_BUFFER'];
 
 const styles = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); min-height: 100vh; font-family: 'Segoe UI', system-ui, sans-serif; color: #e0e0e0; }
-.inv-app { max-width: 1000px; margin: 0 auto; padding: 20px 16px; }
-.inv-header { text-align: center; padding: 24px 0; }
-.inv-header h1 { font-size: 28px; background: linear-gradient(135deg, #4facfe, #00f2fe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.inv-header p { color: #8892b0; font-size: 13px; margin-top: 4px; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; color: #ccc; text-decoration: none; font-size: 13px; transition: all 0.2s; }
-.back-home:hover { background: rgba(255,255,255,0.1); }
-.inv-nav { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
-.inv-nav button { padding: 8px 18px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.08); color: #8892b0; }
-.inv-nav button.active { background: linear-gradient(135deg, #4facfe, #00f2fe); color: #fff; box-shadow: 0 4px 15px rgba(79,172,254,0.3); }
-.inv-main { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 24px; min-height: 400px; border: 1px solid rgba(255,255,255,0.08); }
-.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px; }
-.inv-card { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 16px; border: 1px solid rgba(255,255,255,0.08); transition: all 0.2s; }
-.inv-card:hover { transform: translateY(-2px); border-color: rgba(79,172,254,0.3); }
-.inv-card h3 { font-size: 15px; margin-bottom: 4px; }
-.inv-card .sku { font-size: 11px; color: #5a6785; }
-.inv-price { font-size: 14px; font-weight: 700; color: #4facfe; margin: 6px 0; }
-.inv-stock-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); margin: 8px 0; overflow: hidden; }
-.inv-stock-fill { height: 100%; border-radius: 3px; transition: width 0.5s, background 0.5s; }
-.inv-stock-text { font-size: 12px; display: flex; justify-content: space-between; }
-.stock-critical { color: #f85149; }
-.stock-low { color: #d29922; }
-.stock-ok { color: #3fb950; }
-.inv-form { display: flex; flex-direction: column; gap: 12px; padding: 16px; background: rgba(255,255,255,0.04); border-radius: 12px; margin-bottom: 16px; }
-.inv-form h3 { font-size: 15px; color: #4facfe; }
-.inv-form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-.inv-form label { font-size: 12px; color: #8892b0; display: flex; flex-direction: column; gap: 4px; }
-.inv-form input, .inv-form select { padding: 8px 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: #e0e0e0; font-size: 13px; outline: none; }
-.inv-form input:focus, .inv-form select:focus { border-color: #4facfe; }
-.inv-btn { padding: 8px 18px; background: linear-gradient(135deg, #4facfe, #00f2fe); color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.inv-btn:hover { box-shadow: 0 4px 15px rgba(79,172,254,0.3); }
+.inv-app { max-width: 1100px; margin: 0 auto; }
+.inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
+.inv-card { background: var(--bg-card); border-radius: 12px; padding: 16px; border: 1px solid var(--border-primary); box-shadow: var(--shadow-sm); }
+.inv-card h3 { font-size: var(--font-base); margin: 0 0 2px; color: var(--text-primary); }
+.inv-sku { font-size: var(--font-xs); color: var(--text-muted); }
+.inv-price { font-size: var(--font-sm); font-weight: 700; color: var(--accent); margin: 6px 0; }
+.inv-stock-bar { height: 6px; border-radius: 3px; background: var(--bg-tertiary); margin: 8px 0; overflow: hidden; }
+.inv-stock-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+.inv-stock-text { font-size: var(--font-xs); display: flex; justify-content: space-between; }
+.stock-critical { color: var(--danger); font-weight: 600; }
+.stock-low { color: var(--warning); font-weight: 600; }
+.stock-ok { color: var(--success); font-weight: 600; }
+.inv-form { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--bg-tertiary); border-radius: 10px; margin-bottom: 14px; border: 1px solid var(--border-secondary); }
+.inv-form h3, .inv-form h4 { font-size: var(--font-sm); color: var(--accent); margin: 0; }
+.inv-form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.inv-form label { font-size: var(--font-xs); color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px; }
+.inv-form input, .inv-form select { padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-primary); font-size: var(--font-sm); }
+.inv-btn { padding: 7px 16px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: var(--font-sm); font-weight: 600; cursor: pointer; }
+.inv-btn:hover { background: var(--accent-hover); }
 .inv-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.inv-btn-secondary { background: rgba(255,255,255,0.1); color: #e0e0e0; }
-.inv-btn-secondary:hover { background: rgba(255,255,255,0.15); box-shadow: none; }
-.inv-btn-small { padding: 5px 12px; font-size: 11px; }
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 14px; align-items: center; }
-.step-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.15); transition: all 0.3s; }
-.step-dot.active { background: #4facfe; box-shadow: 0 0 8px rgba(79,172,254,0.5); }
-.step-dot.done { background: #3fb950; }
-.inv-scene { width: 100%; min-height: 400px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); padding: 20px; margin-bottom: 12px; position: relative; overflow: hidden; }
-.inv-shelf { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 16px 0; }
-.inv-box { width: 64px; height: 64px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 28px; transition: all 0.5s; opacity: 0; transform: scale(0); }
-.inv-box.visible { opacity: 1; transform: scale(1); }
-.inv-box-label { font-size: 10px; text-align: center; color: #8892b0; margin-top: 4px; }
-.inv-warehouse { display: flex; gap: 8px; align-items: flex-end; justify-content: center; min-height: 140px; }
-.inv-rack { width: 50px; background: rgba(79,172,254,0.15); border: 1px solid rgba(79,172,254,0.2); border-radius: 4px 4px 0 0; transition: height 0.8s ease-out; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 4px; font-size: 10px; color: #8892b0; }
-.inv-transfer-arrow { font-size: 28px; text-align: center; margin: 8px 0; opacity: 0; transition: all 0.5s; }
-.inv-transfer-arrow.visible { opacity: 1; }
-.inv-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(20,20,40,0.96); border: 2px solid #4facfe; border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.5); animation: popIn 0.4s ease-out; min-width: 200px; }
-@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-.inv-loading { text-align: center; color: #8892b0; padding: 40px; }
-.inv-error { text-align: center; color: #f85149; padding: 16px; }
+.inv-btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-primary); }
+.inv-btn-small { padding: 4px 10px; font-size: var(--font-xs); }
+.inv-msg-ok { color: var(--success); font-size: var(--font-xs); }
+.inv-msg-err { color: var(--danger); font-size: var(--font-xs); }
+.inv-alerts { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.inv-alert { padding: 8px 12px; border-radius: 8px; font-size: var(--font-xs); border-left: 3px solid var(--border-primary); background: var(--bg-tertiary); }
+.inv-alert.LOW_STOCK { border-left-color: var(--warning); }
+.inv-alert.OUT_OF_STOCK { border-left-color: var(--danger); }
+.inv-alert.RESTOCKED, .inv-alert.REORDER_PLACED { border-left-color: var(--success); }
+.step-indicator { display: flex; gap: 6px; justify-content: center; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bg-tertiary); border: 1px solid var(--border-primary); }
+.step-dot.active { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+.step-dot.done { background: var(--success); border-color: var(--success); }
+.inv-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 14px 0; }
+.inv-hud-tile { background: var(--bg-tertiary); border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border-secondary); }
+.inv-hud-tile .num { font-size: var(--font-xl); font-weight: 700; color: var(--accent); }
+.inv-hud-tile .lbl { font-size: var(--font-xs); color: var(--text-muted); }
+.inv-log { font-size: var(--font-xs); color: var(--text-secondary); background: var(--bg-tertiary); border-radius: 8px; padding: 10px 14px; margin-top: 10px; }
 `;
 
-function ProductGrid() {
+// -------------------------------------------------------------- Products tab
+
+function ProductsTab() {
+  const [category, setCategory] = useState('');
   const [products, setProducts] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('');
-  const [selProduct, setSelProduct] = useState(null);
-  const [stockQty, setStockQty] = useState('');
-  const [stockType, setStockType] = useState('INBOUND');
-  const [stockReason, setStockReason] = useState('');
-  const [actionLoading, setActionLoading] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [qty, setQty] = useState('');
+  const [type, setType] = useState('INBOUND');
+  const [reason, setReason] = useState('');
+  const [policy, setPolicy] = useState('EOQ');
   const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newProduct, setNewProduct] = useState({ sku: '', name: '', category: 'ELECTRONICS', unitPrice: '', currentStock: '', reorderLevel: '' });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
-      const [p, s] = await Promise.all([getProducts(filter), getSuppliers()]);
-      setProducts(p); setSuppliers(s);
-    } catch {} finally { setLoading(false); }
-  };
+      const [p, a] = await Promise.all([api.getProducts(category), api.getAlerts()]);
+      setProducts(p);
+      setAlerts(a.slice().reverse().slice(0, 15));
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  }, [category]);
 
-  useEffect(() => { load(); }, [filter]);
-
-  const handleStockUpdate = async () => {
-    if (!stockQty || parseInt(stockQty) < 1) return;
-    setActionLoading(true); setMessage('');
-    try {
-      const res = await updateStock(selProduct.id, parseInt(stockQty), stockType, stockReason);
-      if (res.error) { setMessage(`Error: ${res.error}`); } else {
-        setMessage(`Stock ${stockType === 'INBOUND' ? 'added' : 'removed'} successfully`);
-        setStockQty(''); setStockReason(''); load();
-      }
-    } catch { setMessage('Update failed'); }
-    finally { setActionLoading(false); }
-  };
+  useEffect(() => { load(); }, [load]);
+  usePolling(load, 6000, [category]);
 
   const stockLevel = (p) => {
-    if (p.currentStock <= p.reorderLevel / 2) return 'critical';
+    if (p.currentStock === 0) return 'critical';
     if (p.currentStock <= p.reorderLevel) return 'low';
     return 'ok';
   };
 
-  if (loading) return <div className="inv-loading">Loading products...</div>;
+  const runAction = async (fn, successMsg) => {
+    setBusy(true); setMessage('');
+    try {
+      await fn();
+      setMessage(successMsg);
+      await load();
+    } catch (err) {
+      setMessage(`Error: ${err.message || 'action failed'}`);
+    } finally { setBusy(false); }
+  };
 
   return (
     <div>
-      <div className="inv-form">
-        <h3>Filter & Manage Products</h3>
-        <div className="inv-form-row">
-          <label>Category <select value={filter} onChange={e => setFilter(e.target.value)}><option value="">All</option><option>ELECTRONICS</option><option>CLOTHING</option><option>FOOD</option><option>STATIONERY</option><option>MEDICINE</option></select></label>
-        </div>
+      <div className="inv-form-row" style={{ marginBottom: 14 }}>
+        <label>Category
+          <select value={category} onChange={e => setCategory(e.target.value)}>
+            <option value="">All</option>
+            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </label>
+        <button className="inv-btn inv-btn-secondary" onClick={() => setShowAdd(s => !s)}>{showAdd ? 'Cancel' : '+ Add Product'}</button>
       </div>
 
-      {selProduct && (
-        <div className="inv-form" style={{ border: '1px solid rgba(79,172,254,0.3)' }}>
-          <h3>Update Stock: {selProduct.name}</h3>
+      {showAdd && (
+        <div className="inv-form">
+          <h3>New Product</h3>
           <div className="inv-form-row">
-            <label>Type <select value={stockType} onChange={e => setStockType(e.target.value)}><option value="INBOUND">INBOUND (add)</option><option value="OUTBOUND">OUTBOUND (remove)</option></select></label>
-            <label>Quantity <input type="number" min="1" value={stockQty} onChange={e => setStockQty(e.target.value)} /></label>
-            <label>Reason <input value={stockReason} onChange={e => setStockReason(e.target.value)} placeholder="e.g. Supplier restock" /></label>
-            <button className="inv-btn" onClick={handleStockUpdate} disabled={actionLoading}>{actionLoading ? '...' : 'Update Stock'}</button>
-            <button className="inv-btn inv-btn-secondary" onClick={() => { setSelProduct(null); setMessage(''); }}>Cancel</button>
+            <label>SKU <input value={newProduct.sku} onChange={e => setNewProduct({ ...newProduct, sku: e.target.value })} /></label>
+            <label>Name <input value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} /></label>
+            <label>Category
+              <select value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })}>
+                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </label>
+            <label>Unit Price <input type="number" value={newProduct.unitPrice} onChange={e => setNewProduct({ ...newProduct, unitPrice: e.target.value })} /></label>
+            <label>Initial Stock <input type="number" value={newProduct.currentStock} onChange={e => setNewProduct({ ...newProduct, currentStock: e.target.value })} /></label>
+            <label>Reorder Level <input type="number" value={newProduct.reorderLevel} onChange={e => setNewProduct({ ...newProduct, reorderLevel: e.target.value })} /></label>
+            <button className="inv-btn" disabled={busy} onClick={() => runAction(() => api.addProduct({
+              sku: newProduct.sku, name: newProduct.name, category: newProduct.category,
+              unitPrice: Number(newProduct.unitPrice), currentStock: Number(newProduct.currentStock),
+              reorderLevel: Number(newProduct.reorderLevel), supplierId: 1
+            }), 'Product added').then(() => setShowAdd(false))}>Add</button>
           </div>
-          {message && <div style={{ fontSize: 13, color: message.includes('Error') ? '#f85149' : '#3fb950' }}>{message}</div>}
         </div>
       )}
 
-      <div className="inv-grid">
-        {products.map(p => {
-          const level = stockLevel(p);
-          const pct = Math.min(100, (p.currentStock / (p.reorderLevel * 2)) * 100);
-          const barColor = level === 'critical' ? '#f85149' : level === 'low' ? '#d29922' : '#3fb950';
-          return (
-            <div key={p.id} className="inv-card">
-              <h3>{p.name}</h3>
-              <div className="sku">{p.sku} • {p.category}</div>
-              <div className="inv-price">₹{p.unitPrice.toFixed(2)}</div>
-              <div className="inv-stock-bar"><div className="inv-stock-fill" style={{ width: `${pct}%`, background: barColor }} /></div>
-              <div className="inv-stock-text">
-                <span className={level === 'critical' ? 'stock-critical' : level === 'low' ? 'stock-low' : 'stock-ok'}>Stock: {p.currentStock}</span>
-                <span style={{ color: '#5a6785' }}>Reorder: {p.reorderLevel}</span>
+      {selected && (
+        <div className="inv-form">
+          <h3>Manage: {selected.name}</h3>
+          <div className="inv-form-row">
+            <label>Type
+              <select value={type} onChange={e => setType(e.target.value)}>
+                <option value="INBOUND">INBOUND (add)</option>
+                <option value="OUTBOUND">OUTBOUND (remove)</option>
+              </select>
+            </label>
+            <label>Quantity <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)} /></label>
+            <label>Reason <input value={reason} onChange={e => setReason(e.target.value)} placeholder="e.g. Supplier restock" /></label>
+            <button className="inv-btn" disabled={busy || !qty} onClick={() => runAction(
+              () => api.updateStock(selected.id, Number(qty), type, reason),
+              `Stock ${type === 'INBOUND' ? 'added' : 'removed'}`
+            )}>Update Stock</button>
+          </div>
+          <div className="inv-form-row">
+            <label>Reorder Policy
+              <select value={policy} onChange={e => setPolicy(e.target.value)}>
+                {POLICIES.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </label>
+            <button className="inv-btn inv-btn-secondary" disabled={busy} onClick={() => runAction(
+              () => api.reorder(selected.id, policy), `Reorder placed via ${policy}`
+            )}>Trigger Reorder</button>
+            <button className="inv-btn-secondary inv-btn" onClick={() => { setSelected(null); setMessage(''); }}>Close</button>
+          </div>
+          {message && <div className={message.startsWith('Error') ? 'inv-msg-err' : 'inv-msg-ok'}>{message}</div>}
+        </div>
+      )}
+
+      {loading ? <p>Loading products...</p> : (
+        <div className="inv-grid">
+          {products.map(p => {
+            const level = stockLevel(p);
+            const pct = Math.min(100, (p.currentStock / Math.max(p.reorderLevel * 2, 1)) * 100);
+            const barVar = level === 'critical' ? 'var(--danger)' : level === 'low' ? 'var(--warning)' : 'var(--success)';
+            return (
+              <div key={p.id} className="inv-card">
+                <h3>{p.name}</h3>
+                <div className="inv-sku">{p.sku} · {p.category}</div>
+                <div className="inv-price">₹{p.unitPrice.toFixed(2)}</div>
+                <div className="inv-stock-bar"><div className="inv-stock-fill" style={{ width: `${pct}%`, background: barVar }} /></div>
+                <div className="inv-stock-text">
+                  <span className={level === 'critical' ? 'stock-critical' : level === 'low' ? 'stock-low' : 'stock-ok'}>Stock: {p.currentStock}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Reorder: {p.reorderLevel}</span>
+                </div>
+                <button className="inv-btn inv-btn-small" style={{ marginTop: 8, width: '100%' }}
+                  onClick={() => { setSelected(p); setQty(''); setType('INBOUND'); setReason(''); setMessage(''); }}>
+                  Manage
+                </button>
               </div>
-              <button className="inv-btn inv-btn-small" style={{ marginTop: 8, width: '100%' }} onClick={() => { setSelProduct(p); setStockQty(''); setStockType('INBOUND'); setStockReason(''); setMessage(''); }}>Update Stock</button>
+            );
+          })}
+          {products.length === 0 && <p>No products found</p>}
+        </div>
+      )}
+
+      <div className="inv-form">
+        <h4>Recent Stock Alerts</h4>
+        <div className="inv-alerts">
+          {alerts.length === 0 && <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>No alerts yet</span>}
+          {alerts.map(a => (
+            <div key={a.id} className={`inv-alert ${a.type}`}>
+              <strong>{a.type.replace(/_/g, ' ')}</strong> — {a.message}
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
-      {products.length === 0 && <div className="inv-loading">No products found</div>}
     </div>
   );
 }
 
-function AnimatedFlow() {
-  const [step, setStep] = useState(0);
+// ----------------------------------------------------------- Simulation tab
+
+const SIM_STEPS = [
+  'Reset sandbox', 'View seeded stock', 'Sell some units', 'Cross the low-stock line',
+  'Sell out completely', 'Restock above the line', 'Trigger an auto-reorder', 'Race N buyers for the last units'
+];
+
+function SimulationTab() {
+  const [step, setStep] = useState(-1);
   const [products, setProducts] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [selProduct, setSelProduct] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [restockQty, setRestockQty] = useState(20);
-  const [sellQty, setSellQty] = useState(5);
-  const [transferQty, setTransferQty] = useState(3);
-  const [popup, setPopup] = useState(null);
-  const [showBoxes, setShowBoxes] = useState(0);
-  const [rackHeights, setRackHeights] = useState([0, 0, 0, 0]);
-  const mountedRef = useRef(true);
-  const steps = ['Browse', 'Restock', 'Sell', 'Transfer', 'Done'];
+  const [target, setTarget] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [log, setLog] = useState('Press Start to reset the isolated sim sandbox.');
+  const [raceResult, setRaceResult] = useState(null);
+  const [alerts, setAlerts] = useState([]);
 
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  const reset = () => {
-    setStep(0); setProducts([]); setSelProduct(null); setLoading(false);
-    setError(''); setRestockQty(20); setSellQty(5); setTransferQty(3);
-    setPopup(null); setShowBoxes(0); setRackHeights([0, 0, 0, 0]);
+  const refreshState = async () => {
+    const state = await api.simState();
+    setProducts(state.products);
+    setAlerts(state.alerts || []);
+    return state;
   };
 
-  const startSim = async () => {
-    setError('');
+  const currentProduct = () => products.find(p => p.id === target?.id) || target;
+
+  const doReset = async () => {
+    setBusy(true); setRaceResult(null);
     try {
-      const [p, s] = await Promise.all([getProducts(), getSuppliers()]);
-      if (!mountedRef.current) return;
-      setProducts(p); setSuppliers(s);
-      setSelProduct(p[0]);
-      setStep(1);
-      for (let i = 0; i <= Math.min(6, p.length); i++) {
-        await new Promise(r => setTimeout(r, 300));
-        if (!mountedRef.current) return;
-        setShowBoxes(i);
+      await api.simReset();
+      const state = await refreshState();
+      const pick = state.products.find(p => p.currentStock > 5) || state.products[0];
+      setTarget(pick);
+      setStep(0);
+      setLog(`Sandbox reset. ${state.products.length} products seeded. Tracking "${pick.name}" (stock=${pick.currentStock}, reorder level=${pick.reorderLevel}).`);
+    } catch (err) { setLog(`Reset failed: ${err.message}`); }
+    finally { setBusy(false); }
+  };
+
+  const doStep = async (n) => {
+    setBusy(true);
+    try {
+      const p = currentProduct();
+      if (n === 1) {
+        await refreshState();
+        setLog(`Viewing ${products.length} seeded products in the isolated sim repository — separate from live data.`);
+      } else if (n === 2) {
+        await api.simSell(p.id, 2);
+        await refreshState();
+        setLog(`Sold 2 units of "${p.name}". Stock now ${currentProduct()?.currentStock ?? '?'}.`);
+      } else if (n === 3) {
+        const before = currentProduct();
+        const toSell = Math.max(before.currentStock - before.reorderLevel + 1, 1);
+        await api.simSell(p.id, toSell);
+        await refreshState();
+        setLog(`Sold ${toSell} units, crossing below the reorder level — a LOW_STOCK alert should now appear below.`);
+      } else if (n === 4) {
+        const before = currentProduct();
+        if (before.currentStock > 0) {
+          await api.simSell(p.id, before.currentStock);
+        }
+        await refreshState();
+        setLog(`Sold the remaining stock to zero — an OUT_OF_STOCK alert should now appear.`);
+      } else if (n === 5) {
+        await api.simRestock(p.id, 40);
+        await refreshState();
+        setLog(`Restocked +40 units, crossing back above the reorder level — a RESTOCKED alert should now appear.`);
+      } else if (n === 6) {
+        const movement = await api.simReorder(p.id, 'EOQ');
+        await refreshState();
+        setLog(`Auto-reorder via EOQ policy placed for +${movement.quantity} units — a REORDER_PLACED alert should now appear.`);
+      } else if (n === 7) {
+        const before = currentProduct();
+        const buyers = 10;
+        // sell down to a small number first so the race is visibly contended
+        if (before.currentStock > 3) {
+          await api.simSell(p.id, before.currentStock - 3);
+        }
+        const result = await api.simRace(p.id, buyers);
+        setRaceResult(result);
+        await refreshState();
+        setLog(`${buyers} buyers raced for the last ${result.remainingStock + result.succeeded} units of "${result.product}": ${result.succeeded} succeeded, ${result.rejected} rejected, ${result.remainingStock} remain — the per-product lock decided the outcome, not luck.`);
       }
-    } catch { if (mountedRef.current) setError('Failed to load products'); }
+      setStep(n);
+    } catch (err) {
+      setLog(`Step failed: ${err.message}`);
+    } finally { setBusy(false); }
   };
 
-  const restockAction = async () => {
-    if (!selProduct) return; setError(''); setLoading(true);
-    try {
-      const res = await updateStock(selProduct.id, restockQty, 'INBOUND', 'Supplier restock');
-      if (!mountedRef.current) return;
-      if (res.error) { setError(res.error); setLoading(false); return; }
-      setPopup({ title: '📥 Restock Complete', detail: `+${restockQty} units of ${selProduct.name} added to warehouse.`, color: '#3fb950' });
-      const newRack = [...rackHeights]; newRack[0] = Math.min(100, newRack[0] + 40); setRackHeights(newRack);
-      setLoading(false); setStep(3);
-      const [p] = await Promise.all([getProducts()]);
-      if (mountedRef.current) setProducts(p);
-    } catch { if (mountedRef.current) { setError('Restock failed'); setLoading(false); } }
-  };
-
-  const sellAction = async () => {
-    if (!selProduct) return; setError(''); setLoading(true);
-    try {
-      const res = await updateStock(selProduct.id, sellQty, 'OUTBOUND', 'Customer purchase');
-      if (!mountedRef.current) return;
-      if (res.error) { setError(res.error); setLoading(false); return; }
-      setPopup({ title: '🛒 Sale Complete', detail: `-${sellQty} units of ${selProduct.name} sold.`, color: '#d29922' });
-      const newRack = [...rackHeights]; newRack[1] = Math.min(100, newRack[1] + 30); setRackHeights(newRack);
-      setLoading(false); setStep(4);
-      const [p] = await Promise.all([getProducts()]);
-      if (mountedRef.current) setProducts(p);
-    } catch { if (mountedRef.current) { setError('Sale failed'); setLoading(false); } }
-  };
-
-  const transferAction = async () => {
-    if (!selProduct) return; setError(''); setLoading(true);
-    try {
-      const res = await transferStock(selProduct.id, 'Warehouse A', 'Warehouse B', transferQty);
-      if (!mountedRef.current) return;
-      if (res.error) { setError(res.error); setLoading(false); return; }
-      setPopup({ title: '🚚 Transfer Complete', detail: `${transferQty} units moved from Warehouse A to B.`, color: '#4facfe' });
-      const newRack = [...rackHeights]; newRack[2] = Math.min(100, newRack[2] + 25); newRack[3] = Math.min(100, newRack[3] + 25); setRackHeights(newRack);
-      setLoading(false); setStep(5);
-    } catch { if (mountedRef.current) { setError('Transfer failed'); setLoading(false); } }
-  };
-
-  const boxItems = products.slice(0, 6);
-  const boxColors = ['#4facfe', '#00f2fe', '#3fb950', '#d29922', '#f85149', '#a855f7'];
+  const p = currentProduct();
 
   return (
     <div>
       <div className="step-indicator">
-        {steps.map((s, i) => (
+        {SIM_STEPS.map((s, i) => (
           <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
         ))}
-        <span style={{ fontSize: 11, color: '#5a6785', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
+          {step >= 0 ? `Step ${step + 1}/8: ${SIM_STEPS[step]}` : 'Not started'}
+        </span>
       </div>
 
-      <div className="inv-scene">
-        {/* Product boxes */}
-        <div className="inv-shelf">
-          {boxItems.map((p, i) => (
-            <div key={p.id} style={{ textAlign: 'center' }}>
-              <div className={`inv-box ${i < showBoxes ? 'visible' : ''}`} style={{ background: boxColors[i % boxColors.length] + '22', border: `2px solid ${boxColors[i % boxColors.length]}44`, transitionDelay: `${i * 0.1}s` }}>
-                {['📦', '📱', '👕', '🎧', '📚', '🧴'][i % 6]}
-              </div>
-              <div className="inv-box-label">{p.name?.split(' ').slice(0, 2).join(' ')}</div>
+      {p && (
+        <div className="inv-hud">
+          <div className="inv-hud-tile"><div className="num">{p.currentStock}</div><div className="lbl">Current Stock</div></div>
+          <div className="inv-hud-tile"><div className="num">{p.reorderLevel}</div><div className="lbl">Reorder Level</div></div>
+          <div className="inv-hud-tile"><div className="num">{alerts.length}</div><div className="lbl">Alerts Fired</div></div>
+          {raceResult && <>
+            <div className="inv-hud-tile"><div className="num" style={{ color: 'var(--success)' }}>{raceResult.succeeded}</div><div className="lbl">Race: Succeeded</div></div>
+            <div className="inv-hud-tile"><div className="num" style={{ color: 'var(--danger)' }}>{raceResult.rejected}</div><div className="lbl">Race: Rejected</div></div>
+          </>}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 12 }}>
+        {step === -1 && <button className="inv-btn" disabled={busy} onClick={doReset}>▶ Start Simulation</button>}
+        {step >= 0 && step < SIM_STEPS.length - 1 && (
+          <button className="inv-btn" disabled={busy} onClick={() => doStep(step + 1)}>
+            Next: {SIM_STEPS[step + 1]}
+          </button>
+        )}
+        {step === SIM_STEPS.length - 1 && (
+          <button className="inv-btn inv-btn-secondary" onClick={doReset}>↺ Run Again</button>
+        )}
+      </div>
+
+      <div className="inv-log">{log}</div>
+
+      <div className="inv-form" style={{ marginTop: 14 }}>
+        <h4>Sim Alerts ({alerts.length})</h4>
+        <div className="inv-alerts">
+          {alerts.slice().reverse().slice(0, 10).map(a => (
+            <div key={a.id} className={`inv-alert ${a.type}`}>
+              <strong>{a.type.replace(/_/g, ' ')}</strong> — {a.message}
             </div>
           ))}
         </div>
-
-        {/* Warehouse racks */}
-        {step >= 2 && (
-          <div className="inv-warehouse">
-            {['Whse A', 'Whse B', 'Whse C', 'Whse D'].map((name, i) => (
-              <div key={name} style={{ textAlign: 'center' }}>
-                <div className="inv-rack" style={{ height: Math.max(20, rackHeights[i]), width: 45 }}>{name}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Transfer arrow */}
-        {step >= 4 && <div className={`inv-transfer-arrow ${step >= 4 ? 'visible' : ''}`}>🚚 ⟶</div>}
-
-        {/* Popups */}
-        {popup && step < 5 && (
-          <div className="inv-popup" style={{ borderColor: popup.color }}>
-            <div style={{ fontSize: 32 }}>{popup.title.split(' ')[0]}</div>
-            <div style={{ fontWeight: 700, color: popup.color, fontSize: 14, marginTop: 4 }}>{popup.title}</div>
-            <div style={{ fontSize: 12, color: '#8892b0', marginTop: 8 }}>{popup.detail}</div>
-            <button className="inv-btn inv-btn-small" style={{ marginTop: 10 }} onClick={() => setPopup(null)}>OK</button>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="inv-popup" style={{ borderColor: '#3fb950' }}>
-            <div style={{ fontSize: 36 }}>✅</div>
-            <div style={{ fontWeight: 700, color: '#3fb950' }}>All Operations Complete!</div>
-            <div style={{ marginTop: 6, fontSize: 12, color: '#8892b0' }}>Inventory managed successfully</div>
-            <button onClick={reset} className="inv-btn" style={{ marginTop: 10 }}>🔄 New</button>
-          </div>
-        )}
       </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-        {step === 0 && <button onClick={startSim} className="inv-btn" style={{ padding: '10px 28px', fontSize: 14 }}>📦 Browse Inventory</button>}
-        {step === 1 && <button onClick={() => setStep(2)} className="inv-btn" disabled={loading}>📦 Browse → Ready</button>}
-        {step === 2 && <button onClick={restockAction} disabled={loading} className="inv-btn">📥 Restock Product {loading ? '...' : `(+${restockQty})`}</button>}
-        {step === 3 && <button onClick={sellAction} disabled={loading} className="inv-btn">🛒 Sell Item {loading ? '...' : `(-${sellQty})`}</button>}
-        {step === 4 && <button onClick={transferAction} disabled={loading} className="inv-btn">🚚 Transfer Stock {loading ? '...' : ''}</button>}
-      </div>
-
-      {error && <div className="inv-error">{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: 'rgba(255,255,255,0.1)', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
     </div>
   );
 }
 
-export default function InventoryPage() {
-  const [tab, setTab] = useState('products');
-  const tabs = ['products', 'simulation', 'diagram', 'design'];
-  const tabLabels = { products: 'Products', simulation: 'Simulation', diagram: 'Class Diagram', design: 'Design Details' };
+// ---------------------------------------------------------------------- page
 
+export default function InventoryPage() {
   return (
-    <div className="inv-app">
+    <LldPage module="inventory" title="Inventory Management" icon="📦" tabs={[
+      { id: 'products', label: '📋 Products & Alerts' },
+      { id: 'simulation', label: '🕹️ Interactive Simulation' },
+      { id: 'diagram', label: 'Class Diagram' },
+      { id: 'design', label: 'Design Details' }
+    ]}>
       <style>{styles}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header className="inv-header">
-        <h1>Inventory Management</h1>
-        <p>Stock tracking, movements & warehouse transfers</p>
-      </header>
-      <nav className="inv-nav">
-        {tabs.map(t => (
-          <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{tabLabels[t]}</button>
-        ))}
-      </nav>
-      <main className="inv-main">
-        {tab === 'products' && <ProductGrid />}
-        {tab === 'simulation' && <AnimatedFlow />}
-        {tab === 'diagram' && <ClassDiagram module="inventory" />}
-        {tab === 'design' && <DesignDetails module="inventory" />}
-      </main>
-    </div>
+      {(activeTab) => (
+        <div className="inv-app">
+          {activeTab === 'products' && <ProductsTab />}
+          {activeTab === 'simulation' && <SimulationTab />}
+        </div>
+      )}
+    </LldPage>
   );
 }
