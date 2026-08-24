@@ -1,11 +1,16 @@
 package com.lld.chess.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter
+@Setter
 public class Game {
     private long id;
-    private String[][] board;
+    private Piece[][] board;
     private Player[] players;
     private int currentPlayerIndex;
     private GameStatus status;
@@ -13,6 +18,8 @@ public class Game {
     private List<Move> moveHistory;
     private boolean[] kingMoved;
     private boolean[] rookMoved;
+    /** Square a pawn skipped over on the immediately preceding double-step, or null if none. */
+    private int[] enPassantTarget;
 
     public Game() {}
 
@@ -24,34 +31,23 @@ public class Game {
         this.moveHistory = new ArrayList<>();
         this.kingMoved = new boolean[2];
         this.rookMoved = new boolean[4];
-        this.board = new String[8][8];
+        this.board = new Piece[8][8];
+        this.enPassantTarget = null;
         initBoard();
     }
 
     private void initBoard() {
-        String[] backRank = {"bR","bN","bB","bQ","bK","bB","bN","bR"};
+        PieceType[] backRank = {PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP, PieceType.QUEEN,
+                PieceType.KING, PieceType.BISHOP, PieceType.KNIGHT, PieceType.ROOK};
         for (int c = 0; c < 8; c++) {
-            board[0][c] = backRank[c];
-            board[1][c] = "bP";
-            board[6][c] = "wP";
-            board[7][c] = backRank[c].replace('b', 'w');
+            board[0][c] = Piece.of(Color.BLACK, backRank[c]);
+            board[1][c] = Piece.of(Color.BLACK, PieceType.PAWN);
+            board[6][c] = Piece.of(Color.WHITE, PieceType.PAWN);
+            board[7][c] = Piece.of(Color.WHITE, backRank[c]);
         }
     }
 
-    public long getId() { return id; }
-    public void setId(long id) { this.id = id; }
-    public String[][] getBoard() { return board; }
-    public void setBoard(String[][] board) { this.board = board; }
-    public Player[] getPlayers() { return players; }
-    public void setPlayers(Player[] players) { this.players = players; }
-    public int getCurrentPlayerIndex() { return currentPlayerIndex; }
-    public void setCurrentPlayerIndex(int currentPlayerIndex) { this.currentPlayerIndex = currentPlayerIndex; }
-    public GameStatus getStatus() { return status; }
-    public void setStatus(GameStatus status) { this.status = status; }
-    public String getWinner() { return winner; }
-    public void setWinner(String winner) { this.winner = winner; }
-    public List<Move> getMoveHistory() { return moveHistory; }
-    public void setMoveHistory(List<Move> moveHistory) { this.moveHistory = moveHistory; }
-    public boolean[] getKingMoved() { return kingMoved; }
-    public boolean[] getRookMoved() { return rookMoved; }
+    public Color currentColor() {
+        return Color.fromIndex(currentPlayerIndex);
+    }
 }

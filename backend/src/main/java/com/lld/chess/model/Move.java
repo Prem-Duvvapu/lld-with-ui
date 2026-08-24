@@ -1,42 +1,32 @@
 package com.lld.chess.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/** One applied half-move, recorded for history/replay and for en-passant timing. */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Move {
     private int fromRow;
     private int fromCol;
     private int toRow;
     private int toCol;
-    private String piece;
-    private String capturedPiece;
-    private boolean isCastling;
-    private boolean isEnPassant;
-    private boolean isPromotion;
+    private Piece piece;
+    private Piece capturedPiece;
+    private PieceType promotedTo;
+    private boolean castling;
+    private boolean enPassant;
+    private boolean promotion;
 
-    public Move() {}
-
-    public Move(int fromRow, int fromCol, int toRow, int toCol, String piece) {
+    public Move(int fromRow, int fromCol, int toRow, int toCol, Piece piece) {
         this.fromRow = fromRow;
         this.fromCol = fromCol;
         this.toRow = toRow;
         this.toCol = toCol;
         this.piece = piece;
     }
-
-    public int getFromRow() { return fromRow; }
-    public void setFromRow(int fromRow) { this.fromRow = fromRow; }
-    public int getFromCol() { return fromCol; }
-    public void setFromCol(int fromCol) { this.fromCol = fromCol; }
-    public int getToRow() { return toRow; }
-    public void setToRow(int toRow) { this.toRow = toRow; }
-    public int getToCol() { return toCol; }
-    public void setToCol(int toCol) { this.toCol = toCol; }
-    public String getPiece() { return piece; }
-    public void setPiece(String piece) { this.piece = piece; }
-    public String getCapturedPiece() { return capturedPiece; }
-    public void setCapturedPiece(String capturedPiece) { this.capturedPiece = capturedPiece; }
-    public boolean isCastling() { return isCastling; }
-    public void setCastling(boolean castling) { isCastling = castling; }
-    public boolean isEnPassant() { return isEnPassant; }
-    public void setEnPassant(boolean enPassant) { isEnPassant = enPassant; }
-    public boolean isPromotion() { return isPromotion; }
-    public void setPromotion(boolean promotion) { isPromotion = promotion; }
 }

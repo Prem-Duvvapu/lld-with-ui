@@ -741,6 +741,29 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 ---
 
+### 16. Chess
+
+#### Key Features
+- **Strategy Pattern for Move Legality**: one `PieceMoveStrategy` per piece type (Pawn, Rook, Knight, Bishop, Queen, King), resolved by `PieceMoveStrategyFactory` via an `EnumMap` — adding a piece type is a new `@Component`, not a new `switch` arm.
+- **Command Pattern for Move Application**: `ApplyMoveCommand` applies an already-validated move (board write, castling's rook hop, en passant's off-square capture, promotion's piece swap) as a reversible unit with a working `undo()`, decoupled from the legality checks.
+- **State Machine for Game Status**: `GameStatus` (`ACTIVE`/`CHECK`/`CHECKMATE`/`STALEMATE`/`DRAW`/`RESIGNED`) declares its legal transitions in a `Map<GameStatus, Set<GameStatus>>` with `isTerminal()`, the same shape as `uber.model.RideStatus`.
+- **Full Rule Coverage**: pins (a shape-legal move that exposes the mover's own king throws a distinct `MoveIntoCheckException`), castling (kingside/queenside with every illegality condition — moved king/rook, blocked squares, in check, passing through or landing on an attacked square), en passant (with correct one-move expiry), and pawn promotion (defaulting to queen, or a caller-chosen piece).
+- **Per-Game Locking**: a `ReentrantLock` per game id serializes concurrent move requests for the *same* game while unrelated games proceed fully in parallel.
+- **Isolated Simulation Sandbox**: `/api/chess/sim/*` backed by a second `ChessRepository`, playing a scripted Scholar's Mate against a sandbox game that can never touch a real one.
+
+#### API Endpoints
+- `POST /api/chess/games`
+- `GET /api/chess/games/{id}`
+- `POST /api/chess/games/{id}/move`
+- `GET /api/chess/games/{id}/valid-moves`
+- `POST /api/chess/games/{id}/resign`
+- `POST /api/chess/sim/reset`
+- `GET /api/chess/sim/game`
+- `GET /api/chess/sim/log`
+- `POST /api/chess/sim/move`
+
+---
+
 ## Tech Stack
 
 - **Backend**: Java 17, Spring Boot 3.2, Maven (Single Spring Boot JAR, Port 9090)
