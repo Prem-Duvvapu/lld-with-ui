@@ -220,6 +220,21 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 - 5 tabs: 🛫 Flight Search & Seat Map, 🎫 My Bookings & Refunds, 🕹️ Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Interactive 2D aircraft cabin layout with seat classes, window/aisle indicators, hold countdown timer (`⏱ 04:59`), multi-passenger booking checkout, and simulation sandbox.
 
+## Concert Ticket Booking Module
+### Backend
+- `ConcertTicketInitializer` + `ConcertTicketSeedData`: seeds 2 venues (Wembley Arena, Madison Square Garden) and 3 events, each with its own VIP/GOLD/SILVER-or-GENERAL seat map generated from the venue's `Section` templates — seats are indexed per event (`eventId -> seatId -> Seat`), never shared across two events at the same venue.
+- `ConcertTicketService`: facade over `selectSeats`, `confirmBooking`, `cancelBooking`, `releaseExpiredHolds` (`@Scheduled`), plus an isolated `/sim/*` sandbox on a second `ConcertTicketRepository`/`SeatLockManager` pair.
+- Booking workflow: `selectSeats(eventId, seatIds, userId)` creates a **PENDING booking** the instant seats are held (not just a seat-level lock) with a 10-minute `holdExpiresAt`; `confirmBooking` re-validates the hold, charges via `PaymentProcessor`, and flips seats HELD ➔ BOOKED; `cancelBooking` releases a PENDING hold for free or, for a CONFIRMED booking, routes the refund through whichever `CancellationPolicy` the days-until-event resolve to.
+- Concurrency & Deadlock Prevention: `SeatLockManager` — adapted from `airline`/`movieticket`'s `SeatLockManager` — using a fair per-seat `ReentrantLock` (`eventId:seatId`), ascending seat-id lock acquisition for multi-seat holds, and availability **re-read inside the lock** to close the check-then-act race. `expireStaleHolds` is the TTL reaper sweep (via `tryLock`, never blocks) that flips an expired HELD seat back to AVAILABLE.
+- Strategy Pattern: `CancellationPolicy` interface with `FullRefundPolicy` (≥7 days: 100%), `PartialRefundPolicy` (2–6 days: 50%), `NoRefundPolicy` (<2 days: 0%), resolved by `CancellationPolicyFactory.resolve(eventDateTime, cancelTime)`.
+- Custom Exceptions: `SeatNotAvailableException` (409), `HoldExpiredException` (410), `BookingFailedException` (422), `InvalidCancellationException` (400), `EventNotFoundException` (404), `VenueNotFoundException` (404), `BookingNotFoundException` (404). `ConcertTicketException` is the module base (no status of its own — listed in `DomainExceptionContractTest`'s `BASES` allowlist alongside `AirlineException`/`ZomatoException`).
+- Tests: `ConcertTicketServiceTest` (full selectSeats → confirmBooking → cancelBooking / releaseExpiredHolds workflow, idempotency, payment-failure rollback, refund tiers), `CancellationPolicyTest` (each policy plus factory day-boundary resolution), `ConcertTicketRepositoryTest` (per-event seat isolation, id generators), `ConcertTicketConcurrencyTest` (N customers racing for the last seat — exactly one wins; 300-round repeated race; disjoint holds all succeed in parallel; expired hold genuinely frees the seat for a new hold; reaper sweep behaviour).
+
+### Frontend
+- 5 tabs: 🎫 Browse & Book, 📜 My Bookings, 🕹️ Interactive 2D Simulation, 📐 Class Diagram, 📋 Design Details.
+- Browse & Book: live seat map polling via `usePolling`, 10-minute hold countdown driven by the server's `holdExpiresAt` (not a client-side guess), payment method selector, and an e-ticket card on confirmation.
+- 8-step Interactive 2D Simulation calling the isolated `/api/concert-ticket/sim/*` endpoints: reset sandbox, load seat map, two customers racing for one seat (real concurrent requests — one is genuinely rejected), winner confirms payment, a third customer holds a different seat, the TTL reaper sweeps that expired hold, a fourth customer instantly re-holds the freed seat, then cancel + inspect the full event log with seat-status snapshots.
+
 ## Stock Brokerage Module
 ### Backend
 - `StockBrokerService`: Singleton facade managing stocks, accounts, order books, and real-time observer dispatching.

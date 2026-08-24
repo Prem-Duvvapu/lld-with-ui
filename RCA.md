@@ -15,6 +15,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-005](#rca-005-mismatched-prop-names-and-a-missing-route-alias-rendering-blank-pages) | 2026-08-20 | Frontend / Wiring | `lldKey` / `moduleKey` prop typos and a missing route alias produced blank tabs and a blank page | Resolved |
 | [RCA-006](#rca-006-check-then-act-race-assigning-one-uber-driver-to-two-riders) | 2026-08-21 | Backend / Uber / Concurrency | Unsynchronised read-then-write in driver assignment let two riders both claim the same driver | Resolved |
 | [RCA-007](#rca-007-zomato-branch-shipped-non-compiling-a-dead-applicationcontext-and-an-untested-agent-leak) | 2026-08-22 | Backend / Zomato / Build & Concurrency | Two build blockers took down all 30 modules' `ApplicationContext`, and the pool-scan agent-assignment path shipped with zero concurrency coverage for a real leaked-agent race | Resolved |
+| [RCA-008](#rca-008-fresh-git-worktrees-start-with-zero-installed-frontend-packages) | 2026-08-24 | Frontend / Environment / Git Worktrees | A fresh `git worktree` had no `frontend/node_modules`, so `vitest`/`vite build` failed with a misleading `ERR_MODULE_NOT_FOUND` that looked like a broken `vite.config.js` rather than a missing install | Resolved |
 
 ---
 
@@ -602,3 +603,78 @@ grep -n "assignAgent(" backend/src/test/java/com/lld/zomato/ZomatoConcurrencyTes
    state — so the fix there was conditional rendering that tells the truth in both states, matching
    the pattern the same file already used for the equivalent non-sim flow, rather than another
    fabricated placeholder.
+
+---
+
+## RCA-008: Fresh Git Worktrees Start With Zero Installed Frontend Packages
+
+**Severity:** Low
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `frontend/` in any `git worktree add`-created checkout (e.g.
+`.claude/worktrees/agent-af4c7738782df187c`) — build/test tooling only, no application code.
+
+### 1. Overview & Severity
+Building the `concert-ticket` module in an isolated worktree, the first `npx vitest run` failed
+before a single test file loaded. The error pointed at `vite.config.js` itself, which looked like a
+config regression rather than what it actually was: the worktree simply had no `node_modules`
+directory at all. Severity is Low — this costs a few minutes of misdirected debugging per fresh
+worktree and self-resolves with one `npm install`, it is not a code defect and never reaches a
+shipped build — but it is worth recording because the error message actively misleads toward the
+wrong file.
+
+### 2. Symptoms & Error Logs
+```
+$ npx vitest run
+vite.config.js (1:492) [UNRESOLVED_IMPORT] Could not resolve 'vite' in vite.config.js
+vite.config.js (2:18) [UNRESOLVED_IMPORT] Could not resolve '@vitejs/plugin-react' in vite.config.js
+   import react from '@vitejs/plugin-react'
+                      ─────────┬──────────
+                                ╰──────────── Module not found, treating it as an external dependency
+
+failed to load config from .../frontend/vite.config.js
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'vite' imported from
+  .../node_modules/.vite-temp/vite.config.js.timestamp-....mjs
+```
+Nothing here says "package not installed" — `ERR_MODULE_NOT_FOUND` against a `.vite-temp` shim and
+two `[UNRESOLVED_IMPORT]` warnings on the two lines of `vite.config.js` read exactly like a broken
+or version-mismatched config, not a missing `npm install`.
+
+### 3. Root Cause
+`node_modules` is gitignored, so it is not part of the tracked tree that `git worktree add`
+materializes — a worktree only ever gets the files Git tracks. The main checkout at
+`/mnt/c/Users/Hp/OneDrive/Desktop/lld-with-ui/frontend/node_modules` had packages installed from
+earlier work, but that directory is local to *that* working tree; a second, sibling worktree
+(`.claude/worktrees/agent-af4c7738782df187c`) is a fully independent checkout on disk and does not
+share it — Git worktrees share the `.git` object database, never the ignored working-tree
+directories. Every fresh worktree therefore starts with frontend tooling completely uninstalled
+until `npm install` is run inside that specific worktree's `frontend/`.
+
+### 4. Diagnostic Commands
+```bash
+# Confirm the failure is "nothing installed", not "something broken"
+ls frontend/node_modules 2>&1                 # No such file or directory
+
+# Confirm a sibling checkout does have it, proving this is per-worktree, not repo-wide
+ls /mnt/c/Users/Hp/OneDrive/Desktop/lld-with-ui/frontend/node_modules | head -3
+find .claude/worktrees -maxdepth 3 -iname node_modules -type d   # other worktrees, for comparison
+```
+
+### 5. Step-by-Step Resolution
+1. Ran `npm install` inside this worktree's `frontend/` — added 106 packages in ~12s.
+2. Reran `npx vitest run`: all 3 suites, 250 tests passed.
+3. Reran `npm run build`: succeeded, entry chunk 260.62 kB (well under the 500 kB CI budget),
+   `ConcertTicketPage` landed in its own 21.10 kB lazy chunk.
+4. Verification: green `vitest` run plus a successful `vite build` prove the environment gap was
+   the entire problem — no application or config code was touched to fix this.
+
+### 6. Preventative Measures
+- Documenting this here is itself the guard: the next agent hitting `ERR_MODULE_NOT_FOUND` /
+  `[UNRESOLVED_IMPORT]` pointing at `vite.config.js` in a worktree now has a named incident to
+  match against instead of re-diagnosing a "broken config" from scratch.
+- No code or CI change is applicable — this is inherent to how `git worktree` and `.gitignore`
+  interact, not a bug in this repository. The mitigation is procedural: run `npm install` (and,
+  for the backend, let the first `mvn` invocation populate the local `~/.m2` cache) as the first
+  step in any new worktree before trusting a red test run as a real regression.

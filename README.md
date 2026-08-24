@@ -39,7 +39,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 29 | Online Auction System | Bidding engine | Observer, Strategy |
 | 30 | Restaurant Management | Order & kitchen workflow | State Machine, Factory |
 | 31 | Social Network | Posts & feeds | Graph Model, Observer |
-| 32 | Concert Ticket Booking | Event seats & reservation | Concurrency Lock, State Machine |
+| 32 | [Concert Ticket Booking](#32-concert-ticket-booking) | Event seats & reservation | Per-Seat ReentrantLock, Hold TTL, Strategy (refund policy) |
 | 33 | CricInfo | Live cricket scorecard | Observer Pattern, Event Listener |
 | 34 | Course Registration System | Student enrollment | Strategy, Observer |
 | 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy (Market/Limit), Observer Quotes |
@@ -581,6 +581,30 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/pubsub/subscribers/{id}/messages`
 - `POST /api/pubsub/sim/reset`
 - `POST /api/pubsub/sim/publish`
+
+---
+
+### 32. Concert Ticket Booking
+
+#### Key Features
+- **Per-Seat Lock Granularity**: `ReentrantLock` per seat (`eventId:seatId`), adapted from the airline/movie-ticket `SeatLockManager` pattern, preventing global serialization across a venue's seat map.
+- **PENDING-Booking Hold Lifecycle & TTL**: `selectSeats` creates a visible `PENDING` booking the moment seats are held (`AVAILABLE` ➔ `HELD`, 10-minute TTL) — not just a seat-level lock — so a hold-expiry sweep has a booking record to cancel, not just seats to release.
+- **Deadlock Prevention**: Ascending seat-id lock acquisition ordering for multi-seat holds.
+- **Strategy Pattern for Cancellation Refunds**: `CancellationPolicy` (`FullRefundPolicy` ≥7 days, `PartialRefundPolicy` 2–6 days at 50%, `NoRefundPolicy` <2 days) resolved by `CancellationPolicyFactory` from days-until-event.
+- **Idempotent Payment Confirmation**: `X-Idempotency-Key` on `confirmBooking` returns the cached booking on retry instead of double-charging.
+
+#### API Endpoints
+- `GET /api/concert-ticket/events`
+- `GET /api/concert-ticket/events/{eventId}/seats`
+- `POST /api/concert-ticket/events/{eventId}/select`
+- `POST /api/concert-ticket/bookings/{bookingId}/confirm`
+- `POST /api/concert-ticket/bookings/{bookingId}/cancel`
+- `GET /api/concert-ticket/users/{userId}/bookings`
+- `POST /api/concert-ticket/sim/reset`
+- `POST /api/concert-ticket/sim/select`
+- `POST /api/concert-ticket/sim/confirm`
+- `POST /api/concert-ticket/sim/cancel`
+- `POST /api/concert-ticket/sim/expire`
 
 ---
 
