@@ -40,7 +40,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 30 | Restaurant Management | Order & kitchen workflow | State Machine, Factory |
 | 31 | Social Network | Posts & feeds | Graph Model, Observer |
 | 32 | [Concert Ticket Booking](#32-concert-ticket-booking) | Event seats & reservation | Per-Seat ReentrantLock, Hold TTL, Strategy (refund policy) |
-| 33 | CricInfo | Live cricket scorecard | Observer Pattern, Event Listener |
+| 33 | [CricInfo](#33-cricinfo) | Live cricket scorecard | Observer Pattern (ball-by-ball fan-out), Live Scorecard Projection, Per-Match Lock |
 | 34 | Course Registration System | Student enrollment | Strategy, Observer |
 | 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy (Market/Limit), Observer Quotes |
 | 36 | [Music Streaming Service](#36-music-streaming-service) | Audio catalog & playlists | Strategy (subscription tiers), Factory, Observer, Per-User ReentrantLock |
@@ -638,6 +638,31 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/concert-ticket/sim/confirm`
 - `POST /api/concert-ticket/sim/cancel`
 - `POST /api/concert-ticket/sim/expire`
+
+---
+
+### 33. CricInfo
+
+#### Key Features
+- **Observer Pattern, Ball-by-Ball**: `MatchPublisher` (Subject) fans every `BallEvent` out to four independent observers via a `CopyOnWriteArrayList<BallEventObserver>` — `ScorecardProjectionObserver` folds the ball into the innings' running totals and rebuilds the live scorecard, `PlayerCareerStatsObserver` updates each player's career aggregates, `CommentaryObserver` derives ball-by-ball text, and `BallEventAuditObserver` writes the audit/telemetry log — none aware the others exist.
+- **Live Scorecard Projection**: `Scorecard` is a read-model folded entirely from the raw `Innings.balls` event stream, not re-derived by the client — clients poll `GET /matches/{id}/scorecard` instead of replaying deliveries themselves.
+- **Atomic Per-Match Ball Recording**: `BallRecordingEngine` holds a per-match `ReentrantLock` (looked up by `matchId`, same shape as zomato's per-agent lock) around numbering the ball, appending it, and synchronously publishing to every observer — so two ball events racing for the same match can never interleave into a lost or double-counted run. Verified with a concurrency test comparing N concurrent deliveries against a strictly sequential reference run.
+- **Dynamic Subscribe/Unsubscribe**: Non-core observers (Commentary, PlayerCareerStats, BallAudit) can be unsubscribed and resubscribed from the publisher at runtime via `PUT /observers/{name}` — demonstrated live in the simulation tab, which mutes and un-mutes commentary mid-innings.
+- **Real Cricket State Machine**: `MatchStatus` (`UPCOMING → LIVE → INNINGS_BREAK → LIVE → COMPLETED`, or `ABANDONED`) gates every mutator through one `transition()` method; strike rotation on odd runs, over-completion, the "no consecutive overs" rule, and all-out/overs-exhausted innings completion are all modeled explicitly.
+
+#### API Endpoints
+- `GET /api/cricinfo/teams`, `GET /api/cricinfo/matches`
+- `POST /api/cricinfo/matches`
+- `PUT /api/cricinfo/matches/{id}/toss`
+- `PUT /api/cricinfo/matches/{id}/start`
+- `POST /api/cricinfo/matches/{id}/balls`
+- `PUT /api/cricinfo/matches/{id}/next-innings`
+- `GET /api/cricinfo/matches/{id}/scorecard`
+- `GET /api/cricinfo/matches/{id}/commentary`
+- `GET /api/cricinfo/observers`, `PUT /api/cricinfo/observers/{name}`
+- `POST /api/cricinfo/sim/reset`
+- `POST /api/cricinfo/sim/bowl`
+- `GET /api/cricinfo/sim/telemetry`
 
 ---
 

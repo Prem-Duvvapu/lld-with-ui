@@ -26,6 +26,7 @@ class DomainExceptionContractTest {
             "AirlineException",
             "CarRentalException",
             "ConcertTicketException",
+            "CricinfoException",
             "HotelException",
             "LibraryException",
             "LinkedInException",
