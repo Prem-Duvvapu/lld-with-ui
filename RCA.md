@@ -16,6 +16,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-006](#rca-006-check-then-act-race-assigning-one-uber-driver-to-two-riders) | 2026-08-21 | Backend / Uber / Concurrency | Unsynchronised read-then-write in driver assignment let two riders both claim the same driver | Resolved |
 | [RCA-007](#rca-007-zomato-branch-shipped-non-compiling-a-dead-applicationcontext-and-an-untested-agent-leak) | 2026-08-22 | Backend / Zomato / Build & Concurrency | Two build blockers took down all 30 modules' `ApplicationContext`, and the pool-scan agent-assignment path shipped with zero concurrency coverage for a real leaked-agent race | Resolved |
 | [RCA-008](#rca-008-duplicate-spring-bean-name-across-modules-crashing-the-whole-applicationcontext) | 2026-08-24 | Backend / Car Rental / Spring Wiring | A `PricingStrategyFactory` class name reused from `parkinglot` collided under Spring's default simple-class-name bean naming, aborting `ApplicationContext` startup for every module, not just car-rental | Resolved |
+| [RCA-009](#rca-009-a-one-time-bonus-strategy-re-firing-on-every-subsequent-vote) | 2026-08-24 | Backend / Stack Overflow / Reputation | A `ReputationStrategy` implementation modeled a one-time event as a per-vote calculation, so every vote on an already-accepted answer re-applied the accepted-answer bonus | Resolved |
 
 ---
 
@@ -695,3 +696,100 @@ mvn -o -q test -Dtest='com.lld.config.*Test' 2>&1 | grep -A2 "ConflictingBeanDef
   of bug — it is the one cross-cutting test in the suite that boots the real, fully-scanned
   `ApplicationContext` rather than constructing a service by hand, and it is exactly what caught
   this. No module-specific test could have: the collision is inherently a cross-module property.
+## RCA-009: A One-Time Bonus Strategy Re-Firing on Every Subsequent Vote
+
+**Severity:** Medium
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.stackoverflow.strategy.AcceptedAnswerReputationStrategy` (deleted),
+`com.lld.stackoverflow.service.StackOverflowService.voteAnswer` (original, pre-rewrite)
+
+### 1. Overview & Severity
+`AcceptedAnswerReputationStrategy` modeled the one-time "answer got accepted" reputation bonus as
+a per-vote `ReputationStrategy`, so the bonus was re-applied on *every* subsequent vote cast on an
+already-accepted answer — including downvotes, which should have cost the author reputation
+instead of gaining it. Medium severity: it never crashed or corrupted storage, but it silently
+inflated reputation totals, which are the module's core scoring mechanism and are shown to users
+directly. Caught while writing `VotingServiceTest` for the rewrite, before this behaviour ever
+shipped to the live module's frontend.
+
+### 2. Symptoms & Error Logs
+No exception, no failing endpoint — the bug is arithmetic, not a crash, so nothing in the logs
+flagged it. Working through the original `voteAnswer` by hand for an accepted answer exposes it:
+
+```java
+// backend/src/main/java/com/lld/stackoverflow/service/StackOverflowService.java @ 01d0828
+ReputationStrategy strategy;
+int bonus = 0;
+if (a.isAccepted()) {
+    strategy = new AcceptedAnswerReputationStrategy();
+    bonus = strategy.calculateReputationChange(voteType);      // always 25, regardless of voteType
+} else {
+    strategy = new AnswerReputationStrategy();
+}
+int delta = strategy.calculateReputationChange(voteType) + bonus;   // 25 + 25 = 50 on an UPVOTE
+```
+
+```java
+// AcceptedAnswerReputationStrategy.java @ 01d0828
+public int calculateReputationChange(VoteType voteType) {
+    return 25;   // ignores voteType entirely
+}
+```
+
+For an accepted answer: an **upvote** awarded `25 (strategy) + 25 (bonus) = 50` reputation instead
+of the intended one-time `+25`; a **downvote** — which should cost the author reputation — also
+awarded a flat `+25`, because `calculateReputationChange` never inspected `voteType`. Voting on an
+accepted answer ten times awarded 250–500 reputation for one answer, with no upper bound.
+
+### 3. Root Cause
+The strategy interface's contract is "reputation delta for one vote," a per-event calculation
+meant to be invoked once per vote cast. The accepted-answer bonus is not a per-vote quantity — it
+is a one-time state transition (`accepted: false -> true`) that should fire exactly once,
+independent of how many votes the answer receives afterward. Wrapping that one-time event in the
+same `ReputationStrategy` interface as the per-vote strategies collapsed two different kinds of
+event into one call site, and the call site (`voteAnswer`) had no way to distinguish "this vote
+is happening" from "this answer just became accepted." The bonus was recomputed and re-added on
+every vote instead of on every acceptance.
+
+### 4. Diagnostic Commands
+```bash
+# A "strategy" invoked from inside a vote handler that ignores its own vote-type parameter
+# is the tell — the accepted-answer bonus has no business varying per UPVOTE/DOWNVOTE call.
+grep -n "calculateReputationChange" backend/src/main/java/com/lld/stackoverflow/strategy/AcceptedAnswerReputationStrategy.java
+
+# Confirm it fires on every vote, not just the acceptance itself
+grep -n "isAccepted()" backend/src/main/java/com/lld/stackoverflow/service/StackOverflowService.java
+
+# After the rewrite: prove the bonus now fires exactly once
+mvn -o test -Dtest='VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward'
+mvn -o test -Dtest='VotingServiceTest#votingOnAcceptedAnswerUsesNormalStrategy'
+```
+
+### 5. Step-by-Step Resolution
+1. Deleted `AcceptedAnswerReputationStrategy` entirely — a one-time event has no business
+   implementing a per-vote interface.
+2. Kept the accepted-answer bonus as a plain constant, `VotingService.ACCEPTED_ANSWER_BONUS = 15`
+   (retuned from the original 25 to sit between the question and answer upvote values), applied
+   exactly once inside `acceptAnswer`, only on the transition from not-accepted to accepted —
+   re-accepting the same answer, or accepting after it is already the accepted one, is a no-op.
+3. Left voting on an accepted answer to go through the ordinary `AnswerReputationStrategy` — an
+   upvote on an accepted answer now correctly awards `+10`, not `+25` and not `+50`, and a
+   downvote correctly costs `-2` instead of awarding a flat bonus.
+4. Wrote `VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward` (accept the same answer
+   twice, assert the bonus landed once) and `#votingOnAcceptedAnswerUsesNormalStrategy` (accept,
+   then upvote, assert the delta is exactly the normal `+10` and not `+15`, `+25` or `+50`) as the
+   regression guard, then ran the full `VotingServiceTest` suite green (19/19).
+5. Documented the distinction directly on `ReputationStrategy`'s javadoc — "the accepted-answer
+   bonus is deliberately **not** part of this interface" — so a future strategy addition does not
+   repeat the mistake of folding a one-time event into a per-vote calculation.
+
+### 6. Preventative Measures
+1. `VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward` and
+   `#votingOnAcceptedAnswerUsesNormalStrategy` fail immediately if the bonus is ever folded back
+   into a per-vote strategy or re-fires on a repeat accept.
+2. `ReputationStrategy`'s javadoc states the rule directly at the extension point most likely to
+   reintroduce it: anyone adding a new strategy reads why the bonus is not one.
+3. `AGENTS.md`'s Stack Overflow section calls out the distinction between per-vote strategies and
+   the one-time bonus constant, so an `/audit-lld` pass on this module has the fact in scope
+   without re-deriving it from the code.

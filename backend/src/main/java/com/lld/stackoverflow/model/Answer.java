@@ -1,47 +1,39 @@
 package com.lld.stackoverflow.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class Answer {
+/** See {@link Question} for why this implements {@link Votable}. */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Answer implements Votable {
     private String id;
     private String body;
     private String authorId;
     private String authorName;
     private String questionId;
-    private boolean accepted;
-    private List<Comment> comments;
-    private List<Vote> votes;
-    private int score;
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private boolean accepted = false;
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
+    @Builder.Default
+    private Map<String, VoteType> votes = new ConcurrentHashMap<>();
+    @Builder.Default
+    private int score = 0;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    public Answer(String id, String body, String authorId, String authorName, String questionId) {
-        this.id = id;
-        this.body = body;
-        this.authorId = authorId;
-        this.authorName = authorName;
-        this.questionId = questionId;
-        this.accepted = false;
-        this.comments = new ArrayList<>();
-        this.votes = new ArrayList<>();
-        this.score = 0;
-        this.createdAt = LocalDateTime.now();
+    public void addComment(Comment comment) {
+        comments.add(comment);
     }
-
-    public String getId() { return id; }
-    public String getBody() { return body; }
-    public String getAuthorId() { return authorId; }
-    public String getAuthorName() { return authorName; }
-    public String getQuestionId() { return questionId; }
-    public boolean isAccepted() { return accepted; }
-    public void setAccepted(boolean accepted) { this.accepted = accepted; }
-    public List<Comment> getComments() { return comments; }
-    public List<Vote> getVotes() { return votes; }
-    public int getScore() { return score; }
-    public void setScore(int score) { this.score = score; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-
-    public void addComment(Comment comment) { comments.add(comment); }
-    public void addVote(Vote vote) { votes.add(vote); }
 }
