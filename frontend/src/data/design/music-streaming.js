@@ -64,6 +64,34 @@ export default {
       ]
     },
     {
+      name: 'PlaybackService',
+      description: 'Owns the one genuinely compound, thread-unsafe operation in the module: starting a stream while enforcing the plan\'s concurrent-device cap. "Count my account\'s active sessions, then start a new one if under the limit" is a check-then-act race — two devices on a FREE account (limit 1) calling startStream at the same instant can both read activeCount == 0 before either has written its session. A ReentrantLock keyed per userId (not one global lock) makes the check-and-increment atomic per account while unrelated accounts still stream fully in parallel.',
+      fields: [
+        {
+          name: 'userLocks',
+          type: 'ConcurrentMap<String, ReentrantLock>',
+          description: 'One lock per userId, created lazily via computeIfAbsent'
+        }
+      ],
+      methods: [
+        {
+          name: 'startStream(userId, songId, deviceId)',
+          returns: 'PlaybackSession',
+          description: 'Locks on userId, checks active-session count against strategy.maxConcurrentStreams(), creates the session, notifies Observers'
+        },
+        {
+          name: 'stopStream(sessionId)',
+          returns: 'PlaybackSession',
+          description: 'Ends a session, freeing a concurrent-stream slot for that account'
+        },
+        {
+          name: 'skip(sessionId)',
+          returns: 'PlaybackSession',
+          description: 'Enforces strategy.canSkip(skipsUsedThisHour) before incrementing the counter'
+        }
+      ]
+    },
+    {
       name: 'User',
       description: 'Streaming service user with profile, subscription, playlists, listening history, and preferences.',
       fields: [
@@ -317,27 +345,27 @@ export default {
     {
       name: 'Strategy',
       used: true,
-      explanation: 'PricingStrategy interface with FreePlan (ads, skips limit), PremiumPlan (no ads, high quality), FamilyPlan (multi-user, shared pricing). StreamingService delegates feature access and pricing to the strategy.'
-    },
-    {
-      name: 'Singleton',
-      used: true,
-      explanation: 'StreamingService, MusicCatalog, and RecommendationEngine are singletons ensuring consistent catalog, recommendations, and subscription state across all users.'
+      explanation: 'SubscriptionStrategy interface — FreeSubscriptionStrategy (1 stream, ads, 6 skips/hour, no downloads), PremiumSubscriptionStrategy (2 streams, ad-free, unlimited skips, downloads, lossless audio), FamilySubscriptionStrategy (6 streams, ad-free, downloads, high-quality audio). PlaybackService and MusicStreamingService call only the interface — maxConcurrentStreams(), canSkip(), isAdFree(), canDownloadOffline(), audioQuality() — never branch on the SubscriptionPlan enum directly.'
     },
     {
       name: 'Factory',
       used: true,
-      explanation: 'PlaylistFactory creates playlists with proper owner, timestamps, and privacy defaults. RecommendationStrategyFactory assembles the recommendation pipeline with weighted strategies.'
+      explanation: 'SubscriptionStrategyFactory resolves a SubscriptionPlan to its concrete SubscriptionStrategy via an EnumMap built once in the constructor — the same shape as splitwise.strategy.SplitStrategyFactory. A new tier (e.g. Student) is a new implementation registered in the factory; nothing calling getStrategy() changes.'
     },
     {
       name: 'Observer',
       used: true,
-      explanation: 'When a user listens to a song, ListeningHistoryService observes the event and updates listening history. RecommendationEngine observes these events to refine future recommendations.'
+      explanation: 'PlaybackEventListener is notified by PlaybackService whenever a stream starts. ListeningHistoryListener appends the play to the user\'s listening history; PlayCountListener bumps the song\'s global play count for trending/recommendation ranking. PlaybackService holds no reference to either — Spring injects every registered listener, so a new side effect (analytics, notifications) plugs in without touching the playback code path.'
+    },
+    {
+      name: 'Singleton',
+      used: true,
+      explanation: 'MusicStreamingService, PlaybackService, RecommendationService and SubscriptionStrategyFactory are Spring-managed singleton beans, giving every request the same catalog, subscription rules and playback-lock state.'
     },
     {
       name: 'Proxy',
       used: false,
-      explanation: 'A StreamProxy could enforce subscription-based quality limits. Free users get 128kbps stream, Premium users get lossless FLAC. The proxy intercepts stream requests and serves the appropriate quality.'
+      explanation: 'A StreamProxy could enforce subscription-based quality limits at the network layer instead of returning an AudioQuality value from the strategy. Not needed here since the strategy already governs quality; would matter if audio actually streamed through a CDN edge.'
     }
   ],
   principles: [

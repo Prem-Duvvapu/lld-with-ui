@@ -9,17 +9,18 @@ export default {
       name: 'Match',
       fields: [
         '- id: String',
-        '- teams: Team[2]',
+        '- teamA: Team',
+        '- teamB: Team',
         '- venue: String',
-        '- date: LocalDateTime',
+        '- format: MatchFormat',
         '- status: MatchStatus',
-        '- innings: List<Inning>',
-        '- scorecard: Scorecard'
+        '- innings: List<Innings>',
+        '- currentInningsIndex: int',
+        '- result: MatchResult'
       ],
       methods: [
-        '+ start(): void',
-        '+ end(result): void',
-        '+ getCurrentScore(): String'
+        '+ currentInnings(): Innings',
+        '+ teamTotalRuns(teamId): int'
       ]
     },
     {
@@ -28,109 +29,181 @@ export default {
         '- id: String',
         '- name: String',
         '- players: List<Player>',
-        '- captain: Player'
+        '- captainId: String'
       ],
-      methods: [
-        '+ addPlayer(player): void',
-        '+ selectCaptain(player): void'
-      ]
+      methods: []
     },
     {
       name: 'Player',
       fields: [
         '- id: String',
         '- name: String',
-        '- role: String (BATSMAN/BOWLER/ALLROUNDER)',
-        '- stats: Map<String, Object>'
+        '- role: PlayerRole',
+        '- careerStats: CareerStats'
       ],
-      methods: [
-        '+ updateStats(ball): void',
-        '+ getAverage(): double'
-      ]
+      methods: []
     },
     {
-      name: 'Inning',
+      name: 'Innings',
       fields: [
-        '- id: String',
-        '- battingTeam: Team',
-        '- bowlingTeam: Team',
+        '- index: int',
+        '- battingTeamId / bowlingTeamId: String',
+        '- totalRuns, wickets, legalBallsBowled: int',
         '- balls: List<Ball>',
-        '- totalRuns: int',
-        '- wickets: int',
-        '- overs: double'
+        '- battingStats: Map<String, BattingStat>',
+        '- bowlingStats: Map<String, BowlingStat>',
+        '- fallOfWickets: List<FallOfWicket>',
+        '- strikerId / nonStrikerId / currentBowlerId: String',
+        '- targetRuns: Integer'
       ],
       methods: [
-        '+ addBall(ball): void',
-        '+ isComplete(): boolean'
-      ]
-    },
-    {
-      name: 'Scorecard',
-      fields: [
-        '- match: Match',
-        '- batsmanStats: Map<Player, BattingStats>',
-        '- bowlerStats: Map<Player, BowlingStats>'
-      ],
-      methods: [
-        '+ updateBatsmanStats(player, ball): void',
-        '+ updateBowlerStats(player, ball): void'
+        '+ oversDisplay(): String',
+        '+ runRate(): double'
       ]
     },
     {
       name: 'Ball',
       fields: [
-        '- ballNumber: int',
-        '- bowler: Player',
-        '- batsman: Player',
-        '- runs: int',
-        '- isWicket: boolean',
-        '- wicketType: String'
+        '- overNumber: int',
+        '- ballInOver: int',
+        '- legalDelivery: boolean',
+        '- strikerId / nonStrikerId / bowlerId: String',
+        '- runsOffBat: int',
+        '- extraType: ExtraType',
+        '- extraRuns: int',
+        '- wicket: boolean',
+        '- wicketType: WicketType'
       ],
-      methods: []
+      methods: [
+        '+ totalRuns(): int'
+      ]
+    },
+    {
+      name: 'Scorecard',
+      fields: [
+        '- matchId, inningsIndex',
+        '- totalRuns, wickets, oversDisplay, runRate',
+        '- strikerName/Runs/Balls, bowlerName/Figures',
+        '- recentBalls: List<String>',
+        '- fallOfWickets, battingStats, bowlingStats'
+      ],
+      methods: [],
+      description: 'The live scorecard projection — read-model folded from the ball stream by ScorecardProjectionObserver.'
     },
     {
       name: 'MatchStatus',
       stereotype: 'enum',
       fields: [
-        'NOT_STARTED',
+        'UPCOMING',
         'LIVE',
+        'INNINGS_BREAK',
         'COMPLETED',
-        'DRAWN',
         'ABANDONED'
       ],
-      methods: []
+      methods: [
+        '+ canTransitionTo(next): boolean'
+      ]
+    },
+    {
+      name: 'BallEventObserver',
+      stereotype: 'interface',
+      fields: [],
+      methods: [
+        '+ onBallBowled(event: BallEvent): void',
+        '+ getObserverName(): String'
+      ]
+    },
+    {
+      name: 'MatchPublisher',
+      description: 'Subject — CopyOnWriteArrayList of observers so publish() never races a concurrent subscribe/unsubscribe.',
+      fields: [
+        '- observers: CopyOnWriteArrayList<BallEventObserver>'
+      ],
+      methods: [
+        '+ subscribe(observer): void',
+        '+ unsubscribe(observer): void',
+        '+ publish(event: BallEvent): void'
+      ]
+    },
+    {
+      name: 'ScorecardProjectionObserver',
+      description: 'Folds each Ball into Innings totals/stats and rebuilds the Scorecard projection.',
+      fields: [
+        '- scorecards: Map<String, Scorecard>'
+      ],
+      methods: [
+        '+ onBallBowled(event): void',
+        '+ getScorecard(matchId): Scorecard'
+      ]
+    },
+    {
+      name: 'PlayerCareerStatsObserver',
+      description: 'Independently updates Player.careerStats from the same ball stream.',
+      fields: [],
+      methods: [
+        '+ onBallBowled(event): void'
+      ]
+    },
+    {
+      name: 'CommentaryObserver',
+      description: 'Derives ball-by-ball text commentary; can be unsubscribed at runtime without touching scoring.',
+      fields: [
+        '- commentaryByMatch: Map<String, List<CommentaryEntry>>'
+      ],
+      methods: [
+        '+ onBallBowled(event): void',
+        '+ getCommentary(matchId): List<CommentaryEntry>'
+      ]
+    },
+    {
+      name: 'BallEventAuditObserver',
+      description: 'Appends every ball to a sequence-numbered audit/event log for the /sim telemetry stream.',
+      fields: [
+        '- events: List<CricinfoEvent>'
+      ],
+      methods: [
+        '+ onBallBowled(event): void'
+      ]
+    },
+    {
+      name: 'BallRecordingEngine',
+      description: 'Per-match ReentrantLock keeps "append ball + fold into scorecard" atomic per match.',
+      fields: [
+        '- matchLocks: Map<String, ReentrantLock>'
+      ],
+      methods: [
+        '+ recordBall(matchId, request): Ball'
+      ]
+    },
+    {
+      name: 'CricinfoService',
+      stereotype: 'facade',
+      fields: [],
+      methods: [
+        '+ createMatch(...): Match',
+        '+ performToss(...): Match',
+        '+ startMatch(matchId): Match',
+        '+ recordBall(matchId, request): Ball',
+        '+ startNextInnings(matchId): Innings',
+        '+ getScorecard(matchId): Scorecard'
+      ]
     }
   ],
   relationships: [
-    {
-      from: 'Match',
-      to: 'Team',
-      label: 'has 2'
-    },
-    {
-      from: 'Team',
-      to: 'Player',
-      label: 'contains'
-    },
-    {
-      from: 'Match',
-      to: 'Inning',
-      label: 'contains'
-    },
-    {
-      from: 'Match',
-      to: 'Scorecard',
-      label: 'has'
-    },
-    {
-      from: 'Inning',
-      to: 'Ball',
-      label: 'contains'
-    },
-    {
-      from: 'Match',
-      to: 'MatchStatus',
-      label: 'has state'
-    }
+    { from: 'Match', to: 'Team', label: 'has 2' },
+    { from: 'Team', to: 'Player', label: 'contains' },
+    { from: 'Match', to: 'Innings', label: 'contains' },
+    { from: 'Innings', to: 'Ball', label: 'raw event stream' },
+    { from: 'Match', to: 'MatchStatus', label: 'has state' },
+    { from: 'CricinfoService', to: 'BallRecordingEngine', label: 'delegates ball recording to' },
+    { from: 'BallRecordingEngine', to: 'Innings', label: 'appends Ball to (per-match lock)' },
+    { from: 'BallRecordingEngine', to: 'MatchPublisher', label: 'publishes BallEvent via' },
+    { from: 'MatchPublisher', to: 'BallEventObserver', label: 'notifies (subscribe/unsubscribe)' },
+    { from: 'ScorecardProjectionObserver', to: 'BallEventObserver', label: 'implements' },
+    { from: 'PlayerCareerStatsObserver', to: 'BallEventObserver', label: 'implements' },
+    { from: 'CommentaryObserver', to: 'BallEventObserver', label: 'implements' },
+    { from: 'BallEventAuditObserver', to: 'BallEventObserver', label: 'implements' },
+    { from: 'ScorecardProjectionObserver', to: 'Scorecard', label: 'produces' },
+    { from: 'PlayerCareerStatsObserver', to: 'Player', label: 'updates careerStats' }
   ]
 };
