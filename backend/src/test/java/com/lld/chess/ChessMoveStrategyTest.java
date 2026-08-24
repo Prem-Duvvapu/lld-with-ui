@@ -62,10 +62,11 @@ class ChessMoveStrategyTest {
     void knightStrategy() {
         KnightMoveStrategy knight = new KnightMoveStrategy();
         Piece[][] board = emptyBoard();
-        board[3][3] = Piece.of(Color.WHITE, PieceType.PAWN); // sits "in the way" — irrelevant to a knight
-        assertTrue(knight.isValidMove(board, 2, 2, 4, 4, NO_CONTEXT));
-        assertFalse(knight.isValidMove(board, 2, 2, 3, 3, NO_CONTEXT));
-        assertFalse(knight.isValidMove(board, 2, 2, 4, 3, NO_CONTEXT));
+        board[3][3] = Piece.of(Color.WHITE, PieceType.PAWN); // sits nearby — irrelevant, knights jump over pieces
+        assertTrue(knight.isValidMove(board, 2, 2, 4, 3, NO_CONTEXT));  // dr=2, dc=1 — a real L-shape
+        assertTrue(knight.isValidMove(board, 2, 2, 3, 4, NO_CONTEXT));  // dr=1, dc=2 — a real L-shape
+        assertFalse(knight.isValidMove(board, 2, 2, 4, 4, NO_CONTEXT)); // dr=2, dc=2 — a straight diagonal, not an L
+        assertFalse(knight.isValidMove(board, 2, 2, 3, 3, NO_CONTEXT)); // dr=1, dc=1 — a straight diagonal, not an L
     }
 
     @Test
