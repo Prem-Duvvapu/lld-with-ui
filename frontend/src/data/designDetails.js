@@ -35,6 +35,7 @@ import _stockbroker from './design/stockbroker.js';
 import _taskManagement from './design/task-management.js';
 import _tictactoe from './design/tictactoe.js';
 import _trafficSignal from './design/traffic-signal.js';
+import _ttlCache from './design/ttl-cache.js';
 import _uber from './design/uber.js';
 import _vendingmachine from './design/vendingmachine.js';
 import _wallet from './design/wallet.js';
@@ -74,6 +75,7 @@ const designDetails = {
   taskManagement: _taskManagement,
   tictactoe: _tictactoe,
   trafficSignal: _trafficSignal,
+  ttlCache: _ttlCache,
   uber: _uber,
   vendingmachine: _vendingmachine,
   wallet: _wallet,

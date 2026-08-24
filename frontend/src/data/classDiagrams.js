@@ -35,6 +35,7 @@ import _stockbroker from './diagrams/stockbroker.js';
 import _taskManagement from './diagrams/task-management.js';
 import _tictactoe from './diagrams/tictactoe.js';
 import _trafficSignal from './diagrams/traffic-signal.js';
+import _ttlCache from './diagrams/ttl-cache.js';
 import _uber from './diagrams/uber.js';
 import _vendingmachine from './diagrams/vendingmachine.js';
 import _wallet from './diagrams/wallet.js';
@@ -74,6 +75,7 @@ const classDiagrams = {
   taskManagement: _taskManagement,
   tictactoe: _tictactoe,
   trafficSignal: _trafficSignal,
+  ttlCache: _ttlCache,
   uber: _uber,
   vendingmachine: _vendingmachine,
   wallet: _wallet,
