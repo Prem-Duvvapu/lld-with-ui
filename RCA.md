@@ -15,6 +15,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-005](#rca-005-mismatched-prop-names-and-a-missing-route-alias-rendering-blank-pages) | 2026-08-20 | Frontend / Wiring | `lldKey` / `moduleKey` prop typos and a missing route alias produced blank tabs and a blank page | Resolved |
 | [RCA-006](#rca-006-check-then-act-race-assigning-one-uber-driver-to-two-riders) | 2026-08-21 | Backend / Uber / Concurrency | Unsynchronised read-then-write in driver assignment let two riders both claim the same driver | Resolved |
 | [RCA-007](#rca-007-zomato-branch-shipped-non-compiling-a-dead-applicationcontext-and-an-untested-agent-leak) | 2026-08-22 | Backend / Zomato / Build & Concurrency | Two build blockers took down all 30 modules' `ApplicationContext`, and the pool-scan agent-assignment path shipped with zero concurrency coverage for a real leaked-agent race | Resolved |
+| [RCA-008](#rca-008-duplicate-spring-bean-name-across-modules-crashing-the-whole-applicationcontext) | 2026-08-24 | Backend / Car Rental / Spring Wiring | A `PricingStrategyFactory` class name reused from `parkinglot` collided under Spring's default simple-class-name bean naming, aborting `ApplicationContext` startup for every module, not just car-rental | Resolved |
 
 ---
 
@@ -602,3 +603,95 @@ grep -n "assignAgent(" backend/src/test/java/com/lld/zomato/ZomatoConcurrencyTes
    state — so the fix there was conditional rendering that tells the truth in both states, matching
    the pattern the same file already used for the equivalent non-sim flow, rather than another
    fabricated placeholder.
+
+## RCA-008: Duplicate Spring Bean Name Across Modules Crashing the Whole ApplicationContext
+
+**Severity:** High
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.carrental` (new module), and transitively every module in the JAR — the
+whole `ApplicationContext` fails to start, so this is not scoped to car-rental at all.
+
+### 1. Overview & Severity
+While building the car-rental module's tiered-pricing Strategy + Factory pair, a class named
+`PricingStrategyFactory` was added under `com.lld.carrental.strategy`. `parkinglot` already has
+an unrelated, differently-shaped class with the exact same simple name under
+`com.lld.parkinglot.strategy`. Spring's default component-scan bean naming is the simple class
+name decapitalized, not the fully-qualified name, so both classes registered as the bean id
+`pricingStrategyFactory`. `ApplicationContext` startup — and therefore `mvn test` for every
+module, not just car-rental — failed immediately. High severity because a single new file with
+an innocuous name silently took down the entire portfolio's test suite and would have failed CI
+across all 30 backend modules, not just the one being changed.
+
+### 2. Symptoms & Error Logs
+`mvn test -Dtest='com.lld.config.*Test'` (a suite that has nothing to do with car-rental) failed
+with a Spring context-loading error on `ErrorContractIntegrationTest`, which is `@SpringBootTest`
+and therefore boots the real `LldApplication`:
+
+```
+Caused by: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse
+configuration class [com.lld.LldApplication]
+...
+Caused by: org.springframework.context.annotation.ConflictingBeanDefinitionException:
+Annotation-specified bean name 'pricingStrategyFactory' for bean class
+[com.lld.parkinglot.strategy.PricingStrategyFactory] conflicts with existing, non-compatible
+bean definition of same name and class [com.lld.carrental.strategy.PricingStrategyFactory]
+```
+
+The car-rental module itself compiled cleanly (`mvn -o -q compile` succeeded) — the failure only
+surfaced at Spring context load, i.e. any test that does not boot a full `ApplicationContext`
+(plain `new CarRentalService(...)` unit tests) would never have caught it.
+
+### 3. Root Cause
+Spring's `@Component`/`@Service`/`@Repository` component scan registers a bean under
+`Introspector.decapitalize(simpleClassName)` when no explicit name is given —
+`com.lld.parkinglot.strategy.PricingStrategyFactory` and `com.lld.carrental.strategy.
+PricingStrategyFactory` both decapitalize to `pricingStrategyFactory`, and `scanBasePackages =
+"com.lld"` in `LldApplication` scans both packages into the same registry. Two different classes
+claiming the same bean id is a hard `ConflictingBeanDefinitionException` at context-refresh time,
+not a silent shadow — but because it only fires when the *whole* context assembles, a test that
+constructs the service by hand (as most of this repo's unit tests do) never exercises it.
+
+### 4. Diagnostic Commands
+```bash
+# Find every other module's class with the same simple name before naming a new one
+find backend/src/main/java/com/lld -name "PricingStrategyFactory.java"
+
+# Confirm the collision precisely from the stack trace
+mvn -o -q test -Dtest='com.lld.config.*Test' 2>&1 | grep -A2 "ConflictingBeanDefinitionException"
+```
+
+### 5. Step-by-Step Resolution
+1. Ran the cross-cutting `com.lld.config.*Test` suite (which boots the real `ApplicationContext`
+   via `ErrorContractIntegrationTest`) after adding the new module, per this repo's habit of
+   running suites broader than just the new module's own tests.
+2. Read the `ConflictingBeanDefinitionException` message, which names both fully-qualified
+   classes and the colliding bean id directly — no further investigation needed.
+3. Grepped every module for the same simple class name (`PricingStrategyFactory`,
+   `PricingStrategy`, `PaymentProcessor`, `Payment`) to check for other latent collisions.
+   `PricingStrategy` (an interface, not a bean) and `Payment` (plain model classes, not beans)
+   collide by name but never register — no conflict. `PaymentProcessor` already had this exact
+   problem solved in `uber` via an explicit qualifier (`@Component("uberPaymentProcessor")`),
+   which `com.lld.carrental.payment.PaymentProcessor` had already copied
+   (`@Component("carRentalPaymentProcessor")`) — so only `PricingStrategyFactory` needed a fix.
+4. Gave `com.lld.carrental.strategy.PricingStrategyFactory` an explicit bean name,
+   `@Component("carRentalPricingStrategyFactory")`, with a comment naming the colliding class —
+   same fix shape as the existing `uber` precedent, no class rename needed.
+5. Verified: `mvn -o -q test -Dtest='com.lld.config.*Test'` passed (`ErrorContractIntegrationTest`
+   now boots the full context cleanly), then the full `mvn test` run stayed at the pre-existing
+   pass count plus car-rental's new tests, with zero failures elsewhere.
+
+### 6. Preventative Measures
+- Any module adding a `@Component`/`@Service`/`@Repository` class should grep
+  `backend/src/main/java/com/lld/*/**/ClassName.java` for the exact simple name across *all*
+  modules before assuming it is unique — component scan is portfolio-wide (`scanBasePackages =
+  "com.lld"`), so a name only needs to collide with any other module, not just siblings.
+  `AGENTS.md`'s Car Rental section now calls this out explicitly.
+- Prefer an explicit `@Component("<module>SomeName")` qualifier for any class whose simple name
+  is a generic, likely-to-be-reused noun (`PricingStrategyFactory`, `PaymentProcessor`,
+  `Validator`, `Notifier`) rather than relying on package uniqueness, which Spring's default bean
+  naming does not honour.
+- `ErrorContractIntegrationTest` (`@SpringBootTest`) is already the guard that catches this class
+  of bug — it is the one cross-cutting test in the suite that boots the real, fully-scanned
+  `ApplicationContext` rather than constructing a service by hand, and it is exactly what caught
+  this. No module-specific test could have: the collision is inherently a cross-module property.
