@@ -35,7 +35,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 25 | [LinkedIn](#25-linkedin) | Professional network | Graph Model, Strategy (ranking), Observer (alerts), Pair Locking |
 | 26 | LRU Cache | In-memory cache | Doubly Linked List + HashMap |
 | 27 | [Pub Sub System](#27-pubsub-system-message-broker) | Message broker | Observer, Dedicated Per-Subscriber FIFO Worker Threads |
-| 28 | Car Rental System | Vehicle fleet & booking | State Machine, Strategy |
+| 28 | [Car Rental System](#28-car-rental-system) | Vehicle fleet & booking | Overlapping-Interval Per-Vehicle Lock, Strategy + Factory (tiered pricing), State Machine |
 | 29 | Online Auction System | Bidding engine | Observer, Strategy |
 | 30 | Restaurant Management | Order & kitchen workflow | State Machine, Factory |
 | 31 | Social Network | Posts & feeds | Graph Model, Observer |
@@ -591,6 +591,29 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/pubsub/subscribers/{id}/messages`
 - `POST /api/pubsub/sim/reset`
 - `POST /api/pubsub/sim/publish`
+
+---
+
+### 28. Car Rental System
+
+#### Key Features
+- **Overlapping-Interval Reservation Locking**: `ReservationLockService` claims a per-vehicle fair `ReentrantLock` (via `computeIfAbsent`) and re-reads the vehicle's **entire reservation set** inside the lock, rejecting on any date-range overlap before committing — a genuinely different lock shape from a single free/busy flag, since the invariant spans a set of existing bookings, not one boolean.
+- **Tiered Pricing Strategy + Factory**: `PricingStrategyFactory.forDuration(days)` resolves `StandardPricingStrategy` (1–2 days), `WeeklyDiscountPricingStrategy` (3–6 days, 10% off) or `LongRentalDiscountPricingStrategy` (7+ days, 20% off) — `CarRentalService` never branches on duration itself.
+- **Reservation State Machine**: `ReservationStatus` declares its legal transitions in one table (`PENDING → CONFIRMED → ACTIVE → COMPLETED`, or `CANCELLED` from the first two) enforced through a single `transition()` gate, same idiom as Uber's `RideStatus`.
+- **Vehicle Status Is a Fleet Gate, Not a Per-Date Flag**: `VehicleStatus` (`AVAILABLE`/`RENTED`/`MAINTENANCE`/`RETIRED`) only gates new reservations via `MAINTENANCE`/`RETIRED` — real per-date availability is always answered by scanning the reservation set, so one vehicle can legitimately carry many non-overlapping future reservations.
+- **Late Fee & Refunds**: Returning after the booked end date adds a 1.5x-daily-rate late fee to the actual cost; cancelling a paid (`CONFIRMED`) reservation refunds the captured payment.
+- **Isolated Simulation Sandbox**: `/api/car-rental/sim/*` backed by a second `CarRentalRepository` + `ReservationLockService` pair, so the interactive demo (including a live two-customer overlap race) never touches live fleet data.
+
+#### API Endpoints
+- `GET /api/car-rental/vehicles/available`
+- `GET /api/car-rental/estimate`
+- `POST /api/car-rental/reservations`
+- `PUT /api/car-rental/reservations/{id}/confirm`
+- `PUT /api/car-rental/reservations/{id}/pickup`
+- `PUT /api/car-rental/reservations/{id}/return`
+- `PUT /api/car-rental/reservations/{id}/cancel`
+- `POST /api/car-rental/sim/reset`
+- `POST /api/car-rental/sim/reservations`
 
 ---
 

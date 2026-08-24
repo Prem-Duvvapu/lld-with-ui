@@ -5,6 +5,7 @@
 import _airline from './design/airline.js';
 import _atm from './design/atm.js';
 import _auction from './design/auction.js';
+import _blockingQueue from './design/blocking-queue.js';
 import _carRental from './design/car-rental.js';
 import _chess from './design/chess.js';
 import _coffee from './design/coffee.js';
@@ -43,6 +44,7 @@ const designDetails = {
   airline: _airline,
   atm: _atm,
   auction: _auction,
+  blockingQueue: _blockingQueue,
   carRental: _carRental,
   chess: _chess,
   coffee: _coffee,

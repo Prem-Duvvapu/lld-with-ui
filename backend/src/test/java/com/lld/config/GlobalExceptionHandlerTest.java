@@ -1,12 +1,60 @@
 package com.lld.config;
 
-import com.lld.airline.exception.*;
-import com.lld.library.exception.*;
-import com.lld.linkedin.exception.*;
-import com.lld.stockbroker.exception.*;
-import com.lld.restaurant.exception.*;
-// stackoverflow exceptions are referenced fully-qualified below — its UserNotFoundException
-// would otherwise collide with linkedin's wildcard-imported class of the same simple name.
+// airline
+import com.lld.airline.exception.BookingFailedException;
+import com.lld.airline.exception.FlightNotFoundException;
+import com.lld.airline.exception.HoldExpiredException;
+import com.lld.airline.exception.InvalidCancellationException;
+import com.lld.airline.exception.SeatNotAvailableException;
+
+// library
+import com.lld.library.exception.BookNotAvailableException;
+import com.lld.library.exception.BorrowLimitExceededException;
+import com.lld.library.exception.InvalidReturnException;
+import com.lld.library.exception.LoanNotFoundException;
+import com.lld.library.exception.MemberNotFoundException;
+
+// linkedin
+import com.lld.linkedin.exception.ConnectionException;
+import com.lld.linkedin.exception.InvalidCredentialsException;
+import com.lld.linkedin.exception.JobNotFoundException;
+import com.lld.linkedin.exception.UnauthorizedActionException;
+import com.lld.linkedin.exception.UserAlreadyExistsException;
+import com.lld.linkedin.exception.UserNotFoundException;
+import com.lld.linkedin.exception.ValidationException;
+
+// stockbroker
+import com.lld.stockbroker.exception.AccountNotFoundException;
+import com.lld.stockbroker.exception.InsufficientFundsException;
+import com.lld.stockbroker.exception.InsufficientStockException;
+import com.lld.stockbroker.exception.InvalidOrderException;
+import com.lld.stockbroker.exception.OrderExecutionException;
+import com.lld.stockbroker.exception.StockNotFoundException;
+
+// restaurant
+import com.lld.restaurant.exception.BillAlreadyPaidException;
+import com.lld.restaurant.exception.BillNotFoundException;
+import com.lld.restaurant.exception.TableNotFoundException;
+import com.lld.restaurant.exception.TableUnavailableException;
+
+// zomato
+import com.lld.zomato.exception.CustomerNotFoundException;
+import com.lld.zomato.exception.DeliveryAgentNotFoundException;
+import com.lld.zomato.exception.NoAgentAvailableException;
+import com.lld.zomato.exception.PaymentFailedException;
+import com.lld.zomato.exception.RestaurantNotFoundException;
+
+// stackoverflow — UserNotFoundException is kept fully-qualified inline below, since it would
+// otherwise collide with linkedin's explicitly-imported class of the same simple name.
+import com.lld.stackoverflow.exception.QuestionNotFoundException;
+import com.lld.stackoverflow.exception.AnswerNotFoundException;
+import com.lld.stackoverflow.exception.TagNotFoundException;
+import com.lld.stackoverflow.exception.SelfVoteException;
+import com.lld.stackoverflow.exception.InvalidVoteTypeException;
+import com.lld.stackoverflow.exception.NotQuestionAuthorException;
+import com.lld.stackoverflow.exception.QuestionClosedException;
+import com.lld.stackoverflow.exception.InvalidQuestionTransitionException;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -60,23 +108,33 @@ class GlobalExceptionHandlerTest {
                 Arguments.of(new OrderExecutionException("no liquidity"), 422),
                 // restaurant
                 Arguments.of(new TableNotFoundException("table not found"), 404),
-                Arguments.of(new OrderNotFoundException("order not found"), 404),
-                Arguments.of(new MenuItemNotFoundException("item not found"), 404),
+                Arguments.of(new com.lld.restaurant.exception.OrderNotFoundException("order not found"), 404),
+                Arguments.of(new com.lld.restaurant.exception.MenuItemNotFoundException("item not found"), 404),
                 Arguments.of(new BillNotFoundException("bill not found"), 404),
                 Arguments.of(new TableUnavailableException("table unavailable"), 409),
-                Arguments.of(new InvalidOrderTransitionException("invalid transition"), 409),
-                Arguments.of(new MenuItemUnavailableException("item unavailable"), 409),
+                Arguments.of(new com.lld.restaurant.exception.InvalidOrderTransitionException("invalid transition"), 409),
+                Arguments.of(new com.lld.restaurant.exception.MenuItemUnavailableException("item unavailable"), 409),
                 Arguments.of(new BillAlreadyPaidException("already paid"), 409),
+                // zomato
+                Arguments.of(new RestaurantNotFoundException("restaurant not found"), 404),
+                Arguments.of(new CustomerNotFoundException("customer not found"), 404),
+                Arguments.of(new com.lld.zomato.exception.OrderNotFoundException("order not found"), 404),
+                Arguments.of(new com.lld.zomato.exception.MenuItemNotFoundException("item not found"), 404),
+                Arguments.of(new DeliveryAgentNotFoundException("agent not found"), 404),
+                Arguments.of(new com.lld.zomato.exception.InvalidOrderTransitionException("invalid transition"), 409),
+                Arguments.of(new com.lld.zomato.exception.MenuItemUnavailableException("item unavailable"), 409),
+                Arguments.of(new NoAgentAvailableException("no agent available"), 409),
+                Arguments.of(new PaymentFailedException("payment failed"), 422),
                 // stackoverflow
-                Arguments.of(new com.lld.stackoverflow.exception.QuestionNotFoundException("no question"), 404),
-                Arguments.of(new com.lld.stackoverflow.exception.AnswerNotFoundException("no answer"), 404),
+                Arguments.of(new QuestionNotFoundException("no question"), 404),
+                Arguments.of(new AnswerNotFoundException("no answer"), 404),
                 Arguments.of(new com.lld.stackoverflow.exception.UserNotFoundException("no user"), 404),
-                Arguments.of(new com.lld.stackoverflow.exception.TagNotFoundException("no tag"), 400),
-                Arguments.of(new com.lld.stackoverflow.exception.SelfVoteException("self vote"), 400),
-                Arguments.of(new com.lld.stackoverflow.exception.InvalidVoteTypeException("bad vote"), 400),
-                Arguments.of(new com.lld.stackoverflow.exception.NotQuestionAuthorException("not author"), 403),
-                Arguments.of(new com.lld.stackoverflow.exception.QuestionClosedException("closed"), 409),
-                Arguments.of(new com.lld.stackoverflow.exception.InvalidQuestionTransitionException("already closed"), 409)
+                Arguments.of(new TagNotFoundException("no tag"), 400),
+                Arguments.of(new SelfVoteException("self vote"), 400),
+                Arguments.of(new InvalidVoteTypeException("bad vote"), 400),
+                Arguments.of(new NotQuestionAuthorException("not author"), 403),
+                Arguments.of(new QuestionClosedException("closed"), 409),
+                Arguments.of(new InvalidQuestionTransitionException("already closed"), 409)
         );
     }
 
