@@ -18,6 +18,8 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-008](#rca-008-duplicate-spring-bean-name-across-modules-crashing-the-whole-applicationcontext) | 2026-08-24 | Backend / Car Rental / Spring Wiring | A `PricingStrategyFactory` class name reused from `parkinglot` collided under Spring's default simple-class-name bean naming, aborting `ApplicationContext` startup for every module, not just car-rental | Resolved |
 | [RCA-009](#rca-009-a-one-time-bonus-strategy-re-firing-on-every-subsequent-vote) | 2026-08-24 | Backend / Stack Overflow / Reputation | A `ReputationStrategy` implementation modeled a one-time event as a per-vote calculation, so every vote on an already-accepted answer re-applied the accepted-answer bonus | Resolved |
 | [RCA-010](#rca-010-fresh-git-worktrees-start-with-zero-installed-frontend-packages) | 2026-08-24 | Frontend / Environment / Git Worktrees | A fresh `git worktree` had no `frontend/node_modules`, so `vitest`/`vite build` failed with a misleading `ERR_MODULE_NOT_FOUND` that looked like a broken `vite.config.js` rather than a missing install | Resolved |
+| [RCA-011](#rca-011-cricinfos-per-match-ball-lock-verified-and-a-case-only-filename-drift-on-the-wsl-mount) | 2026-08-24 | Backend / CricInfo / Concurrency & Environment | The per-match ball-recording lock was verified by disabling it (real lost/duplicated runs resulted); separately, a case-only filename rename silently failed to take effect on the WSL 9p mount | Resolved |
+| [RCA-012](#rca-012-an-observer-registered-in-a-notifier-was-also-invoked-directly-double-firing-every-alert) | 2026-08-24 | Backend / Inventory / Observer | `InAppStockAlertObserver` was both a registered observer on `StockAlertNotifier` AND invoked directly by the same call site, so every stock alert was added to its feed twice | Resolved |
 
 ---
 
@@ -964,3 +966,95 @@ git status --short                       # a same-content, different-case file s
 3. `routing.test.js`'s on-disk-glob-vs-registered-routes check is exactly the kind of guard that
    catches this class of drift before it reaches CI — it failed locally the moment the rename
    happened, which is what surfaced this incident in the first place.
+
+## RCA-012: An Observer Registered in a Notifier Was Also Invoked Directly, Double-Firing Every Alert
+
+**Severity:** Medium
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.inventory.service.InventoryService.emitAlert` (fixed), every caller of `doUpdateStock`/`reorder`/`simReorder`
+
+### 1. Overview & Severity
+`InAppStockAlertObserver` was registered as one of `StockAlertNotifier`'s observers (constructor
+injection for the live instance, explicit registration in `resetSandbox()` for the sim sandbox)
+— but `InventoryService.emitAlert` also held a direct reference to it (`targetFeed`) and called
+`targetFeed.onStockAlert(alert)` a second time, right after `targetNotifier.publish(alert)` had
+already fanned the same alert out to every registered observer, `InAppStockAlertObserver`
+included. Every stock alert was therefore appended to the in-app feed's deque twice. Medium
+severity: no exception, no incorrect stock arithmetic — the bug is purely in the alert feed, which
+`GET /api/inventory/alerts` and the frontend's alerts panel both read directly, so every low-stock,
+out-of-stock, restock and reorder notification a user saw was duplicated. Caught while writing
+`InventoryServiceTest`'s crossing-detection assertions, before this module had ever shipped a test
+that actually counted the alerts it produced.
+
+### 2. Symptoms & Error Logs
+No exception — the bug is a count mismatch, not a crash:
+
+```text
+InventoryServiceTest.crossingBelowReorderLevel_firesLowStockOnce:125
+  expected: <1> but was: <2>
+
+InventoryServiceTest.alreadyBelowLevel_doesNotRefire:137
+  LOW_STOCK must fire on the crossing only, not every sale below it ==> expected: <1> but was: <2>
+```
+
+A single `updateStock(id, 6, "OUTBOUND", "sale")` call that should cross a product below its
+reorder level exactly once was producing two identical `LOW_STOCK` entries in
+`inAppObserver.recentAlerts()`.
+
+### 3. Root Cause
+```java
+// InventoryService.emitAlert @ pre-fix
+targetNotifier.publish(alert);   // fans out to every registered observer
+targetFeed.onStockAlert(alert);  // the queryable in-app feed
+```
+`targetNotifier` was constructed as `new StockAlertNotifier(List.of(inAppObserver, new
+LoggingStockAlertObserver()))` — so `inAppObserver` was already one of the observers `publish()`
+iterates. The second line was meant to look like "also update the queryable feed," but the
+queryable feed *was* `targetFeed`/`inAppObserver`, the exact same object the fan-out had just
+notified. `StockAlertNotifier.publish()` swallows any observer's `RuntimeException` (so a broken
+observer can't break the others), which is why this produced a silent duplicate rather than any
+kind of failure — there was nothing to throw.
+
+### 4. Diagnostic Commands
+```bash
+# An observer both registered in a notifier's list AND held as a separate direct reference
+# by the same caller is the tell — check whether the direct reference is itself one of the
+# constructor-injected observers.
+grep -n "new StockAlertNotifier(List.of(" backend/src/main/java/com/lld/inventory/service/InventoryService.java
+
+# Confirm emitAlert calls the same observer twice
+grep -n "targetNotifier.publish\|targetFeed.onStockAlert" backend/src/main/java/com/lld/inventory/service/InventoryService.java
+
+# After the fix: prove each alert now fires exactly once
+mvn -o test -Dtest='InventoryServiceTest#crossingBelowReorderLevel_firesLowStockOnce'
+mvn -o test -Dtest='InventoryServiceTest#alreadyBelowLevel_doesNotRefire'
+```
+
+### 5. Step-by-Step Resolution
+1. Removed the redundant `targetFeed.onStockAlert(alert)` call from `emitAlert` — `publish()`
+   already reaches every registered observer, `InAppStockAlertObserver` included.
+2. Removed the now-unused `targetFeed`/`InAppStockAlertObserver` parameter from `emitAlert` and
+   from `doUpdateStock` (which only ever used it to forward into `emitAlert`), and updated all six
+   call sites (`updateStock`, `transferStock`, `reorder`, `simSell`, `simRestock`, `simTransfer`,
+   `simReorder`, `simRace`'s per-buyer call) to drop the argument — a genuinely-unused parameter
+   left in place would have been the next person's excuse to reintroduce the direct call.
+3. Documented the invariant directly on `emitAlert`'s javadoc: the in-app feed is *reached through*
+   the notifier's observer list, not called separately, so a future alert sink must register with
+   `StockAlertNotifier` rather than be invoked ad hoc from inside `emitAlert`.
+4. Reran the full `InventoryServiceTest` suite: both previously-failing crossing-detection tests
+   now pass, and the fix required no change to the tests themselves — they were correct; the
+   production code was not.
+
+### 6. Preventative Measures
+1. `InventoryServiceTest#crossingBelowReorderLevel_firesLowStockOnce` and
+   `#alreadyBelowLevel_doesNotRefire` assert the exact alert count for the module's three crossing
+   transitions (`LOW_STOCK`, `OUT_OF_STOCK`, `RESTOCKED`) — a regression here fails immediately
+   rather than silently doubling every alert again.
+2. `emitAlert`'s javadoc states the rule at the exact line most likely to reintroduce it: the
+   in-app feed is one of the notifier's observers, not a second delivery path.
+3. General lesson for this repo's Observer-pattern modules (cricinfo, zomato's notification path):
+   whenever a caller holds both a `Notifier`/`Publisher` reference and a direct reference to one
+   of its own registered observers, check whether that direct reference is being invoked *outside*
+   the publish/fan-out call — that duplication is easy to introduce by accident and, because
+   `publish()` conventionally swallows observer exceptions, produces no error of any kind.
