@@ -34,7 +34,7 @@ const CSS = `
 .seat-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; max-width: 560px; margin: 0 auto 14px; }
 .seat-item { padding: 8px 2px; background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.15s; text-align: center; color: var(--text-primary); }
 .seat-item.vip { border-color: var(--warning); color: var(--warning); }
-.seat-item.gold { border-color: #d4af37; color: #d4af37; }
+.seat-item.gold { border-color: var(--accent); color: var(--accent); }
 .seat-item.silver { border-color: var(--info); color: var(--info); }
 .seat-item.general { border-color: var(--text-muted); color: var(--text-muted); }
 .seat-item.selected { border-color: var(--success); background: var(--success); color: #fff; transform: scale(1.08); }
