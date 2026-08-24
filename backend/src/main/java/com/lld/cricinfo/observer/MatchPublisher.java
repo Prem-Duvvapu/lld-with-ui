@@ -1,5 +1,7 @@
 package com.lld.cricinfo.observer;
 
+import org.springframework.stereotype.Component;
+
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -15,6 +17,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * matchId-bearing Match, so a single fan-out list is enough — observers
  * key their own per-match state internally (see ScorecardProjectionObserver).
  */
+@Component
 public class MatchPublisher {
 
     private final List<BallEventObserver> observers = new CopyOnWriteArrayList<>();
