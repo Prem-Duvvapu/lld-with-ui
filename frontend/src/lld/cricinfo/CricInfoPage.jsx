@@ -175,6 +175,15 @@ function LiveScoringTab() {
     }
   };
 
+  // A fielder must come from the bowling side, not the batting side — resolve the current
+  // innings' bowlingTeamId and pick a squad member from that team's roster.
+  const pickFielderId = () => {
+    const innings = liveMatch?.innings?.[liveMatch.currentInningsIndex];
+    if (!innings) return undefined;
+    const bowlingTeam = innings.bowlingTeamId === liveMatch.teamA.id ? liveMatch.teamA : liveMatch.teamB;
+    return bowlingTeam.players.find(p => p.id !== scorecard?.currentBowlerName)?.id || bowlingTeam.players[0]?.id;
+  };
+
   const nextInnings = async () => {
     try {
       await api.startNextInnings(liveMatch.id);
@@ -224,7 +233,7 @@ function LiveScoringTab() {
             <button className="cric-btn wicket" onClick={() => bowl({
               wicket: true, wicketType,
               fielderId: (wicketType === 'CAUGHT' || wicketType === 'STUMPED' || wicketType === 'RUN_OUT')
-                ? liveMatch.teamA.players.concat(liveMatch.teamB.players).find(p => p.id !== scorecard?.strikerName)?.id
+                ? pickFielderId()
                 : undefined,
             })}>WICKET</button>
           </div>
