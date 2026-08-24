@@ -43,7 +43,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 33 | [CricInfo](#33-cricinfo) | Live cricket scorecard | Observer Pattern (ball-by-ball fan-out), Live Scorecard Projection, Per-Match Lock |
 | 34 | Course Registration System | Student enrollment | Strategy, Observer |
 | 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy (Market/Limit), Observer Quotes |
-| 36 | Music Streaming Service | Audio catalog & playlists | Strategy, Factory |
+| 36 | [Music Streaming Service](#36-music-streaming-service) | Audio catalog & playlists | Strategy (subscription tiers), Factory, Observer, Per-User ReentrantLock |
 | 37 | FooBar Alternately | Multithreading concurrency | Semaphore / ReentrantLock |
 | 38 | Zero Even Odd | Multithreading concurrency | Semaphore Synchronization |
 | 39 | Fizz Buzz Multithreaded | Multithreading concurrency | CyclicBarrier / Condition |
@@ -689,6 +689,33 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/stockbroker/sim/cancel`
 - `GET /api/stockbroker/sim/snapshots`
 - `GET /api/stockbroker/sim/events`
+
+---
+
+### 36. Music Streaming Service
+
+#### Key Features
+- **Strategy + Factory for Subscription Tiers**: `SubscriptionStrategy` interface — `FreeSubscriptionStrategy` (1 concurrent stream, ads, 6 skips/hour, no downloads, 128kbps), `PremiumSubscriptionStrategy` (2 streams, ad-free, unlimited skips, downloads, lossless FLAC), `FamilySubscriptionStrategy` (6 streams, ad-free, downloads, 320kbps) — resolved by `SubscriptionStrategyFactory` via an `EnumMap`, the same shape as Splitwise's `SplitStrategyFactory`.
+- **Concurrent-Stream Limit (Per-User ReentrantLock)**: `PlaybackService.startStream` guards the check-then-act race in "count my account's active sessions, then start a new one if under the plan's limit" with a `ReentrantLock` keyed per `userId`, so unrelated accounts stream fully in parallel while one account's device cap is enforced atomically.
+- **Observer Pattern for Playback Events**: `PlaybackEventListener` is notified whenever a stream starts — `ListeningHistoryListener` records the play, `PlayCountListener` bumps the song's global play count — without `PlaybackService` knowing either exists.
+- **Genre-Affinity Recommendations**: ranks unheard songs by the genres in a user's liked songs and listening history, falling back to global top plays for a new user.
+
+#### API Endpoints
+- `GET /api/music-streaming/songs`
+- `GET /api/music-streaming/artists`
+- `GET /api/music-streaming/albums`
+- `GET /api/music-streaming/search`
+- `GET /api/music-streaming/users/{userId}`
+- `POST /api/music-streaming/users/{userId}/subscription`
+- `GET /api/music-streaming/users/{userId}/recommendations`
+- `POST /api/music-streaming/users/{userId}/playlists`
+- `POST /api/music-streaming/playlists/{playlistId}/songs`
+- `POST /api/music-streaming/playback/start`
+- `POST /api/music-streaming/playback/{sessionId}/skip`
+- `POST /api/music-streaming/users/{userId}/download/{songId}`
+- `POST /api/music-streaming/sim/reset`
+- `POST /api/music-streaming/sim/race`
+- `GET /api/music-streaming/sim/events`
 
 ---
 
