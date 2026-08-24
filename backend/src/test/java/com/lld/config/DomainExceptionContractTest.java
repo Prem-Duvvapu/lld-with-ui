@@ -27,6 +27,7 @@ class DomainExceptionContractTest {
             "LibraryException",
             "LinkedInException",
             "RestaurantException",
+            "StackOverflowException",
             "StockBrokerException",
             "UberException"
     );

@@ -5,6 +5,8 @@ import com.lld.library.exception.*;
 import com.lld.linkedin.exception.*;
 import com.lld.stockbroker.exception.*;
 import com.lld.restaurant.exception.*;
+// stackoverflow exceptions are referenced fully-qualified below — its UserNotFoundException
+// would otherwise collide with linkedin's wildcard-imported class of the same simple name.
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -64,7 +66,17 @@ class GlobalExceptionHandlerTest {
                 Arguments.of(new TableUnavailableException("table unavailable"), 409),
                 Arguments.of(new InvalidOrderTransitionException("invalid transition"), 409),
                 Arguments.of(new MenuItemUnavailableException("item unavailable"), 409),
-                Arguments.of(new BillAlreadyPaidException("already paid"), 409)
+                Arguments.of(new BillAlreadyPaidException("already paid"), 409),
+                // stackoverflow
+                Arguments.of(new com.lld.stackoverflow.exception.QuestionNotFoundException("no question"), 404),
+                Arguments.of(new com.lld.stackoverflow.exception.AnswerNotFoundException("no answer"), 404),
+                Arguments.of(new com.lld.stackoverflow.exception.UserNotFoundException("no user"), 404),
+                Arguments.of(new com.lld.stackoverflow.exception.TagNotFoundException("no tag"), 400),
+                Arguments.of(new com.lld.stackoverflow.exception.SelfVoteException("self vote"), 400),
+                Arguments.of(new com.lld.stackoverflow.exception.InvalidVoteTypeException("bad vote"), 400),
+                Arguments.of(new com.lld.stackoverflow.exception.NotQuestionAuthorException("not author"), 403),
+                Arguments.of(new com.lld.stackoverflow.exception.QuestionClosedException("closed"), 409),
+                Arguments.of(new com.lld.stackoverflow.exception.InvalidQuestionTransitionException("already closed"), 409)
         );
     }
 
