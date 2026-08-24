@@ -1232,7 +1232,7 @@ export default function UberPage() {
       module="uber"
       title="Uber Ride Sharing Service"
       icon="🚗"
-      tabs={['book', 'drivers', 'history', 'demo', 'diagram', 'design']}
+      tabs={['book', 'drivers', 'history', 'demo', 'diagram', 'sequence', 'design']}
     >
       {(activeTab) => (
         <div className="uber-container">

@@ -24,10 +24,13 @@ class DomainExceptionContractTest {
     /** Module base classes carry the hierarchy, not a status of their own. */
     private static final Set<String> BASES = Set.of(
             "AirlineException",
+            "CarRentalException",
             "ConcertTicketException",
+            "HotelException",
             "LibraryException",
             "LinkedInException",
             "RestaurantException",
+            "StackOverflowException",
             "StockBrokerException",
             "UberException",
             "ZomatoException"

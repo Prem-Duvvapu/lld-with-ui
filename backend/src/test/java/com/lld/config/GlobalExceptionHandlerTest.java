@@ -44,6 +44,17 @@ import com.lld.zomato.exception.NoAgentAvailableException;
 import com.lld.zomato.exception.PaymentFailedException;
 import com.lld.zomato.exception.RestaurantNotFoundException;
 
+// stackoverflow — UserNotFoundException is kept fully-qualified inline below, since it would
+// otherwise collide with linkedin's explicitly-imported class of the same simple name.
+import com.lld.stackoverflow.exception.QuestionNotFoundException;
+import com.lld.stackoverflow.exception.AnswerNotFoundException;
+import com.lld.stackoverflow.exception.TagNotFoundException;
+import com.lld.stackoverflow.exception.SelfVoteException;
+import com.lld.stackoverflow.exception.InvalidVoteTypeException;
+import com.lld.stackoverflow.exception.NotQuestionAuthorException;
+import com.lld.stackoverflow.exception.QuestionClosedException;
+import com.lld.stackoverflow.exception.InvalidQuestionTransitionException;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -113,7 +124,17 @@ class GlobalExceptionHandlerTest {
                 Arguments.of(new com.lld.zomato.exception.InvalidOrderTransitionException("invalid transition"), 409),
                 Arguments.of(new com.lld.zomato.exception.MenuItemUnavailableException("item unavailable"), 409),
                 Arguments.of(new NoAgentAvailableException("no agent available"), 409),
-                Arguments.of(new PaymentFailedException("payment failed"), 422)
+                Arguments.of(new PaymentFailedException("payment failed"), 422),
+                // stackoverflow
+                Arguments.of(new QuestionNotFoundException("no question"), 404),
+                Arguments.of(new AnswerNotFoundException("no answer"), 404),
+                Arguments.of(new com.lld.stackoverflow.exception.UserNotFoundException("no user"), 404),
+                Arguments.of(new TagNotFoundException("no tag"), 400),
+                Arguments.of(new SelfVoteException("self vote"), 400),
+                Arguments.of(new InvalidVoteTypeException("bad vote"), 400),
+                Arguments.of(new NotQuestionAuthorException("not author"), 403),
+                Arguments.of(new QuestionClosedException("closed"), 409),
+                Arguments.of(new InvalidQuestionTransitionException("already closed"), 409)
         );
     }
 

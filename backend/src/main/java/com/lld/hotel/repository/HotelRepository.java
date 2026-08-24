@@ -1,46 +1,63 @@
 package com.lld.hotel.repository;
 
+import com.lld.hotel.model.Booking;
 import com.lld.hotel.model.Hotel;
 import com.lld.hotel.model.Room;
-import com.lld.hotel.model.Room.RoomType;
-import com.lld.hotel.model.Room.RoomStatus;
-import com.lld.hotel.model.Booking;
+import com.lld.hotel.model.RoomType;
 import org.springframework.stereotype.Repository;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+/**
+ * In-memory store. {@code hotels} and {@code rooms} only ever change at seed time (or via a
+ * handful of admin-ish operations), so they hold a plain map; {@code bookings} is written
+ * continuously from concurrent requests and stays a {@link ConcurrentHashMap}.
+ *
+ * <p>{@link #seed()} is public and idempotent so both the live singleton and the isolated
+ * simulation sandbox ({@code new HotelRepository()}) start from the same known state, and so
+ * {@code /sim/reset} can restore it without restarting the process.
+ */
 @Repository
 public class HotelRepository {
+
     private final Map<String, Hotel> hotels = new LinkedHashMap<>();
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
     private final Map<String, Booking> bookings = new ConcurrentHashMap<>();
-    private final ReentrantLock lock = new ReentrantLock();
     private final AtomicInteger bookingCounter = new AtomicInteger(0);
 
     public HotelRepository() {
-        Hotel h1 = new Hotel("H1", "Grand Palace", "Mumbai", 4.5,
-                List.of("Pool", "Gym", "Spa", "Restaurant", "WiFi"));
-        Hotel h2 = new Hotel("H2", "Lake View Resort", "Udaipur", 4.7,
-                List.of("Pool", "Lake View", "Restaurant", "WiFi", "Bar"));
+        seed();
+    }
 
-        addRoom(new Room("R1", "H1", "101", RoomType.SINGLE, 3000));
-        addRoom(new Room("R2", "H1", "102", RoomType.SINGLE, 3000));
-        addRoom(new Room("R3", "H1", "201", RoomType.DOUBLE, 5000));
-        addRoom(new Room("R4", "H1", "301", RoomType.SUITE, 12000));
-        addRoom(new Room("R5", "H1", "302", RoomType.DELUXE, 8000));
+    public void seed() {
+        hotels.clear();
+        rooms.clear();
+        bookings.clear();
+        bookingCounter.set(0);
 
-        addRoom(new Room("R6", "H2", "101", RoomType.SINGLE, 2500));
-        addRoom(new Room("R7", "H2", "102", RoomType.SINGLE, 2500));
-        addRoom(new Room("R8", "H2", "201", RoomType.DOUBLE, 4500));
-        addRoom(new Room("R9", "H2", "202", RoomType.DOUBLE, 4500));
-        addRoom(new Room("R10", "H2", "301", RoomType.SUITE, 10000));
+        hotels.put("H1", Hotel.builder().id("H1").name("Grand Palace").location("Mumbai")
+                .rating(4.5).amenities(List.of("Pool", "Gym", "Spa", "Restaurant", "WiFi")).build());
+        hotels.put("H2", Hotel.builder().id("H2").name("Lake View Resort").location("Udaipur")
+                .rating(4.7).amenities(List.of("Pool", "Lake View", "Restaurant", "WiFi", "Bar")).build());
 
-        hotels.put("H1", h1);
-        hotels.put("H2", h2);
+        addRoom(Room.builder().id("R1").hotelId("H1").roomNumber("101").type(RoomType.SINGLE).price(3000).build());
+        addRoom(Room.builder().id("R2").hotelId("H1").roomNumber("102").type(RoomType.SINGLE).price(3000).build());
+        addRoom(Room.builder().id("R3").hotelId("H1").roomNumber("201").type(RoomType.DOUBLE).price(5000).build());
+        addRoom(Room.builder().id("R4").hotelId("H1").roomNumber("301").type(RoomType.SUITE).price(12000).build());
+        addRoom(Room.builder().id("R5").hotelId("H1").roomNumber("302").type(RoomType.DELUXE).price(8000).build());
+
+        addRoom(Room.builder().id("R6").hotelId("H2").roomNumber("101").type(RoomType.SINGLE).price(2500).build());
+        addRoom(Room.builder().id("R7").hotelId("H2").roomNumber("102").type(RoomType.SINGLE).price(2500).build());
+        addRoom(Room.builder().id("R8").hotelId("H2").roomNumber("201").type(RoomType.DOUBLE).price(4500).build());
+        addRoom(Room.builder().id("R9").hotelId("H2").roomNumber("202").type(RoomType.DOUBLE).price(4500).build());
+        addRoom(Room.builder().id("R10").hotelId("H2").roomNumber("301").type(RoomType.SUITE).price(10000).build());
     }
 
     public void addRoom(Room room) {
@@ -58,13 +75,12 @@ public class HotelRepository {
     public List<Room> getRoomsByHotel(String hotelId) {
         return rooms.values().stream()
                 .filter(r -> r.getHotelId().equals(hotelId))
+                .sorted(Comparator.comparing(Room::getId))
                 .collect(Collectors.toList());
     }
 
-    public List<Room> getAvailableRooms(String hotelId) {
-        return rooms.values().stream()
-                .filter(r -> r.getHotelId().equals(hotelId) && r.getStatus() == RoomStatus.AVAILABLE)
-                .collect(Collectors.toList());
+    public List<Room> getAllRooms() {
+        return new ArrayList<>(rooms.values());
     }
 
     public Room getRoom(String id) {
@@ -91,17 +107,27 @@ public class HotelRepository {
         bookings.put(booking.getId(), booking);
     }
 
+    /**
+     * Every booking for {@code roomId} whose status still {@link Booking#getStatus()}
+     * {@code .holdsRoom()} — the set a new booking attempt must check for date overlap.
+     * Read fresh on every call; callers doing the overlap check must call this AFTER
+     * acquiring the room's lock, not before, or the read is stale by the time it is acted on.
+     */
+    public List<Booking> findActiveBookingsForRoom(String roomId) {
+        return bookings.values().stream()
+                .filter(b -> b.getRoomId().equals(roomId))
+                .filter(b -> b.getStatus().holdsRoom())
+                .collect(Collectors.toList());
+    }
+
     public List<Booking> getActiveBookings() {
         return bookings.values().stream()
-                .filter(b -> b.getStatus() == Booking.BookingStatus.CONFIRMED
-                        || b.getStatus() == Booking.BookingStatus.CHECKED_IN)
+                .filter(b -> b.getStatus().holdsRoom())
                 .sorted(Comparator.comparing(Booking::getCreatedAt).reversed())
                 .collect(Collectors.toList());
     }
 
-    public ReentrantLock getLock() { return lock; }
-
-    public List<Room> getAllRooms() {
-        return new ArrayList<>(rooms.values());
+    public List<Booking> getAllBookings() {
+        return new ArrayList<>(bookings.values());
     }
 }

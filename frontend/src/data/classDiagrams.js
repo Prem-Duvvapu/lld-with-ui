@@ -5,6 +5,7 @@
 import _airline from './diagrams/airline.js';
 import _atm from './diagrams/atm.js';
 import _auction from './diagrams/auction.js';
+import _blockingQueue from './diagrams/blocking-queue.js';
 import _carRental from './diagrams/car-rental.js';
 import _chess from './diagrams/chess.js';
 import _coffee from './diagrams/coffee.js';
@@ -43,6 +44,7 @@ const classDiagrams = {
   airline: _airline,
   atm: _atm,
   auction: _auction,
+  blockingQueue: _blockingQueue,
   carRental: _carRental,
   chess: _chess,
   coffee: _coffee,

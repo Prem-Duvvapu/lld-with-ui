@@ -15,7 +15,9 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-005](#rca-005-mismatched-prop-names-and-a-missing-route-alias-rendering-blank-pages) | 2026-08-20 | Frontend / Wiring | `lldKey` / `moduleKey` prop typos and a missing route alias produced blank tabs and a blank page | Resolved |
 | [RCA-006](#rca-006-check-then-act-race-assigning-one-uber-driver-to-two-riders) | 2026-08-21 | Backend / Uber / Concurrency | Unsynchronised read-then-write in driver assignment let two riders both claim the same driver | Resolved |
 | [RCA-007](#rca-007-zomato-branch-shipped-non-compiling-a-dead-applicationcontext-and-an-untested-agent-leak) | 2026-08-22 | Backend / Zomato / Build & Concurrency | Two build blockers took down all 30 modules' `ApplicationContext`, and the pool-scan agent-assignment path shipped with zero concurrency coverage for a real leaked-agent race | Resolved |
-| [RCA-008](#rca-008-fresh-git-worktrees-start-with-zero-installed-frontend-packages) | 2026-08-24 | Frontend / Environment / Git Worktrees | A fresh `git worktree` had no `frontend/node_modules`, so `vitest`/`vite build` failed with a misleading `ERR_MODULE_NOT_FOUND` that looked like a broken `vite.config.js` rather than a missing install | Resolved |
+| [RCA-008](#rca-008-duplicate-spring-bean-name-across-modules-crashing-the-whole-applicationcontext) | 2026-08-24 | Backend / Car Rental / Spring Wiring | A `PricingStrategyFactory` class name reused from `parkinglot` collided under Spring's default simple-class-name bean naming, aborting `ApplicationContext` startup for every module, not just car-rental | Resolved |
+| [RCA-009](#rca-009-a-one-time-bonus-strategy-re-firing-on-every-subsequent-vote) | 2026-08-24 | Backend / Stack Overflow / Reputation | A `ReputationStrategy` implementation modeled a one-time event as a per-vote calculation, so every vote on an already-accepted answer re-applied the accepted-answer bonus | Resolved |
+| [RCA-010](#rca-010-fresh-git-worktrees-start-with-zero-installed-frontend-packages) | 2026-08-24 | Frontend / Environment / Git Worktrees | A fresh `git worktree` had no `frontend/node_modules`, so `vitest`/`vite build` failed with a misleading `ERR_MODULE_NOT_FOUND` that looked like a broken `vite.config.js` rather than a missing install | Resolved |
 
 ---
 
@@ -604,9 +606,197 @@ grep -n "assignAgent(" backend/src/test/java/com/lld/zomato/ZomatoConcurrencyTes
    the pattern the same file already used for the equivalent non-sim flow, rather than another
    fabricated placeholder.
 
+## RCA-008: Duplicate Spring Bean Name Across Modules Crashing the Whole ApplicationContext
+
+**Severity:** High
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.carrental` (new module), and transitively every module in the JAR — the
+whole `ApplicationContext` fails to start, so this is not scoped to car-rental at all.
+
+### 1. Overview & Severity
+While building the car-rental module's tiered-pricing Strategy + Factory pair, a class named
+`PricingStrategyFactory` was added under `com.lld.carrental.strategy`. `parkinglot` already has
+an unrelated, differently-shaped class with the exact same simple name under
+`com.lld.parkinglot.strategy`. Spring's default component-scan bean naming is the simple class
+name decapitalized, not the fully-qualified name, so both classes registered as the bean id
+`pricingStrategyFactory`. `ApplicationContext` startup — and therefore `mvn test` for every
+module, not just car-rental — failed immediately. High severity because a single new file with
+an innocuous name silently took down the entire portfolio's test suite and would have failed CI
+across all 30 backend modules, not just the one being changed.
+
+### 2. Symptoms & Error Logs
+`mvn test -Dtest='com.lld.config.*Test'` (a suite that has nothing to do with car-rental) failed
+with a Spring context-loading error on `ErrorContractIntegrationTest`, which is `@SpringBootTest`
+and therefore boots the real `LldApplication`:
+
+```
+Caused by: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse
+configuration class [com.lld.LldApplication]
+...
+Caused by: org.springframework.context.annotation.ConflictingBeanDefinitionException:
+Annotation-specified bean name 'pricingStrategyFactory' for bean class
+[com.lld.parkinglot.strategy.PricingStrategyFactory] conflicts with existing, non-compatible
+bean definition of same name and class [com.lld.carrental.strategy.PricingStrategyFactory]
+```
+
+The car-rental module itself compiled cleanly (`mvn -o -q compile` succeeded) — the failure only
+surfaced at Spring context load, i.e. any test that does not boot a full `ApplicationContext`
+(plain `new CarRentalService(...)` unit tests) would never have caught it.
+
+### 3. Root Cause
+Spring's `@Component`/`@Service`/`@Repository` component scan registers a bean under
+`Introspector.decapitalize(simpleClassName)` when no explicit name is given —
+`com.lld.parkinglot.strategy.PricingStrategyFactory` and `com.lld.carrental.strategy.
+PricingStrategyFactory` both decapitalize to `pricingStrategyFactory`, and `scanBasePackages =
+"com.lld"` in `LldApplication` scans both packages into the same registry. Two different classes
+claiming the same bean id is a hard `ConflictingBeanDefinitionException` at context-refresh time,
+not a silent shadow — but because it only fires when the *whole* context assembles, a test that
+constructs the service by hand (as most of this repo's unit tests do) never exercises it.
+
+### 4. Diagnostic Commands
+```bash
+# Find every other module's class with the same simple name before naming a new one
+find backend/src/main/java/com/lld -name "PricingStrategyFactory.java"
+
+# Confirm the collision precisely from the stack trace
+mvn -o -q test -Dtest='com.lld.config.*Test' 2>&1 | grep -A2 "ConflictingBeanDefinitionException"
+```
+
+### 5. Step-by-Step Resolution
+1. Ran the cross-cutting `com.lld.config.*Test` suite (which boots the real `ApplicationContext`
+   via `ErrorContractIntegrationTest`) after adding the new module, per this repo's habit of
+   running suites broader than just the new module's own tests.
+2. Read the `ConflictingBeanDefinitionException` message, which names both fully-qualified
+   classes and the colliding bean id directly — no further investigation needed.
+3. Grepped every module for the same simple class name (`PricingStrategyFactory`,
+   `PricingStrategy`, `PaymentProcessor`, `Payment`) to check for other latent collisions.
+   `PricingStrategy` (an interface, not a bean) and `Payment` (plain model classes, not beans)
+   collide by name but never register — no conflict. `PaymentProcessor` already had this exact
+   problem solved in `uber` via an explicit qualifier (`@Component("uberPaymentProcessor")`),
+   which `com.lld.carrental.payment.PaymentProcessor` had already copied
+   (`@Component("carRentalPaymentProcessor")`) — so only `PricingStrategyFactory` needed a fix.
+4. Gave `com.lld.carrental.strategy.PricingStrategyFactory` an explicit bean name,
+   `@Component("carRentalPricingStrategyFactory")`, with a comment naming the colliding class —
+   same fix shape as the existing `uber` precedent, no class rename needed.
+5. Verified: `mvn -o -q test -Dtest='com.lld.config.*Test'` passed (`ErrorContractIntegrationTest`
+   now boots the full context cleanly), then the full `mvn test` run stayed at the pre-existing
+   pass count plus car-rental's new tests, with zero failures elsewhere.
+
+### 6. Preventative Measures
+- Any module adding a `@Component`/`@Service`/`@Repository` class should grep
+  `backend/src/main/java/com/lld/*/**/ClassName.java` for the exact simple name across *all*
+  modules before assuming it is unique — component scan is portfolio-wide (`scanBasePackages =
+  "com.lld"`), so a name only needs to collide with any other module, not just siblings.
+  `AGENTS.md`'s Car Rental section now calls this out explicitly.
+- Prefer an explicit `@Component("<module>SomeName")` qualifier for any class whose simple name
+  is a generic, likely-to-be-reused noun (`PricingStrategyFactory`, `PaymentProcessor`,
+  `Validator`, `Notifier`) rather than relying on package uniqueness, which Spring's default bean
+  naming does not honour.
+- `ErrorContractIntegrationTest` (`@SpringBootTest`) is already the guard that catches this class
+  of bug — it is the one cross-cutting test in the suite that boots the real, fully-scanned
+  `ApplicationContext` rather than constructing a service by hand, and it is exactly what caught
+  this. No module-specific test could have: the collision is inherently a cross-module property.
+## RCA-009: A One-Time Bonus Strategy Re-Firing on Every Subsequent Vote
+
+**Severity:** Medium
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.stackoverflow.strategy.AcceptedAnswerReputationStrategy` (deleted),
+`com.lld.stackoverflow.service.StackOverflowService.voteAnswer` (original, pre-rewrite)
+
+### 1. Overview & Severity
+`AcceptedAnswerReputationStrategy` modeled the one-time "answer got accepted" reputation bonus as
+a per-vote `ReputationStrategy`, so the bonus was re-applied on *every* subsequent vote cast on an
+already-accepted answer — including downvotes, which should have cost the author reputation
+instead of gaining it. Medium severity: it never crashed or corrupted storage, but it silently
+inflated reputation totals, which are the module's core scoring mechanism and are shown to users
+directly. Caught while writing `VotingServiceTest` for the rewrite, before this behaviour ever
+shipped to the live module's frontend.
+
+### 2. Symptoms & Error Logs
+No exception, no failing endpoint — the bug is arithmetic, not a crash, so nothing in the logs
+flagged it. Working through the original `voteAnswer` by hand for an accepted answer exposes it:
+
+```java
+// backend/src/main/java/com/lld/stackoverflow/service/StackOverflowService.java @ 01d0828
+ReputationStrategy strategy;
+int bonus = 0;
+if (a.isAccepted()) {
+    strategy = new AcceptedAnswerReputationStrategy();
+    bonus = strategy.calculateReputationChange(voteType);      // always 25, regardless of voteType
+} else {
+    strategy = new AnswerReputationStrategy();
+}
+int delta = strategy.calculateReputationChange(voteType) + bonus;   // 25 + 25 = 50 on an UPVOTE
+```
+
+```java
+// AcceptedAnswerReputationStrategy.java @ 01d0828
+public int calculateReputationChange(VoteType voteType) {
+    return 25;   // ignores voteType entirely
+}
+```
+
+For an accepted answer: an **upvote** awarded `25 (strategy) + 25 (bonus) = 50` reputation instead
+of the intended one-time `+25`; a **downvote** — which should cost the author reputation — also
+awarded a flat `+25`, because `calculateReputationChange` never inspected `voteType`. Voting on an
+accepted answer ten times awarded 250–500 reputation for one answer, with no upper bound.
+
+### 3. Root Cause
+The strategy interface's contract is "reputation delta for one vote," a per-event calculation
+meant to be invoked once per vote cast. The accepted-answer bonus is not a per-vote quantity — it
+is a one-time state transition (`accepted: false -> true`) that should fire exactly once,
+independent of how many votes the answer receives afterward. Wrapping that one-time event in the
+same `ReputationStrategy` interface as the per-vote strategies collapsed two different kinds of
+event into one call site, and the call site (`voteAnswer`) had no way to distinguish "this vote
+is happening" from "this answer just became accepted." The bonus was recomputed and re-added on
+every vote instead of on every acceptance.
+
+### 4. Diagnostic Commands
+```bash
+# A "strategy" invoked from inside a vote handler that ignores its own vote-type parameter
+# is the tell — the accepted-answer bonus has no business varying per UPVOTE/DOWNVOTE call.
+grep -n "calculateReputationChange" backend/src/main/java/com/lld/stackoverflow/strategy/AcceptedAnswerReputationStrategy.java
+
+# Confirm it fires on every vote, not just the acceptance itself
+grep -n "isAccepted()" backend/src/main/java/com/lld/stackoverflow/service/StackOverflowService.java
+
+# After the rewrite: prove the bonus now fires exactly once
+mvn -o test -Dtest='VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward'
+mvn -o test -Dtest='VotingServiceTest#votingOnAcceptedAnswerUsesNormalStrategy'
+```
+
+### 5. Step-by-Step Resolution
+1. Deleted `AcceptedAnswerReputationStrategy` entirely — a one-time event has no business
+   implementing a per-vote interface.
+2. Kept the accepted-answer bonus as a plain constant, `VotingService.ACCEPTED_ANSWER_BONUS = 15`
+   (retuned from the original 25 to sit between the question and answer upvote values), applied
+   exactly once inside `acceptAnswer`, only on the transition from not-accepted to accepted —
+   re-accepting the same answer, or accepting after it is already the accepted one, is a no-op.
+3. Left voting on an accepted answer to go through the ordinary `AnswerReputationStrategy` — an
+   upvote on an accepted answer now correctly awards `+10`, not `+25` and not `+50`, and a
+   downvote correctly costs `-2` instead of awarding a flat bonus.
+4. Wrote `VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward` (accept the same answer
+   twice, assert the bonus landed once) and `#votingOnAcceptedAnswerUsesNormalStrategy` (accept,
+   then upvote, assert the delta is exactly the normal `+10` and not `+15`, `+25` or `+50`) as the
+   regression guard, then ran the full `VotingServiceTest` suite green (19/19).
+5. Documented the distinction directly on `ReputationStrategy`'s javadoc — "the accepted-answer
+   bonus is deliberately **not** part of this interface" — so a future strategy addition does not
+   repeat the mistake of folding a one-time event into a per-vote calculation.
+
+### 6. Preventative Measures
+1. `VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward` and
+   `#votingOnAcceptedAnswerUsesNormalStrategy` fail immediately if the bonus is ever folded back
+   into a per-vote strategy or re-fires on a repeat accept.
+2. `ReputationStrategy`'s javadoc states the rule directly at the extension point most likely to
+   reintroduce it: anyone adding a new strategy reads why the bonus is not one.
+3. `AGENTS.md`'s Stack Overflow section calls out the distinction between per-vote strategies and
+   the one-time bonus constant, so an `/audit-lld` pass on this module has the fact in scope
+   without re-deriving it from the code.
 ---
 
-## RCA-008: Fresh Git Worktrees Start With Zero Installed Frontend Packages
+## RCA-010: Fresh Git Worktrees Start With Zero Installed Frontend Packages
 
 **Severity:** Low
 **Date:** 2026-08-24
