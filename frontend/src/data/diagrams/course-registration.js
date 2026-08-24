@@ -6,18 +6,53 @@ export default {
   title: 'Course Registration — Class Diagram',
   classes: [
     {
-      name: 'Student',
+      name: 'CourseRegistrationController',
+      stereotype: 'controller',
+      fields: [],
+      methods: [
+        '+ register(studentId, sectionId): Registration',
+        '+ drop(registrationId): DropOutcome'
+      ]
+    },
+    {
+      name: 'CourseRegistrationService',
+      stereotype: 'facade',
       fields: [
-        '- id: String',
-        '- name: String',
-        '- email: String',
-        '- enrolledCourses: List<Registration>',
-        '- schedule: Schedule'
+        '- repository: CourseRegistrationRepository',
+        '- capacityManager: SectionCapacityManager'
       ],
       methods: [
-        '+ registerForCourse(course): Registration',
-        '+ dropCourse(registration): void',
-        '+ viewSchedule(): Schedule'
+        '+ register(studentId, sectionId): Registration',
+        '+ drop(registrationId): DropOutcome',
+        '- checkPrerequisites(student, course): void',
+        '- checkScheduleConflict(repo, student, section): void',
+        '- doRegister(repo, mgr, studentId, sectionId): Registration'
+      ]
+    },
+    {
+      name: 'SectionCapacityManager',
+      fields: [
+        '- sectionLocks: Map<String, ReentrantLock>'
+      ],
+      methods: [
+        '+ register(section, studentId): Registration',
+        '+ drop(section, registration): Optional<Registration>'
+      ]
+    },
+    {
+      name: 'CourseRegistrationRepository',
+      fields: [
+        '- courses: ConcurrentHashMap',
+        '- sections: ConcurrentHashMap',
+        '- students: ConcurrentHashMap',
+        '- registrations: ConcurrentHashMap',
+        '- activeRegistrationIndex: ConcurrentHashMap'
+      ],
+      methods: [
+        '+ getActiveRegistration(studentId, sectionId): Registration',
+        '+ getEnrolledSectionsForStudent(studentId): List<Section>',
+        '+ indexActive(registration): void',
+        '+ unindexActive(registration): void'
       ]
     },
     {
@@ -27,64 +62,70 @@ export default {
         '- code: String',
         '- title: String',
         '- credits: int',
+        '- department: String',
+        '- prerequisiteCourseCodes: List<String>'
+      ],
+      methods: []
+    },
+    {
+      name: 'Section',
+      fields: [
+        '- id: String',
+        '- courseId: String',
+        '- sectionCode: String',
+        '- professorName: String',
         '- capacity: int',
         '- enrolledCount: int',
-        '- professor: Professor',
-        '- schedule: Schedule'
+        '- timeSlot: TimeSlot',
+        '- waitlist: Deque<String>'
       ],
       methods: [
-        '+ isFull(): boolean',
-        '+ incrementEnrollment(): void',
-        '+ decrementEnrollment(): void'
+        '+ hasAvailableSeat(): boolean'
       ]
     },
     {
-      name: 'Professor',
+      name: 'TimeSlot',
+      fields: [
+        '- days: Set<DayOfWeek>',
+        '- startTime: LocalTime',
+        '- endTime: LocalTime',
+        '- room: String'
+      ],
+      methods: [
+        '+ conflictsWith(other): boolean'
+      ]
+    },
+    {
+      name: 'Student',
       fields: [
         '- id: String',
         '- name: String',
         '- email: String',
         '- department: String',
-        '- courses: List<Course>'
+        '- completedCourseCodes: Set<String>'
       ],
-      methods: [
-        '+ assignCourse(course): void',
-        '+ getCourseList(): List<Course>'
-      ]
-    },
-    {
-      name: 'Schedule',
-      fields: [
-        '- slots: List<TimeSlot>',
-        '- semester: String'
-      ],
-      methods: [
-        '+ addSlot(day, start, end): void',
-        '+ conflictsWith(other): boolean'
-      ]
+      methods: []
     },
     {
       name: 'Registration',
       fields: [
         '- id: String',
-        '- student: Student',
-        '- course: Course',
+        '- studentId: String',
+        '- courseId: String',
+        '- sectionId: String',
         '- status: RegistrationStatus',
-        '- grade: String',
-        '- timestamp: LocalDateTime'
+        '- registeredAt: LocalDateTime',
+        '- droppedAt: LocalDateTime',
+        '- waitlistPosition: Integer'
       ],
-      methods: [
-        '+ confirm(): void',
-        '+ cancel(): void',
-        '+ assignGrade(grade): void'
-      ]
+      methods: []
     },
     {
       name: 'RegistrationStatus',
       stereotype: 'enum',
       fields: [
-        'PENDING',
         'ENROLLED',
+        'WAITLISTED',
         'DROPPED',
         'COMPLETED'
       ],
@@ -92,35 +133,17 @@ export default {
     }
   ],
   relationships: [
-    {
-      from: 'Student',
-      to: 'Registration',
-      label: 'has'
-    },
-    {
-      from: 'Registration',
-      to: 'Course',
-      label: 'enrolls in'
-    },
-    {
-      from: 'Course',
-      to: 'Professor',
-      label: 'taught by'
-    },
-    {
-      from: 'Course',
-      to: 'Schedule',
-      label: 'has'
-    },
-    {
-      from: 'Student',
-      to: 'Schedule',
-      label: 'has'
-    },
-    {
-      from: 'Registration',
-      to: 'RegistrationStatus',
-      label: 'has state'
-    }
+    { from: 'CourseRegistrationController', to: 'CourseRegistrationService', label: 'delegates to' },
+    { from: 'CourseRegistrationService', to: 'CourseRegistrationRepository', label: 'reads/writes' },
+    { from: 'CourseRegistrationService', to: 'SectionCapacityManager', label: 'delegates capacity decision to' },
+    { from: 'SectionCapacityManager', to: 'CourseRegistrationRepository', label: 'reads/writes under lock' },
+    { from: 'SectionCapacityManager', to: 'Registration', label: 'creates / promotes' },
+    { from: 'Student', to: 'Registration', label: 'makes' },
+    { from: 'Registration', to: 'Section', label: 'enrolls in' },
+    { from: 'Registration', to: 'RegistrationStatus', label: 'has state' },
+    { from: 'Section', to: 'Course', label: 'offers' },
+    { from: 'Section', to: 'TimeSlot', label: 'meets at' },
+    { from: 'Student', to: 'TimeSlot', label: 'schedule checked against', dashed: true },
+    { from: 'Course', to: 'Course', label: 'requires prerequisite', dashed: true }
   ]
 };

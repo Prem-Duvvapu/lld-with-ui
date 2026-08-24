@@ -41,7 +41,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 31 | Social Network | Posts & feeds | Graph Model, Observer |
 | 32 | [Concert Ticket Booking](#32-concert-ticket-booking) | Event seats & reservation | Per-Seat ReentrantLock, Hold TTL, Strategy (refund policy) |
 | 33 | [CricInfo](#33-cricinfo) | Live cricket scorecard | Observer Pattern (ball-by-ball fan-out), Live Scorecard Projection, Per-Match Lock |
-| 34 | Course Registration System | Student enrollment | Strategy, Observer |
+| 34 | [Course Registration System](#34-course-registration-system) | Student enrollment | Facade, Repository, Per-Section ReentrantLock + FIFO Waitlist, Prerequisite & Schedule-Conflict Checks |
 | 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy (Market/Limit), Observer Quotes |
 | 36 | [Music Streaming Service](#36-music-streaming-service) | Audio catalog & playlists | Strategy (subscription tiers), Factory, Observer, Per-User ReentrantLock |
 | 37 | FooBar Alternately | Multithreading concurrency | Semaphore / ReentrantLock |
@@ -663,6 +663,28 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/cricinfo/sim/reset`
 - `POST /api/cricinfo/sim/bowl`
 - `GET /api/cricinfo/sim/telemetry`
+
+---
+
+### 34. Course Registration System
+
+#### Key Features
+- **Per-Section Capacity Lock + FIFO Waitlist**: `SectionCapacityManager` adapts the airline/car-rental per-entity `ReentrantLock` pattern to a capacity *counter* plus a `Deque<String>` waitlist instead of a single seat flag — `register()` re-checks `enrolledCount < capacity` inside the lock and enrolls-or-waitlists atomically, so N students racing for the last seat always yield exactly one ENROLLED and the rest WAITLISTED (never rejected outright).
+- **Drop Promotes Under the Same Lock**: dropping a confirmed registration releases the seat and promotes the FIFO-head waitlisted student inside the *same* lock acquisition as the drop — a concurrent new registration for the freed seat can never win ahead of an already-queued student.
+- **Prerequisite Checking**: registration is rejected with the specific missing course code(s) unless every prerequisite in `Course.prerequisiteCourseCodes` is in the student's `completedCourseCodes`.
+- **Schedule-Conflict Detection**: `TimeSlot.conflictsWith()` rejects registration if the target section's weekly meeting time overlaps any section the student is currently `ENROLLED` in — day-set intersection AND half-open time-interval overlap, both required.
+- **Isolated Simulation Sandbox**: `/api/course-registration/sim/*` backed by a second repository + lock-manager pair, including a `simRace` endpoint that fires N concurrent `register()` calls at one section via a `CountDownLatch` so the race is visible live in the UI, not just in a JUnit test.
+
+#### API Endpoints
+- `GET /api/course-registration/courses`
+- `GET /api/course-registration/courses/{courseId}/sections`
+- `GET /api/course-registration/students/{studentId}/registrations`
+- `POST /api/course-registration/register`
+- `POST /api/course-registration/drop`
+- `POST /api/course-registration/sim/reset`
+- `POST /api/course-registration/sim/race`
+- `POST /api/course-registration/sim/register`
+- `POST /api/course-registration/sim/drop`
 
 ---
 
