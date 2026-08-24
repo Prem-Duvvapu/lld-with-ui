@@ -14,6 +14,9 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-004](#rca-004-eager-import-metaglob-shipping-all-45-module-pages-in-the-entry-chunk) | 2026-08-20 | Frontend / Bundling | Every visitor downloaded a 1,474 kB entry chunk containing all 45 pages | Resolved |
 | [RCA-005](#rca-005-mismatched-prop-names-and-a-missing-route-alias-rendering-blank-pages) | 2026-08-20 | Frontend / Wiring | `lldKey` / `moduleKey` prop typos and a missing route alias produced blank tabs and a blank page | Resolved |
 | [RCA-006](#rca-006-check-then-act-race-assigning-one-uber-driver-to-two-riders) | 2026-08-21 | Backend / Uber / Concurrency | Unsynchronised read-then-write in driver assignment let two riders both claim the same driver | Resolved |
+| [RCA-007](#rca-007-zomato-branch-shipped-non-compiling-a-dead-applicationcontext-and-an-untested-agent-leak) | 2026-08-22 | Backend / Zomato / Build & Concurrency | Two build blockers took down all 30 modules' `ApplicationContext`, and the pool-scan agent-assignment path shipped with zero concurrency coverage for a real leaked-agent race | Resolved |
+| [RCA-008](#rca-008-duplicate-spring-bean-name-across-modules-crashing-the-whole-applicationcontext) | 2026-08-24 | Backend / Car Rental / Spring Wiring | A `PricingStrategyFactory` class name reused from `parkinglot` collided under Spring's default simple-class-name bean naming, aborting `ApplicationContext` startup for every module, not just car-rental | Resolved |
+| [RCA-009](#rca-009-a-one-time-bonus-strategy-re-firing-on-every-subsequent-vote) | 2026-08-24 | Backend / Stack Overflow / Reputation | A `ReputationStrategy` implementation modeled a one-time event as a per-vote calculation, so every vote on an already-accepted answer re-applied the accepted-answer bonus | Resolved |
 
 ---
 
@@ -418,3 +421,375 @@ mvn -o test -Dtest='UberConcurrencyTest#twoRidersRacingForOneDriver_onlyOneWins'
    worse than no test at all — and it is easy to write one by accident.
 5. `AGENTS.md` records the pattern for the other modules: `ConcurrentHashMap` for storage,
    `ReentrantLock` for any compound mutation, and a comment stating the lock ordering.
+
+---
+
+## RCA-007: Zomato Branch Shipped Non-Compiling, a Dead ApplicationContext, and an Untested Agent Leak
+
+**Severity:** Critical
+**Date:** 2026-08-22
+**Status:** Resolved
+**Affected:** `com.lld.zomato.service.{ZomatoService,DeliveryAssignmentService}`,
+`com.lld.zomato.strategy.DeliveryFeeStrategyFactory`, `ZomatoServiceTest`, `ZomatoConcurrencyTest`,
+`frontend/src/lld/zomato/ZomatoPage.jsx` — and, transitively, every one of the other 29 backend
+modules via the shared Spring `ApplicationContext`.
+
+### 1. Overview & Severity
+Commit `510ee6e` landed on `feat/zomato-module-depth` under time pressure and was explicitly
+flagged in its own commit message as "WIP" with a "Not yet done" list. Two of the four problems it
+fixed were build blockers: `mvn test` could not even compile, which means **no test in the entire
+203-test suite had ever run on this branch** — not just zomato's. The second blocker was worse than
+a red build: `ZomatoService` had two public constructors with no `@Autowired` hint, so Spring could
+not disambiguate which one to use and the whole `ApplicationContext` failed to start. Since
+`LldApplication` boots all 30 module packages in one context, one module's ambiguous bean took down
+every module's integration tests, including `ErrorContractIntegrationTest`. Separately, the commit
+fixed a real concurrency defect — two threads assigning the *same* order could each claim a
+*different* agent and leak the loser out of the pool forever — but left the fix's only regression
+test covering a secondary code path that production code never calls. Combined severity: Critical.
+A non-compiling branch and a dead `ApplicationContext` are total build failures; the untested
+production path meant the leaked-agent race could still resurface with zero test signal.
+
+### 2. Symptoms & Error Logs
+```
+# Blocker 1 — test sources do not compile
+[ERROR] .../ZomatoServiceTest.java:[NN,NN] local variables referenced from a lambda expression
+        must be final or effectively final
+        (order was reassigned by service.markReadyForPickup(...) and then captured in a
+        lambda passed to assertThrows/assertDoesNotThrow later in the same test method)
+
+# Blocker 2 — ambiguous constructor, whole context fails to load
+[ERROR] Parameter 0 of constructor in com.lld.zomato.service.ZomatoService required a single
+        constructor, but 2 were found
+org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with
+        name 'zomatoController' ... nested exception is
+        org.springframework.beans.factory.BeanCreationException: ... Ambiguous constructors
+[ERROR] Tests run: 5, Failures: 0, Errors: 5  -- ErrorContractIntegrationTest (every module,
+        not just zomato — the whole context refused to start)
+
+# Leaked-agent race (pre-fix), reproduced by two threads sharing one order
+Thread-A: candidates = [AGENT-1, AGENT-2]; locks AGENT-1; claims it; order.agentId = AGENT-1
+Thread-B: candidates = [AGENT-1, AGENT-2]; locks AGENT-2 (AGENT-1 still "available" from B's
+          stale read of the candidate list); claims it; order.agentId = AGENT-2  <-- overwrites A
+repository.getDeliveryAgent("AGENT-1").isAvailable() == false   <-- permanently unavailable
+repository.getOrder(orderId).getDeliveryAgentId() == "AGENT-2"  <-- but no order references AGENT-1
+# AGENT-1 is now leaked: unavailable forever, assigned to no order, never released.
+```
+
+### 3. Root Cause
+Three independent root causes bundled into one WIP commit:
+
+1. **Effectively-final violation.** A test method reassigned a local `order` variable (rebinding it
+   to the result of `service.markReadyForPickup(...)`) and then referenced that same variable
+   inside a lambda passed to `assertThrows`/`assertDoesNotThrow` later in the method. Java requires
+   captured locals to be final or effectively final; a lambda closes over the *variable*, not a
+   snapshot of its value, so the compiler rejects any capture of a variable that is reassigned
+   anywhere in its scope — this is a hard compile error, not a warning.
+2. **Ambiguous bean constructor.** `ZomatoService` had grown a second, one-argument constructor
+   (probably left over from before `DeliveryAssignmentService` was introduced) alongside the
+   two-argument constructor Spring was actually meant to use. With more than one public constructor
+   and no `@Autowired` to pick a winner, Spring's constructor-resolution strategy has no rule to
+   apply and fails bean creation outright — and because `LldApplication` boots all 30 module
+   packages into a single context, that failure is global, not scoped to zomato.
+3. **Leaked-agent race — lock scope too narrow.** `DeliveryAssignmentService.assignAgent()` (and
+   `assign()`) originally serialised only on a per-*agent* `ReentrantLock`. That is sufficient to
+   stop two orders from claiming the *same* agent, but it does nothing when two threads are
+   assigning the *same order* to two *different* agents: each thread takes a different agent's
+   lock, so they never contend, and both write `order.setDeliveryAgentId(...)` — the second write
+   silently wins, permanently stranding the first agent as `unavailable` with no order pointing
+   back at it. Classic check-then-act, but at the *order* granularity rather than the *agent*
+   granularity the original lock protected.
+
+A fourth, adjacent gap was caught but is process rather than product: the regression test added for
+root cause 3 (`ZomatoConcurrencyTest`) exercised only `assign(orderId, agentId)` — the path that
+claims one pre-chosen agent. `assignAgent(orderId)` — the pool-scan path that `ZomatoService`
+actually calls in both the real flow (`markReadyForPickup`) and the `/sim/*` engine (`simReady`) —
+had no concurrency test at all. Disabling the per-agent lock inside `assign()` failed 4 of 7
+existing tests; disabling it inside `assignAgent()` left all 7 green. A fix with no test on its own
+call path is one refactor away from silently regressing.
+
+### 4. Diagnostic Commands
+```bash
+# Blocker 1: does the branch even compile?
+mvn -o -q compile
+mvn -o test 2>&1 | grep -i "must be final or effectively final"
+
+# Blocker 2: is a @Service hiding more than one public constructor?
+grep -n "public ZomatoService(" backend/src/main/java/com/lld/zomato/service/ZomatoService.java
+mvn -o test -Dtest='com.lld.config.ErrorContractIntegrationTest' 2>&1 | tail -30
+
+# Root cause 3: which lock actually guards assignAgent vs assign?
+grep -n "orderLockFor\|lockFor\|assignAgent\|public DeliveryAgent assign" \
+  backend/src/main/java/com/lld/zomato/service/DeliveryAssignmentService.java
+
+# Which path does production code actually call?
+grep -n "assignAgent(orderId)\|\.assign(" backend/src/main/java/com/lld/zomato/service/ZomatoService.java
+
+# Does the fix's own regression suite cover that path? (it didn't, before this RCA)
+grep -n "assignAgent(" backend/src/test/java/com/lld/zomato/ZomatoConcurrencyTest.java
+```
+
+### 5. Step-by-Step Resolution
+1. Fixed the lambda capture in `ZomatoServiceTest` by not reusing the reassigned `order` variable
+   inside the later lambda, restoring compilability so the suite could run at all.
+2. Removed the unused one-argument `ZomatoService` constructor, leaving the two-argument
+   `(ZomatoRepository, DeliveryAssignmentService)` constructor as the sole public constructor so
+   Spring's implicit single-constructor autowiring applies with no ambiguity.
+3. Added a per-*order* `ReentrantLock` (`orderLockFor`), taken **before** the per-agent lock in
+   both `assignAgent()` and `assign()`, with lock ordering fixed as order-then-agent everywhere so
+   the two lock types can never deadlock. Re-verified inside the order lock that the order can
+   still transition to `OUT_FOR_DELIVERY` (`claimableOrder`), closing the same-order/different-agent
+   race at its actual granularity.
+4. Also fixed a related but separate bug found in the same pass: `DeliveryFeeStrategyFactory` had
+   been sharing one static, mutable `SurgeDeliveryFeeStrategy` instance across all callers, letting
+   any order's surge multiplier bleed into every other order's pricing in the same process.
+5. Replaced three of the seven fabricated frontend fallbacks in `ZomatoPage.jsx` (fake OTP `1234`,
+   fake agent name `Ramesh Kumar`) with honest placeholders, and explicitly logged the remaining
+   four (lines ~1172, 1231, 1232, 1667) as not yet done rather than leaving them undocumented.
+6. **This RCA's own contribution — closed the test-coverage gap the commit had flagged:** added
+   `fiveOrdersRacingForOneAgentViaAssignAgent_onlyOneWins`,
+   `disjointAssignAgentCallsAllSucceedWithDistinctAgents`, and
+   `repeatedAssignAgentRaceNeverProducesTwoWinners` (300 rounds) to `ZomatoConcurrencyTest`, all
+   calling `assignAgent(orderId)` — the path production and the sim engine actually use — instead
+   of the already-covered `assign(orderId, agentId)`.
+7. Finished the remaining fallback cleanup: `newOrder.deliveryOtp` and `realOrder?.deliveryOtp` no
+   longer fall back to `'1234'` (both `placeOrder` and `simOrder` always populate `deliveryOtp`
+   before returning the order, so the fallback could never legitimately fire). The two
+   `deliveryAgentName || 'Ramesh Kumar'` fallbacks in `handleStep5Ready`, however, turned out to
+   guard a value that genuinely *can* be absent — `markReadyForPickup`/`simReady` swallow
+   `NoAgentAvailableException` internally and return the order unchanged when no agent is free,
+   exactly mirroring the already-honest `updated.status === 'OUT_FOR_DELIVERY'` branch used
+   elsewhere in the same file for the non-sim restaurant flow (`handleMarkReady`). Rather than
+   inventing a new fake name, that call site was changed to branch on `updated.status` the same
+   way, showing a genuine "no agent available yet" message instead of a fabricated assignment.
+8. Verified the new tests actually detect the defect they claim to: commented out the
+   `lock.lock()`/`lock.unlock()` pair inside `assignAgent`'s candidate loop, reran only the three
+   new tests, and watched `repeatedAssignAgentRaceNeverProducesTwoWinners` fail —
+   `Round 119 produced 2 winners instead of 1 via assignAgent ==> expected: <1> but was: <2>` —
+   while the two single-shot tests happened to pass by luck in that run (the unguarded window is
+   nanoseconds wide, same lesson as RCA-006 step 7). Restored the lock, confirmed via `git diff`
+   that `DeliveryAssignmentService.java` was byte-identical to the committed version, and reran the
+   full suite green.
+
+### 6. Preventative Measures
+1. **Compile before you commit "WIP."** `mvn -o -q compile` (or at minimum `test-compile`) is fast
+   and would have caught the lambda-capture failure before it reached the branch at all; a branch
+   that has never compiled cannot have run any of its 203 tests, which is a much larger blast
+   radius than the one module being touched.
+2. **One public constructor per `@Service`, or an explicit `@Autowired`.** Because `LldApplication`
+   shares one `ApplicationContext` across all 30 modules, an ambiguous bean in any single module
+   fails every module's context-dependent test, not just its own — `DomainExceptionContractTest`,
+   `GlobalExceptionHandlerTest` and `ErrorContractIntegrationTest` exist precisely to catch
+   cross-module fallout like this, and did.
+3. **Lock at the granularity of the invariant you're protecting, not the resource that happens to
+   be nearby.** "One agent serves one order" needed a lock on the *order* as much as the *agent* —
+   protecting only the agent looked sufficient because the common case (two orders racing one
+   agent) worked, but the actual bug was the mirror-image case (one order racing across two
+   agents). `DeliveryAssignmentService`'s class javadoc now states the order-then-agent lock
+   ordering explicitly so a future change never reverses it and reintroduces deadlock risk.
+4. **A regression test must cover the code path production actually calls, not a sibling with the
+   same name.** `assign(orderId, agentId)` and `assignAgent(orderId)` look almost interchangeable
+   from the outside, but only `assignAgent` is reachable from `markReadyForPickup` and `simReady`.
+   `ZomatoConcurrencyTest` now exercises both, and the pattern established in RCA-006 — assert an
+   invariant, never a timing, and repeat the narrow-window case ~300 times with fresh state per
+   round — was reused rather than re-derived, catching a race that a single run could easily miss
+   (as it did for the two single-shot `assignAgent` tests in the verification run above).
+5. **Never trust a concurrency test until you have watched it fail.** Every new test added here was
+   verified against a deliberately broken implementation before being trusted against the fixed
+   one, and the broken implementation was restored to a byte-identical `git diff` afterward so the
+   experiment left no trace in the shipped code.
+6. **A `|| 'fake value'` fallback is not automatically dishonest — check what the field actually
+   guarantees before deciding.** Two of the four remaining fallbacks (`deliveryOtp`) were removable
+   outright because the backend always populates that field before returning the order. The other
+   two (`deliveryAgentName`) were not — the backend explicitly supports a "ready, but no agent yet"
+   state — so the fix there was conditional rendering that tells the truth in both states, matching
+   the pattern the same file already used for the equivalent non-sim flow, rather than another
+   fabricated placeholder.
+
+## RCA-008: Duplicate Spring Bean Name Across Modules Crashing the Whole ApplicationContext
+
+**Severity:** High
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.carrental` (new module), and transitively every module in the JAR — the
+whole `ApplicationContext` fails to start, so this is not scoped to car-rental at all.
+
+### 1. Overview & Severity
+While building the car-rental module's tiered-pricing Strategy + Factory pair, a class named
+`PricingStrategyFactory` was added under `com.lld.carrental.strategy`. `parkinglot` already has
+an unrelated, differently-shaped class with the exact same simple name under
+`com.lld.parkinglot.strategy`. Spring's default component-scan bean naming is the simple class
+name decapitalized, not the fully-qualified name, so both classes registered as the bean id
+`pricingStrategyFactory`. `ApplicationContext` startup — and therefore `mvn test` for every
+module, not just car-rental — failed immediately. High severity because a single new file with
+an innocuous name silently took down the entire portfolio's test suite and would have failed CI
+across all 30 backend modules, not just the one being changed.
+
+### 2. Symptoms & Error Logs
+`mvn test -Dtest='com.lld.config.*Test'` (a suite that has nothing to do with car-rental) failed
+with a Spring context-loading error on `ErrorContractIntegrationTest`, which is `@SpringBootTest`
+and therefore boots the real `LldApplication`:
+
+```
+Caused by: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse
+configuration class [com.lld.LldApplication]
+...
+Caused by: org.springframework.context.annotation.ConflictingBeanDefinitionException:
+Annotation-specified bean name 'pricingStrategyFactory' for bean class
+[com.lld.parkinglot.strategy.PricingStrategyFactory] conflicts with existing, non-compatible
+bean definition of same name and class [com.lld.carrental.strategy.PricingStrategyFactory]
+```
+
+The car-rental module itself compiled cleanly (`mvn -o -q compile` succeeded) — the failure only
+surfaced at Spring context load, i.e. any test that does not boot a full `ApplicationContext`
+(plain `new CarRentalService(...)` unit tests) would never have caught it.
+
+### 3. Root Cause
+Spring's `@Component`/`@Service`/`@Repository` component scan registers a bean under
+`Introspector.decapitalize(simpleClassName)` when no explicit name is given —
+`com.lld.parkinglot.strategy.PricingStrategyFactory` and `com.lld.carrental.strategy.
+PricingStrategyFactory` both decapitalize to `pricingStrategyFactory`, and `scanBasePackages =
+"com.lld"` in `LldApplication` scans both packages into the same registry. Two different classes
+claiming the same bean id is a hard `ConflictingBeanDefinitionException` at context-refresh time,
+not a silent shadow — but because it only fires when the *whole* context assembles, a test that
+constructs the service by hand (as most of this repo's unit tests do) never exercises it.
+
+### 4. Diagnostic Commands
+```bash
+# Find every other module's class with the same simple name before naming a new one
+find backend/src/main/java/com/lld -name "PricingStrategyFactory.java"
+
+# Confirm the collision precisely from the stack trace
+mvn -o -q test -Dtest='com.lld.config.*Test' 2>&1 | grep -A2 "ConflictingBeanDefinitionException"
+```
+
+### 5. Step-by-Step Resolution
+1. Ran the cross-cutting `com.lld.config.*Test` suite (which boots the real `ApplicationContext`
+   via `ErrorContractIntegrationTest`) after adding the new module, per this repo's habit of
+   running suites broader than just the new module's own tests.
+2. Read the `ConflictingBeanDefinitionException` message, which names both fully-qualified
+   classes and the colliding bean id directly — no further investigation needed.
+3. Grepped every module for the same simple class name (`PricingStrategyFactory`,
+   `PricingStrategy`, `PaymentProcessor`, `Payment`) to check for other latent collisions.
+   `PricingStrategy` (an interface, not a bean) and `Payment` (plain model classes, not beans)
+   collide by name but never register — no conflict. `PaymentProcessor` already had this exact
+   problem solved in `uber` via an explicit qualifier (`@Component("uberPaymentProcessor")`),
+   which `com.lld.carrental.payment.PaymentProcessor` had already copied
+   (`@Component("carRentalPaymentProcessor")`) — so only `PricingStrategyFactory` needed a fix.
+4. Gave `com.lld.carrental.strategy.PricingStrategyFactory` an explicit bean name,
+   `@Component("carRentalPricingStrategyFactory")`, with a comment naming the colliding class —
+   same fix shape as the existing `uber` precedent, no class rename needed.
+5. Verified: `mvn -o -q test -Dtest='com.lld.config.*Test'` passed (`ErrorContractIntegrationTest`
+   now boots the full context cleanly), then the full `mvn test` run stayed at the pre-existing
+   pass count plus car-rental's new tests, with zero failures elsewhere.
+
+### 6. Preventative Measures
+- Any module adding a `@Component`/`@Service`/`@Repository` class should grep
+  `backend/src/main/java/com/lld/*/**/ClassName.java` for the exact simple name across *all*
+  modules before assuming it is unique — component scan is portfolio-wide (`scanBasePackages =
+  "com.lld"`), so a name only needs to collide with any other module, not just siblings.
+  `AGENTS.md`'s Car Rental section now calls this out explicitly.
+- Prefer an explicit `@Component("<module>SomeName")` qualifier for any class whose simple name
+  is a generic, likely-to-be-reused noun (`PricingStrategyFactory`, `PaymentProcessor`,
+  `Validator`, `Notifier`) rather than relying on package uniqueness, which Spring's default bean
+  naming does not honour.
+- `ErrorContractIntegrationTest` (`@SpringBootTest`) is already the guard that catches this class
+  of bug — it is the one cross-cutting test in the suite that boots the real, fully-scanned
+  `ApplicationContext` rather than constructing a service by hand, and it is exactly what caught
+  this. No module-specific test could have: the collision is inherently a cross-module property.
+## RCA-009: A One-Time Bonus Strategy Re-Firing on Every Subsequent Vote
+
+**Severity:** Medium
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.stackoverflow.strategy.AcceptedAnswerReputationStrategy` (deleted),
+`com.lld.stackoverflow.service.StackOverflowService.voteAnswer` (original, pre-rewrite)
+
+### 1. Overview & Severity
+`AcceptedAnswerReputationStrategy` modeled the one-time "answer got accepted" reputation bonus as
+a per-vote `ReputationStrategy`, so the bonus was re-applied on *every* subsequent vote cast on an
+already-accepted answer — including downvotes, which should have cost the author reputation
+instead of gaining it. Medium severity: it never crashed or corrupted storage, but it silently
+inflated reputation totals, which are the module's core scoring mechanism and are shown to users
+directly. Caught while writing `VotingServiceTest` for the rewrite, before this behaviour ever
+shipped to the live module's frontend.
+
+### 2. Symptoms & Error Logs
+No exception, no failing endpoint — the bug is arithmetic, not a crash, so nothing in the logs
+flagged it. Working through the original `voteAnswer` by hand for an accepted answer exposes it:
+
+```java
+// backend/src/main/java/com/lld/stackoverflow/service/StackOverflowService.java @ 01d0828
+ReputationStrategy strategy;
+int bonus = 0;
+if (a.isAccepted()) {
+    strategy = new AcceptedAnswerReputationStrategy();
+    bonus = strategy.calculateReputationChange(voteType);      // always 25, regardless of voteType
+} else {
+    strategy = new AnswerReputationStrategy();
+}
+int delta = strategy.calculateReputationChange(voteType) + bonus;   // 25 + 25 = 50 on an UPVOTE
+```
+
+```java
+// AcceptedAnswerReputationStrategy.java @ 01d0828
+public int calculateReputationChange(VoteType voteType) {
+    return 25;   // ignores voteType entirely
+}
+```
+
+For an accepted answer: an **upvote** awarded `25 (strategy) + 25 (bonus) = 50` reputation instead
+of the intended one-time `+25`; a **downvote** — which should cost the author reputation — also
+awarded a flat `+25`, because `calculateReputationChange` never inspected `voteType`. Voting on an
+accepted answer ten times awarded 250–500 reputation for one answer, with no upper bound.
+
+### 3. Root Cause
+The strategy interface's contract is "reputation delta for one vote," a per-event calculation
+meant to be invoked once per vote cast. The accepted-answer bonus is not a per-vote quantity — it
+is a one-time state transition (`accepted: false -> true`) that should fire exactly once,
+independent of how many votes the answer receives afterward. Wrapping that one-time event in the
+same `ReputationStrategy` interface as the per-vote strategies collapsed two different kinds of
+event into one call site, and the call site (`voteAnswer`) had no way to distinguish "this vote
+is happening" from "this answer just became accepted." The bonus was recomputed and re-added on
+every vote instead of on every acceptance.
+
+### 4. Diagnostic Commands
+```bash
+# A "strategy" invoked from inside a vote handler that ignores its own vote-type parameter
+# is the tell — the accepted-answer bonus has no business varying per UPVOTE/DOWNVOTE call.
+grep -n "calculateReputationChange" backend/src/main/java/com/lld/stackoverflow/strategy/AcceptedAnswerReputationStrategy.java
+
+# Confirm it fires on every vote, not just the acceptance itself
+grep -n "isAccepted()" backend/src/main/java/com/lld/stackoverflow/service/StackOverflowService.java
+
+# After the rewrite: prove the bonus now fires exactly once
+mvn -o test -Dtest='VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward'
+mvn -o test -Dtest='VotingServiceTest#votingOnAcceptedAnswerUsesNormalStrategy'
+```
+
+### 5. Step-by-Step Resolution
+1. Deleted `AcceptedAnswerReputationStrategy` entirely — a one-time event has no business
+   implementing a per-vote interface.
+2. Kept the accepted-answer bonus as a plain constant, `VotingService.ACCEPTED_ANSWER_BONUS = 15`
+   (retuned from the original 25 to sit between the question and answer upvote values), applied
+   exactly once inside `acceptAnswer`, only on the transition from not-accepted to accepted —
+   re-accepting the same answer, or accepting after it is already the accepted one, is a no-op.
+3. Left voting on an accepted answer to go through the ordinary `AnswerReputationStrategy` — an
+   upvote on an accepted answer now correctly awards `+10`, not `+25` and not `+50`, and a
+   downvote correctly costs `-2` instead of awarding a flat bonus.
+4. Wrote `VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward` (accept the same answer
+   twice, assert the bonus landed once) and `#votingOnAcceptedAnswerUsesNormalStrategy` (accept,
+   then upvote, assert the delta is exactly the normal `+10` and not `+15`, `+25` or `+50`) as the
+   regression guard, then ran the full `VotingServiceTest` suite green (19/19).
+5. Documented the distinction directly on `ReputationStrategy`'s javadoc — "the accepted-answer
+   bonus is deliberately **not** part of this interface" — so a future strategy addition does not
+   repeat the mistake of folding a one-time event into a per-vote calculation.
+
+### 6. Preventative Measures
+1. `VotingServiceTest#reacceptingSameAnswerDoesNotDoubleAward` and
+   `#votingOnAcceptedAnswerUsesNormalStrategy` fail immediately if the bonus is ever folded back
+   into a per-vote strategy or re-fires on a repeat accept.
+2. `ReputationStrategy`'s javadoc states the rule directly at the extension point most likely to
+   reintroduce it: anyone adding a new strategy reads why the bonus is not one.
+3. `AGENTS.md`'s Stack Overflow section calls out the distinction between per-vote strategies and
+   the one-time bonus constant, so an `/audit-lld` pass on this module has the fact in scope
+   without re-deriving it from the code.

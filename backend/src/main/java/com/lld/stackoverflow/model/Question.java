@@ -1,54 +1,60 @@
 package com.lld.stackoverflow.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class Question {
+/**
+ * A question is {@link Votable} so {@code VotingService} can apply vote and
+ * reputation math to it with the exact same code path used for {@link Answer}.
+ *
+ * <p>{@code votes} remembers each voter's current {@link VoteType} so a repeat
+ * vote is idempotent and a changed vote (upvote to downvote or back) applies
+ * only the delta, never double-counts.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class Question implements Votable {
     private String id;
     private String title;
     private String body;
     private String authorId;
     private String authorName;
-    private List<String> tags;
-    private List<Answer> answers;
-    private List<Comment> comments;
-    private List<Vote> votes;
-    private int viewCount;
-    private int score;
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
+    @Builder.Default
+    private List<Answer> answers = new ArrayList<>();
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
+    @Builder.Default
+    private Map<String, VoteType> votes = new ConcurrentHashMap<>();
+    @Builder.Default
+    private int viewCount = 0;
+    @Builder.Default
+    private int score = 0;
+    @Builder.Default
+    private QuestionStatus status = QuestionStatus.OPEN;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 
-    public Question(String id, String title, String body, String authorId, String authorName, List<String> tags) {
-        this.id = id;
-        this.title = title;
-        this.body = body;
-        this.authorId = authorId;
-        this.authorName = authorName;
-        this.tags = tags;
-        this.answers = new ArrayList<>();
-        this.comments = new ArrayList<>();
-        this.votes = new ArrayList<>();
-        this.viewCount = 0;
-        this.score = 0;
-        this.createdAt = LocalDateTime.now();
+    public void incrementView() {
+        viewCount++;
     }
 
-    public String getId() { return id; }
-    public String getTitle() { return title; }
-    public String getBody() { return body; }
-    public String getAuthorId() { return authorId; }
-    public String getAuthorName() { return authorName; }
-    public List<String> getTags() { return tags; }
-    public List<Answer> getAnswers() { return answers; }
-    public List<Comment> getComments() { return comments; }
-    public List<Vote> getVotes() { return votes; }
-    public int getViewCount() { return viewCount; }
-    public void incrementView() { viewCount++; }
-    public int getScore() { return score; }
-    public void setScore(int score) { this.score = score; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void addAnswer(Answer answer) {
+        answers.add(answer);
+    }
 
-    public void addAnswer(Answer answer) { answers.add(answer); }
-    public void addComment(Comment comment) { comments.add(comment); }
-    public void addVote(Vote vote) { votes.add(vote); }
+    public void addComment(Comment comment) {
+        comments.add(comment);
+    }
 }

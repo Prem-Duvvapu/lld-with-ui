@@ -16,7 +16,6 @@ const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
  * adding a NEW page without content must make it fail — that is the point.
  */
 const PENDING_DESIGN_CONTENT = [
-  'blocking-queue',
   'bloom-filter',
   'concurrent-hashmap',
   'fizz-buzz',

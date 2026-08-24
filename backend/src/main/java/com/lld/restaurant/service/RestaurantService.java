@@ -1,7 +1,25 @@
 package com.lld.restaurant.service;
 
-import com.lld.restaurant.exception.*;
-import com.lld.restaurant.model.*;
+import com.lld.restaurant.exception.BillAlreadyPaidException;
+import com.lld.restaurant.exception.BillNotFoundException;
+import com.lld.restaurant.exception.InvalidOrderTransitionException;
+import com.lld.restaurant.exception.MenuItemNotFoundException;
+import com.lld.restaurant.exception.MenuItemUnavailableException;
+import com.lld.restaurant.exception.OrderNotFoundException;
+import com.lld.restaurant.exception.TableNotFoundException;
+import com.lld.restaurant.exception.TableUnavailableException;
+import com.lld.restaurant.model.Bill;
+import com.lld.restaurant.model.MenuItem;
+import com.lld.restaurant.model.Order;
+import com.lld.restaurant.model.OrderItem;
+import com.lld.restaurant.model.OrderLineRequest;
+import com.lld.restaurant.model.OrderStatus;
+import com.lld.restaurant.model.Payment;
+import com.lld.restaurant.model.PaymentMethod;
+import com.lld.restaurant.model.PaymentStatus;
+import com.lld.restaurant.model.RestaurantEvent;
+import com.lld.restaurant.model.RestaurantTable;
+import com.lld.restaurant.model.TableStatus;
 import com.lld.restaurant.repository.RestaurantRepository;
 import com.lld.restaurant.strategy.BillBreakdown;
 import com.lld.restaurant.strategy.BillingStrategy;
@@ -10,7 +28,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.LocalTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -53,7 +74,17 @@ public class RestaurantService {
     }
 
     public Order placeOrder(String tableId, String waiterName, List<OrderLineRequest> lines, String notes) {
-        RestaurantTable table = repository.findTableById(tableId)
+        return placeOrderIn(repository, tableId, waiterName != null ? waiterName : "Staff", lines, notes);
+    }
+
+    /**
+     * Shared order-line validation and pricing logic for both the live and sim paths.
+     * Operates against whichever {@link RestaurantRepository} instance the caller passes,
+     * so the live and sandbox flows can never silently drift apart.
+     */
+    private Order placeOrderIn(RestaurantRepository repo, String tableId, String waiterName,
+                                List<OrderLineRequest> lines, String notes) {
+        RestaurantTable table = repo.findTableById(tableId)
                 .orElseThrow(() -> new TableNotFoundException("Table not found: " + tableId));
 
         if (table.getStatus() != TableStatus.OCCUPIED) {
@@ -72,14 +103,14 @@ public class RestaurantService {
                 throw new IllegalArgumentException("Quantity must be at least 1 for item: " + line.menuItemId());
             }
 
-            MenuItem menuItem = repository.findMenuItemById(line.menuItemId())
+            MenuItem menuItem = repo.findMenuItemById(line.menuItemId())
                     .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + line.menuItemId()));
 
             if (!menuItem.isAvailable()) {
                 throw new MenuItemUnavailableException("Menu item is unavailable: " + menuItem.getName());
             }
 
-            double lineTotal = Math.round(menuItem.getPrice() * line.quantity() * 100.0) / 100.0;
+            double lineTotal = round(menuItem.getPrice() * line.quantity());
             subtotal += lineTotal;
 
             items.add(OrderItem.builder()
@@ -91,12 +122,12 @@ public class RestaurantService {
                     .build());
         }
 
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
+        subtotal = round(subtotal);
 
         Order order = Order.builder()
-                .id(repository.generateOrderId())
+                .id(repo.generateOrderId())
                 .tableId(tableId)
-                .waiterName(waiterName != null ? waiterName : "Staff")
+                .waiterName(waiterName)
                 .items(items)
                 .status(OrderStatus.PLACED)
                 .notes(notes)
@@ -105,8 +136,13 @@ public class RestaurantService {
                 .build();
 
         table.setCurrentOrderId(order.getId());
-        repository.saveTable(table);
-        return repository.saveOrder(order);
+        repo.saveTable(table);
+        return repo.saveOrder(order);
+    }
+
+    /** Replaces the four inline duplicates of {@code Math.round(x * 100.0) / 100.0}. */
+    private double round(double value) {
+        return Math.round(value * 100.0) / 100.0;
     }
 
     public Order getOrder(String orderId) {
@@ -137,7 +173,12 @@ public class RestaurantService {
     }
 
     public Bill generateBill(String orderId) {
-        Order order = repository.findOrderById(orderId)
+        return generateBillIn(repository, orderId);
+    }
+
+    /** Shared billing math for both the live and sim paths — see {@link #placeOrderIn}. */
+    private Bill generateBillIn(RestaurantRepository repo, String orderId) {
+        Order order = repo.findOrderById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
 
         if (order.getStatus() != OrderStatus.SERVED) {
@@ -147,13 +188,13 @@ public class RestaurantService {
         }
 
         order.setStatus(OrderStatus.BILLED);
-        repository.saveOrder(order);
+        repo.saveOrder(order);
 
         BillingStrategy strategy = BillingStrategyFactory.forTime(LocalTime.now());
         BillBreakdown breakdown = strategy.compute(order.getSubtotal());
 
         Bill bill = Bill.builder()
-                .id(repository.generateBillId())
+                .id(repo.generateBillId())
                 .orderId(order.getId())
                 .tableId(order.getTableId())
                 .subtotal(breakdown.subtotal())
@@ -166,11 +207,17 @@ public class RestaurantService {
                 .createdAt(Instant.now())
                 .build();
 
-        return repository.saveBill(bill);
+        return repo.saveBill(bill);
     }
 
     public Payment payBill(String billId, PaymentMethod method) {
-        Bill bill = repository.findBillById(billId)
+        return payBillIn(repository, tableAllocationService, billId, method);
+    }
+
+    /** Shared payment logic for both the live and sim paths — see {@link #placeOrderIn}. */
+    private Payment payBillIn(RestaurantRepository repo, TableAllocationService tableSvc,
+                               String billId, PaymentMethod method) {
+        Bill bill = repo.findBillById(billId)
                 .orElseThrow(() -> new BillNotFoundException("Bill not found: " + billId));
 
         if (bill.isPaid()) {
@@ -178,7 +225,7 @@ public class RestaurantService {
         }
 
         Payment payment = Payment.builder()
-                .id(repository.generatePaymentId())
+                .id(repo.generatePaymentId())
                 .billId(bill.getId())
                 .orderId(bill.getOrderId())
                 .amount(bill.getTotal())
@@ -187,13 +234,13 @@ public class RestaurantService {
                 .timestamp(Instant.now())
                 .build();
 
-        repository.savePayment(payment);
+        repo.savePayment(payment);
 
         bill.setPaid(true);
         bill.setPaidAt(Instant.now());
-        repository.saveBill(bill);
+        repo.saveBill(bill);
 
-        tableAllocationService.release(bill.getTableId());
+        tableSvc.release(bill.getTableId());
 
         return payment;
     }
@@ -225,63 +272,10 @@ public class RestaurantService {
     }
 
     public Order simOrder(String tableId, String waiterName, List<OrderLineRequest> lines, String notes) {
-        RestaurantTable table = simRepository.findTableById(tableId)
-                .orElseThrow(() -> new TableNotFoundException("Table not found: " + tableId));
+        Order saved = placeOrderIn(simRepository, tableId, waiterName != null ? waiterName : "SimWaiter", lines, notes);
 
-        if (table.getStatus() != TableStatus.OCCUPIED) {
-            throw new TableUnavailableException("Table " + tableId + " is not occupied, status: " + table.getStatus());
-        }
-
-        if (lines == null || lines.isEmpty()) {
-            throw new IllegalArgumentException("Order lines cannot be empty");
-        }
-
-        List<OrderItem> items = new ArrayList<>();
-        double subtotal = 0.0;
-
-        for (OrderLineRequest line : lines) {
-            if (line.quantity() < 1) {
-                throw new IllegalArgumentException("Quantity must be at least 1");
-            }
-
-            MenuItem menuItem = simRepository.findMenuItemById(line.menuItemId())
-                    .orElseThrow(() -> new MenuItemNotFoundException("Menu item not found: " + line.menuItemId()));
-
-            if (!menuItem.isAvailable()) {
-                throw new MenuItemUnavailableException("Menu item is unavailable: " + menuItem.getName());
-            }
-
-            double lineTotal = Math.round(menuItem.getPrice() * line.quantity() * 100.0) / 100.0;
-            subtotal += lineTotal;
-
-            items.add(OrderItem.builder()
-                    .menuItemId(menuItem.getId())
-                    .name(menuItem.getName())
-                    .quantity(line.quantity())
-                    .unitPrice(menuItem.getPrice())
-                    .totalPrice(lineTotal)
-                    .build());
-        }
-
-        subtotal = Math.round(subtotal * 100.0) / 100.0;
-
-        Order order = Order.builder()
-                .id(simRepository.generateOrderId())
-                .tableId(tableId)
-                .waiterName(waiterName != null ? waiterName : "SimWaiter")
-                .items(items)
-                .status(OrderStatus.PLACED)
-                .notes(notes)
-                .createdAt(Instant.now())
-                .subtotal(subtotal)
-                .build();
-
-        table.setCurrentOrderId(order.getId());
-        simRepository.saveTable(table);
-        Order saved = simRepository.saveOrder(order);
-
-        addSimEvent("ORDER_PLACED", waiterName, "Order " + order.getId() + " placed for table " + tableId + " (₹" + subtotal + ")",
-                Map.of("orderId", order.getId(), "tableId", tableId, "subtotal", subtotal, "itemsCount", items.size()));
+        addSimEvent("ORDER_PLACED", waiterName, "Order " + saved.getId() + " placed for table " + tableId + " (₹" + saved.getSubtotal() + ")",
+                Map.of("orderId", saved.getId(), "tableId", tableId, "subtotal", saved.getSubtotal(), "itemsCount", saved.getItems().size()));
 
         return saved;
     }
@@ -308,67 +302,20 @@ public class RestaurantService {
     }
 
     public Bill simBill(String orderId) {
-        Order order = simRepository.findOrderById(orderId)
-                .orElseThrow(() -> new OrderNotFoundException("Order not found: " + orderId));
-
-        if (order.getStatus() != OrderStatus.SERVED) {
-            throw new InvalidOrderTransitionException("Order must be in SERVED status to generate bill");
-        }
-
-        order.setStatus(OrderStatus.BILLED);
-        simRepository.saveOrder(order);
-
-        BillingStrategy strategy = BillingStrategyFactory.forTime(LocalTime.now());
-        BillBreakdown breakdown = strategy.compute(order.getSubtotal());
-
-        Bill bill = Bill.builder()
-                .id(simRepository.generateBillId())
-                .orderId(order.getId())
-                .tableId(order.getTableId())
-                .subtotal(breakdown.subtotal())
-                .discount(breakdown.discount())
-                .tax(breakdown.tax())
-                .serviceCharge(breakdown.serviceCharge())
-                .total(breakdown.total())
-                .strategyUsed(strategy.getName())
-                .paid(false)
-                .createdAt(Instant.now())
-                .build();
-
-        Bill saved = simRepository.saveBill(bill);
-        addSimEvent("BILLED", "Cashier", "Bill " + bill.getId() + " generated for order " + orderId + " (Total: ₹" + bill.getTotal() + ")",
-                Map.of("billId", bill.getId(), "orderId", orderId, "total", bill.getTotal(), "strategy", strategy.getName()));
+        Bill saved = generateBillIn(simRepository, orderId);
+        addSimEvent("BILLED", "Cashier", "Bill " + saved.getId() + " generated for order " + orderId + " (Total: ₹" + saved.getTotal() + ")",
+                Map.of("billId", saved.getId(), "orderId", orderId, "total", saved.getTotal(), "strategy", saved.getStrategyUsed()));
         return saved;
     }
 
     public Payment simPay(String billId, PaymentMethod method) {
-        Bill bill = simRepository.findBillById(billId)
-                .orElseThrow(() -> new BillNotFoundException("Bill not found: " + billId));
+        // Captured before payBillIn mutates/releases the bill, purely for the event log below.
+        String tableId = simRepository.findBillById(billId).map(Bill::getTableId).orElse(null);
 
-        if (bill.isPaid()) {
-            throw new BillAlreadyPaidException("Bill " + billId + " is already paid");
-        }
+        Payment payment = payBillIn(simRepository, simTableAllocationService, billId, method);
 
-        Payment payment = Payment.builder()
-                .id(simRepository.generatePaymentId())
-                .billId(bill.getId())
-                .orderId(bill.getOrderId())
-                .amount(bill.getTotal())
-                .method(method != null ? method : PaymentMethod.CASH)
-                .status(PaymentStatus.SUCCESS)
-                .timestamp(Instant.now())
-                .build();
-
-        simRepository.savePayment(payment);
-
-        bill.setPaid(true);
-        bill.setPaidAt(Instant.now());
-        simRepository.saveBill(bill);
-
-        simTableAllocationService.release(bill.getTableId());
-
-        addSimEvent("PAID", "Customer", "Bill " + billId + " paid via " + payment.getMethod() + " (₹" + bill.getTotal() + ")",
-                Map.of("billId", billId, "amount", bill.getTotal(), "method", payment.getMethod().name(), "tableReleased", bill.getTableId()));
+        addSimEvent("PAID", "Customer", "Bill " + billId + " paid via " + payment.getMethod() + " (₹" + payment.getAmount() + ")",
+                Map.of("billId", billId, "amount", payment.getAmount(), "method", payment.getMethod().name(), "tableReleased", tableId));
 
         return payment;
     }

@@ -11,7 +11,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 1 | [Parking Lot](#1-parking-lot) | Multi-level parking | Singleton, Strategy (pricing/spot), Factory, ReentrantLock |
 | 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy (payment), Observer, OTP Handoff |
 | 3 | [Uber](#3-uber) | Ride-hailing | State Machine (transition table), Strategy (standard/surge pricing), Per-Driver Lock, Haversine Distance, OTP |
-| 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy (reputation), Factory, Tag Search |
+| 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy + Factory (reputation), deterministic Question≤Answer≤User lock ordering, Votable interface, State Machine (question status) |
 | 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Minimax AI Strategy, Undo History |
 | 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | State Machine, Board & Snakes/Ladders Mapping |
 | 7 | [ATM](#7-atm) | Banking ATM | State Machine, Denomination Strategy, ReentrantLock, Lockout |
@@ -35,7 +35,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 25 | [LinkedIn](#25-linkedin) | Professional network | Graph Model, Strategy (ranking), Observer (alerts), Pair Locking |
 | 26 | LRU Cache | In-memory cache | Doubly Linked List + HashMap |
 | 27 | [Pub Sub System](#27-pubsub-system-message-broker) | Message broker | Observer, Dedicated Per-Subscriber FIFO Worker Threads |
-| 28 | Car Rental System | Vehicle fleet & booking | State Machine, Strategy |
+| 28 | [Car Rental System](#28-car-rental-system) | Vehicle fleet & booking | Overlapping-Interval Per-Vehicle Lock, Strategy + Factory (tiered pricing), State Machine |
 | 29 | Online Auction System | Bidding engine | Observer, Strategy |
 | 30 | Restaurant Management | Order & kitchen workflow | State Machine, Factory |
 | 31 | Social Network | Posts & feeds | Graph Model, Observer |
@@ -256,15 +256,25 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 4. Stack Overflow
 
 #### Key Features
-- **Q&A Engine**: Question posting, answer submissions, voting, tag search, and comment threads.
-- **Reputation Strategy**: Strategy pattern for reputation score adjustments upon upvotes/downvotes.
+- **Q&A Engine**: Question posting (with tag validation), answer submissions, comment threads, keyword/tag/author search.
+- **Reputation Strategy + Factory**: `ReputationStrategy` (question upvote +5/downvote -2, answer upvote +10/downvote -2) resolved by `ReputationStrategyFactory` — never an inline switch. The accepted-answer bonus (+15) is a one-time constant applied by `VotingService.acceptAnswer`, not a per-vote strategy; an earlier draft folded it into the strategy interface and it silently re-fired on every subsequent vote, including downvotes (see `RCA.md`).
+- **Deterministic locking**: `VotingService` acquires locks in a fixed **Question ≤ Answer ≤ User** tier order for every vote, accept and close, so concurrent votes on the same post can neither deadlock nor lose an update. Votes are idempotent (a repeated vote is a no-op) and vote changes apply only the net delta.
+- **Votable interface**: `Question` and `Answer` both implement it so the vote/reputation math is written once, generically.
+- **Question status state machine**: OPEN → ANSWERED (on accept) → CLOSED (author-only); CLOSED rejects new answers and a second close.
+- **Isolated simulation sandbox**: `/api/stackoverflow/sim/*` runs an 8-step scripted walkthrough — including a 5-voter concurrent race — against a separate repository so it never touches live data.
 
 #### API Endpoints
 - `GET /api/stackoverflow/questions`
+- `GET /api/stackoverflow/questions/{id}`
 - `POST /api/stackoverflow/questions`
 - `POST /api/stackoverflow/questions/{id}/answers`
 - `POST /api/stackoverflow/questions/{id}/vote`
 - `POST /api/stackoverflow/questions/{id}/accept`
+- `POST /api/stackoverflow/questions/{id}/close`
+- `POST /api/stackoverflow/answers/{id}/vote`
+- `POST /api/stackoverflow/comments`
+- `GET /api/stackoverflow/users`, `GET /api/stackoverflow/tags`
+- `POST /api/stackoverflow/sim/reset`, `GET /api/stackoverflow/sim/state`, `POST /api/stackoverflow/sim/{ask,answer,vote,accept,close,race}`, `GET /api/stackoverflow/sim/events`
 
 ---
 
@@ -581,6 +591,29 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/pubsub/subscribers/{id}/messages`
 - `POST /api/pubsub/sim/reset`
 - `POST /api/pubsub/sim/publish`
+
+---
+
+### 28. Car Rental System
+
+#### Key Features
+- **Overlapping-Interval Reservation Locking**: `ReservationLockService` claims a per-vehicle fair `ReentrantLock` (via `computeIfAbsent`) and re-reads the vehicle's **entire reservation set** inside the lock, rejecting on any date-range overlap before committing — a genuinely different lock shape from a single free/busy flag, since the invariant spans a set of existing bookings, not one boolean.
+- **Tiered Pricing Strategy + Factory**: `PricingStrategyFactory.forDuration(days)` resolves `StandardPricingStrategy` (1–2 days), `WeeklyDiscountPricingStrategy` (3–6 days, 10% off) or `LongRentalDiscountPricingStrategy` (7+ days, 20% off) — `CarRentalService` never branches on duration itself.
+- **Reservation State Machine**: `ReservationStatus` declares its legal transitions in one table (`PENDING → CONFIRMED → ACTIVE → COMPLETED`, or `CANCELLED` from the first two) enforced through a single `transition()` gate, same idiom as Uber's `RideStatus`.
+- **Vehicle Status Is a Fleet Gate, Not a Per-Date Flag**: `VehicleStatus` (`AVAILABLE`/`RENTED`/`MAINTENANCE`/`RETIRED`) only gates new reservations via `MAINTENANCE`/`RETIRED` — real per-date availability is always answered by scanning the reservation set, so one vehicle can legitimately carry many non-overlapping future reservations.
+- **Late Fee & Refunds**: Returning after the booked end date adds a 1.5x-daily-rate late fee to the actual cost; cancelling a paid (`CONFIRMED`) reservation refunds the captured payment.
+- **Isolated Simulation Sandbox**: `/api/car-rental/sim/*` backed by a second `CarRentalRepository` + `ReservationLockService` pair, so the interactive demo (including a live two-customer overlap race) never touches live fleet data.
+
+#### API Endpoints
+- `GET /api/car-rental/vehicles/available`
+- `GET /api/car-rental/estimate`
+- `POST /api/car-rental/reservations`
+- `PUT /api/car-rental/reservations/{id}/confirm`
+- `PUT /api/car-rental/reservations/{id}/pickup`
+- `PUT /api/car-rental/reservations/{id}/return`
+- `PUT /api/car-rental/reservations/{id}/cancel`
+- `POST /api/car-rental/sim/reset`
+- `POST /api/car-rental/sim/reservations`
 
 ---
 

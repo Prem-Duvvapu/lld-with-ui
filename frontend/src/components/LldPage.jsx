@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import DesignDetails from './DesignDetails';
 import ClassDiagram from './ClassDiagram';
+import SequenceDiagram from './SequenceDiagram';
 import './LldPage.css';
 
 export default function LldPage({ module, title, icon, tabs: customTabs, children }) {
@@ -15,6 +16,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
     design: 'Design Details',
     details: 'Design Details',
     diagram: 'Class Diagram',
+    sequence: 'Sequence Diagram',
     app: 'App',
     simulation: 'Interactive 2D Simulation',
     demo: 'Animated Demo',
@@ -44,7 +46,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
     sessionStorage.setItem(storageKey, tab);
   }, [tab, storageKey]);
 
-  const isBuiltIn = ['design', 'details', 'diagram'].includes(tab);
+  const isBuiltIn = ['design', 'details', 'diagram', 'sequence'].includes(tab);
 
   return (
     <div className="lld-page">
@@ -79,6 +81,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
       <main className="lld-page-main">
         {(tab === 'design' || tab === 'details') && <DesignDetails module={module} />}
         {tab === 'diagram' && <ClassDiagram module={module} />}
+        {tab === 'sequence' && <SequenceDiagram module={module} />}
         {!isBuiltIn && (
           typeof children === 'function'
             ? children(tab)
