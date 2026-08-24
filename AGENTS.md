@@ -272,6 +272,23 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 - 6 tabs: 🖥️ Live Logging Console & Stream, 🗄️ Multi-Appender Sinks, ⚙️ Logger Hierarchy & Configuration, 🕹️ 8-Step Interactive Pipeline Simulation with Telemetry HUD, 📐 Class Diagram, 📋 Design Details.
 - Real-time log stream with level badges, MDC tags, live appender sink inspectors, and step-by-step pipeline execution replay.
 
+## Stack Overflow Module
+### Backend
+- `StackOverflowInitializer` + `StackOverflowRepository.seed()`: 3 users, 8 tags, 3 questions, 2 answers (one pre-accepted). `seed()` is reused by the live boot path and independently by the sim sandbox's reset, so the two never drift.
+- `StackOverflowService`: Facade — `postQuestion`/`postAnswer`/`addComment` (tag validation, reputation rewards for authoring), delegates every vote/accept/close to `VotingService`.
+- `VotingService`: Owns every compound mutation touching both a post's score and its author's reputation. Locks in a fixed **Question ≤ Answer ≤ User** tier order (never acquired out of order by any method), documented and proved deadlock-free in its class javadoc. `voteQuestion`/`voteAnswer` reject a self-vote, are a no-op on a repeated identical vote, and apply only the net delta on a changed vote. `acceptAnswer` holds the question lock for the whole call, unsets any previous accepted answer one answer-lock at a time, and awards a one-time `+15` bonus — not a per-vote strategy (see the bug this replaced, below). `closeQuestion` is author-only and rejects closing twice.
+- `Votable` interface (`getId`/`getAuthorId`/`getScore`/`setScore`/`getVotes`): `Question` and `Answer` both implement it so `VotingService.applyVote` is one generic method, not duplicated per type.
+- Strategy Pattern: `ReputationStrategy` (`QuestionReputationStrategy`: UPVOTE +5/DOWNVOTE -2, `AnswerReputationStrategy`: UPVOTE +10/DOWNVOTE -2) resolved by `ReputationStrategyFactory.forTarget(VoteTargetType)`.
+- `QuestionStatus` state machine: OPEN → ANSWERED (on accept) → CLOSED (author-only, from either); CLOSED rejects new answers and a second close.
+- Exception hierarchy: `StackOverflowException extends com.lld.config.DomainException` with `QuestionNotFoundException`/`AnswerNotFoundException`/`UserNotFoundException` (404), `TagNotFoundException`/`SelfVoteException`/`InvalidVoteTypeException` (400), `NotQuestionAuthorException` (403), `QuestionClosedException`/`InvalidQuestionTransitionException` (409).
+- Isolated `/api/stackoverflow/sim/*` sandbox: separate `StackOverflowRepository` + `VotingService` instance, `reset`/`ask`/`answer`/`vote`/`accept`/`close`/`race`/`events`.
+- Tests: `StackOverflowServiceTest`, `VotingServiceTest` (pins exact vote/reputation deltas, self-vote rejection, vote-change idempotency, the accepted-answer bonus firing exactly once), `ReputationStrategyTest`, `StackOverflowRepositoryTest`, `StackOverflowConcurrencyTest` (60 concurrent first-time voters on one answer, 300 rounds of two threads racing to accept different answers).
+
+### Frontend
+- 6 tabs: ❓ Questions, ✍️ Ask, 🏆 Leaderboard, Interactive 2D Simulation, Class Diagram, Design Details.
+- Live polling (`usePolling`) on the question list, an open question's detail, and the leaderboard; an acting-user picker makes self-vote rejection directly demonstrable in the operational tabs, not just the sim.
+- 8-step Simulation: reset, ask, answer, upvote, a self-vote rejected in real time, accept, a 5-voter concurrent race on one answer, close-then-refused-answer — all against `/sim/*`, with a live telemetry HUD (question status, answer score, author reputation, accepted flag) and an event log.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9090

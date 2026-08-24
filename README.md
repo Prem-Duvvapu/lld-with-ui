@@ -11,7 +11,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 1 | [Parking Lot](#1-parking-lot) | Multi-level parking | Singleton, Strategy (pricing/spot), Factory, ReentrantLock |
 | 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy (payment), Observer, OTP Handoff |
 | 3 | [Uber](#3-uber) | Ride-hailing | State Machine (transition table), Strategy (standard/surge pricing), Per-Driver Lock, Haversine Distance, OTP |
-| 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy (reputation), Factory, Tag Search |
+| 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy + Factory (reputation), deterministic Question≤Answer≤User lock ordering, Votable interface, State Machine (question status) |
 | 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Minimax AI Strategy, Undo History |
 | 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | State Machine, Board & Snakes/Ladders Mapping |
 | 7 | [ATM](#7-atm) | Banking ATM | State Machine, Denomination Strategy, ReentrantLock, Lockout |
@@ -256,15 +256,25 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 4. Stack Overflow
 
 #### Key Features
-- **Q&A Engine**: Question posting, answer submissions, voting, tag search, and comment threads.
-- **Reputation Strategy**: Strategy pattern for reputation score adjustments upon upvotes/downvotes.
+- **Q&A Engine**: Question posting (with tag validation), answer submissions, comment threads, keyword/tag/author search.
+- **Reputation Strategy + Factory**: `ReputationStrategy` (question upvote +5/downvote -2, answer upvote +10/downvote -2) resolved by `ReputationStrategyFactory` — never an inline switch. The accepted-answer bonus (+15) is a one-time constant applied by `VotingService.acceptAnswer`, not a per-vote strategy; an earlier draft folded it into the strategy interface and it silently re-fired on every subsequent vote, including downvotes (see `RCA.md`).
+- **Deterministic locking**: `VotingService` acquires locks in a fixed **Question ≤ Answer ≤ User** tier order for every vote, accept and close, so concurrent votes on the same post can neither deadlock nor lose an update. Votes are idempotent (a repeated vote is a no-op) and vote changes apply only the net delta.
+- **Votable interface**: `Question` and `Answer` both implement it so the vote/reputation math is written once, generically.
+- **Question status state machine**: OPEN → ANSWERED (on accept) → CLOSED (author-only); CLOSED rejects new answers and a second close.
+- **Isolated simulation sandbox**: `/api/stackoverflow/sim/*` runs an 8-step scripted walkthrough — including a 5-voter concurrent race — against a separate repository so it never touches live data.
 
 #### API Endpoints
 - `GET /api/stackoverflow/questions`
+- `GET /api/stackoverflow/questions/{id}`
 - `POST /api/stackoverflow/questions`
 - `POST /api/stackoverflow/questions/{id}/answers`
 - `POST /api/stackoverflow/questions/{id}/vote`
 - `POST /api/stackoverflow/questions/{id}/accept`
+- `POST /api/stackoverflow/questions/{id}/close`
+- `POST /api/stackoverflow/answers/{id}/vote`
+- `POST /api/stackoverflow/comments`
+- `GET /api/stackoverflow/users`, `GET /api/stackoverflow/tags`
+- `POST /api/stackoverflow/sim/reset`, `GET /api/stackoverflow/sim/state`, `POST /api/stackoverflow/sim/{ask,answer,vote,accept,close,race}`, `GET /api/stackoverflow/sim/events`
 
 ---
 
