@@ -7,10 +7,12 @@
 
 import _uber from './sequences/uber.js';
 import _zomato from './sequences/zomato.js';
+import _splitwise from './sequences/splitwise.js';
 
 const sequenceDiagrams = {
   uber: _uber,
   zomato: _zomato,
+  splitwise: _splitwise,
 };
 
 export default sequenceDiagrams;
