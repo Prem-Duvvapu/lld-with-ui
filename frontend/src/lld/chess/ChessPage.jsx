@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { createGame, getGame, makeMove, getValidMoves } from './api';
+import { createGame, getGame, makeMove, getValidMoves, simReset, simMove, simGetEventLog } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
@@ -151,123 +151,113 @@ function GamePanel({ gameId, onNewGame }) {
   );
 }
 
+// Scripted Scholar's Mate — 4 moves per side, the classic fastest-checkmate demo. Each entry
+// drives the isolated /api/chess/sim/move endpoint, which operates on a sandbox game entirely
+// separate from any game a visitor creates on the "Game" tab.
+const SCRIPTED_MOVES = [
+  { from: [6, 4], to: [4, 4], label: '1. e4' },
+  { from: [1, 4], to: [3, 4], label: '1... e5' },
+  { from: [7, 5], to: [4, 2], label: '2. Bc4' },
+  { from: [0, 1], to: [2, 2], label: '2... Nc6' },
+  { from: [7, 3], to: [3, 7], label: '3. Qh5' },
+  { from: [0, 6], to: [2, 5], label: '3... Nf6??' },
+  { from: [3, 7], to: [1, 5], label: '4. Qxf7#' },
+];
+
 function AnimatedFlow() {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(0); // 0 = not started, 1 = reset done, 2..8 = moves 1..7 played
   const [game, setGame] = useState(null);
-  const [board, setBoard] = useState(null);
+  const [log, setLog] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [moves, setMoves] = useState([]);
   const mountedRef = useRef(true);
-  const steps = ['Create', 'Move 1', 'Move 2', 'Move 3', 'Checkmate', 'Done'];
+  const totalSteps = SCRIPTED_MOVES.length + 1; // reset + 7 scripted moves
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-  const reset = () => { setStep(0); setGame(null); setBoard(null); setError(''); setMoves([]); };
+  const reset = () => { setStep(0); setGame(null); setLog([]); setError(''); };
 
-  const createGameAction = async () => {
+  const startAction = async () => {
     setLoading(true); setError('');
     try {
-      const g = await createGame('Magnus', 'Hikaru');
+      const g = await simReset();
       if (!mountedRef.current) return;
       if (g.error) { setError(g.error); return; }
-      setGame(g); setBoard(g.board); setStep(1);
-    } catch { if (mountedRef.current) setError('Failed to create game'); }
+      setGame(g);
+      const events = await simGetEventLog();
+      if (!events.error) setLog(events);
+      setStep(1);
+    } catch { if (mountedRef.current) setError('Failed to reset the sandbox game'); }
     finally { if (mountedRef.current) setLoading(false); }
   };
 
-  const makeMoveAction = async () => {
-    if (!game) return;
+  const nextMoveAction = async () => {
+    const move = SCRIPTED_MOVES[step - 1];
+    if (!move) return;
     setLoading(true); setError('');
     try {
-      const idx = moves.length;
-      const color = game.currentPlayerIndex === 0 ? 'w' : 'b';
-      let foundFrom = null, foundTo = null;
-      for (let r = 0; r < 8 && !foundFrom; r++) {
-        for (let c = 0; c < 8 && !foundFrom; c++) {
-          const p = game.board[r]?.[c];
-          if (p && p[0] === color) {
-            for (let tr = 0; tr < 8 && !foundFrom; tr++) {
-              for (let tc = 0; tc < 8 && !foundFrom; tc++) {
-                const testData = await makeMove(game.id, r, c, tr, tc);
-                if (!mountedRef.current) return;
-                if (!testData.error) {
-                  foundFrom = [r, c]; foundTo = [tr, tc];
-                  setGame(testData); setBoard(testData.board);
-                  setMoves(prev => [...prev, { from: foundFrom, to: foundTo, piece: p }]);
-                  if (testData.status === 'CHECKMATE') setStep(4);
-                  else setStep(idx + 2 < steps.length - 1 ? idx + 2 : 4);
-                }
-              }
-            }
-          }
-        }
-      }
-      if (!foundFrom) { setError('No valid move found'); }
+      const [fromRow, fromCol] = move.from;
+      const [toRow, toCol] = move.to;
+      const g = await simMove(fromRow, fromCol, toRow, toCol, move.label);
+      if (!mountedRef.current) return;
+      if (g.error) { setError(g.error); return; }
+      setGame(g);
+      const events = await simGetEventLog();
+      if (!events.error) setLog(events);
+      setStep(step + 1);
     } catch { if (mountedRef.current) setError('Move failed'); }
     finally { if (mountedRef.current) setLoading(false); }
   };
 
+  const isDone = step > SCRIPTED_MOVES.length;
+  const isMate = game?.status === 'CHECKMATE';
+
   return (
     <div>
       <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <div key={i} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} />
         ))}
-        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step]}</span>
+        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>
+          {step === 0 ? 'Not started' : step <= SCRIPTED_MOVES.length ? `Step ${step} / ${totalSteps - 1}` : 'Complete'}
+        </span>
       </div>
       {error && <div className="error">{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#444', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#ccc' }}>↺ Reset</button></div>}
       {game && (
         <div className="scene">
-          <div className="flow-player-info">{game.players?.[0]?.name} (♔) vs {game.players?.[1]?.name} (♚)</div>
+          <div className="flow-player-info">{game.players?.[0]?.name} (♔) vs {game.players?.[1]?.name} (♚) — sandbox game, isolated from /api/chess/sim/*</div>
           <div className="flow-chess-board">
-            {(board || Array.from({length:8},()=>Array(8).fill(null))).map((row, r) => row.map((cell, c) => {
+            {game.board.map((row, r) => row.map((cell, c) => {
               const isLight = (r + c) % 2 === 0;
               return <div key={`${r}-${c}`} className={`flow-cell ${isLight ? 'light' : 'dark'}`}>{cell ? UNICODE[cell] || cell : ''}</div>;
             }))}
           </div>
-          {moves.length > 0 && (
+          {log.length > 0 && (
             <div className="moves-list">
-              {moves.map((m, i) => (
-                <div key={i}>Move {i + 1}: {UNICODE[m.piece] || m.piece} {String.fromCharCode(97 + m.from[1])}{8 - m.from[0]} → {String.fromCharCode(97 + m.to[1])}{8 - m.to[0]}</div>
+              {log.map((ev) => (
+                <div key={ev.id}>[{ev.actor}] {ev.description} — status: {ev.status}</div>
               ))}
             </div>
           )}
         </div>
       )}
-      {step === 0 && !game && (
+      {step === 0 && (
         <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <button onClick={() => setStep(-1)} style={{ padding: '12px 32px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>
-        </div>
-      )}
-      {step === -1 && (
-        <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <button onClick={createGameAction} disabled={loading} style={{ padding: '8px 20px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            ♟️ Create Game {loading ? '...' : ''}
+          <button onClick={startAction} disabled={loading} style={{ padding: '12px 32px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+            ▶ Reset Sandbox &amp; Start {loading ? '...' : ''}
           </button>
         </div>
       )}
-      {step >= 1 && step < 4 && game && game.status !== 'CHECKMATE' && (
+      {step >= 1 && !isDone && (
         <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <button onClick={makeMoveAction} disabled={loading} style={{ padding: '8px 20px', background: '#3fb950', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            {step === 1 ? '♞ Move Knight' : step === 2 ? '♝ Move Bishop' : step === 3 ? '♛ Queen Move' : 'Make Move'} {loading ? '...' : ''}
+          <button onClick={nextMoveAction} disabled={loading} style={{ padding: '8px 20px', background: '#3fb950', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            ♟️ Play {SCRIPTED_MOVES[step - 1]?.label} {loading ? '...' : ''}
           </button>
         </div>
       )}
-      {step === 4 && (
+      {isDone && isMate && (
         <div className="popup">
           <div className="popup-icon">👑</div>
           <div className="popup-text">Checkmate! {game?.winner} wins!</div>
-          <div style={{ marginTop: 10 }}>
-            <button onClick={() => { setStep(5); }} style={{ padding: '8px 20px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
-              ✅ Done
-            </button>
-          </div>
-        </div>
-      )}
-      {step === 5 && (
-        <div className="popup">
-          <div className="popup-icon">✅</div>
-          <div className="popup-text">Simulation Complete!</div>
           <div style={{ marginTop: 10 }}>
             <button onClick={reset} style={{ padding: '8px 20px', background: '#3fb950', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
               🔄 New Simulation
