@@ -22,7 +22,6 @@ const PENDING_DESIGN_CONTENT = [
   'foo-bar',
   'h2o',
   'merge-sort',
-  'ttl-cache',
   'zero-even-odd',
 ];
 
