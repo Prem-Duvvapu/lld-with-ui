@@ -1,0 +1,60 @@
+// Sequence diagram content for uber.
+// Grounded directly in the real classes and the RCA-006 incident: UberController ->
+// UberService -> DriverAssignmentService, and UberConcurrencyTest#twoRidersRacingForOneDriver_onlyOneWins.
+export default {
+  title: 'Uber — Driver Assignment',
+  description:
+    'How two riders racing for the same driver resolve to exactly one winner. This is the flow class diagrams cannot show: the class diagram lists DriverAssignmentService and its lock, but only a sequence diagram shows why the lock has to be taken before the availability check, not after.',
+  flows: [
+    {
+      id: 'race',
+      label: 'Two riders, one driver',
+      description:
+        'Alice and Bob both request driver D1 at the same instant (UberConcurrencyTest#twoRidersRacingForOneDriver_onlyOneWins). The per-driver ReentrantLock in DriverAssignmentService is what turns "both threads see AVAILABLE" into "exactly one winner" — re-reading the driver INSIDE the lock is the line RCA-006 documents as the one the original bug was missing.',
+      participants: [
+        { id: 'riderA', name: 'Rider — Alice', kind: 'actor' },
+        { id: 'riderB', name: 'Rider — Bob', kind: 'actor' },
+        { id: 'controller', name: 'UberController', kind: 'component', stereotype: 'controller' },
+        { id: 'service', name: 'UberService', kind: 'component', stereotype: 'facade' },
+        { id: 'assign', name: 'DriverAssignment\nService', kind: 'component' },
+        { id: 'lock', name: 'driverLock("D1")', kind: 'lock', stereotype: 'ReentrantLock' },
+        { id: 'repo', name: 'UberRepository', kind: 'store' },
+      ],
+      steps: [
+        { from: 'riderA', to: 'controller', text: 'PUT /rides/{A}/assign {driverId:"D1"}',
+          detail: 'Alice\'s ride (rideA) was created REQUESTED and is offered driver D1.' },
+        { from: 'controller', to: 'service', text: 'assignDriver(rideA.id, "D1")', activate: 'service',
+          detail: 'Controller only translates HTTP — all business logic from here on lives in UberService and DriverAssignmentService.' },
+        { from: 'riderB', to: 'controller', text: 'PUT /rides/{B}/assign {driverId:"D1"}',
+          detail: 'Bob\'s ride (rideB) requests the SAME driver, effectively simultaneously — this is the race.' },
+        { from: 'controller', to: 'service', text: 'assignDriver(rideB.id, "D1")' },
+        { type: 'note', over: ['controller', 'service'],
+          text: 'Both HTTP threads are inside UberService concurrently — nothing has serialized yet.' },
+        { from: 'service', to: 'assign', text: 'assign(rideA, "D1")', activate: 'assign' },
+        { from: 'assign', to: 'lock', text: 'lockFor("D1").lock() — Alice wins the race',
+          detail: 'The lock is created via computeIfAbsent, so both threads resolve to the exact same ReentrantLock instance for "D1".' },
+        { from: 'service', to: 'assign', text: 'assign(rideB, "D1")' },
+        { type: 'note', over: ['assign', 'lock'], blocked: true,
+          text: 'Bob\'s thread blocks on the same fair ReentrantLock — queued behind Alice, not racing her.' },
+        { from: 'assign', to: 'repo', text: 'getDriver("D1")  — re-read INSIDE the lock',
+          detail: 'This re-read is the fix RCA-006 documents. A read taken before the lock would already be stale by the time the lock is granted.' },
+        { from: 'repo', to: 'assign', text: 'status == AVAILABLE', type: 'return' },
+        { from: 'assign', to: 'repo', text: 'updateDriver(D1→ON_TRIP); updateRide(A→ACCEPTED)' },
+        { from: 'assign', to: 'lock', text: 'lock.unlock()  (finally)' },
+        { from: 'assign', to: 'service', text: 'return driver', type: 'return', deactivate: 'assign' },
+        { from: 'service', to: 'controller', text: 'return rideA (ACCEPTED, driver=D1)', type: 'return', deactivate: 'service' },
+        { from: 'controller', to: 'riderA', text: '200 OK — driver D1 assigned', type: 'return' },
+        { from: 'assign', to: 'lock', text: 'lockFor("D1").lock() — now free, Bob proceeds', activate: 'assign' },
+        { from: 'assign', to: 'repo', text: 'getDriver("D1")  — re-read INSIDE the lock',
+          detail: 'Same re-read, same lock — this is what makes Bob\'s rejection correct instead of a coin flip.' },
+        { from: 'repo', to: 'assign', text: 'status == ON_TRIP', type: 'return' },
+        { from: 'assign', to: 'lock', text: 'lock.unlock()  (finally)' },
+        { from: 'assign', to: 'service', text: 'throw DriverUnavailableException("D1 is no longer available")',
+          type: 'return', deactivate: 'assign',
+          detail: 'A typed DomainException with @ResponseStatus(CONFLICT) — never a bare 500.' },
+        { from: 'service', to: 'controller', text: 'propagate DriverUnavailableException', type: 'return' },
+        { from: 'controller', to: 'riderB', text: '409 Conflict — driver no longer available', type: 'return' },
+      ],
+    },
+  ],
+};
