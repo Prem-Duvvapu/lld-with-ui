@@ -103,10 +103,100 @@ export default {
       fields: [
         'FREE',
         'PREMIUM',
-        'FAMILY',
-        'STUDENT'
+        'FAMILY'
       ],
       methods: []
+    },
+    {
+      name: 'SubscriptionStrategy',
+      stereotype: 'interface',
+      fields: [],
+      methods: [
+        '+ maxConcurrentStreams(): int',
+        '+ skipLimitPerHour(): int',
+        '+ canSkip(skipsUsedThisHour): boolean',
+        '+ isAdFree(): boolean',
+        '+ canDownloadOffline(): boolean',
+        '+ audioQuality(): AudioQuality'
+      ]
+    },
+    {
+      name: 'FreeSubscriptionStrategy',
+      fields: [],
+      methods: [
+        '+ maxConcurrentStreams(): int  // 1',
+        '+ skipLimitPerHour(): int  // 6'
+      ]
+    },
+    {
+      name: 'PremiumSubscriptionStrategy',
+      fields: [],
+      methods: [
+        '+ maxConcurrentStreams(): int  // 2',
+        '+ skipLimitPerHour(): int  // -1 (unlimited)'
+      ]
+    },
+    {
+      name: 'FamilySubscriptionStrategy',
+      fields: [],
+      methods: [
+        '+ maxConcurrentStreams(): int  // 6',
+        '+ skipLimitPerHour(): int  // -1 (unlimited)'
+      ]
+    },
+    {
+      name: 'SubscriptionStrategyFactory',
+      fields: [
+        '- strategies: EnumMap<SubscriptionPlan, SubscriptionStrategy>'
+      ],
+      methods: [
+        '+ getStrategy(plan): SubscriptionStrategy'
+      ]
+    },
+    {
+      name: 'PlaybackService',
+      fields: [
+        '- userLocks: ConcurrentMap<String, ReentrantLock>'
+      ],
+      methods: [
+        '+ startStream(userId, songId, deviceId): PlaybackSession',
+        '+ stopStream(sessionId): PlaybackSession',
+        '+ skip(sessionId): PlaybackSession'
+      ]
+    },
+    {
+      name: 'PlaybackSession',
+      fields: [
+        '- id: String',
+        '- userId: String',
+        '- songId: String',
+        '- deviceId: String',
+        '- active: boolean',
+        '- adInjected: boolean'
+      ],
+      methods: []
+    },
+    {
+      name: 'PlaybackEventListener',
+      stereotype: 'interface',
+      fields: [],
+      methods: [
+        '+ onStreamStarted(user, song): void'
+      ]
+    },
+    {
+      name: 'ListeningHistoryListener',
+      fields: [],
+      methods: [
+        '+ onStreamStarted(user, song): void'
+      ]
+    },
+    {
+      name: 'PlayCountListener',
+      fields: [],
+      methods: [
+        '+ onStreamStarted(user, song): void'
+      ]
     }
   ],
   relationships: [
@@ -144,6 +234,61 @@ export default {
       from: 'Subscription',
       to: 'SubscriptionPlan',
       label: 'has plan'
+    },
+    {
+      from: 'FreeSubscriptionStrategy',
+      to: 'SubscriptionStrategy',
+      label: 'implements'
+    },
+    {
+      from: 'PremiumSubscriptionStrategy',
+      to: 'SubscriptionStrategy',
+      label: 'implements'
+    },
+    {
+      from: 'FamilySubscriptionStrategy',
+      to: 'SubscriptionStrategy',
+      label: 'implements'
+    },
+    {
+      from: 'SubscriptionStrategyFactory',
+      to: 'SubscriptionStrategy',
+      label: 'resolves'
+    },
+    {
+      from: 'PlaybackService',
+      to: 'SubscriptionStrategy',
+      label: 'enforces via'
+    },
+    {
+      from: 'PlaybackService',
+      to: 'PlaybackSession',
+      label: 'creates'
+    },
+    {
+      from: 'PlaybackService',
+      to: 'PlaybackEventListener',
+      label: 'notifies'
+    },
+    {
+      from: 'ListeningHistoryListener',
+      to: 'PlaybackEventListener',
+      label: 'implements'
+    },
+    {
+      from: 'PlayCountListener',
+      to: 'PlaybackEventListener',
+      label: 'implements'
+    },
+    {
+      from: 'PlaybackSession',
+      to: 'User',
+      label: 'belongs to'
+    },
+    {
+      from: 'PlaybackSession',
+      to: 'Song',
+      label: 'streams'
     }
   ]
 };
