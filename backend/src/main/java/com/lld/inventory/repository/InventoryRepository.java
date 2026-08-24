@@ -11,12 +11,18 @@ import java.util.stream.Collectors;
 
 @Repository
 public class InventoryRepository {
+    private static final int MAX_EVENTS = 200;
+
     private final Map<Long, Product> products = new ConcurrentHashMap<>();
     private final Map<Long, Supplier> suppliers = new ConcurrentHashMap<>();
     private final Map<Long, List<StockMovement>> movements = new ConcurrentHashMap<>();
+    private final Deque<InventoryEvent> events = new ArrayDeque<>();
     private final AtomicLong productIdGen = new AtomicLong(1);
     private final AtomicLong movementIdGen = new AtomicLong(1);
     private final AtomicLong supplierIdGen = new AtomicLong(1);
+    private final AtomicLong eventIdGen = new AtomicLong(1);
+    // Guards the non-thread-safe ArrayList movement lists and the ArrayDeque event log only.
+    // Product stock mutations are guarded by the per-product locks in InventoryService.
     private final ReentrantLock lock = new ReentrantLock();
 
     public InventoryRepository() {
@@ -61,12 +67,15 @@ public class InventoryRepository {
     }
 
     public List<Product> findAllProducts() {
-        return new ArrayList<>(products.values());
+        List<Product> all = new ArrayList<>(products.values());
+        all.sort(Comparator.comparing(Product::getId));
+        return all;
     }
 
     public List<Product> findProductsByCategory(Category category) {
         return products.values().stream()
                 .filter(p -> p.getCategory() == category)
+                .sorted(Comparator.comparing(Product::getId))
                 .collect(Collectors.toList());
     }
 
@@ -81,7 +90,7 @@ public class InventoryRepository {
     public void addMovement(StockMovement movement) {
         lock.lock();
         try {
-            movements.computeIfAbsent(movement.getProductId(), k -> new ArrayList<>()).add(movement);
+            movements.computeIfAbsent(movement.getProductId(), k -> Collections.synchronizedList(new ArrayList<>())).add(movement);
         } finally {
             lock.unlock();
         }
@@ -92,6 +101,37 @@ public class InventoryRepository {
         return list != null ? new ArrayList<>(list) : new ArrayList<>();
     }
 
+    public int countMovements() {
+        lock.lock();
+        try {
+            return movements.values().stream().mapToInt(List::size).sum();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void addEvent(InventoryEvent event) {
+        lock.lock();
+        try {
+            events.addLast(event);
+            while (events.size() > MAX_EVENTS) {
+                events.removeFirst();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public List<InventoryEvent> findAllEvents() {
+        lock.lock();
+        try {
+            return new ArrayList<>(events);
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public long nextProductId() { return productIdGen.getAndIncrement(); }
     public long nextMovementId() { return movementIdGen.getAndIncrement(); }
+    public long nextEventId() { return eventIdGen.getAndIncrement(); }
 }
