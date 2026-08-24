@@ -868,3 +868,99 @@ find .claude/worktrees -maxdepth 3 -iname node_modules -type d   # other worktre
   interact, not a bug in this repository. The mitigation is procedural: run `npm install` (and,
   for the backend, let the first `mvn` invocation populate the local `~/.m2` cache) as the first
   step in any new worktree before trusting a red test run as a real regression.
+
+---
+
+## RCA-011: CricInfo's Per-Match Ball Lock Verified, and a Case-Only Filename Drift on the WSL Mount
+
+**Severity:** Medium
+**Date:** 2026-08-24
+**Status:** Resolved
+**Affected:** `com.lld.cricinfo.service.BallRecordingEngine`, `frontend/src/lld/cricinfo/CricInfoPage.jsx`
+
+### 1. Overview & Severity
+Two unrelated issues surfaced while building the CricInfo module's ball-by-ball Observer
+pipeline. First, the per-match `ReentrantLock` in `BallRecordingEngine` — the lock that makes
+"append this ball, then fold it into the live scorecard" atomic per match — needed to be
+verified the way RCA-006 verifies Uber's per-driver lock: prove the concurrency test actually
+fails without it, not just that it passes with it. Second, editing the pre-existing frontend
+page on this repo's case-insensitive-but-case-preserving WSL mount silently renamed the
+git-tracked `CricInfoPage.jsx` to `CricinfoPage.jsx` on disk, which would have built and tested
+green locally while breaking on the case-sensitive Linux CI runner. Medium severity: the lock
+gap would have shipped an invisible scoring-corruption bug, and the filename drift would have
+failed CI with a confusing "module not found" rather than an obvious diff.
+
+### 2. Symptoms & Error Logs
+With the lock intentionally disabled and a 1ms sleep inserted between reading state and
+appending the ball (to widen the race window), 100 concurrent single-run wides on one match
+undercounted:
+
+```
+org.opentest4j.AssertionFailedError: lost or double-counted runs under concurrent recording
+==> expected: <101> but was: <92>
+```
+
+Separately, after rewriting `CricInfoPage.jsx` in place, `git status` reported it as merely
+**modified** (not renamed), and `ls -la` showed the on-disk entry as `CricinfoPage.jsx`
+(lowercase `i`) while `git ls-files` still reported `CricInfoPage.jsx` — a silent divergence
+between the git index and the physical directory entry that only a case-sensitive filesystem
+would ever surface as an error.
+
+### 3. Root Cause
+**Lock:** none — this was a planned verification, not a discovered bug. `BallRecordingEngine`
+already held a per-match `ReentrantLock` (looked up by `matchId`, `computeIfAbsent`-created) around
+numbering the ball, appending it to `Innings.balls`, and synchronously publishing to every
+`BallEventObserver`. Removing it exposed the same shape of race as RCA-006: `ScorecardProjectionObserver`
+does a plain, unsynchronized `innings.setTotalRuns(innings.getTotalRuns() + ball.totalRuns())`
+read-modify-write, and `innings.getBalls()` is a plain (non-thread-safe) `ArrayList`. Twenty
+threads racing that line lose updates exactly like two threads racing `driver.setStatus(...)`
+in RCA-006.
+
+**Filename:** the repo lives on a Windows drive mounted into WSL (`/mnt/c/...`), which is
+case-insensitive for path *lookups* but case-preserving for the *stored* directory entry. The
+`Write` tool call used the path `.../cricinfo/CricinfoPage.jsx` (lowercase `i`) to edit a file
+git had committed as `CricInfoPage.jsx`. The filesystem resolved the lookup to the same physical
+file (case-insensitive), but the act of writing through the differently-cased path renamed the
+stored directory entry to match the write path's casing — git's index was never told, because
+from git's point of view the tracked path's *content* changed, not its name.
+
+### 4. Diagnostic Commands
+```bash
+# Prove the lock is load-bearing: disable it, confirm a real failure, restore, confirm no diff
+sed -n '48,133p' backend/src/main/java/com/lld/cricinfo/service/BallRecordingEngine.java
+mvn -o test -Dtest='CricinfoConcurrencyTest#concurrentBalls_sameMatch_noLostOrDoubleCountedRuns'
+git diff backend/src/main/java/com/lld/cricinfo/service/BallRecordingEngine.java   # must be empty after restore
+
+# Detect a case-only filename drift on a case-insensitive mount
+git ls-files | grep -i cricinfo          # what git thinks is tracked
+ls -la frontend/src/lld/cricinfo/         # what's actually on disk
+git status --short                       # a same-content, different-case file shows as "M", not "R"
+```
+
+### 5. Step-by-Step Resolution
+1. **Lock verification**: commented out `lock.lock()`/`lock.unlock()` in `BallRecordingEngine.recordBall`
+   and added a 1ms `Thread.sleep` between building the `Ball` and appending it, to reliably widen
+   the unguarded window (mirroring RCA-006's lesson that the delay must sit *inside* the real gap,
+   not before it). Ran the concurrency test — captured the corrupted total above (92 instead of 101).
+   Restored the file from the last commit, confirmed `git diff` was byte-identical, and reran the
+   full `CricinfoConcurrencyTest` class green.
+2. **Filename drift**: force-corrected the on-disk casing with a two-step rename through a
+   temporary name (`mv CricinfoPage.jsx CricInfoPage_tmp.jsx && mv CricInfoPage_tmp.jsx CricInfoPage.jsx`)
+   — a single `mv CricinfoPage.jsx CricInfoPage.jsx` is a no-op on a case-insensitive filesystem
+   and does not change the stored casing. Re-ran `npx vitest run` to confirm `routing.test.js`'s
+   "every page file is reachable through some route" check (which globs the filesystem) matched
+   the git-tracked name again.
+
+### 6. Preventative Measures
+1. `CricinfoConcurrencyTest#concurrentBalls_sameMatch_noLostOrDoubleCountedRuns` and
+   `#disjointMatches_scoreIndependentlyUnderConcurrency` deliberately race **wides** rather than
+   legal deliveries for the shared-match case — a wide never completes an over, so every racing
+   thread can omit striker/bowler identity fields and hit the exact same code path, keeping the
+   test itself simple enough that a failure can only mean the lock is missing, not a test bug.
+2. When editing a pre-existing file on this repo (which several agents build on this same WSL
+   mount concurrently), check `git ls-files | grep -i <name>` for the tracked casing before
+   writing, not just `ls`, since `ls` after the edit will confirm whatever was just written rather
+   than reveal the drift.
+3. `routing.test.js`'s on-disk-glob-vs-registered-routes check is exactly the kind of guard that
+   catches this class of drift before it reaches CI — it failed locally the moment the rename
+   happened, which is what surfaced this incident in the first place.
