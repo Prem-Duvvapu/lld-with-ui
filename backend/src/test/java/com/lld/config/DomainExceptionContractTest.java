@@ -41,6 +41,7 @@ class DomainExceptionContractTest {
             "TrafficSignalException",
             "UberException",
             "VendingMachineException",
+            "WalletException",
             "ZomatoException"
     );
 
