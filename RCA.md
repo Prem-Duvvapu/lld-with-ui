@@ -1495,3 +1495,76 @@ git show HEAD~1:backend/src/main/java/com/lld/digitalwallet/repository/WalletRep
    ascending-id order as a regression guard, and the digitalwallet sim frontend's `wallets[0]`/
    `wallets[1]` usage is exactly the kind of positional dependency that would silently break again
    if this ordering guarantee were ever removed.
+
+## RCA-018: Traffic Signal's Production Ticker Flooded Stdout Indefinitely at Default Log Level
+
+**Severity:** Medium (no data corruption, but an unbounded, un-silenceable log flood on every run
+of the backend — degrades local dev experience and would fill disk/log-aggregation quotas in any
+longer-lived deployment)
+**Date:** 2026-08-25
+**Status:** Resolved
+**Affected:** `com.lld.trafficsignal.observer.LoggingSignalObserver`
+
+### 1. Overview & Severity
+Reported directly by the user, who was seeing a continuous stream of
+`[trafficsignal] intersection=... light=... (...) X -> Y` lines in their terminal with no way to
+stop it short of killing the backend process.
+
+### 2. Symptoms & Error Logs
+```
+[trafficsignal] intersection=2 light=0 (North) YELLOW -> RED
+[trafficsignal] intersection=2 light=1 (South) RED -> GREEN
+[trafficsignal] intersection=1 light=1 (South) YELLOW -> RED
+...(repeats indefinitely, several lines per second, for as long as the process runs)
+```
+
+### 3. Root Cause
+Two independently-reasonable pieces of design combined into a bug neither one is individually
+guilty of:
+- `TrafficSignalService` wires every real intersection (the eagerly-created main one, plus every
+  intersection `TrafficSignalInitializer`/`createIntersection` adds) to a
+  `ScheduledExecutorSignalTicker` that fires every second **for the lifetime of the process** —
+  correct behavior for a live traffic signal demo.
+- `LoggingSignalObserver`, registered on every such intersection's notifier, wrote every phase
+  change straight to `System.out.printf` — "demonstrates a sink with no in-memory state," per its
+  own docstring, which is true but says nothing about volume.
+
+Two intersections seeded at boot (`Broadway & 5th Ave` plus the service's own eager one), four
+lights each, ticking every second, transitioning through GREEN→YELLOW→RED→GREEN forever,
+each transition printed unconditionally to stdout: the flood is not a malfunction, it is the
+intended Observer behavior running at its intended cadence with no volume control on its sink.
+
+### 4. Diagnostic Commands
+```bash
+# Confirm the ticker never stops once started
+grep -n "scheduleAtFixedRate" backend/src/main/java/com/lld/trafficsignal/clock/ScheduledExecutorSignalTicker.java
+
+# Confirm the sink had no log level / throttling
+grep -n "System.out" backend/src/main/java/com/lld/trafficsignal/observer/LoggingSignalObserver.java
+
+# Confirm two intersections are seeded at boot (the two IDs seen flooding)
+grep -n "createIntersection\|new TrafficSignalService" backend/src/main/java/com/lld/trafficsignal/config/TrafficSignalInitializer.java backend/src/main/java/com/lld/trafficsignal/service/TrafficSignalService.java
+```
+
+### 5. Step-by-Step Resolution
+1. Replaced `System.out.printf` in `LoggingSignalObserver` with an SLF4J `Logger` call at
+   `DEBUG` level — Spring Boot's default logging configuration is `INFO`, so the observer now
+   demonstrates the Observer pattern exactly as before (`logging.level.com.lld.trafficsignal=DEBUG`
+   makes every transition visible again) without emitting anything at default settings.
+2. Verified `backend/src/test/java/com/lld/trafficsignal/**` has no test asserting on captured
+   `System.out`/`ByteArrayOutputStream` output, so the change carries no test-behavior risk.
+3. Ran `mvn test -Dtest='com.lld.trafficsignal.**'` — green.
+
+### 6. Preventative Measures
+1. General rule for this repo going forward: any `Logger`/print statement wired to a component
+   that runs on an unbounded, always-on scheduler (a production ticker, not a request handler)
+   defaults to `DEBUG` or lower, never `INFO`+, unless the emission is genuinely rare (state
+   transitions that happen a handful of times per session, not every tick).
+2. `System.out`/`System.err` should not appear in `backend/src/main/java/**` at all — an SLF4J
+   `Logger` is free to route to any level or sink and is the only idiomatic choice in a Spring
+   Boot service; this was the one remaining `System.out` call introduced during the trafficsignal
+   build-out and is now gone.
+3. This module's `/sim/*` engine already isolates the interactive demo's event log from the real
+   intersections precisely so demo activity can't corrupt production state — this incident is the
+   mirror-image lesson: the real intersections' own observability needs the same volume discipline
+   the sim path already has.
