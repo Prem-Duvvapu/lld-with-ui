@@ -1,285 +1,168 @@
 // designDetails — taskManagement
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Grounded in the actual backend: com.lld.taskmanagement.{state,strategy,exception,service}.
+// Board and Task are the only two persisted entities — User/Comment/ActivityLog/Notification
+// described in an earlier draft of this file were never implemented and have been removed so
+// this document matches the real code.
 
 export default {
   title: 'Task Management — Design Details',
   requirements: [
-    'Users can create, update, delete, and view tasks — each task has title, description, priority, status, and due date',
-    'Task status workflow: TODO to IN_PROGRESS to REVIEW to DONE — with optional BLOCKED state from any active state',
-    'Task priorities: LOW, MEDIUM, HIGH, CRITICAL — tasks can be filtered and sorted by priority',
-    'Users can assign tasks to other users and comment on tasks for collaboration',
-    'Task board view — tasks organized in columns by status (Kanban-style) with drag-and-drop status changes',
-    'Activity log — all task changes (status updates, assignments, comments) are recorded with timestamps and user info',
-    'Notifications — users receive updates when tasks assigned to them are modified or when comments are added'
+    'Users can create, view, reassign, reprioritize, move, and delete tasks on a Kanban board — each task has a title, description, priority, status, assignee, and optional due date',
+    'Task status follows a declared state machine: TODO -> IN_PROGRESS -> REVIEW -> DONE, with BLOCKED reachable from IN_PROGRESS/REVIEW and CANCELLED reachable from any non-terminal status — illegal jumps (e.g. TODO straight to DONE) are rejected, not silently coerced',
+    'A board can be queried in three interchangeable orders — FIFO within priority, due-date-first, or a weighted priority+urgency score — without the caller needing to know how any of them compute the order',
+    'Two actors racing to claim the same unassigned task must never both succeed; two actors racing to move the same task to two different terminal statuses must never both apply',
+    'Multiple boards are supported (a "Main Board" is created eagerly); requesting an unknown board or task returns a typed 404, not a generic error',
+    'An isolated `/sim/*` sandbox lets a demo reset, seed, move, claim, reorder, and race against a board that can never corrupt production data'
   ],
   entities: [
     {
-      name: 'User',
-      description: 'System user who can create, assign, and work on tasks. Has a dashboard showing assigned tasks and activity feed.',
+      name: 'Board',
+      description: 'A Kanban board. Holds only its own identity (id, name, createdAt) — the tasks that belong to it are looked up from TaskRepository by boardId rather than embedded, so a board and its tasks can never drift out of sync.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique user identifier'
-        },
-        {
-          name: 'name',
-          type: 'String',
-          description: 'Display name of the user'
-        },
-        {
-          name: 'email',
-          type: 'String',
-          description: 'Email for notifications'
-        },
-        {
-          name: 'assignedTasks',
-          type: 'List<Task>',
-          description: 'Tasks currently assigned to this user'
-        }
+        { name: 'id', type: 'int', description: 'Unique board identifier' },
+        { name: 'name', type: 'String', description: 'Display name, e.g. "Main Board"' },
+        { name: 'createdAt', type: 'long', description: 'Epoch millis the board was created' }
       ],
-      methods: [
-        {
-          name: 'createTask(details)',
-          returns: 'Task',
-          description: 'Creates a new task owned by this user'
-        },
-        {
-          name: 'changeStatus(task, newStatus)',
-          returns: 'void',
-          description: 'Updates task status if the transition is valid'
-        },
-        {
-          name: 'addComment(task, text)',
-          returns: 'Comment',
-          description: 'Adds a comment to the given task'
-        }
-      ]
+      methods: []
     },
     {
       name: 'Task',
-      description: 'Core entity representing a unit of work. Has status, priority, assignee, comments, and activity log.',
+      description: 'Core entity representing a unit of work. transitionTo() is the single place status ever changes — it delegates the legality check to the TaskState for the current status and throws IllegalTaskTransitionException on an illegal request.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique task identifier'
-        },
-        {
-          name: 'title',
-          type: 'String',
-          description: 'Short task summary'
-        },
-        {
-          name: 'description',
-          type: 'String',
-          description: 'Detailed task description'
-        },
-        {
-          name: 'status',
-          type: 'TaskStatus',
-          description: 'TODO, IN_PROGRESS, REVIEW, DONE, BLOCKED'
-        },
-        {
-          name: 'priority',
-          type: 'Priority',
-          description: 'LOW, MEDIUM, HIGH, CRITICAL'
-        },
-        {
-          name: 'assignee',
-          type: 'User',
-          description: 'User responsible for completing this task'
-        },
-        {
-          name: 'dueDate',
-          type: 'LocalDate',
-          description: 'Deadline for task completion'
-        },
-        {
-          name: 'comments',
-          type: 'List<Comment>',
-          description: 'Discussion thread on this task'
-        }
+        { name: 'id', type: 'long', description: 'Unique task identifier' },
+        { name: 'boardId', type: 'int', description: 'Foreign key to the owning Board' },
+        { name: 'title', type: 'String', description: 'Short task summary' },
+        { name: 'description', type: 'String', description: 'Detailed task description' },
+        { name: 'status', type: 'TaskStatus', description: 'TODO, IN_PROGRESS, REVIEW, BLOCKED, DONE, CANCELLED' },
+        { name: 'priority', type: 'Priority', description: 'LOW, MEDIUM, HIGH, CRITICAL — each carries an integer weight' },
+        { name: 'assignee', type: 'String', description: 'Actor responsible for the task, or null if unclaimed' },
+        { name: 'dueDate', type: 'Long', description: 'Epoch millis deadline, or null for "no due date"' },
+        { name: 'createdAt', type: 'long', description: 'Epoch millis the task was created' },
+        { name: 'updatedAt', type: 'long', description: 'Epoch millis of the last mutation' }
       ],
       methods: [
-        {
-          name: 'changeStatus(newStatus)',
-          returns: 'boolean',
-          description: 'Transitions to new status if the state machine allows it'
-        },
-        {
-          name: 'assignTo(user)',
-          returns: 'void',
-          description: 'Reassigns the task to another user'
-        },
-        {
-          name: 'addComment(comment)',
-          returns: 'void',
-          description: 'Appends a comment to the task'
-        }
+        { name: 'transitionTo(target)', returns: 'void', description: 'Validates target against the current TaskState\'s declared allowedNext() set and applies it, or throws IllegalTaskTransitionException' }
       ]
     },
     {
-      name: 'TaskBoard',
-      description: 'Kanban-style board that groups tasks by status column. Provides drag-and-drop status updates and filtering.',
-      fields: [
-        {
-          name: 'columns',
-          type: 'Map<TaskStatus, List<Task>>',
-          description: 'Tasks grouped by their current status'
-        },
-        {
-          name: 'filters',
-          type: 'FilterCriteria',
-          description: 'Active filters (priority, assignee, date range)'
-        }
-      ],
+      name: 'TaskState',
+      description: 'State-pattern interface — one singleton implementation per TaskStatus (TodoState, InProgressState, ReviewState, BlockedState, DoneState, CancelledState). Each declares the exact Set<TaskStatus> it may legally move to next; DONE and CANCELLED declare an empty set (terminal).',
+      fields: [],
       methods: [
-        {
-          name: 'moveTask(taskId, targetStatus)',
-          returns: 'void',
-          description: 'Moves task between columns with status validation'
-        },
-        {
-          name: 'getFilteredTasks()',
-          returns: 'List<Task>',
-          description: 'Returns tasks matching active filters'
-        }
+        { name: 'allowedNext()', returns: 'Set<TaskStatus>', description: 'The declared legal next statuses for this state' },
+        { name: 'isTerminal()', returns: 'boolean', description: 'True when allowedNext() is empty' },
+        { name: 'canTransitionTo(target)', returns: 'boolean', description: 'True when target is in allowedNext()' }
       ]
     },
     {
-      name: 'ActivityLog',
-      description: 'Immutable record of all task state changes. Provides an audit trail for compliance and historical view.',
-      fields: [
-        {
-          name: 'entries',
-          type: 'List<ActivityEntry>',
-          description: 'Chronological list of all changes'
-        }
-      ],
+      name: 'TaskOrderingStrategy',
+      description: 'Strategy-pattern interface for board queries — TaskService never branches on which ordering was requested, it calls only strategy.order(tasks). Three implementations: FifoWithinPriorityStrategy, DueDateFirstStrategy, WeightedScoreStrategy, resolved via an EnumMap-backed TaskOrderingStrategyFactory.',
+      fields: [],
       methods: [
-        {
-          name: 'logChange(taskId, user, action, details)',
-          returns: 'void',
-          description: 'Records a new activity entry'
-        },
-        {
-          name: 'getHistory(taskId)',
-          returns: 'List<ActivityEntry>',
-          description: 'Returns all changes for a specific task'
-        }
+        { name: 'order(tasks)', returns: 'List<Task>', description: 'Returns a new, reordered list — never mutates the input' }
       ]
     },
     {
-      name: 'NotificationService',
-      description: 'Manages user notifications for task assignments, status changes, and comments. Supports email and in-app notification delivery.',
+      name: 'TaskService',
+      description: 'Facade the controller delegates to wholesale. Owns the production TaskRepository plus a completely isolated sandbox TaskRepository for the /sim/* engine, and a per-task ReentrantLock map guarding every check-then-act status/assignment mutation.',
       fields: [
-        {
-          name: 'observers',
-          type: 'Map<String, List<User>>',
-          description: 'Users subscribed to notifications per task'
-        }
+        { name: 'taskLocks', type: 'ConcurrentHashMap<Long, ReentrantLock>', description: 'Fair per-task locks; computeIfAbsent, never nested' }
       ],
       methods: [
-        {
-          name: 'subscribe(user, taskId)',
-          returns: 'void',
-          description: 'Subscribes user to task notifications'
-        },
-        {
-          name: 'notify(taskId, event)',
-          returns: 'void',
-          description: 'Sends notification to all subscribers of the task'
-        }
+        { name: 'moveTask(taskId, target)', returns: 'Task', description: 'Locks the task, re-validates the transition against the CURRENT status, applies or throws' },
+        { name: 'claimTask(taskId, actor)', returns: 'Task', description: 'Locks the task, assigns only if currently unassigned, else throws TaskAlreadyAssignedException' },
+        { name: 'getOrderedTasks(boardId, policy)', returns: 'List<Task>', description: 'Resolves the strategy via the factory and delegates ordering to it' }
       ]
     }
   ],
   designPatterns: [
     {
-      name: 'Observer',
-      used: true,
-      explanation: 'NotificationService acts as the subject. When a task changes, it notifies all subscribed observers (users). Users receive updates without the Task class knowing about notification delivery.'
-    },
-    {
       name: 'State',
       used: true,
-      explanation: 'TaskStatus enum with valid transition rules implements the State pattern. BLOCKED can be entered from any active state, DONE is terminal. Invalid transitions are rejected by the state machine.'
+      explanation: 'com.lld.taskmanagement.state — one singleton class per TaskStatus (TodoState, InProgressState, ReviewState, BlockedState, DoneState, CancelledState), each declaring its own Set<TaskStatus> of legal next statuses. Task#transitionTo() is the single enforcement point; illegal requests throw IllegalTaskTransitionException (409) rather than being silently applied or ignored.'
+    },
+    {
+      name: 'Strategy + Factory',
+      used: true,
+      explanation: 'com.lld.taskmanagement.strategy — FifoWithinPriorityStrategy, DueDateFirstStrategy, and WeightedScoreStrategy all implement TaskOrderingStrategy; TaskOrderingStrategyFactory resolves an OrderingPolicy to its strategy via an EnumMap, the same shape as inventory.strategy.ReorderStrategyFactory. TaskService never branches on the policy itself.'
+    },
+    {
+      name: 'Facade',
+      used: true,
+      explanation: 'TaskService is the single entry point the controller calls; it hides the repository, the lock map, the state machine, and the strategy factory behind a small method surface.'
+    },
+    {
+      name: 'Repository',
+      used: true,
+      explanation: 'TaskRepository is a plain in-memory store with no business logic — validation, locking, and the state machine all live one layer up in TaskService, which is what lets the exact same repository shape be reused, isolated, for the /sim/* sandbox.'
     },
     {
       name: 'Singleton',
       used: true,
-      explanation: 'TaskManagementService and NotificationService are singletons ensuring consistent state. A single board service prevents conflicting task modifications across the system.'
-    },
-    {
-      name: 'Strategy',
-      used: false,
-      explanation: 'Task prioritization strategies (EarliestDeadlineFirst, HighestPriorityFirst) could be used for auto-sorting the board. Each strategy would implement a Comparator without changing board logic.'
-    },
-    {
-      name: 'Factory',
-      used: false,
-      explanation: 'A TaskFactory could create pre-configured tasks for common templates (BugTask, FeatureTask, ChoreTask) with default priorities and status workflows.'
+      explanation: 'Each TaskState implementation exposes exactly one static INSTANCE, resolved by TaskStates — no state class is ever instantiated more than once.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'Task manages its own state and data. TaskBoard handles display and filtering. ActivityLog records changes. NotificationService sends alerts. Each has one clear responsibility.'
+      description: 'Task owns its own transition legality (via TaskState). TaskRepository only stores. TaskOrderingStrategy only orders. TaskService only coordinates locking and validation. Each class has exactly one reason to change.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'New task statuses can be added to TaskStatus enum with defined transitions. New notification channels (Slack, SMS) implement NotificationChannel interface. Core task workflow unchanged.'
+      description: 'A new ordering policy is one new TaskOrderingStrategy implementation plus one EnumMap entry in the factory — TaskService is never touched. A new status would mean one new TaskState class plus one TaskStates registry entry.'
+    },
+    {
+      name: 'Liskov Substitution (LSP)',
+      description: 'Any TaskState implementation is interchangeable behind the TaskState interface; any TaskOrderingStrategy is interchangeable behind TaskOrderingStrategy. TaskService and Task depend only on the interface, never on a concrete class.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'TaskBoard depends on Task and TaskStatus abstractions. NotificationService depends on NotificationChannel interface. High-level modules don\'t depend on low-level details.'
+      description: 'TaskService depends on the TaskOrderingStrategy interface and the TaskState interface, not on concrete strategies or states. The concrete wiring happens once, in TaskOrderingStrategyFactory and TaskStates.'
     },
     {
       name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Status transition validation is centralized in TaskStatus enum. Comment creation logic is in CommentService. Activity logging is automatic, not manually coded per action.'
-    },
-    {
-      name: 'KISS (Keep It Simple)',
-      description: 'The Kanban model is intuitive: columns = statuses. Moving a task is changing its status. State machine has clear, simple transition rules. No complex workflow engine needed.'
+      description: 'Live and sim operations funnel through the same private doMoveTask/doClaimTask/doCreateTask methods in TaskService, parameterized by which TaskRepository and lock map to use — the state machine and locking logic exist exactly once.'
     }
   ],
   oopConcepts: [
     {
-      name: 'Polymorphism — Status Behavior',
-      description: 'TaskStatus enum drives different behaviors: DONE tasks cannot be edited, BLOCKED tasks appear in a warning column. Same status field produces different behavior polymorphically.',
-      alternative: 'Could use boolean flags (isDone, isBlocked). Enum makes invalid states (both DONE and IN_PROGRESS) unrepresentable.'
+      name: 'Polymorphism — State Behavior',
+      description: 'TaskState.allowedNext() returns a different Set<TaskStatus> per concrete class; Task#transitionTo() calls it polymorphically without an if/else chain over TaskStatus values.',
+      alternative: 'Could use a single Map<TaskStatus, Set<TaskStatus>> on the TaskStatus enum itself (uber\'s RideStatus does exactly this). The class-per-state shape was chosen here to mirror trafficsignal\'s SignalState pattern and to give each state room for state-specific behavior later.'
     },
     {
       name: 'Composition over Inheritance',
-      description: 'TaskBoard has-a Map of Task lists. User has-a List of Task. Task has-a List of Comment. System composes behaviors rather than inheriting from a base entity.',
-      alternative: 'Could extend a BaseEntity for all domain objects. Composition is chosen because relationships are structural, not behavioral.'
+      description: 'Task has-a TaskStatus (delegating legality to TaskState); TaskService has-a TaskRepository, a lock map, and a TaskOrderingStrategyFactory. No domain class extends another.',
+      alternative: 'A shared abstract Entity base with id/createdAt could reduce a few duplicated fields, at the cost of forcing every future entity into one inheritance tree.'
     },
     {
       name: 'Encapsulation — Status Transitions',
-      description: 'Task encapsulates its status and only exposes changeStatus() which validates the transition. External code cannot directly set the status field, preventing illegal state changes.',
-      alternative: 'Could expose a setStatus() setter. Encapsulated transitions enforce business rules at the model level.'
+      description: 'Task#status has no public setter; the only way to change it is transitionTo(target), which always validates first. External code cannot force an illegal status directly.',
+      alternative: 'A bare setStatus() setter would let any caller bypass the state machine entirely — the encapsulated transitionTo() is what makes "illegal transitions are impossible, not just discouraged" true.'
     }
   ],
   extensibility: [
     {
-      area: 'New Task Status',
-      description: 'Add a new constant to TaskStatus enum. Define valid incoming and outgoing transitions. Existing state machine handles new status automatically.',
+      area: 'New task status',
+      description: 'Add a TaskStatus constant, one new TaskState singleton class declaring its allowedNext() set, and one line in TaskStates\' registry. Every existing caller of transitionTo() picks it up automatically.',
       difficulty: 'Easy'
     },
     {
-      area: 'Sprint/Agile Support',
-      description: 'Add Sprint entity with start/end dates. Group tasks into sprints. Add SprintBoard as a view filtering tasks by sprint. Existing task and board models unchanged.',
+      area: 'New ordering strategy',
+      description: 'Add an OrderingPolicy constant, one class implementing TaskOrderingStrategy, and one put() in TaskOrderingStrategyFactory\'s constructor. TaskService and the controller need no changes.',
+      difficulty: 'Easy'
+    },
+    {
+      area: 'Multi-board workflows (sprints)',
+      description: 'Board already exists as a first-class entity with its own id; a Sprint entity could wrap a date range around a Board without touching Task or the state machine at all.',
       difficulty: 'Medium'
     },
     {
-      area: 'File Attachments',
-      description: 'Add Attachment entity linked to Task. File upload handled by AttachmentService. Existing task fields and workflow unchanged.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Recurring Tasks',
-      description: 'Add recurrence rules to Task. A ScheduledTaskService creates new task instances based on recurrence when previous instance is completed.',
+      area: 'Notifications on transition',
+      description: 'An Observer (StockAlertNotifier-shaped) could be added to TaskService, publishing a TaskChangedEvent from inside the same lock that already applies transitionTo() — the same idiom inventory uses for crossing-detection alerts.',
       difficulty: 'Medium'
     }
   ]

@@ -8,11 +8,13 @@
 import _uber from './sequences/uber.js';
 import _zomato from './sequences/zomato.js';
 import _splitwise from './sequences/splitwise.js';
+import _taskManagement from './sequences/task-management.js';
 
 const sequenceDiagrams = {
   uber: _uber,
   zomato: _zomato,
   splitwise: _splitwise,
+  'task-management': _taskManagement,
 };
 
 export default sequenceDiagrams;
