@@ -22,7 +22,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 12 | Hotel Management | Room reservation | State Machine, Strategy, Factory |
 | 13 | [Airline Reservation](#13-airline-reservation) | Flight booking & seats | State Machine (holds/bookings), Strategy (pricing/refunds), Per-Seat ReentrantLock |
 | 14 | [Coffee Machine](#14-coffee-machine) | Ingredient & brew engine | State Pattern, Factory (Recipes), Decorator (Customizations), Deadlock-Safe Multi-Ingredient Locking |
-| 15 | Digital Wallet | Payment & ledger | Command Pattern, Transactional Lock |
+| 15 | [Digital Wallet](#15-digital-wallet) | Payment & ledger | Command Pattern, Per-Wallet ReentrantLock, Ascending Lock Ordering |
 | 16 | Chess | 2-Player strategy game | Command, State, Strategy |
 | 17 | Ludo | Multiplayer board game | State Machine, Game Loop |
 | 18 | [Inventory Management](#18-inventory-management) | Stock & warehouse | Observer, Strategy + Factory (reorder policies), Per-Product ReentrantLock |
@@ -809,6 +809,34 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/music-streaming/sim/reset`
 - `POST /api/music-streaming/sim/race`
 - `GET /api/music-streaming/sim/events`
+
+---
+
+### 15. Digital Wallet
+
+#### Key Features
+- **Command Pattern**: Every credit, debit and transfer is a `WalletCommand` (`CreditCommand`, `DebitCommand`, `TransferCommand`) — each owns its own validation and locking, and `WalletService`'s command log of executed commands *is* the wallet's operational history.
+- **Deadlock-Free Two-Account Transfer Locking**: no global lock — one `ReentrantLock` per wallet. `TransferCommand` always locks `min(fromId, toId)` before `max(fromId, toId)`, regardless of transfer direction, so two opposite-direction transfers racing the same wallet pair can never deadlock.
+- **Typed Exception Hierarchy**: `WalletException` (abstract) with `WalletNotFoundException` (404), `InsufficientBalanceException` (409), `InvalidAmountException` (400), `SelfTransferException` (400).
+- **Isolated Simulation Sandbox with a Live Race**: `/api/wallet/sim/*` runs against a second `WalletRepository`; `simRace` fires N concurrent alternating-direction transfers between two wallets via a `CountDownLatch` and reports the combined balance conserved exactly before and after.
+
+#### API Endpoints
+- `POST /api/wallet/create`
+- `GET /api/wallet`
+- `GET /api/wallet/{id}`
+- `GET /api/wallet/{id}/balance`
+- `POST /api/wallet/{id}/add-funds`
+- `POST /api/wallet/{id}/withdraw`
+- `POST /api/wallet/send`
+- `GET /api/wallet/{id}/transactions`
+- `GET /api/wallet/command-log`
+- `POST /api/wallet/sim/reset`
+- `GET /api/wallet/sim/state`
+- `POST /api/wallet/sim/credit`
+- `POST /api/wallet/sim/debit`
+- `POST /api/wallet/sim/transfer`
+- `POST /api/wallet/sim/race`
+- `GET /api/wallet/sim/events`
 
 ---
 

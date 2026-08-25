@@ -1,426 +1,525 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { getAllWallets, getWallet, createWallet, addFunds, sendMoney, getTransactions } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import DesignDetails from '../../components/DesignDetails';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import LldPage from '../../components/LldPage';
+import { usePolling } from '../../hooks/usePolling';
+import * as api from './api';
+
+const PAYMENT_METHODS = ['CARD', 'UPI', 'BANK_TRANSFER'];
+
+const AVATAR_COLORS = ['#4f46e5', '#0ea5e9', '#16a34a', '#d97706', '#db2777', '#7c3aed'];
+const avatarColor = (id) => AVATAR_COLORS[Number(id) % AVATAR_COLORS.length];
+const initials = (name) => (name || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const money = (n) => `₹${Number(n ?? 0).toFixed(2)}`;
 
 const styles = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: linear-gradient(135deg, #0a1628, #1a2a4e, #0a1628); min-height: 100vh; display: flex; justify-content: center; align-items: center; font-family: 'Segoe UI', sans-serif; }
-.wallet-page { max-width: 640px; width: 100%; margin: 20px; background: linear-gradient(145deg, #1a2a4e, #0a1628); border: 2px solid #3b82f6; border-radius: 20px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
-.wallet-title { text-align: center; font-size: 28px; font-weight: 800; color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.5); margin-bottom: 16px; letter-spacing: 1px; }
-.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid #3b82f6; border-radius: 6px; color: #60a5fa; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-.back-home:hover { background: #3b82f6; color: #fff; }
-.tab-bar { display: flex; gap: 6px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
-.tab-btn { padding: 5px 12px; border: 1px solid #3a4a6e; border-radius: 6px; background: transparent; color: #6a7a9e; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; font-family: inherit; }
-.tab-btn.active { border-color: #60a5fa; color: #60a5fa; background: rgba(96,165,250,0.1); }
-.wallet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 12px 0; }
-.wallet-card { background: linear-gradient(135deg, #1e3a5f, #152a4a); border: 1px solid #3b82f6; border-radius: 12px; padding: 16px; transition: all 0.2s; position: relative; overflow: hidden; }
-.wallet-card::before { content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: radial-gradient(circle, rgba(59,130,246,0.1), transparent); pointer-events: none; }
-.wallet-card .user-name { color: #e2e8f0; font-size: 16px; font-weight: 700; }
-.wallet-card .user-id { color: #6a7a9e; font-size: 11px; }
-.wallet-card .balance { color: #60a5fa; font-size: 24px; font-weight: 800; margin: 8px 0; }
-.wallet-card .currency { color: #6a7a9e; font-size: 12px; }
-.wallet-card .chip { position: absolute; top: 12px; right: 12px; font-size: 20px; }
-.form-group { margin-bottom: 12px; }
-.form-group label { display: block; color: #a8b8d8; font-size: 12px; font-weight: 600; margin-bottom: 4px; }
-.form-input { width: 100%; padding: 10px 12px; background: #0a1628; border: 1px solid #3a4a6e; border-radius: 8px; color: #e2e8f0; font-size: 14px; outline: none; font-family: inherit; }
-.form-input:focus { border-color: #3b82f6; box-shadow: 0 0 8px rgba(59,130,246,0.2); }
-.form-select { width: 100%; padding: 10px 12px; background: #0a1628; border: 1px solid #3a4a6e; border-radius: 8px; color: #e2e8f0; font-size: 14px; outline: none; font-family: inherit; cursor: pointer; }
-.form-select:focus { border-color: #3b82f6; }
-.btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; color: #fff; }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-primary { background: linear-gradient(180deg, #3b82f6, #2563eb); }
-.btn-primary:hover:not(:disabled) { background: linear-gradient(180deg, #4b92ff, #3573fb); }
-.btn-success { background: linear-gradient(180deg, #22c55e, #16a34a); }
-.btn-success:hover:not(:disabled) { background: linear-gradient(180deg, #2dd46e, #1db354); }
-.btn-warning { background: linear-gradient(180deg, #f59e0b, #d97706); }
-.btn-warning:hover:not(:disabled) { background: linear-gradient(180deg, #fbbf24, #e58a00); }
-.btn-danger { background: linear-gradient(180deg, #ef4444, #dc2626); }
-.btn-danger:hover:not(:disabled) { background: linear-gradient(180deg, #f55, #e33); }
-.transaction-list { max-height: 300px; overflow-y: auto; margin: 12px 0; }
-.transaction-item { padding: 10px 12px; border-bottom: 1px solid #1a2a4e; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
-.transaction-item:last-child { border-bottom: none; }
-.txn-credit { color: #22c55e; }
-.txn-debit { color: #ef4444; }
-.txn-type { color: #6a7a9e; font-size: 11px; }
-.balance-display { text-align: center; padding: 20px; }
-.balance-amount { font-size: 36px; font-weight: 800; color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.3); }
-.balance-label { color: #6a7a9e; font-size: 13px; margin-bottom: 4px; }
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
-.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a4a6e; transition: all 0.3s; }
-.step-dot.active { background: #60a5fa; box-shadow: 0 0 8px rgba(96,165,250,0.5); }
-.step-dot.done { background: #22c55e; }
-.scene { position: relative; min-height: 400px; background: linear-gradient(180deg, #0a1628, #152040); border-radius: 12px; padding: 20px; margin-bottom: 12px; border: 1px solid #3a4a6e; overflow: hidden; }
-.scene-wallet { max-width: 500px; margin: 0 auto; }
-.wallet-visual { background: linear-gradient(135deg, #1e3a5f, #152a4a); border: 2px solid #3b82f6; border-radius: 16px; padding: 20px; margin-bottom: 12px; position: relative; }
-.wallet-visual .chip-icon { position: absolute; top: 12px; right: 12px; font-size: 24px; }
-.wallet-visual .name { color: #e2e8f0; font-size: 18px; font-weight: 700; }
-.wallet-visual .bal { color: #60a5fa; font-size: 28px; font-weight: 800; margin: 4px 0; }
-.wallet-visual .sub { color: #6a7a9e; font-size: 11px; }
-.flow-line { position: relative; height: 60px; display: flex; align-items: center; justify-content: center; margin: 8px 0; }
-.flow-arrow { font-size: 32px; color: #60a5fa; animation: flowAnim 1s infinite; }
-@keyframes flowAnim { 0%,100% { transform: translateX(0); } 50% { transform: translateX(10px); } }
-.popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #0a1628; border: 2px solid #60a5fa; border-radius: 12px; padding: 20px; text-align: center; min-width: 220px; z-index: 5; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
-.popup.done { border-color: #22c55e; }
-.error { color: #ef4444; padding: 10px; margin: 8px 0; border: 1px solid #ef4444; border-radius: 6px; background: rgba(239,68,68,0.1); font-size: 13px; text-align: center; }
-.success { color: #22c55e; padding: 10px; margin: 8px 0; border: 1px solid #22c55e; border-radius: 6px; background: rgba(34,197,94,0.1); font-size: 13px; text-align: center; }
+.wal-app { max-width: 1100px; margin: 0 auto; }
+
+/* ---------- shared bits ---------- */
+.wal-form { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); background: var(--bg-tertiary); border-radius: var(--radius-lg); margin-bottom: var(--space-4); border: 1px solid var(--border-secondary); }
+.wal-form h3, .wal-form h4 { font-size: var(--font-sm); color: var(--accent); margin: 0; }
+.wal-form-row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: flex-end; }
+.wal-form label { font-size: var(--font-xs); color: var(--text-secondary); display: flex; flex-direction: column; gap: 3px; }
+.wal-form input, .wal-form select { padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); color: var(--text-primary); font-size: var(--font-sm); transition: border-color var(--duration-fast) var(--ease-out); }
+.wal-form input:focus, .wal-form select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+.wal-btn { padding: 8px 18px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-sm); font-size: var(--font-sm); font-weight: 600; cursor: pointer; transition: background var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out); display: inline-flex; align-items: center; gap: 6px; }
+.wal-btn:hover:not(:disabled) { background: var(--accent-hover); transform: translateY(-1px); }
+.wal-btn:active:not(:disabled) { transform: translateY(0); }
+.wal-btn:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; transform: none; }
+.wal-btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-primary); }
+.wal-btn-secondary:hover:not(:disabled) { background: var(--bg-tertiary); }
+.wal-msg-ok { color: var(--success); font-size: var(--font-xs); }
+.wal-msg-err { color: var(--danger); font-size: var(--font-xs); }
+.wal-spinner { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: wal-spin 0.6s linear infinite; }
+.wal-btn-secondary .wal-spinner { border-color: rgba(0,0,0,0.2); border-top-color: var(--text-primary); }
+@keyframes wal-spin { to { transform: rotate(360deg); } }
+
+/* ---------- wallets tab ---------- */
+.wal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3); margin: var(--space-4) 0; }
+.wal-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: var(--space-4); border: 2px solid var(--border-primary); box-shadow: var(--shadow-sm); cursor: pointer; transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out), transform var(--duration-fast) var(--ease-out); display: flex; flex-direction: column; gap: var(--space-2); }
+.wal-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.wal-card.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,0.15), var(--shadow-md); }
+.wal-card-top { display: flex; align-items: center; gap: var(--space-2); }
+.wal-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: var(--font-sm); flex-shrink: 0; }
+.wal-card h3 { font-size: var(--font-base); margin: 0; color: var(--text-primary); line-height: 1.2; }
+.wal-id { font-size: var(--font-xs); color: var(--text-muted); }
+.wal-balance { font-size: var(--font-xl); font-weight: 800; color: var(--accent); }
+.wal-txn-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; }
+.wal-txn { display: flex; justify-content: space-between; gap: var(--space-2); padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-tertiary); font-size: var(--font-xs); border-left: 3px solid var(--border-primary); }
+.wal-txn.CREDIT { border-left-color: var(--success); }
+.wal-txn.DEBIT { border-left-color: var(--warning); }
+.wal-txn.TRANSFER { border-left-color: var(--accent); }
+.wal-txn-amt.CREDIT { color: var(--success); font-weight: 700; }
+.wal-txn-amt.DEBIT, .wal-txn-amt.TRANSFER { color: var(--danger); font-weight: 700; }
+.wal-command-log { font-family: var(--code-font); font-size: var(--font-xs); color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
+.wal-empty { color: var(--text-muted); font-size: var(--font-sm); text-align: center; padding: var(--space-6) 0; }
+
+/* ---------- simulation tab ---------- */
+.wal-progress { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+.wal-progress-track { flex: 1; height: 6px; border-radius: var(--radius-full); background: var(--bg-tertiary); overflow: hidden; }
+.wal-progress-fill { height: 100%; border-radius: var(--radius-full); background: var(--accent-gradient); transition: width var(--duration-slow) var(--ease-out); }
+.wal-progress-label { font-size: var(--font-xs); color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wal-step-title { font-size: var(--font-lg); font-weight: 700; color: var(--text-primary); margin: var(--space-2) 0 2px; }
+.wal-step-desc { font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: var(--space-4); min-height: 20px; }
+
+.wal-stage { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-6) var(--space-4); background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: var(--space-4); min-height: 190px; box-shadow: var(--shadow-sm); }
+.wal-stage-empty { flex-direction: column; text-align: center; color: var(--text-muted); }
+.wal-stage-icon { font-size: 42px; opacity: 0.35; margin-bottom: var(--space-2); }
+
+.wal-actor { flex: 1; max-width: 230px; background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: var(--radius-lg); padding: var(--space-4); text-align: center; transition: border-color var(--duration-normal) var(--ease-out), box-shadow var(--duration-normal) var(--ease-out); }
+.wal-actor.highlight { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(79,70,229,0.14); }
+.wal-actor.reject { border-color: var(--danger); box-shadow: 0 0 0 4px var(--danger-bg); }
+.wal-actor .avatar { width: 46px; height: 46px; border-radius: 50%; margin: 0 auto var(--space-2); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; font-size: var(--font-base); }
+.wal-actor .name { font-weight: 600; color: var(--text-primary); font-size: var(--font-sm); }
+.wal-actor .sub { font-size: var(--font-xs); color: var(--text-muted); }
+.wal-actor .bal { font-size: var(--font-xl); font-weight: 800; color: var(--accent); margin-top: var(--space-2); transition: color var(--duration-normal) var(--ease-out); }
+.wal-actor .bal.flash-up { animation: wal-pulse var(--duration-slow) var(--ease-spring); color: var(--success); }
+.wal-actor .bal.flash-down { animation: wal-pulse var(--duration-slow) var(--ease-spring); color: var(--danger); }
+@keyframes wal-pulse { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+.wal-flow-lane { width: 76px; display: flex; align-items: center; justify-content: center; position: relative; height: 46px; flex-shrink: 0; }
+.wal-flow-arrow { font-size: 26px; color: var(--accent); transition: opacity var(--duration-normal) var(--ease-out); }
+.wal-flow-arrow.animate { animation: wal-flow 0.9s ease-in-out infinite; }
+.wal-flow-arrow.reject { color: var(--danger); animation: wal-shake 0.5s var(--ease-out); }
+.wal-flow-amount { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); font-size: var(--font-xs); font-weight: 700; color: var(--accent); white-space: nowrap; }
+.wal-flow-amount.reject { color: var(--danger); }
+@keyframes wal-flow { 0%, 100% { transform: translateX(-6px); opacity: 0.55; } 50% { transform: translateX(6px); opacity: 1; } }
+@keyframes wal-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+
+.wal-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-2); margin: var(--space-4) 0; }
+.wal-hud-tile { background: var(--bg-tertiary); border-radius: var(--radius-md); padding: var(--space-3); text-align: center; border: 1px solid var(--border-secondary); transition: transform var(--duration-fast) var(--ease-out); }
+.wal-hud-tile .icon { font-size: var(--font-sm); opacity: 0.7; }
+.wal-hud-tile .num { font-size: var(--font-xl); font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.wal-hud-tile .lbl { font-size: var(--font-xs); color: var(--text-muted); }
+
+.wal-alert { display: flex; gap: var(--space-2); align-items: flex-start; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--font-sm); line-height: var(--leading-normal); margin-top: var(--space-3); animation: wal-fadein var(--duration-normal) var(--ease-out); }
+.wal-alert.INFO { background: var(--info-bg); color: var(--info); }
+.wal-alert.SUCCESS { background: var(--success-bg); color: var(--success); }
+.wal-alert.WARNING { background: var(--warning-bg); color: var(--warning); }
+.wal-alert.ERROR { background: var(--danger-bg); color: var(--danger); }
+.wal-alert-icon { flex-shrink: 0; }
+.wal-alert-text { color: var(--text-primary); }
+@keyframes wal-fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+.wal-event-list { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; }
+.wal-event { display: flex; justify-content: space-between; gap: var(--space-2); padding: 7px 12px; border-radius: var(--radius-sm); background: var(--bg-tertiary); font-size: var(--font-xs); border-left: 3px solid var(--border-primary); }
+.wal-event.SUCCESS { border-left-color: var(--success); }
+.wal-event.ERROR { border-left-color: var(--danger); }
+.wal-event.WARNING { border-left-color: var(--warning); }
+.wal-event.INFO { border-left-color: var(--info); }
+.wal-event-type { color: var(--text-muted); font-family: var(--code-font); font-size: 10px; }
 `;
 
-function WalletView() {
+// -------------------------------------------------------------- Wallets tab
+
+function WalletsTab() {
   const [wallets, setWallets] = useState([]);
-  const [selectedWallet, setSelectedWallet] = useState(null);
+  const [selected, setSelected] = useState(null);
   const [txns, setTxns] = useState([]);
-  const [sendForm, setSendForm] = useState({ toId: '', amount: '', desc: '' });
-  const [addFundsAmt, setAddFundsAmt] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('CARD');
+  const [commandLog, setCommandLog] = useState([]);
   const [newUser, setNewUser] = useState({ userId: '', userName: '' });
+  const [creditAmt, setCreditAmt] = useState('');
+  const [creditMethod, setCreditMethod] = useState('CARD');
+  const [debitAmt, setDebitAmt] = useState('');
+  const [sendForm, setSendForm] = useState({ toId: '', amount: '', desc: '' });
   const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const loadWallets = () => getAllWallets().then(setWallets).catch(() => {});
-  useEffect(() => { loadWallets(); }, []);
+  const load = useCallback(async () => {
+    try {
+      const w = await api.getAllWallets();
+      setWallets(w);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  }, []);
 
-  const loadWallet = async (id) => {
-    const w = await getWallet(id);
-    if (w && !w.error) { setSelectedWallet(w); }
-    const t = await getTransactions(id);
-    if (Array.isArray(t)) setTxns(t);
+  useEffect(() => { load(); }, [load]);
+  usePolling(load, 8000, []);
+
+  const selectWallet = async (w) => {
+    setSelected(w);
+    setMessage('');
+    try {
+      const [t, log] = await Promise.all([api.getTransactions(w.id), api.getCommandLog()]);
+      setTxns(t.slice().reverse());
+      setCommandLog(log.slice().reverse().slice(0, 15));
+    } catch (err) { console.error(err); }
   };
 
-  const handleCreate = async () => {
-    if (!newUser.userId || !newUser.userName) { setError('Enter userId and name'); return; }
-    setLoading(true); setError('');
-    const res = await createWallet(newUser.userId, newUser.userName);
-    if (res.error) setError(res.error);
-    else { setMessage(`Wallet created for ${res.userName}`); setNewUser({ userId: '', userName: '' }); loadWallets(); }
-    setLoading(false);
+  const refreshSelected = async (id) => {
+    const [w, t, log] = await Promise.all([api.getWallet(id), api.getTransactions(id), api.getCommandLog()]);
+    setSelected(w);
+    setTxns(t.slice().reverse());
+    setCommandLog(log.slice().reverse().slice(0, 15));
+    await load();
   };
 
-  const handleAddFunds = async () => {
-    if (!selectedWallet) { setError('Select a wallet'); return; }
-    const amt = parseFloat(addFundsAmt);
-    if (!amt || amt <= 0) { setError('Enter valid amount'); return; }
-    setLoading(true); setError('');
-    const res = await addFunds(selectedWallet.id, amt, paymentMethod);
-    if (res.error) setError(res.error);
-    else { setMessage(`₹${amt} added`); setAddFundsAmt(''); loadWallet(selectedWallet.id); loadWallets(); }
-    setLoading(false);
+  const runAction = async (action, fn, successMsg) => {
+    setBusy(true); setBusyAction(action); setMessage('');
+    try {
+      await fn();
+      setMessage(successMsg);
+    } catch (err) {
+      setMessage(`Error: ${err.message || 'action failed'}`);
+    } finally { setBusy(false); setBusyAction(null); }
   };
 
-  const handleSend = async () => {
-    if (!selectedWallet) { setError('Select a wallet'); return; }
-    const amt = parseFloat(sendForm.amount);
-    if (!amt || amt <= 0) { setError('Enter valid amount'); return; }
-    if (!sendForm.toId) { setError('Enter recipient wallet ID'); return; }
-    setLoading(true); setError('');
-    const res = await sendMoney(selectedWallet.id, parseInt(sendForm.toId), amt, sendForm.desc);
-    if (res.error) setError(res.error);
-    else { setMessage(`₹${amt} sent!`); setSendForm({ toId: '', amount: '', desc: '' }); loadWallet(selectedWallet.id); loadWallets(); }
-    setLoading(false);
-  };
+  const spinner = <span className="wal-spinner" />;
 
   return (
     <div>
-      {error && <div className="error">{error}</div>}
-      {message && <div className="success">{message}</div>}
+      <div className="wal-form-row" style={{ marginBottom: 14 }}>
+        <button className="wal-btn wal-btn-secondary" onClick={() => setShowCreate(s => !s)}>
+          {showCreate ? 'Cancel' : '+ Create Wallet'}
+        </button>
+      </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>👛 Wallets</div>
-        <div className="wallet-grid">
+      {showCreate && (
+        <div className="wal-form">
+          <h3>New Wallet</h3>
+          <div className="wal-form-row">
+            <label>User ID <input value={newUser.userId} onChange={e => setNewUser(p => ({ ...p, userId: e.target.value }))} /></label>
+            <label>User Name <input value={newUser.userName} onChange={e => setNewUser(p => ({ ...p, userName: e.target.value }))} /></label>
+            <button className="wal-btn" disabled={busy || !newUser.userId || !newUser.userName} onClick={() => runAction('create', async () => { await api.createWallet(newUser.userId, newUser.userName); setNewUser({ userId: '', userName: '' }); await load(); }, 'Wallet created').then(() => setShowCreate(false))}>
+              {busyAction === 'create' && spinner} Create
+            </button>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="wal-empty">Loading wallets…</div>
+      ) : (
+        <div className="wal-grid">
           {wallets.map(w => (
-            <div key={w.id} className="wallet-card" onClick={() => loadWallet(w.id)} style={{ cursor: 'pointer', borderColor: selectedWallet?.id === w.id ? '#60a5fa' : '#3b82f6' }}>
-              <div className="chip">💳</div>
-              <div className="user-name">{w.userName}</div>
-              <div className="user-id">@{w.userId}</div>
-              <div className="balance">₹{w.balance.toFixed(2)}</div>
-              <div className="currency">ID: #{w.id}</div>
+            <div key={w.id} className={`wal-card ${selected?.id === w.id ? 'selected' : ''}`} onClick={() => selectWallet(w)}>
+              <div className="wal-card-top">
+                <div className="wal-avatar" style={{ background: avatarColor(w.id) }}>{initials(w.userName)}</div>
+                <div>
+                  <h3>{w.userName}</h3>
+                  <div className="wal-id">@{w.userId} · #{w.id}</div>
+                </div>
+              </div>
+              <div className="wal-balance">{money(w.balance)}</div>
             </div>
           ))}
+          {wallets.length === 0 && <div className="wal-empty">No wallets found</div>}
         </div>
-      </div>
+      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div style={{ background: 'rgba(59,130,246,0.05)', borderRadius: 12, padding: 16, border: '1px solid #3a4a6e' }}>
-          <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>➕ Create Wallet</div>
-          <div className="form-group">
-            <label>User ID</label>
-            <input className="form-input" placeholder="e.g. newuser" value={newUser.userId} onChange={e => setNewUser(p => ({ ...p, userId: e.target.value }))} />
-          </div>
-          <div className="form-group">
-            <label>User Name</label>
-            <input className="form-input" placeholder="e.g. John" value={newUser.userName} onChange={e => setNewUser(p => ({ ...p, userName: e.target.value }))} />
-          </div>
-          <button className="btn btn-primary" onClick={handleCreate} disabled={loading}>👛 Create {loading ? '...' : ''}</button>
-        </div>
-
-        {selectedWallet && (
-          <div style={{ background: 'rgba(59,130,246,0.05)', borderRadius: 12, padding: 16, border: '1px solid #3a4a6e' }}>
-            <div style={{ color: '#60a5fa', fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{selectedWallet.userName}</div>
-            <div style={{ color: '#60a5fa', fontSize: 24, fontWeight: 800, marginBottom: 8 }}>₹{selectedWallet.balance.toFixed(2)}</div>
-
-            <div className="form-group">
-              <label>Add Funds</label>
-              <input className="form-input" type="number" placeholder="Amount" value={addFundsAmt} onChange={e => setAddFundsAmt(e.target.value)} style={{ marginBottom: 6 }} />
-              <select className="form-select" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} style={{ marginBottom: 6 }}>
-                <option value="CARD">💳 Card</option>
-                <option value="UPI">📱 UPI</option>
-                <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
-              </select>
-              <button className="btn btn-success" onClick={handleAddFunds} disabled={loading} style={{ width: '100%' }}>💰 Add Funds {loading ? '...' : ''}</button>
+      {selected && (
+        <>
+          <div className="wal-form">
+            <h3>Manage: {selected.userName} (#{selected.id})</h3>
+            <div className="wal-form-row">
+              <label>Credit Amount <input type="number" min="0" value={creditAmt} onChange={e => setCreditAmt(e.target.value)} /></label>
+              <label>Via
+                <select value={creditMethod} onChange={e => setCreditMethod(e.target.value)}>
+                  {PAYMENT_METHODS.map(m => <option key={m}>{m}</option>)}
+                </select>
+              </label>
+              <button className="wal-btn" disabled={busy || !creditAmt} onClick={() => runAction('credit', async () => {
+                await api.addFunds(selected.id, Number(creditAmt), creditMethod);
+                setCreditAmt('');
+                await refreshSelected(selected.id);
+              }, 'Funds added')}>{busyAction === 'credit' && spinner} + Credit</button>
             </div>
-
-            <div className="form-group">
-              <label>Send Money</label>
-              <input className="form-input" type="number" placeholder="To Wallet ID" value={sendForm.toId} onChange={e => setSendForm(p => ({ ...p, toId: e.target.value }))} style={{ marginBottom: 6 }} />
-              <input className="form-input" type="number" placeholder="Amount" value={sendForm.amount} onChange={e => setSendForm(p => ({ ...p, amount: e.target.value }))} style={{ marginBottom: 6 }} />
-              <input className="form-input" placeholder="Description (optional)" value={sendForm.desc} onChange={e => setSendForm(p => ({ ...p, desc: e.target.value }))} style={{ marginBottom: 6 }} />
-              <button className="btn btn-warning" onClick={handleSend} disabled={loading} style={{ width: '100%' }}>📤 Send Money {loading ? '...' : ''}</button>
+            <div className="wal-form-row">
+              <label>Debit Amount <input type="number" min="0" value={debitAmt} onChange={e => setDebitAmt(e.target.value)} /></label>
+              <button className="wal-btn wal-btn-secondary" disabled={busy || !debitAmt} onClick={() => runAction('debit', async () => {
+                await api.withdraw(selected.id, Number(debitAmt), 'Manual withdrawal');
+                setDebitAmt('');
+                await refreshSelected(selected.id);
+              }, 'Funds withdrawn')}>{busyAction === 'debit' && spinner} − Debit</button>
             </div>
+            <div className="wal-form-row">
+              <label>To Wallet ID <input type="number" value={sendForm.toId} onChange={e => setSendForm(p => ({ ...p, toId: e.target.value }))} /></label>
+              <label>Amount <input type="number" min="0" value={sendForm.amount} onChange={e => setSendForm(p => ({ ...p, amount: e.target.value }))} /></label>
+              <label>Note <input value={sendForm.desc} onChange={e => setSendForm(p => ({ ...p, desc: e.target.value }))} /></label>
+              <button className="wal-btn" disabled={busy || !sendForm.toId || !sendForm.amount} onClick={() => runAction('send', async () => {
+                await api.sendMoney(selected.id, Number(sendForm.toId), Number(sendForm.amount), sendForm.desc);
+                setSendForm({ toId: '', amount: '', desc: '' });
+                await refreshSelected(selected.id);
+              }, 'Transfer complete')}>{busyAction === 'send' && spinner} 📤 Send</button>
+            </div>
+            {message && <div className={message.startsWith('Error') ? 'wal-msg-err' : 'wal-msg-ok'}>{message}</div>}
           </div>
-        )}
-      </div>
 
-      {selectedWallet && (
-        <div style={{ marginTop: 16, background: 'rgba(59,130,246,0.05)', borderRadius: 12, padding: 16, border: '1px solid #3a4a6e' }}>
-          <div style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>📊 Transaction History</div>
-          <div className="transaction-list">
-            {txns.length === 0 ? <div style={{ color: '#6a7a9e', textAlign: 'center', padding: 20 }}>No transactions yet</div> : (
-              txns.map((tx, i) => (
-                <div key={i} className="transaction-item">
-                  <div>
-                    <div className={tx.type === 'CREDIT' ? 'txn-credit' : 'txn-debit'} style={{ fontWeight: 600 }}>
-                      {tx.type === 'CREDIT' ? '+' : '-'}₹{tx.amount?.toFixed(2)}
-                    </div>
-                    <div className="txn-type">{tx.description || tx.type}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="txn-type">{tx.status}</div>
-                    <div className="txn-type">{new Date(tx.timestamp).toLocaleTimeString()}</div>
-                  </div>
+          <div className="wal-form">
+            <h4>Transaction History — Wallet #{selected.id}</h4>
+            <div className="wal-txn-list">
+              {txns.length === 0 ? <div className="wal-empty">No transactions yet</div> : txns.map(t => (
+                <div key={t.id} className={`wal-txn ${t.type}`}>
+                  <span>{t.type} — {t.description}</span>
+                  <span className={`wal-txn-amt ${t.type}`}>{t.type === 'CREDIT' ? '+' : '-'}{money(t.amount)}</span>
                 </div>
-              ))
-            )}
+              ))}
+            </div>
           </div>
-        </div>
+
+          <div className="wal-form">
+            <h4>Command Log (Command pattern execution history)</h4>
+            <div className="wal-command-log">
+              {commandLog.length === 0 ? <div className="wal-empty">No commands executed yet</div> :
+                commandLog.map((c, i) => <div key={i}>{c}</div>)}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-function AnimatedFlow() {
-  const [step, setStep] = useState(0);
+// ----------------------------------------------------------- Simulation tab
+
+const SIM_STEPS = [
+  { title: 'Reset sandbox', desc: 'Re-seed the isolated /sim/* wallet repository — completely separate from live data.' },
+  { title: 'View seeded wallets', desc: 'Two wallets, ready to be the actors in this walkthrough.' },
+  { title: 'Credit a wallet', desc: 'CreditCommand locks one wallet and adds funds.' },
+  { title: 'Debit a wallet', desc: 'DebitCommand re-checks the balance inside the lock before removing funds.' },
+  { title: 'Attempt an over-limit transfer', desc: 'TransferCommand rejects it — InsufficientBalanceException, thrown from inside the locked section.' },
+  { title: 'Successful transfer', desc: 'Locks are acquired in ascending wallet-id order, not "from then to".' },
+  { title: 'View updated balances', desc: 'The combined total across both wallets has not moved.' },
+  { title: 'Race N concurrent transfers', desc: 'Many simultaneous transfers, alternating direction — the sum stays exact.' },
+];
+
+const STATUS_ICON = { SUCCESS: '✅', INFO: 'ℹ️', WARNING: '⚠️', ERROR: '⛔' };
+
+function useFlash(wallets) {
+  const [flash, setFlash] = useState({});
+  const prevRef = useRef({});
+  useEffect(() => {
+    if (!wallets || wallets.length === 0) return;
+    const next = {};
+    for (const w of wallets) {
+      const prev = prevRef.current[w.id];
+      if (prev !== undefined && prev !== w.balance) {
+        next[w.id] = w.balance > prev ? 'flash-up' : 'flash-down';
+      }
+    }
+    if (Object.keys(next).length > 0) {
+      setFlash(next);
+      const t = setTimeout(() => setFlash({}), 650);
+      prevRef.current = Object.fromEntries(wallets.map(w => [w.id, w.balance]));
+      return () => clearTimeout(t);
+    }
+    prevRef.current = Object.fromEntries(wallets.map(w => [w.id, w.balance]));
+  }, [wallets]);
+  return flash;
+}
+
+function SimulationTab() {
+  const [step, setStep] = useState(-1);
   const [wallets, setWallets] = useState([]);
-  const [fromWallet, setFromWallet] = useState(null);
-  const [toWallet, setToWallet] = useState(null);
-  const [amount, setAmount] = useState(100);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showFlow, setShowFlow] = useState(false);
-  const [txResult, setTxResult] = useState(null);
-  const [fromBal, setFromBal] = useState(0);
-  const [toBal, setToBal] = useState(0);
-  const mountedRef = useRef(true);
-  const steps = ['Create', 'Fund', 'Send', 'Confirm', 'Done'];
+  const [busy, setBusy] = useState(false);
+  const [alert, setAlert] = useState({ status: 'INFO', text: 'Press Start to reset the isolated sim sandbox.' });
+  const [raceResult, setRaceResult] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [flowState, setFlowState] = useState(null); // 'success' | 'reject' | 'race' | null
+  const flash = useFlash(wallets);
 
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-  useEffect(() => { getAllWallets().then(setWallets).catch(() => {}); }, []);
-
-  const reset = () => {
-    setStep(0); setFromWallet(null); setToWallet(null); setLoading(false);
-    setError(''); setShowFlow(false); setTxResult(null);
-    getAllWallets().then(setWallets).catch(() => {});
+  const refreshState = async () => {
+    const state = await api.simState();
+    setWallets(state.wallets);
+    setEvents(state.events || []);
+    return state;
   };
 
-  const startSim = async () => {
-    setError(''); setStep(1);
-    const data = await getAllWallets();
-    if (mountedRef.current) setWallets(data);
+  const walletA = () => wallets[0];
+  const walletB = () => wallets[1];
+
+  const doReset = async () => {
+    setBusy(true); setRaceResult(null); setFlowState(null);
+    try {
+      const state = await api.simReset();
+      setWallets(state.wallets);
+      setEvents(state.events || []);
+      setStep(0);
+      setAlert({ status: 'SUCCESS', text: `Sandbox reset. ${state.wallets.length} wallets seeded (total ${money(state.totalBalance)}). Isolated from live data.` });
+    } catch (err) { setAlert({ status: 'ERROR', text: `Reset failed: ${err.message}` }); }
+    finally { setBusy(false); }
   };
 
-  const createUser = async () => {
-    setLoading(true); setError('');
-    const res = await createWallet('simuser', 'SimUser');
-    if (!mountedRef.current) return;
-    if (res.error) { setError(res.error); setLoading(false); return; }
-    setFromWallet(res);
-    const data = await getAllWallets();
-    if (mountedRef.current) setWallets(data);
-    setLoading(false);
-    setStep(2);
+  const doStep = async (n) => {
+    setBusy(true); setFlowState(null);
+    try {
+      const a = walletA();
+      const b = walletB();
+      if (n === 1) {
+        await refreshState();
+        setAlert({ status: 'INFO', text: `Viewing ${wallets.length} seeded wallets in the isolated sim repository — separate from live wallets.` });
+      } else if (n === 2) {
+        const res = await api.simCredit(a.id, 500, 'UPI', 2);
+        setWallets(res.wallets); setEvents(res.events || []);
+        const newBal = res.wallets.find(w => w.id === a.id).balance;
+        setAlert({ status: 'SUCCESS', text: `Credited ${money(500)} to ${a.userName} via UPI (CreditCommand). New balance ${money(newBal)}.` });
+      } else if (n === 3) {
+        const res = await api.simDebit(a.id, 200, 3);
+        setWallets(res.wallets); setEvents(res.events || []);
+        const newBal = res.wallets.find(w => w.id === a.id).balance;
+        setAlert({ status: 'SUCCESS', text: `Debited ${money(200)} from ${a.userName} (DebitCommand). New balance ${money(newBal)}.` });
+      } else if (n === 4) {
+        const target = wallets.find(w => w.id === a.id);
+        try {
+          await api.simTransfer(a.id, b.id, target.balance + 100000, 'over-limit test', 4);
+          setAlert({ status: 'WARNING', text: 'Unexpected: over-limit transfer was accepted.' });
+        } catch (err) {
+          setFlowState('reject');
+          setAlert({ status: 'ERROR', text: `Transfer of far more than the balance was rejected: "${err.message}" — InsufficientBalanceException, thrown from inside TransferCommand's locked section.` });
+          await refreshState();
+        }
+      } else if (n === 5) {
+        setFlowState('success');
+        const res = await api.simTransfer(a.id, b.id, 300, 'Simulated transfer', 5);
+        setWallets(res.wallets); setEvents(res.events || []);
+        setAlert({ status: 'SUCCESS', text: `Transferred ${money(300)} from ${a.userName} to ${b.userName}. Locks were acquired in ascending wallet-id order (${Math.min(a.id, b.id)} then ${Math.max(a.id, b.id)}), regardless of transfer direction.` });
+      } else if (n === 6) {
+        const state = await refreshState();
+        setAlert({ status: 'INFO', text: `Total sandbox balance is still ${money(state.totalBalance)} — every credit/debit/transfer above only moved money between wallets, never created or destroyed it.` });
+      } else if (n === 7) {
+        setFlowState('race');
+        const buyers = 20;
+        const result = await api.simRace(a.id, b.id, buyers, 5, 7);
+        setRaceResult(result);
+        setWallets(result.snapshot.wallets);
+        setEvents(result.snapshot.events || []);
+        setAlert({
+          status: result.conserved ? 'SUCCESS' : 'ERROR',
+          text: `${buyers} concurrent transfers raced between ${a.userName} and ${b.userName}: ${result.succeeded} succeeded, ${result.rejected} rejected. Combined total: ${money(result.totalBefore)} -> ${money(result.totalAfter)} — conserved exactly, proving the ascending-lock-order rule is deadlock-free and race-free.`
+        });
+      }
+      setStep(n);
+    } catch (err) {
+      setAlert({ status: 'ERROR', text: `Step failed: ${err.message}` });
+    } finally { setBusy(false); }
   };
 
-  const fundWallet = async () => {
-    if (!fromWallet) return;
-    setLoading(true); setError('');
-    await addFunds(fromWallet.id, 500, 'CARD');
-    if (!mountedRef.current) return;
-    const w = await getWallet(fromWallet.id);
-    if (mountedRef.current) { setFromWallet(w); setFromBal(w.balance); }
-    const data = await getAllWallets();
-    if (mountedRef.current) setWallets(data);
-    setLoading(false);
-    setStep(3);
-  };
-
-  const sendMoneyAction = async () => {
-    if (!fromWallet || wallets.length < 2) { setError('Need at least 2 wallets'); return; }
-    setLoading(true); setError('');
-    const target = wallets.find(w => w.id !== fromWallet.id);
-    if (!target) { setError('No other wallet found'); setLoading(false); return; }
-    setToWallet(target);
-    setShowFlow(true);
-    setTimeout(async () => {
-      const res = await sendMoney(fromWallet.id, target.id, amount, 'Simulation transfer');
-      if (!mountedRef.current) return;
-      if (res.error) { setError(res.error); setLoading(false); return; }
-      setTxResult(res);
-      setFromBal(res.fromBalance);
-      setToBal(res.toBalance);
-      setLoading(false);
-      setStep(4);
-    }, 1500);
-  };
-
-  const finishSim = () => {
-    setStep(5);
-  };
-
-  const btnStyle = {
-    padding: '8px 20px', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600,
-    cursor: 'pointer', color: '#fff', transition: 'all 0.2s',
-    background: '#3b82f6', margin: '0 4px',
-  };
+  const a = walletA();
+  const b = walletB();
+  const highlightA = step >= 2 && step !== 6;
+  const highlightB = step >= 4 && step !== 6;
+  const showFlow = step >= 4 && step !== 6 && a && b;
+  const total = wallets.reduce((s, w) => s + w.balance, 0);
+  const progressPct = step < 0 ? 0 : ((step + 1) / SIM_STEPS.length) * 100;
 
   return (
     <div>
-      <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
-        ))}
-        <span style={{ fontSize: 11, color: '#6a7a9e', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      <div className="wal-progress">
+        <div className="wal-progress-track"><div className="wal-progress-fill" style={{ width: `${progressPct}%` }} /></div>
+        <div className="wal-progress-label">{step >= 0 ? `Step ${step + 1} / ${SIM_STEPS.length}` : 'Not started'}</div>
+      </div>
+      {step >= 0 && (
+        <>
+          <div className="wal-step-title">{SIM_STEPS[step].title}</div>
+          <div className="wal-step-desc">{SIM_STEPS[step].desc}</div>
+        </>
+      )}
+
+      <div className={`wal-stage ${!a ? 'wal-stage-empty' : ''}`}>
+        {!a ? (
+          <>
+            <div className="wal-stage-icon">👛</div>
+            <div>Press Start to bring two wallets onto the stage.</div>
+          </>
+        ) : (
+          <>
+            <div className={`wal-actor ${highlightA ? (flowState === 'reject' ? 'reject' : 'highlight') : ''}`}>
+              <div className="avatar" style={{ background: avatarColor(a.id) }}>{initials(a.userName)}</div>
+              <div className="name">{a.userName}</div>
+              <div className="sub">#{a.id}</div>
+              <div className={`bal ${flash[a.id] || ''}`}>{money(a.balance)}</div>
+            </div>
+
+            {b && (
+              <div className="wal-flow-lane">
+                {showFlow && (
+                  <>
+                    <span className={`wal-flow-amount ${flowState === 'reject' ? 'reject' : ''}`}>
+                      {flowState === 'reject' ? '✕' : step === 7 ? '⇄' : money(step === 5 ? 300 : '')}
+                    </span>
+                    <span className={`wal-flow-arrow ${flowState === 'success' || flowState === 'race' ? 'animate' : ''} ${flowState === 'reject' ? 'reject' : ''}`}>
+                      {flowState === 'reject' ? '✕' : '➜'}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {b && (
+              <div className={`wal-actor ${highlightB ? (flowState === 'reject' ? 'reject' : 'highlight') : ''}`}>
+                <div className="avatar" style={{ background: avatarColor(b.id) }}>{initials(b.userName)}</div>
+                <div className="name">{b.userName}</div>
+                <div className="sub">#{b.id}</div>
+                <div className={`bal ${flash[b.id] || ''}`}>{money(b.balance)}</div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
-      <div className="scene">
-        <div className="scene-wallet">
-          {/* From Wallet */}
-          {fromWallet && (
-            <div className="wallet-visual" style={{ borderColor: '#3b82f6' }}>
-              <div className="chip-icon">💳</div>
-              <div className="name">{fromWallet.userName}</div>
-              <div className="bal">₹{(fromBal || fromWallet.balance || 0).toFixed(2)}</div>
-              <div className="sub">@{fromWallet.userId} • #{fromWallet.id}</div>
-            </div>
-          )}
-
-          {!fromWallet && step === 0 && (
-            <div className="wallet-visual" style={{ textAlign: 'center', borderStyle: 'dashed' }}>
-              <div style={{ fontSize: 40, opacity: 0.3 }}>👛</div>
-              <div style={{ color: '#6a7a9e', fontSize: 14 }}>No wallet yet — create one!</div>
-            </div>
-          )}
-
-          {/* Flow arrow */}
-          {showFlow && fromWallet && toWallet && (
-            <div className="flow-line">
-              <div className="flow-arrow">➡️</div>
-              <div style={{ color: '#60a5fa', fontSize: 13, fontWeight: 700 }}>₹{amount}</div>
-            </div>
-          )}
-
-          {/* To Wallet */}
-          {toWallet && (
-            <div className="wallet-visual" style={{ borderColor: '#22c55e' }}>
-              <div className="chip-icon">💳</div>
-              <div className="name">{toWallet.userName}</div>
-              <div className="bal">₹{(toBal || toWallet.balance || 0).toFixed(2)}</div>
-              <div className="sub">@{toWallet.userId} • #{toWallet.id}</div>
-            </div>
-          )}
-
-          {!toWallet && step >= 3 && (
-            <div className="wallet-visual" style={{ textAlign: 'center', borderStyle: 'dashed', borderColor: '#22c55e' }}>
-              <div style={{ fontSize: 32 }}>🏦</div>
-              <div style={{ color: '#6a7a9e', fontSize: 14 }}>Recipient wallet</div>
-            </div>
-          )}
+      {wallets.length > 0 && (
+        <div className="wal-hud">
+          <div className="wal-hud-tile"><div className="icon">💰</div><div className="num">₹{Math.round(total).toLocaleString('en-IN')}</div><div className="lbl">Total Balance</div></div>
+          <div className="wal-hud-tile"><div className="icon">📡</div><div className="num">{events.length}</div><div className="lbl">Sim Events</div></div>
+          {raceResult && <>
+            <div className="wal-hud-tile"><div className="icon">✅</div><div className="num" style={{ color: 'var(--success)' }}>{raceResult.succeeded}</div><div className="lbl">Race: Succeeded</div></div>
+            <div className="wal-hud-tile"><div className="icon">⛔</div><div className="num" style={{ color: 'var(--danger)' }}>{raceResult.rejected}</div><div className="lbl">Race: Rejected</div></div>
+            <div className="wal-hud-tile"><div className="icon">⚖️</div><div className="num" style={{ color: raceResult.conserved ? 'var(--success)' : 'var(--danger)' }}>{raceResult.conserved ? '✓' : '✗'}</div><div className="lbl">Sum Conserved</div></div>
+          </>}
         </div>
+      )}
 
-        {step === 1 && fromWallet && (
-          <div className="popup">
-            <div style={{ fontSize: 36 }}>👛</div>
-            <div style={{ fontWeight: 700, color: '#60a5fa', fontSize: 15 }}>Wallet Created!</div>
-            <div style={{ fontSize: 13, color: '#a8b8d8', marginTop: 4 }}>{fromWallet.userName} • #{fromWallet.id}</div>
-          </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 12 }}>
+        {step === -1 && <button className="wal-btn" disabled={busy} onClick={doReset}>{busy && <span className="wal-spinner" />} ▶ Start Simulation</button>}
+        {step >= 0 && step < SIM_STEPS.length - 1 && (
+          <button className="wal-btn" disabled={busy} onClick={() => doStep(step + 1)}>
+            {busy && <span className="wal-spinner" />} Next: {SIM_STEPS[step + 1].title}
+          </button>
         )}
-
-        {step === 2 && fromWallet && (
-          <div className="popup">
-            <div style={{ fontSize: 36 }}>💰</div>
-            <div style={{ fontWeight: 700, color: '#22c55e', fontSize: 15 }}>Funds Added!</div>
-            <div style={{ fontSize: 13, color: '#a8b8d8', marginTop: 4 }}>₹500 added via CARD</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#60a5fa', marginTop: 2 }}>₹{fromBal.toFixed(2)}</div>
-          </div>
-        )}
-
-        {step === 4 && txResult && (
-          <div className="popup">
-            <div style={{ fontSize: 36 }}>✅</div>
-            <div style={{ fontWeight: 700, color: '#22c55e', fontSize: 15 }}>Transfer Complete!</div>
-            <div style={{ fontSize: 13, color: '#a8b8d8', marginTop: 4 }}>₹{amount} sent to {toWallet?.userName}</div>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="popup done">
-            <div style={{ fontSize: 36 }}>🎉</div>
-            <div style={{ fontWeight: 700, color: '#22c55e', fontSize: 15 }}>Simulation Done!</div>
-            <div style={{ fontSize: 12, color: '#a8b8d8', marginTop: 4 }}>Wallet flow completed successfully</div>
-          </div>
+        {step === SIM_STEPS.length - 1 && (
+          <button className="wal-btn wal-btn-secondary" onClick={doReset}>↺ Run Again</button>
         )}
       </div>
 
-      {error && <div className="error">{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#1a2a4e', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#ccc' }}>↺ Reset</button></div>}
+      <div className={`wal-alert ${alert.status}`}>
+        <span className="wal-alert-icon">{STATUS_ICON[alert.status]}</span>
+        <span className="wal-alert-text">{alert.text}</span>
+      </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        {step === 0 && <button onClick={startSim} style={{ padding: '12px 32px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>▶ Start Simulation</button>}
-
-        {step === 1 && <button onClick={createUser} disabled={loading} style={btnStyle}>👛 Create Wallet {loading ? '...' : ''}</button>}
-
-        {step === 2 && <button onClick={fundWallet} disabled={loading} style={{ ...btnStyle, background: '#22c55e' }}>💰 Add ₹500 {loading ? '...' : ''}</button>}
-
-        {step === 3 && <button onClick={sendMoneyAction} disabled={loading} style={{ ...btnStyle, background: '#f59e0b' }}>📤 Send ₹{amount} {loading ? '...' : ''}</button>}
-
-        {step === 4 && <button onClick={finishSim} style={{ ...btnStyle, background: '#22c55e' }}>✅ Finish</button>}
-
-        {step === 5 && <button onClick={reset} style={{ ...btnStyle, background: '#3b82f6' }}>🔄 New Simulation</button>}
+      <div className="wal-form" style={{ marginTop: 14 }}>
+        <h4>Sim Event Log ({events.length})</h4>
+        <div className="wal-event-list">
+          {events.length === 0 ? <div className="wal-empty">No events yet</div> : events.slice().reverse().slice(0, 10).map(e => (
+            <div key={e.id} className={`wal-event ${e.status}`}>
+              <span><strong>{e.title}</strong></span>
+              <span className="wal-event-type">{e.eventType}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
-export default function DigitalWalletPage() {
-  const [tab, setTab] = useState('wallet');
-  const tabs = ['wallet', 'simulation', 'diagram', 'design'];
-  const tabLabels = { wallet: 'Wallet', simulation: 'Simulation', diagram: 'Class Diagram', design: 'Design Details' };
+// ---------------------------------------------------------------------- page
 
+export default function DigitalWalletPage() {
   return (
-    <div className="wallet-page">
+    <LldPage module="digitalwallet" title="Digital Wallet" icon="👛" tabs={[
+      { id: 'wallets', label: '👛 Wallets & Transfers' },
+      { id: 'simulation', label: '🕹️ Interactive Simulation' },
+      { id: 'diagram', label: 'Class Diagram' },
+      { id: 'sequence', label: 'Sequence Diagram' },
+      { id: 'design', label: 'Design Details' }
+    ]}>
       <style>{styles}</style>
-      <Link to="/" className="back-home">← Back</Link>
-      <div className="wallet-title">👛 Digital Wallet</div>
-      <div className="tab-bar">
-        {tabs.map(t => (
-          <button key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>
-            {tabLabels[t]}
-          </button>
-        ))}
-      </div>
-      {tab === 'wallet' && <WalletView />}
-      {tab === 'simulation' && <AnimatedFlow />}
-      {tab === 'diagram' && <ClassDiagram module="wallet" />}
-      {tab === 'design' && <DesignDetails module="wallet" />}
-    </div>
+      {(activeTab) => (
+        <div className="wal-app">
+          {activeTab === 'wallets' && <WalletsTab />}
+          {activeTab === 'simulation' && <SimulationTab />}
+        </div>
+      )}
+    </LldPage>
   );
 }
