@@ -1,9 +1,12 @@
 package com.lld.vendingmachine.model;
 
+import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Data
 public class Transaction {
     private long id;
     private String slotCode;
@@ -37,42 +40,6 @@ public class Transaction {
         this.timestamp = LocalDateTime.now();
         this.message = "Transaction initiated for " + productName + " (" + slotCode + ")";
     }
-
-    public long getId() { return id; }
-    public void setId(long id) { this.id = id; }
-
-    public String getSlotCode() { return slotCode; }
-    public void setSlotCode(String slotCode) { this.slotCode = slotCode; }
-
-    public Long getProductId() { return productId; }
-    public void setProductId(Long productId) { this.productId = productId; }
-
-    public String getProductName() { return productName; }
-    public void setProductName(String productName) { this.productName = productName; }
-
-    public double getItemPrice() { return itemPrice; }
-    public void setItemPrice(double itemPrice) { this.itemPrice = itemPrice; }
-
-    public double getInsertedAmount() { return insertedAmount; }
-    public void setInsertedAmount(double insertedAmount) { this.insertedAmount = insertedAmount; }
-
-    public double getChangeAmount() { return changeAmount; }
-    public void setChangeAmount(double changeAmount) { this.changeAmount = changeAmount; }
-
-    public Map<String, Integer> getDenominationsInserted() { return denominationsInserted; }
-    public void setDenominationsInserted(Map<String, Integer> denominationsInserted) { this.denominationsInserted = denominationsInserted; }
-
-    public Map<String, Integer> getChangeBreakdown() { return changeBreakdown; }
-    public void setChangeBreakdown(Map<String, Integer> changeBreakdown) { this.changeBreakdown = changeBreakdown; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
-
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
 
     public void addInsertedDenomination(Denomination denom) {
         this.insertedAmount += denom.getValue();

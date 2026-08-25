@@ -1,6 +1,10 @@
 package com.lld.vendingmachine.exception;
 
-public class InsufficientPaymentException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(HttpStatus.PAYMENT_REQUIRED)
+public class InsufficientPaymentException extends VendingMachineException {
     public InsufficientPaymentException(String message) {
         super(message);
     }
