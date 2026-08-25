@@ -13,7 +13,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # full suite — 203 tests, 30 classes
+mvn test                                  # full suite — 948 tests, 103 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -21,7 +21,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # full suite — 250 tests, 3 files
+npx vitest run                            # full suite — 286 tests, 3 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -46,7 +46,9 @@ enforces — if the UI needs a decision, it calls an endpoint.
 ### Backend layout
 
 `backend/src/main/java/com/lld/{module}/` with `controller / service / model / repository /
-strategy / exception / config` sub-packages. `LldApplication` boots all 30 module packages at once.
+strategy / exception / config` sub-packages. `LldApplication` boots all 37 module packages at once
+(`concurrency` nests six primitive sub-packages of its own: `blockingqueue`, `ttlcache`,
+`foobar`, `zeroevenodd`, `fizzbuzz`, `h2o`).
 Each module typically has a `{Module}Initializer` (`@PostConstruct` seed data) and a facade
 `{Module}Service` that the controller delegates to wholesale.
 
@@ -92,12 +94,11 @@ components drifted apart in the first place.
 
 ### Module maturity is uneven
 
-30 modules have backends; 15 pages are frontend-only — the 9 concurrency primitives
-(`blocking-queue`, `bloom-filter`, `concurrent-hashmap`, `fizz-buzz`, `foo-bar`, `h2o`,
-`merge-sort`, `ttl-cache`, `zero-even-odd`) plus `car-rental`, `concert-ticket`,
-`course-registration`, `cricinfo`, `music-streaming`, `restaurant`. **splitwise**, **logging**
-and **uber** are the reference implementations — match their depth (layered packages, real
-patterns, typed exceptions, concurrency tests, `/sim/*` engine) when building out a module.
+42 of 45 modules have backends; only 3 concurrency primitives remain frontend-only —
+`bloom-filter`, `concurrent-hashmap`, `merge-sort` (tracked in `designDataCoverage.test.js`'s
+`PENDING_DESIGN_CONTENT` allowlist). **splitwise**, **logging** and **uber** are the reference
+implementations — match their depth (layered packages, real patterns, typed exceptions,
+concurrency tests, `/sim/*` engine) when building out a module.
 
 `designDataCoverage.test.js` holds a `PENDING_DESIGN_CONTENT` allowlist of modules still lacking
 full design data. Filling one in means removing it from that list.

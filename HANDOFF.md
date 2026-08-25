@@ -6,22 +6,30 @@
 > (`git rm HANDOFF.md`) — the durable versions of everything here live in `AGENTS.md`
 > (conventions), `README.md` (what each module is), and `RCA.md` (what broke and why).
 
-**Status at time of writing (2026-08-24):** Phase 0/1 landed long ago; Waves 2A and 3A are
-done — uber, zomato, stackoverflow, tictactoe(partial), hotel, car-rental, concert-ticket,
-course-registration, cricinfo, music-streaming, restaurant, blocking-queue are all at or near
-the 17-criteria bar with verified concurrency tests. Backend suite green, frontend suite green.
+**Status at time of writing (2026-08-25):** Waves 1 (inventory only), 2 (chess only), 3
+(blocking-queue, ttl-cache, foo-bar, zero-even-odd, fizz-buzz, h2o) and the Phase-1-foundations
+top-up (tictactoe, lru-cache, snakeladders, minesweeper) are done — uber, zomato, stackoverflow,
+tictactoe, lru-cache, hotel, car-rental, concert-ticket, course-registration, cricinfo,
+music-streaming, restaurant, chess, inventory, snakeladders, minesweeper, and six of eight
+concurrency primitives are all at or near the 17-criteria bar with verified concurrency tests.
+Backend suite green (948 tests), frontend suite green (286 tests). **Work is now proceeding in
+the interview-study phase order the user specified**, not strictly the wave order below — see
+recent session history for the live order (foundations → single-actor patterns → repository
+domains → concurrency locking → remaining primitives → booking systems → marketplaces →
+graph/event platforms → advanced games). Single-actor pattern top-up (vending-machine,
+coffee-machine, traffic-signal) is in flight as of this writing.
 
 ## What remains — the honest "not ready" list
 
-Verified against the tree on `main` (2026-08-24): zero test classes, zero `/sim/*` endpoints,
-no pattern packages, no exception hierarchy:
+Verified against the tree on `main` (2026-08-25):
 
 | Wave | Modules | Core gap |
 |---|---|---|
-| **1 — pattern-gap domains** | inventory, digitalwallet, trafficsignal, taskmanagement, auction, socialnetwork | README claims Observer/Strategy/Command/State that don't exist; no tests, no sim, no exceptions |
-| **2 — games** | chess, minesweeper, snakeladders, ludo | Pure rules engines with **zero tests**; no sim, no exceptions. Plus: tictactoe top-up (`/sim/*` + typed exceptions; keep its existing tests) |
-| **3 — concurrency primitives** | foo-bar, zero-even-odd, fizz-buzz, h2o, ttl-cache, concurrent-hashmap, bloom-filter, merge-sort | React-only animations; no backend. `com.lld.concurrency` exists with BlockingQueue done as the template. All eight are in the `PENDING_DESIGN_CONTENT` allowlist |
-| **4 — thin upgrades** | elevator, lru-cache | Working but shallow (few tests, missing flavours) |
+| **1 — pattern-gap domains** | digitalwallet, taskmanagement, auction, socialnetwork | README claims Observer/Strategy/Command/State that don't exist; no tests, no sim, no exceptions. (inventory done) |
+| **1b — single-actor patterns** | vendingmachine, coffeemachine, trafficsignal | vendingmachine/coffeemachine already have State/CoR/Factory/Decorator + exceptions, need concurrency tests + Lombok top-up; trafficsignal needs a full build-out (in flight) |
+| **2 — games** | ludo | Pure rules engine with **zero tests**; no sim, no exceptions. (chess, minesweeper, snakeladders, tictactoe done) |
+| **3 — concurrency primitives** | concurrent-hashmap, bloom-filter, merge-sort | React-only animations; no backend. `com.lld.concurrency` has blockingqueue/ttlcache/foobar/zeroevenodd/fizzbuzz/h2o done as templates. These three remain in the `PENDING_DESIGN_CONTENT` allowlist |
+| **4 — thin upgrades** | elevator | Working but shallow (few tests, missing flavours). (lru-cache done) |
 | **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | Only splitwise, uber, zomato have `data/sequences/<module>.js` |
 
 ## How to use this file
