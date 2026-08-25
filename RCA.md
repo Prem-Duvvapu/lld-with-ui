@@ -24,6 +24,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-014](#rca-014-snake-and-ladders-creategame-had-no-player-count-validation-and-crashed-with-an-unhandled-500-past-4-players) | 2026-08-25 | Backend / Snake & Ladders / Input Validation | `createGame` never validated player count against the 4-color token palette, so a 5th player name threw an unhandled `IndexOutOfBoundsException` (bare 500) instead of a typed 400 | Resolved |
 | [RCA-015](#rca-015-minesweepers-mine-placement-loop-could-spin-forever-on-an-unvalidated-mine-count) | 2026-08-25 | Backend / Minesweeper / Input Validation & Availability | `placeMines`'s `while (placed < totalMines)` loop had no termination guarantee once `totalMines >= rows * cols`, spinning one CPU core forever on a single bad request | Resolved |
 | [RCA-016](#rca-016-minesweepers-reveal-and-flag-endpoints-skipped-bounds-checking-and-threw-an-unhandled-500) | 2026-08-25 | Backend / Minesweeper / Input Validation | `revealCell`/`flagCell` indexed the board with caller-supplied `row`/`col` with no bounds check, so an out-of-range request threw a bare, unhandled `ArrayIndexOutOfBoundsException` (500, message stripped) | Resolved |
+| [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
 
@@ -1409,3 +1410,88 @@ git show HEAD~1:backend/src/main/java/com/lld/minesweeper/service/MinesweeperSer
    module with zero test coverage has zero verified correctness, no matter how long it has been
    running without a reported incident — reported incidents require someone to have tried the
    input that breaks it.
+
+## RCA-017: Digital Wallet's Repository Returned Wallets in Unspecified ConcurrentHashMap Iteration Order
+
+**Severity:** Medium (silent nondeterminism, not a crash — but it left the order of `GET
+/api/wallet` and the new `/sim/*` snapshot unspecified across calls and JVM runs, and specifically
+undermined the new isolated simulation engine's assumption that the first two wallets in that list
+are consistently the same two actors)
+**Date:** 2026-08-25
+**Status:** Resolved
+**Affected:** `com.lld.digitalwallet.repository.WalletRepository#getAllWallets` (before fix)
+
+### 1. Overview & Severity
+While building the digitalwallet module's 8-step interactive simulation tab, the frontend
+(`frontend/src/lld/digitalwallet/DigitalWalletPage.jsx`) needed two stable "actors" to walk
+through credit/debit/transfer/race steps against, and picked them positionally off the `/sim/*`
+snapshot's wallet list: `wallets[0]` and `wallets[1]`. That snapshot's wallet list came straight
+from `WalletRepository#getAllWallets`, which returned `new ArrayList<>(wallets.values())` over a
+`ConcurrentHashMap<Long, Wallet>`. `ConcurrentHashMap` makes no ordering guarantee whatsoever —
+unlike `LinkedHashMap`, its iteration order is a function of each key's hash bucket placement, not
+insertion order, and is not required to stay stable across a resize or across JVM runs. Severity
+is Medium rather than High because nothing crashed and no data was corrupted — the three seeded
+wallets (small `Long` keys 1, 2, 3) happen to hash into ascending bucket order in the current JDK,
+so this had been silently "working" by implementation accident the entire time the module only had
+a plain CRUD API with no code that depended on positional order.
+
+### 2. Symptoms & Error Logs
+None observed in this repo — no test or manual run had ever exercised list order before this PR,
+because nothing previously depended on it. The failure mode this would produce, had the accidental
+ordering ever flipped (e.g. after enough wallet creation/deletion churn changed the map's bucket
+layout, or under a different JDK's `ConcurrentHashMap` hash spread), is entirely silent: the sim
+walkthrough would keep working with no exception and no wrong-looking output — it would simply
+walk "Bob" through the steps the UI narrates as "Alice", and `GET /api/wallet` would list wallets
+in a different order on one server restart than another, with nothing in a response body signaling
+that anything had changed.
+
+### 3. Root Cause
+`WalletRepository`'s backing store is a `ConcurrentHashMap<Long, Wallet>`, chosen (correctly) for
+thread-safe concurrent access, not for ordering. Its `values()` view — and therefore anything built
+from it, like the original `getAllWallets()` — carries no ordering contract at all. The repository
+seeds wallets 1/2/3 as Alice/Bob/Charlie in the constructor, so it was easy to assume — wrongly —
+that "seeded first" meant "returned first"; that assumption is true only as an accident of how the
+JDK's current `ConcurrentHashMap` happens to place small, densely-packed `Long` keys into buckets,
+not as anything the collection promises.
+
+### 4. Diagnostic Commands
+```bash
+# The collection's own contract — ConcurrentHashMap.values()'s javadoc makes no ordering
+# guarantee (contrast with LinkedHashMap, which explicitly documents insertion order):
+grep -n "class WalletRepository" -A5 backend/src/main/java/com/lld/digitalwallet/repository/WalletRepository.java
+
+# Where the assumption was introduced — the new sim frontend reading the snapshot positionally:
+grep -n "walletA\|walletB\|wallets\[0\]\|wallets\[1\]" frontend/src/lld/digitalwallet/DigitalWalletPage.jsx
+
+# The repository method that had no ordering guarantee before the fix:
+git show HEAD~1:backend/src/main/java/com/lld/digitalwallet/repository/WalletRepository.java \
+  | sed -n '/public List<Wallet> getAllWallets/,/^    }/p'
+```
+
+### 5. Step-by-Step Resolution
+1. Changed `WalletRepository#getAllWallets` to explicitly sort the copied list by id —
+   `all.sort(Comparator.comparingLong(Wallet::getId))` — before returning it, so both the live
+   `GET /api/wallet` endpoint and the `/sim/*` snapshot now return wallets in a deterministic,
+   documented order (ascending wallet id) instead of whatever order the map's buckets happen to
+   iterate in.
+2. Documented the guarantee directly on the method (`// Sorted by id — the frontend (and several
+   tests) rely on a stable, deterministic wallet order.`), so the ordering is now a stated contract
+   rather than an accident a future change could quietly break again.
+3. Verified via `WalletRepositoryTest#seedsDemoData`, which asserts `findWalletById(1L)` is Alice
+   with the exact seeded balance, and via the sim engine's own `WalletServiceTest#simResetSeedsSandbox`
+   and the `WalletConcurrencyTest` suite, all of which now depend on (and would fail under) a stable
+   ordering rather than merely tolerating one.
+
+### 6. Preventative Measures
+1. Never rely on `HashMap`/`ConcurrentHashMap` iteration order implicitly, even when it appears
+   stable in ad-hoc testing — sort explicitly at the read boundary whenever a caller (API consumer,
+   frontend, another test) needs a stable order, so the collection's internal choice (made for
+   thread-safety) and the API's implied contract (ordering) cannot silently diverge again.
+2. This class of bug is specifically easy to miss because small maps often "accidentally" iterate
+   in insertion order for a given JDK and key distribution, so it will not reproduce under casual
+   manual testing or even most automated tests unless the test explicitly asserts on order — the
+   real guard is recognizing the collection's actual contract during review, not empirical testing.
+3. `WalletRepositoryTest` and `WalletServiceTest`'s sandbox-seeding assertions now pin the exact
+   ascending-id order as a regression guard, and the digitalwallet sim frontend's `wallets[0]`/
+   `wallets[1]` usage is exactly the kind of positional dependency that would silently break again
+   if this ordering guarantee were ever removed.
