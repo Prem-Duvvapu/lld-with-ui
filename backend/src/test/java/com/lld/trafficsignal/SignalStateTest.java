@@ -32,8 +32,9 @@ class SignalStateTest {
     @DisplayName("States are singletons — next() always returns the same instance")
     void statesAreSingletons() {
         assertSame(RedState.INSTANCE, RedState.INSTANCE);
-        assertSame(GreenState.INSTANCE, YellowState.INSTANCE.next());
+        assertSame(RedState.INSTANCE, YellowState.INSTANCE.next());
         assertSame(GreenState.INSTANCE, RedState.INSTANCE.next());
+        assertSame(YellowState.INSTANCE, GreenState.INSTANCE.next());
     }
 
     @Test
