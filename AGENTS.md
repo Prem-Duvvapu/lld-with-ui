@@ -41,8 +41,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # currently 203 tests
-cd frontend && npx vitest run  # currently 250 tests
+cd backend  && mvn test        # currently 881 tests
+cd frontend && npx vitest run  # currently 286 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -403,6 +403,61 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 - Products & Alerts: category filter, add-product form, per-product manage panel (stock update, reorder-policy trigger), and a live-polled recent-alerts feed.
 - 8-step Interactive Simulation against isolated `/api/inventory/sim/*` endpoints — reset, view seeded stock, a normal sale, a sale that crosses the reorder line (LOW_STOCK), selling out completely (OUT_OF_STOCK), restocking back above the line (RESTOCKED), an auto-reorder (REORDER_PLACED), and a live N-buyers race for the last units with a telemetry HUD (succeeded/rejected/remaining stock) — the previous "simulation" tab mutated **live** stock directly instead of using this sandbox at all.
 
+## Concurrency Primitives
+
+Classic multithreaded-ordering interview problems, each `com.lld.concurrency.<primitive>/` sibling
+to `blockingqueue`/`ttlcache` and following the exact same shape: a `TraceRecorder` functional
+callback the primitive invokes for every real event, a `{Primitive}Service` that spins up genuine
+`Thread`s, blocks on `Thread.join()` with a safety timeout, and returns a `RunResult` (`runId`,
+config, `result`, `threadCount`, timing, `events: List<TraceEvent>`), and a controller exposing
+`POST /api/concurrency/<name>/run`. The frontend page (`{Name}Page.jsx` + `api.js`) replays the
+*real* returned trace inside its existing 2D scene instead of animating a canned/client-simulated
+sequence — the visuals were kept as-is, only the data source changed. Each module's base exception
+is abstract (`extends com.lld.config.DomainException`, `Invalid*ParametersException` at 400), and
+`RunExecutionException` (a plain `RuntimeException`, not a `DomainException`) covers the
+mathematically-unreachable-but-still-timeout-guarded thread-join failure path — same split as
+`blockingqueue`.
+
+- **FooBar Alternately** (`foobar/`): `FooBarPrinter` — two `Semaphore`s, `fooSemaphore(1)` /
+  `barSemaphore(0)`. `foo()`/`bar()` each loop `n` times: acquire your own permit, append your
+  token, release the *other* thread's semaphore. The ping-pong hand-off makes interleaving
+  structurally impossible, not just unlikely. `FooBarPrinterTest` races real `foo-thread`/
+  `bar-thread` pairs 100 times in a loop and asserts the exact `"foobar".repeat(n)` string every
+  time — never sleep-and-hope.
+- **Zero Even Odd** (`zeroevenodd/`): `ZeroEvenOddPrinter` — three `Semaphore`s,
+  `zeroSemaphore(1)` / `oddSemaphore(0)` / `evenSemaphore(0)`. `zero()` always goes first for every
+  number and releases exactly one of `oddSemaphore`/`evenSemaphore` based on parity; `odd()`/
+  `even()` only ever get a turn when zero explicitly hands it to them, which is what structurally
+  guarantees "0" precedes every number rather than merely usually preceding it.
+  `ZeroEvenOddPrinterTest` races 100 iterations with a scrambled thread-start order each time and
+  asserts the exact `"0 1 0 2 0 3 ..."` interleave.
+- **Multithreaded FizzBuzz** (`fizzbuzz/`): `FizzBuzzPrinter` — one `ReentrantLock` + one
+  `Condition` monitor shared by four threads (`number`, `fizz`, `buzz`, `fizzbuzz`), each looping
+  `worker(predicate, formatter, ...)` against a single shared counter. The four predicates
+  (÷15; ÷3-not-15; ÷5-not-15; neither) are mutually exclusive and collectively exhaustive over
+  every integer, so exactly one thread's predicate ever matches — no busy-waiting, no possibility
+  of a duplicate or skipped number. `FizzBuzzPrinterTest` races 100 iterations (varied start order)
+  asserting the exact canonical `1..n` string.
+- **Building H2O** (`h2o/`): `H2OBonder` — `hydrogenSemaphore(2)` / `oxygenSemaphore(1)` (the
+  *entire* system-wide atom supply matches one molecule's composition) gate entry to a
+  `CyclicBarrier(3)`. Because at most 2 H + 1 O permits can ever be outstanding, every barrier trip
+  is necessarily exactly one molecule's worth — never 3 of the same element. The barrier's action
+  (guaranteed by `CyclicBarrier` to run to completion, on the triggering thread, *before* any of
+  the 3 waiting threads are released) is the single place the `"H"`, `"O"`, `"H"` tokens are
+  appended in that fixed canonical order — this additionally guarantees no run of 3 identical atoms
+  anywhere in the output, including across a trio boundary (see RCA-013 for the race this caught
+  in `bond()`/`currentOutputLength()` before it ever shipped). `H2OService` spins up
+  `2 * moleculeCount` hydrogen threads and `moleculeCount` oxygen threads in **shuffled** start
+  order (not "all H then all O") to genuinely stress the coordination. `H2OBonderTest` races 50
+  iterations of 20 molecules each and asserts every sliding 3-token window is exactly 2 H + 1 O.
+
+### Frontend (all four)
+- Each page keeps its pre-existing animated 2D scene (thread cards, semaphore/lock badges, an
+  output stream) but the "step" button becomes a "Run Real Simulation" button that calls
+  `POST /api/concurrency/<name>/run`, then replays the returned `events[]` on a fixed-interval
+  timer, folding events into visual state exactly the way `blocking-queue`'s page does — nothing on
+  screen is client-computed once a run starts.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9090
@@ -414,8 +469,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 203 tests, 30 classes
-cd frontend && npx vitest run # 250 tests, 3 files
+cd backend && mvn test        # 881 tests, 91 classes
+cd frontend && npx vitest run # 286 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green
