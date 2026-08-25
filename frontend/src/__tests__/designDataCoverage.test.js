@@ -10,19 +10,15 @@ import { ALIAS_MAP, resolveModuleKey, resolveModuleData } from '../data/moduleKe
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * Modules that deliberately have no design content yet: the nine concurrency
- * primitives, which are scheduled to get a real Java backend and be documented
- * against it. Removing a module from this list must make the suite pass, and
- * adding a NEW page without content must make it fail — that is the point.
+ * Modules that deliberately have no design content yet: the remaining
+ * concurrency primitives without a real Java backend. Removing a module from
+ * this list must make the suite pass, and adding a NEW page without content
+ * must make it fail — that is the point.
  */
 const PENDING_DESIGN_CONTENT = [
   'bloom-filter',
   'concurrent-hashmap',
-  'fizz-buzz',
-  'foo-bar',
-  'h2o',
   'merge-sort',
-  'zero-even-odd',
 ];
 
 // ---------------------------------------------------------------- source scan

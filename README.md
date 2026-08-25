@@ -44,10 +44,10 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 34 | [Course Registration System](#34-course-registration-system) | Student enrollment | Facade, Repository, Per-Section ReentrantLock + FIFO Waitlist, Prerequisite & Schedule-Conflict Checks |
 | 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy (Market/Limit), Observer Quotes |
 | 36 | [Music Streaming Service](#36-music-streaming-service) | Audio catalog & playlists | Strategy (subscription tiers), Factory, Observer, Per-User ReentrantLock |
-| 37 | FooBar Alternately | Multithreading concurrency | Semaphore / ReentrantLock |
-| 38 | Zero Even Odd | Multithreading concurrency | Semaphore Synchronization |
-| 39 | Fizz Buzz Multithreaded | Multithreading concurrency | CyclicBarrier / Condition |
-| 40 | Building H2O | Multithreading concurrency | Barrier / Semaphore |
+| 37 | FooBar Alternately | Multithreading concurrency | Two-Semaphore Strict Alternation, real backend trace replay |
+| 38 | Zero Even Odd | Multithreading concurrency | Three-Semaphore Coordinated Handoff, real backend trace replay |
+| 39 | Fizz Buzz Multithreaded | Multithreading concurrency | ReentrantLock + Condition (4-thread monitor), real backend trace replay |
+| 40 | Building H2O | Multithreading concurrency | Semaphore-Bounded CyclicBarrier, real backend trace replay |
 | 41 | Thread-Safe TTL Cache | Concurrent caching | Scheduled Executor, ConcurrentHashMap |
 | 42 | Concurrent HashMap | Concurrent data structure | Segment Locking / Bucket Lock |
 | 43 | Blocking Queue | Concurrent queue | Producer-Consumer, ReentrantLock + Condition |
@@ -176,8 +176,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 203 tests across 30 classes
-cd frontend && npx vitest run  # 250 tests across 3 files
+cd backend  && mvn test        # 881 tests across 91 classes
+cd frontend && npx vitest run  # 286 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one

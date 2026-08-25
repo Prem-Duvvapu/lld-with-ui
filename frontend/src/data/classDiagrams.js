@@ -13,6 +13,9 @@ import _concertTicket from './diagrams/concert-ticket.js';
 import _courseRegistration from './diagrams/course-registration.js';
 import _cricinfo from './diagrams/cricinfo.js';
 import _elevator from './diagrams/elevator.js';
+import _fizzBuzz from './diagrams/fizz-buzz.js';
+import _fooBar from './diagrams/foo-bar.js';
+import _h2o from './diagrams/h2o.js';
 import _hotel from './diagrams/hotel.js';
 import _inventory from './diagrams/inventory.js';
 import _library from './diagrams/library.js';
@@ -39,6 +42,7 @@ import _ttlCache from './diagrams/ttl-cache.js';
 import _uber from './diagrams/uber.js';
 import _vendingmachine from './diagrams/vendingmachine.js';
 import _wallet from './diagrams/wallet.js';
+import _zeroEvenOdd from './diagrams/zero-even-odd.js';
 import _zomato from './diagrams/zomato.js';
 
 const classDiagrams = {
@@ -53,6 +57,9 @@ const classDiagrams = {
   courseRegistration: _courseRegistration,
   cricinfo: _cricinfo,
   elevator: _elevator,
+  fizzBuzz: _fizzBuzz,
+  fooBar: _fooBar,
+  h2o: _h2o,
   hotel: _hotel,
   inventory: _inventory,
   library: _library,
@@ -79,6 +86,7 @@ const classDiagrams = {
   uber: _uber,
   vendingmachine: _vendingmachine,
   wallet: _wallet,
+  zeroEvenOdd: _zeroEvenOdd,
   zomato: _zomato,
 };
 

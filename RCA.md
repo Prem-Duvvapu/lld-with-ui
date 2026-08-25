@@ -20,6 +20,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-010](#rca-010-fresh-git-worktrees-start-with-zero-installed-frontend-packages) | 2026-08-24 | Frontend / Environment / Git Worktrees | A fresh `git worktree` had no `frontend/node_modules`, so `vitest`/`vite build` failed with a misleading `ERR_MODULE_NOT_FOUND` that looked like a broken `vite.config.js` rather than a missing install | Resolved |
 | [RCA-011](#rca-011-cricinfos-per-match-ball-lock-verified-and-a-case-only-filename-drift-on-the-wsl-mount) | 2026-08-24 | Backend / CricInfo / Concurrency & Environment | The per-match ball-recording lock was verified by disabling it (real lost/duplicated runs resulted); separately, a case-only filename rename silently failed to take effect on the WSL 9p mount | Resolved |
 | [RCA-012](#rca-012-an-observer-registered-in-a-notifier-was-also-invoked-directly-double-firing-every-alert) | 2026-08-24 | Backend / Inventory / Observer | `InAppStockAlertObserver` was both a registered observer on `StockAlertNotifier` AND invoked directly by the same call site, so every stock alert was added to its feed twice | Resolved |
+| [RCA-013](#rca-013-h2o-bonders-barrier-action-mutated-a-plain-arraylist-while-a-synchronized-reader-provided-no-real-mutual-exclusion) | 2026-08-25 | Backend / H2O / Concurrency | `H2OBonder.bond()` (the `CyclicBarrier` action appending each molecule's tokens) mutated a plain `ArrayList` without synchronizing, while the only other accessor was `synchronized` — a lock held on one side of a shared mutable field provides no mutual exclusion at all | Resolved |
 
 ---
 
@@ -1058,3 +1059,104 @@ mvn -o test -Dtest='InventoryServiceTest#alreadyBelowLevel_doesNotRefire'
    of its own registered observers, check whether that direct reference is being invoked *outside*
    the publish/fan-out call — that duplication is easy to introduce by accident and, because
    `publish()` conventionally swallows observer exceptions, produces no error of any kind.
+
+## RCA-013: H2OBonder's Barrier Action Mutated a Plain ArrayList While a Synchronized Reader Provided No Real Mutual Exclusion
+
+**Severity:** Medium (caught in code review before any test ran against it — never reached a
+committed or shipped state)
+**Date:** 2026-08-25
+**Status:** Resolved
+**Affected:** `com.lld.concurrency.h2o.model.H2OBonder` (`bond()`, `currentOutputLength()`)
+
+### 1. Overview & Severity
+While designing `H2OBonder` — the `Semaphore`-bounded `CyclicBarrier(3)` primitive for the new
+`h2o` concurrency module — the first draft had `bond()` (the barrier's action, which appends the
+`"H"`, `"O"`, `"H"` tokens for one molecule to a plain `java.util.ArrayList<String> output`) as a
+plain, unsynchronized `private void` method, while `currentOutputLength()` — called from
+`hydrogen()`/`oxygen()` on every attempt/acquire/departure, including by threads belonging to a
+*different, later* trio than the one currently inside `bond()` — was `synchronized`. A lock held on
+only one side of a shared mutable field is not mutual exclusion: `currentOutputLength()`'s
+`synchronized` gave a false sense of safety while `output.add(...)` inside `bond()` could still run
+concurrently, unguarded, with a `synchronized` `output.size()` read from another thread. This is a
+textbook Java Memory Model visibility hazard (no happens-before edge between the writer and the
+reader) on top of `ArrayList` being explicitly documented as not thread-safe. Rated Medium rather
+than High because it was caught by inspection while writing the class — before `H2OBonderTest` or
+`H2OServiceTest` ever ran, so it never shipped, never had a chance to produce the flaky
+CI-only-sometimes failure this category of bug is notorious for.
+
+### 2. Symptoms & Error Logs
+None observed directly — this was caught by re-reading the class immediately after writing it,
+specifically by asking "which threads can call `bond()`'s writes and `currentOutputLength()`'s read
+concurrently, and do they share a monitor?" JMM visibility races of this shape are the ones that are
+hardest to catch from symptoms: an `ArrayList` growing its backing array while another thread reads
+a stale `size` rarely throws (there is no bounds check tying the two together the way a torn
+`ConcurrentModificationException` would), so a short-lived test run can pass every time by luck
+while the production code remains genuinely racy. That gap between "no observed symptom" and
+"actually correct" is exactly why the fix here is a code-level guarantee (same monitor on both
+sides), not a test that happened to stay green.
+
+### 3. Root Cause
+```java
+// H2OBonder, first draft
+private void bond() {                       // NOT synchronized
+    output.add("H");
+    output.add("O");
+    output.add("H");
+    ...
+}
+
+private synchronized int currentOutputLength() {  // synchronized, but against nothing
+    return output.size();
+}
+```
+`bond()` runs on whichever thread completes a barrier trip (per `CyclicBarrier`'s contract, once
+per trip, before any of that trip's 3 threads are released) — but a *different* trio's threads
+(the next generation's H/O threads, already past their own `acquire()`, calling
+`hydrogen()`/`oxygen()` → `recorder.record(...)` → `currentOutputLength()`) can run fully
+concurrently with that `bond()` call, because permit availability for the next trio and the
+in-progress `bond()` call are not otherwise ordered against each other. Synchronizing only the
+reader means the reader always acquires the object's monitor, but the writer never does — so the
+two can interleave their memory effects with no visibility guarantee whatsoever, the same class of
+bug as reading a plain (non-`volatile`, non-synchronized) field from one thread while writing it
+from another.
+
+### 4. Diagnostic Commands
+```bash
+# The tell: one accessor of a shared mutable field is synchronized and the other is not.
+grep -n "synchronized" backend/src/main/java/com/lld/concurrency/h2o/model/H2OBonder.java
+
+# Confirm which threads can reach each accessor concurrently — bond() is the CyclicBarrier
+# action; currentOutputLength() is called from hydrogen()/oxygen(), which run on every H/O
+# thread including ones belonging to a not-yet-formed later trio.
+grep -n "currentOutputLength\|barrier.await\|CyclicBarrier(3" backend/src/main/java/com/lld/concurrency/h2o/model/H2OBonder.java
+```
+
+### 5. Step-by-Step Resolution
+1. Added `synchronized` to `bond()` as well, so it shares the exact same monitor
+   (`this`) as `currentOutputLength()` — the two are now genuinely mutually exclusive, and the
+   `output.add(...)` writes happen-before any subsequent `currentOutputLength()` read observes
+   them.
+2. Documented the invariant directly on `bond()`'s javadoc: it is synchronized on the same monitor
+   as `currentOutputLength()` specifically so a concurrent trace read from a future trio's thread
+   can never observe a torn (partially-appended) output list.
+3. Verified the reasoning by temporarily reverting `bond()` to unsynchronized and re-reading the
+   happens-before chain: with the revert, nothing in the JLS guarantees a thread calling
+   `currentOutputLength()` ever observes `bond()`'s writes promptly or completely — confirming the
+   fix is required by the memory model itself, not merely defensive.
+4. `H2OBonderTest`'s 50-iteration stress race (20 molecules — 40 H + 20 O threads — per iteration,
+   shuffled start order) and `H2OServiceTest`'s 25-iteration stress run both exercise exactly the
+   concurrent-access pattern the fix protects, asserting the full sliding-window "never 3 of the
+   same atom adjacent" invariant on every run.
+
+### 6. Preventative Measures
+1. `bond()`'s javadoc states the rule at the exact line most likely to regress it: synchronized on
+   the same monitor as `currentOutputLength()`, and why.
+2. General lesson for every module in this repo using a shared mutable collection guarded by
+   `synchronized`/a lock: grep every accessor of that field and confirm *all* of them — not just
+   the ones that "look like reads" — take the same monitor. A `CyclicBarrier`/`Semaphore` action
+   callback is easy to mentally file as "runs alone" because the barrier itself is thread-safe;
+   that thread-safety does not extend to plain fields the callback happens to touch.
+3. When a synchronization bug is JMM-visibility-shaped rather than crash-shaped, do not wait for a
+   test to turn red as the signal it's fixed — a short-lived JVM run frequently will not reproduce
+   a visibility hazard at all. Prefer the code-level argument ("do all accessors share a monitor?")
+   as primary evidence, with the stress tests as corroboration, not proof.

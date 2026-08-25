@@ -13,6 +13,9 @@ import _concertTicket from './design/concert-ticket.js';
 import _courseRegistration from './design/course-registration.js';
 import _cricinfo from './design/cricinfo.js';
 import _elevator from './design/elevator.js';
+import _fizzBuzz from './design/fizz-buzz.js';
+import _fooBar from './design/foo-bar.js';
+import _h2o from './design/h2o.js';
 import _hotel from './design/hotel.js';
 import _inventory from './design/inventory.js';
 import _library from './design/library.js';
@@ -39,6 +42,7 @@ import _ttlCache from './design/ttl-cache.js';
 import _uber from './design/uber.js';
 import _vendingmachine from './design/vendingmachine.js';
 import _wallet from './design/wallet.js';
+import _zeroEvenOdd from './design/zero-even-odd.js';
 import _zomato from './design/zomato.js';
 
 const designDetails = {
@@ -53,6 +57,9 @@ const designDetails = {
   courseRegistration: _courseRegistration,
   cricinfo: _cricinfo,
   elevator: _elevator,
+  fizzBuzz: _fizzBuzz,
+  fooBar: _fooBar,
+  h2o: _h2o,
   hotel: _hotel,
   inventory: _inventory,
   library: _library,
@@ -79,6 +86,7 @@ const designDetails = {
   uber: _uber,
   vendingmachine: _vendingmachine,
   wallet: _wallet,
+  zeroEvenOdd: _zeroEvenOdd,
   zomato: _zomato,
 };
 
