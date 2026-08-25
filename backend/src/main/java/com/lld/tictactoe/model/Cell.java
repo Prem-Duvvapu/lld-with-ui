@@ -1,5 +1,8 @@
 package com.lld.tictactoe.model;
 
+import lombok.Getter;
+
+@Getter
 public class Cell {
     private final int row;
     private final int col;
@@ -11,9 +14,6 @@ public class Cell {
         this.symbol = null;
     }
 
-    public int getRow() { return row; }
-    public int getCol() { return col; }
-    public Symbol getSymbol() { return symbol; }
     public void setSymbol(Symbol symbol) { this.symbol = symbol; }
 
     public boolean isEmpty() {

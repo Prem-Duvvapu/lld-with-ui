@@ -12,8 +12,8 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy (payment), Observer, OTP Handoff |
 | 3 | [Uber](#3-uber) | Ride-hailing | State Machine (transition table), Strategy (standard/surge pricing), Per-Driver Lock, Haversine Distance, OTP |
 | 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy + Factory (reputation), deterministic Question≤Answer≤User lock ordering, Votable interface, State Machine (question status) |
-| 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Minimax AI Strategy, Undo History |
-| 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | State Machine, Board & Snakes/Ladders Mapping |
+| 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Exception Hierarchy, Undo History, Isolated Sim Engine |
+| 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | Dice Strategy, Per-Game Lock, Exact-Count Win Rule, Isolated Sim Engine |
 | 7 | [ATM](#7-atm) | Banking ATM | State Machine, Denomination Strategy, ReentrantLock, Lockout |
 | 8 | [Splitwise](#8-splitwise) | Expense sharing | Split Strategies (Equal/Percentage/Exact), Graph Debt Simplification |
 | 9 | [Elevator](#9-elevator) | Elevator control | SCAN Scheduling Strategy, Proximity Scoring, ReentrantLock |
@@ -27,13 +27,13 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 17 | Ludo | Multiplayer board game | State Machine, Game Loop |
 | 18 | [Inventory Management](#18-inventory-management) | Stock & warehouse | Observer, Strategy + Factory (reorder policies), Per-Product ReentrantLock |
 | 19 | [Shopping Cart](#19-online-shopping-system-shopping-cart) | E-commerce & checkout | Command (Undo), Strategy (Payment), Ascending Lock Ordering |
-| 20 | Minesweeper | Grid mine game | Recursion, Game Loop |
+| 20 | [Minesweeper](#20-minesweeper) | Grid mine game | Strategy (mine placement), First-Click-Safe Policy, Recursive Flood-Fill, Per-Game Lock |
 | 21 | [Vending Machine](#21-vending-machine) | State-based dispenser | State Pattern (Idle/Selection/Money/Dispensing), Chain of Responsibility Change Hopper |
 | 22 | Logging Framework | Log sink engine | Chain of Responsibility, Singleton |
 | 23 | Traffic Signal | Signal timing engine | State Pattern, Observer |
 | 24 | Task Management System | Task workflow | State Pattern, Strategy |
 | 25 | [LinkedIn](#25-linkedin) | Professional network | Graph Model, Strategy (ranking), Observer (alerts), Pair Locking |
-| 26 | LRU Cache | In-memory cache | Doubly Linked List + HashMap |
+| 26 | [LRU Cache](#26-lru-cache) | In-memory cache | Strategy (LRU/LFU/FIFO eviction), Doubly Linked List + HashMap, Isolated Sim Engine |
 | 27 | [Pub Sub System](#27-pubsub-system-message-broker) | Message broker | Observer, Dedicated Per-Subscriber FIFO Worker Threads |
 | 28 | [Car Rental System](#28-car-rental-system) | Vehicle fleet & booking | Overlapping-Interval Per-Vehicle Lock, Strategy + Factory (tiered pricing), State Machine |
 | 29 | Online Auction System | Bidding engine | Observer, Strategy |
@@ -281,9 +281,11 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 5. Tic Tac Toe
 
 #### Key Features
-- **Multi-Mode Gameplay**: Human vs Human and Human vs AI (Random vs Unbeatable Minimax Strategy).
-- **Move History & Undo**: Step-by-step move history log with atomic Undo move support.
-- **2D Arcade Simulation**: Glowing 3D grid, AI brain pulse indicator, and laser winning line visualizer.
+- **2-Player Human vs Human**: a 3x3 board with turn-based X/O play — no AI opponent exists in this codebase.
+- **Exact Win-Line Detection**: an O(N) row/column/diagonal scan returns the precise `[startRow, startCol, endRow, endCol]` winning line for the frontend to highlight, checked from an empty board opening through mid-game fork positions.
+- **Typed Exception Contract**: `GameNotFoundException` (404), `InvalidMoveException` (400), `CellOccupiedException` (422), `NotYourTurnException` (409), `GameOverException` (409) — replacing an earlier ad hoc `IllegalArgumentException`/`IllegalStateException` + manual controller `try/catch`.
+- **Move History & Undo**: step-by-step move history log with atomic Undo move support.
+- **Per-Game Locking + Isolated Simulation Sandbox**: a `ReentrantLock` per game id, and `/api/tictactoe/sim/*` backed by a second in-memory repository so the demo tab can never corrupt a real match.
 
 #### API Endpoints
 - `POST /api/tictactoe/games`
@@ -291,19 +293,24 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/tictactoe/games/{id}/move`
 - `POST /api/tictactoe/games/{id}/undo`
 - `POST /api/tictactoe/games/{id}/reset`
+- `POST /api/tictactoe/sim/reset`, `GET /api/tictactoe/sim/game`, `GET /api/tictactoe/sim/log`, `POST /api/tictactoe/sim/move`, `POST /api/tictactoe/sim/undo`
 
 ---
 
 ### 6. Snake & Ladders
 
 #### Key Features
-- **Multiplayer Board**: 10x10 board supporting 2-4 players with dice roll engine.
-- **Dynamic Mappings**: Snake and ladder position transformations with instant win detection.
+- **Multiplayer Board**: 100-cell board supporting 2-4 players (validated — 5+ players previously crashed with an unhandled 500; see RCA-014), 6 snakes and 11 ladders, turn order cycling correctly for every player count.
+- **Dice as a Strategy**: `DiceRoller` — `RandomDiceRoller` in production, `FixedDiceRoller` replaying a pinned sequence in tests, the only way exact-landing/snake/ladder resolution can be asserted deterministically.
+- **Exact-Count Win Rule**: landing exactly on cell 100 wins; overshooting forfeits the roll and the player stays in place.
+- **Typed Exception Contract**: `GameNotFoundException` (404), `InvalidPlayerCountException` (400), `GameAlreadyFinishedException` (409).
+- **Per-Game Locking + Isolated Simulation Sandbox**: a `ReentrantLock` per game id (the module previously had no locking at all around dice rolls), and `/api/snakeladders/sim/*` backed by a second in-memory repository.
 
 #### API Endpoints
 - `POST /api/snakeladders/games`
 - `GET /api/snakeladders/games/{id}`
 - `POST /api/snakeladders/games/{id}/roll`
+- `POST /api/snakeladders/sim/reset`, `GET /api/snakeladders/sim/game`, `GET /api/snakeladders/sim/log`, `POST /api/snakeladders/sim/roll`
 
 ---
 
@@ -793,6 +800,41 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/chess/sim/game`
 - `GET /api/chess/sim/log`
 - `POST /api/chess/sim/move`
+
+---
+
+### 20. Minesweeper
+
+#### Key Features
+- **First-Click-Safe Policy**: mines are placed lazily, on the first reveal, excluding only the clicked cell — a player's opening click can never lose the game. This did not exist before; mines used to be placed at game-creation time.
+- **Mine Placement as a Strategy**: `MinePlacer` — `RandomMinePlacer` in production, `FixedMinePlacer` with an explicit layout in tests, the only way flood-fill shape, win/loss, and the first-click guarantee can be asserted deterministically.
+- **Recursive Flood-Fill**: a zero-adjacency reveal cascades through every connected zero-adjacency cell and the numbered cells bordering them, without cascading past a numbered cell; bounds are checked before every array access.
+- **Typed Exception Contract**: `GameNotFoundException` (404), `GameOverException` (409), `InvalidCellException` (400 — an out-of-bounds reveal/flag previously threw a bare, unhandled `ArrayIndexOutOfBoundsException`; see RCA-016), `InvalidBoardConfigException` (400 — a mine count at or above the cell count previously spun the placement loop forever, an unbounded CPU-pinning hang; see RCA-015).
+- **Per-Game Locking + Isolated Simulation Sandbox**: a `ReentrantLock` per game id (replacing a single module-wide lock that serialized every unrelated game), and `/api/minesweeper/sim/*` on a fixed 5x5/3-mine board backed by a second in-memory repository.
+
+#### API Endpoints
+- `POST /api/minesweeper/games`
+- `GET /api/minesweeper/games/{id}`
+- `POST /api/minesweeper/games/{id}/reveal`
+- `POST /api/minesweeper/games/{id}/flag`
+- `POST /api/minesweeper/sim/reset`, `GET /api/minesweeper/sim/game`, `GET /api/minesweeper/sim/log`, `POST /api/minesweeper/sim/reveal`, `POST /api/minesweeper/sim/flag`
+
+---
+
+### 26. LRU Cache
+
+#### Key Features
+- **Strategy Pattern for Eviction**: `EvictionPolicy<K,V>` — `LRUEvictionPolicy` (sentinel head/tail doubly-linked list), `LFUEvictionPolicy` (access-count ranking), `FIFOEvictionPolicy` (strict insertion order) — swappable at runtime via `setPolicy()`, which replays every current entry into the newly-active policy.
+- **Validated Capacity**: `InvalidCapacityException` (400) — the constructor and `setCapacity()` previously silently accepted (and ignored) a non-positive capacity; both now reject it with a real error instead of a stale 200.
+- **Real-Time Telemetry**: hit/miss/eviction counters, hit rate %, and a rolling 50-entry operation log powering the Telemetry and Logs tabs.
+- **Isolated Simulation Sandbox**: `/api/lrucache/sim/*` runs against a fully independent second `LruCache` instance, so the interactive "2D Memory Rack" demo can never perturb the primary cache's telemetry — already correctly wired before this pass; verified, not rebuilt.
+- **Latch-Based Concurrency Proof**: N threads inserting distinct keys settle at exactly capacity and never above it; a mixed GET/PUT storm on a shared key space never returns a corrupted value; concurrent `remove()` of the same key is linearizable.
+
+#### API Endpoints
+- `GET /api/lrucache/snapshot`, `GET /api/lrucache/stats`
+- `GET /api/lrucache/get/{key}`, `POST /api/lrucache/put`, `DELETE /api/lrucache/remove/{key}`, `POST /api/lrucache/clear`
+- `POST /api/lrucache/capacity`, `POST /api/lrucache/policy`, `POST /api/lrucache/batch-simulate`
+- `GET /api/lrucache/sim/snapshot`, `GET /api/lrucache/sim/get/{key}`, `POST /api/lrucache/sim/put`, `DELETE /api/lrucache/sim/remove/{key}`, `POST /api/lrucache/sim/clear`, `POST /api/lrucache/sim/capacity`, `POST /api/lrucache/sim/policy`, `POST /api/lrucache/sim/batch-simulate`
 
 ---
 

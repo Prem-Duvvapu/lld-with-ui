@@ -16,3 +16,21 @@ export function rollDice(gameId) {
     method: 'POST',
   });
 }
+
+// --- ISOLATED SIMULATION TAB ENGINE (separate in-memory game — never touches real matches) ---
+
+export function simReset() {
+  return apiFetch('/snakeladders/sim/reset', { method: 'POST' });
+}
+
+export function simGetGame() {
+  return apiFetch('/snakeladders/sim/game');
+}
+
+export function simGetLog() {
+  return apiFetch('/snakeladders/sim/log');
+}
+
+export function simRoll() {
+  return apiFetch('/snakeladders/sim/roll', { method: 'POST' });
+}

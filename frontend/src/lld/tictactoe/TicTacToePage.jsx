@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import LldPage from '../../components/LldPage';
-import { createGame, makeMove, undoMove, resetGame } from './api';
+import { createGame, makeMove, undoMove, resetGame, simReset, simMove, simUndo } from './api';
 
 // ── Simulation steps ─────────────────────────────────────────────────────────
 
@@ -107,48 +107,50 @@ function TicTacToeSimulation() {
 
   const log = (msg) => setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 6)]);
 
+  // Every step below drives the isolated /api/tictactoe/sim/* engine — a completely separate
+  // in-memory game from the "Game Board" tab, so replaying the demo can never corrupt a real match.
   const runStep = async (idx) => {
     try {
       if (idx === 0) {
-        log('POST /api/tictactoe/games');
-        const g = await createGame('Alice', 'Bob');
+        log('POST /api/tictactoe/sim/reset');
+        const g = await simReset();
         setSimGame(g);
-        log(`✅ Match #${g.id} created. X=${g.player1.name}, O=${g.player2.name}`);
+        log(`✅ Sim match #${g.id} created. X=${g.player1.name}, O=${g.player2.name}`);
       } else if (idx === 1 && simGame) {
-        log('POST …/move — Alice [0,0]');
-        const g = await makeMove(simGame.id, 0, 0, 'Alice');
+        log('POST …/sim/move — Alice [0,0]');
+        const g = await simMove(0, 0, 'Alice opens the corner');
         setSimGame(g);
         log('✅ X placed at [0,0]');
       } else if (idx === 2 && simGame) {
-        log('POST …/move — Bob [1,1]');
-        const g = await makeMove(simGame.id, 1, 1, 'Bob');
+        log('POST …/sim/move — Bob [1,1]');
+        const g = await simMove(1, 1, 'Bob takes the center');
         setSimGame(g);
         log('✅ O placed at [1,1]');
       } else if (idx === 3 && simGame) {
-        log('POST …/move — Alice [0,1]');
-        const g = await makeMove(simGame.id, 0, 1, 'Alice');
+        log('POST …/sim/move — Alice [0,1]');
+        const g = await simMove(0, 1, 'Alice builds the top row');
         setSimGame(g);
         log('✅ X placed at [0,1]');
       } else if (idx === 4 && simGame) {
-        log('POST …/move — Bob [2,2]');
-        const g = await makeMove(simGame.id, 2, 2, 'Bob');
+        log('POST …/sim/move — Bob [2,2]');
+        const g = await simMove(2, 2, 'Bob blocks the diagonal corner');
         setSimGame(g);
         log('✅ O placed at [2,2]');
       } else if (idx === 5 && simGame) {
-        log('POST …/move — Alice [0,2] (WIN!)');
-        const g = await makeMove(simGame.id, 0, 2, 'Alice');
+        log('POST …/sim/move — Alice [0,2] (WIN!)');
+        const g = await simMove(0, 2, 'Alice completes the top row');
         setSimGame(g);
         log(`🎉 WON! Winner: ${g.winner?.name}. WinLine: [${g.winningLine?.join(',')}]`);
       } else if (idx === 6 && simGame) {
-        log('POST …/undo');
-        const g = await undoMove(simGame.id);
+        log('POST …/sim/undo');
+        const g = await simUndo();
         setSimGame(g);
         log('↩ Last move undone. Game back IN_PROGRESS.');
       } else if (idx === 7 && simGame) {
-        log('POST …/reset');
-        const g = await resetGame(simGame.id);
+        log('POST …/sim/reset');
+        const g = await simReset();
         setSimGame(g);
-        log('🔄 Board reset. Ready for next match.');
+        log('🔄 Sim board reset. Ready for next match.');
       }
     } catch (err) {
       log(`❌ ${err.message}`);

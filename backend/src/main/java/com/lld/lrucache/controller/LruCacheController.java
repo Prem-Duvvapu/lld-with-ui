@@ -67,7 +67,7 @@ public class LruCacheController {
     @PostMapping("/capacity")
     public ResponseEntity<Map<String, Object>> setCapacity(@RequestBody Map<String, Integer> request) {
         Integer capacity = request.get("capacity");
-        if (capacity != null && capacity > 0) {
+        if (capacity != null) {
             cacheService.setCapacity(capacity);
         }
         return ResponseEntity.ok(cacheService.getSnapshot());
@@ -77,11 +77,8 @@ public class LruCacheController {
     public ResponseEntity<Map<String, Object>> setPolicy(@RequestBody Map<String, String> request) {
         String policyStr = request.get("policy");
         if (policyStr != null) {
-            try {
-                EvictionPolicyType type = EvictionPolicyType.valueOf(policyStr.toUpperCase());
-                cacheService.setPolicy(type);
-            } catch (Exception ignored) {
-            }
+            EvictionPolicyType type = EvictionPolicyType.valueOf(policyStr.toUpperCase());
+            cacheService.setPolicy(type);
         }
         return ResponseEntity.ok(cacheService.getSnapshot());
     }
@@ -137,7 +134,7 @@ public class LruCacheController {
     @PostMapping("/sim/capacity")
     public ResponseEntity<Map<String, Object>> simSetCapacity(@RequestBody Map<String, Integer> request) {
         Integer capacity = request.get("capacity");
-        if (capacity != null && capacity > 0) {
+        if (capacity != null) {
             cacheService.simSetCapacity(capacity);
         }
         return ResponseEntity.ok(cacheService.getSimSnapshot());
@@ -147,11 +144,8 @@ public class LruCacheController {
     public ResponseEntity<Map<String, Object>> simSetPolicy(@RequestBody Map<String, String> request) {
         String policyStr = request.get("policy");
         if (policyStr != null) {
-            try {
-                EvictionPolicyType type = EvictionPolicyType.valueOf(policyStr.toUpperCase());
-                cacheService.simSetPolicy(type);
-            } catch (Exception ignored) {
-            }
+            EvictionPolicyType type = EvictionPolicyType.valueOf(policyStr.toUpperCase());
+            cacheService.simSetPolicy(type);
         }
         return ResponseEntity.ok(cacheService.getSimSnapshot());
     }

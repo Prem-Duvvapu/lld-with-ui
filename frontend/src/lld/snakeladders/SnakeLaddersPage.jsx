@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { createGame, getGame, rollDice } from './api';
+import { createGame, getGame, rollDice, simReset, simRoll } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
@@ -321,10 +321,12 @@ function AnimatedFlow() {
 
   const reset = () => { setStep(0); setGame(null); setDiceValue(null); setMsg(''); setError(''); setRolling(false); };
 
+  // Drives the isolated /api/snakeladders/sim/* engine — a completely separate in-memory game
+  // from the "Game" tab, so replaying the demo can never corrupt a real match.
   const createGameAction = async () => {
     setError('');
     try {
-      const g = await createGame(['Player 1', 'Player 2']);
+      const g = await simReset();
       if (!mountedRef.current) return;
       if (g.error) { setError(g.error); return; }
       setGame(g);
@@ -338,7 +340,7 @@ function AnimatedFlow() {
     setRolling(true);
     await new Promise(r => setTimeout(r, 500));
     if (!mountedRef.current) return;
-    const rolled = await rollDice(game.id);
+    const rolled = await simRoll();
     if (!mountedRef.current) return;
     if (rolled.error) { setError(rolled.error); setRolling(false); return; }
     setRolling(false);

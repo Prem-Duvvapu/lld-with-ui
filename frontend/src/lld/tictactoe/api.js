@@ -29,3 +29,28 @@ export function resetGame(gameId) {
     method: 'POST',
   });
 }
+
+// --- ISOLATED SIMULATION TAB ENGINE (separate in-memory game — never touches real matches) ---
+
+export function simReset() {
+  return apiFetch('/tictactoe/sim/reset', { method: 'POST' });
+}
+
+export function simGetGame() {
+  return apiFetch('/tictactoe/sim/game');
+}
+
+export function simGetLog() {
+  return apiFetch('/tictactoe/sim/log');
+}
+
+export function simMove(row, col, description) {
+  return apiFetch('/tictactoe/sim/move', {
+    method: 'POST',
+    body: JSON.stringify({ row, col, description }),
+  });
+}
+
+export function simUndo() {
+  return apiFetch('/tictactoe/sim/undo', { method: 'POST' });
+}

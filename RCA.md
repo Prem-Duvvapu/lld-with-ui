@@ -21,6 +21,9 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-011](#rca-011-cricinfos-per-match-ball-lock-verified-and-a-case-only-filename-drift-on-the-wsl-mount) | 2026-08-24 | Backend / CricInfo / Concurrency & Environment | The per-match ball-recording lock was verified by disabling it (real lost/duplicated runs resulted); separately, a case-only filename rename silently failed to take effect on the WSL 9p mount | Resolved |
 | [RCA-012](#rca-012-an-observer-registered-in-a-notifier-was-also-invoked-directly-double-firing-every-alert) | 2026-08-24 | Backend / Inventory / Observer | `InAppStockAlertObserver` was both a registered observer on `StockAlertNotifier` AND invoked directly by the same call site, so every stock alert was added to its feed twice | Resolved |
 | [RCA-013](#rca-013-h2o-bonders-barrier-action-mutated-a-plain-arraylist-while-a-synchronized-reader-provided-no-real-mutual-exclusion) | 2026-08-25 | Backend / H2O / Concurrency | `H2OBonder.bond()` (the `CyclicBarrier` action appending each molecule's tokens) mutated a plain `ArrayList` without synchronizing, while the only other accessor was `synchronized` — a lock held on one side of a shared mutable field provides no mutual exclusion at all | Resolved |
+| [RCA-014](#rca-014-snake-and-ladders-creategame-had-no-player-count-validation-and-crashed-with-an-unhandled-500-past-4-players) | 2026-08-25 | Backend / Snake & Ladders / Input Validation | `createGame` never validated player count against the 4-color token palette, so a 5th player name threw an unhandled `IndexOutOfBoundsException` (bare 500) instead of a typed 400 | Resolved |
+| [RCA-015](#rca-015-minesweepers-mine-placement-loop-could-spin-forever-on-an-unvalidated-mine-count) | 2026-08-25 | Backend / Minesweeper / Input Validation & Availability | `placeMines`'s `while (placed < totalMines)` loop had no termination guarantee once `totalMines >= rows * cols`, spinning one CPU core forever on a single bad request | Resolved |
+| [RCA-016](#rca-016-minesweepers-reveal-and-flag-endpoints-skipped-bounds-checking-and-threw-an-unhandled-500) | 2026-08-25 | Backend / Minesweeper / Input Validation | `revealCell`/`flagCell` indexed the board with caller-supplied `row`/`col` with no bounds check, so an out-of-range request threw a bare, unhandled `ArrayIndexOutOfBoundsException` (500, message stripped) | Resolved |
 
 ---
 
@@ -1160,3 +1163,249 @@ grep -n "currentOutputLength\|barrier.await\|CyclicBarrier(3" backend/src/main/j
    test to turn red as the signal it's fixed — a short-lived JVM run frequently will not reproduce
    a visibility hazard at all. Prefer the code-level argument ("do all accessors share a monitor?")
    as primary evidence, with the stress tests as corroboration, not proof.
+
+## RCA-014: Snake and Ladders createGame Had No Player Count Validation and Crashed With an Unhandled 500 Past 4 Players
+
+**Severity:** Medium (a real unhandled-500 path, but only reachable by a caller deliberately or
+accidentally sending 5+ player names; no legitimate 2-4 player flow ever hit it)
+**Date:** 2026-08-25
+**Status:** Resolved
+**Affected:** `com.lld.snakeladders.service.SnakeLaddersService#createGame`,
+`com.lld.snakeladders.model.Game` constructor
+
+### 1. Overview & Severity
+While building out the snakeladders module's first-ever test suite (it shipped with zero tests
+across its entire history), writing a boundary test for `createGame` — "what happens with 5
+players?" — turned up a genuine, previously-undetected defect: the service never validated player
+count against anything. `Game`'s constructor assigns each player a token color from a fixed
+4-entry `COLORS` list (`List.of("#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4")`) via
+`colors.subList(0, playerNames.size())`. With 5 player names, `subList(0, 5)` on a 4-element list
+throws `IndexOutOfBoundsException` — an exception this repo's `GlobalExceptionHandler` does not
+special-case, so it fell through to Spring's default error resolver as a bare `500` with the
+message stripped, exactly the failure mode `GlobalExceptionHandler`'s javadoc was written to
+prevent for every *other* module already migrated to typed exceptions.
+
+### 2. Symptoms & Error Logs
+No user-facing bug report exists for this one — it was caught by a new test, not in production
+use, because the frontend's setup form only ever offers 2-4 player slots. The failure this closes
+would have looked like:
+```
+POST /api/snakeladders/games  { "players": ["A","B","C","D","E"] }
+→ HTTP 500 Internal Server Error
+  { "timestamp": "...", "status": 500, "error": "Internal Server Error", "path": "/api/snakeladders/games" }
+```
+with the actual cause (`IndexOutOfBoundsException: toIndex = 5` from `List.subList`) never
+reaching the response body at all.
+
+### 3. Root Cause
+```java
+// SnakeLaddersService, before this fix
+public Game createGame(List<String> playerNames) {
+    List<String> colors = List.of("#ff6b6b", "#4ecdc4", "#45b7d1", "#96ceb4");
+    String id = repository.generateId();
+    Game game = new Game(id, playerNames, colors.subList(0, playerNames.size()), // <- no bound check
+            DEFAULT_SNAKES, DEFAULT_LADDERS);
+    ...
+}
+```
+Nothing between the controller and `List.subList` ever asked "is `playerNames.size()` a number
+this module can actually support?" A count of 0 or 1 is a different, quieter failure (a game with
+no meaningful turn order, or `Game`'s constructor happily building a 1-player "game" that can
+never finish sensibly) that also went unchecked. Both are the same missing-validation root cause:
+the method trusted its input completely.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly against the service, no HTTP layer needed:
+cd backend && mvn -o -q test -Dtest='com.lld.snakeladders.SnakeLaddersServiceTest#createGameRejectsTooManyPlayers'
+
+# Confirm GlobalExceptionHandler has no IndexOutOfBoundsException handler — this is *why* the
+# failure surfaced as a bare 500 instead of a typed 4xx:
+grep -n "@ExceptionHandler" backend/src/main/java/com/lld/config/GlobalExceptionHandler.java
+```
+
+### 5. Step-by-Step Resolution
+1. Added `SnakeLaddersService#validatePlayerCount`, called at the top of `createGame`, enforcing
+   `2 <= playerNames.size() <= 4` (2 is the minimum for a meaningful turn order; 4 is the ceiling
+   the token-color palette actually supports).
+2. Added a new typed exception, `InvalidPlayerCountException` (`@ResponseStatus(400)`), extending
+   the module's new abstract `SnakeLaddersException` base — so an invalid count now returns a
+   clean `400` with a real message instead of an opaque `500`.
+3. Added `SnakeLaddersServiceTest#createGameRejectsTooFewPlayers` and
+   `#createGameRejectsTooManyPlayers`, covering 0, 1, and 5 players, plus
+   `#createGameAcceptsValidPlayerCounts` covering exactly 2, 3, and 4 — the full boundary.
+
+### 6. Preventative Measures
+1. `validatePlayerCount`'s exception message states the supported range explicitly (`"needs
+   between 2 and 4 players, got: N"`), so the *next* time someone reads this code they see the
+   constraint enforced at the boundary rather than having to infer it from `COLORS.size()`.
+2. General lesson reinforced by this module's zero-test history: any collection indexed by
+   caller-supplied size (`subList`, `get(n)`, array indexing) needs its bound validated at the
+   entry point BEFORE that indexing operation runs, not discovered by whichever exception the JDK
+   happens to throw. `GlobalExceptionHandler` deliberately does not catch every `RuntimeException`
+   (see its own javadoc) specifically so that gaps like this one stay visible as bare 500s in
+   testing, rather than being silently smoothed over into a misleadingly generic 400.
+3. A module with zero tests has zero evidence its input handling is correct — this bug existed,
+   unnoticed, for the module's entire history before this PR's first test suite found it on the
+   first boundary case anyone thought to write.
+
+## RCA-015: Minesweeper's Mine Placement Loop Could Spin Forever on an Unvalidated Mine Count
+
+**Severity:** High (an unbounded CPU-spinning hang on the request-handling thread from a single
+malformed request — the most severe class of bug in this batch, since it is a live availability
+issue, not merely a wrong-status-code issue)
+**Date:** 2026-08-25
+**Status:** Resolved
+**Affected:** `com.lld.minesweeper.service.MinesweeperService#placeMines` (pre-refactor),
+now `com.lld.minesweeper.strategy.RandomMinePlacer#place`
+
+### 1. Overview & Severity
+Minesweeper, like snakeladders, shipped with zero tests across its entire history. Writing the
+first board-config validation test — "what happens if `mines >= rows * cols`?" — surfaced a
+genuine hang, not just a wrong status code. The original mine-placement loop was:
+```java
+while (placed < game.getTotalMines()) {
+    int r = random.nextInt(rows);
+    int c = random.nextInt(cols);
+    if (!board[r][c].isMine()) {
+        board[r][c].setMine(true);
+        placed++;
+    }
+}
+```
+If `totalMines >= rows * cols`, this loop can place at most `rows * cols` mines — every cell
+becomes a mine — after which `placed` permanently equals `rows * cols < totalMines`, and every
+subsequent iteration picks an already-mined cell, does nothing, and loops again. The condition
+`placed < totalMines` can never become false. This is not a slow operation; it is an infinite
+loop that pins one CPU core at 100% forever, on the thread handling that one HTTP request, for a
+single `POST /api/minesweeper/games` with a bad `mines` value.
+
+### 2. Symptoms & Error Logs
+No production incident — caught by a boundary test before this code ever shipped. Manually, the
+symptom would have been: a `POST` request that simply never returns, no exception, no log line,
+no timeout (Spring Boot's embedded Tomcat has no default read/write timeout that would abort a
+handler thread stuck in a pure CPU loop with no I/O), and the JVM slowly losing worker threads to
+this loop under repeated bad requests until the whole server stops responding to anyone.
+
+### 3. Root Cause
+The method trusted `totalMines` completely — there was no relationship enforced between
+`totalMines` and `rows * cols` before the placement loop ran. A `while (condition-that-depends-
+on-random-search-space)` loop is only safe when the search space is provably large enough that
+the condition can be satisfied; nothing here proved that.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce and prove termination under a hard timeout (this is exactly what the regression
+# test below does — without the fix, this test itself would hang past its @Timeout and fail):
+cd backend && mvn -o -q test -Dtest='com.lld.minesweeper.MinesweeperServiceTest#rejectsMineCountAtOrAboveCellCount'
+
+# The loop shape that hangs — note no upper bound relating totalMines to rows*cols anywhere
+# above it in the original service:
+git show HEAD~1:backend/src/main/java/com/lld/minesweeper/service/MinesweeperService.java | sed -n '/private void placeMines/,/^    }/p'
+```
+
+### 5. Step-by-Step Resolution
+1. Added `MinesweeperService#validateBoardConfig`, called at the top of `createGame`, enforcing
+   `rows > 0`, `cols > 0`, `mines >= 0`, and — the one that actually closes this bug —
+   `mines < rows * cols`, so at least one non-mine cell is always mathematically guaranteed to
+   exist before mine placement ever begins.
+2. Added `InvalidBoardConfigException` (`@ResponseStatus(400)`) so a rejected config is a clean,
+   typed `400` instead of the request thread hanging with no response at all.
+3. While in the area, extracted mine placement into an injectable `MinePlacer` strategy
+   (`RandomMinePlacer`) specifically so a test could exercise the placement loop's boundary
+   directly and deterministically (see RCA context in the module's design doc) rather than relying
+   on random timing to occasionally reproduce a hang.
+4. Added `MinesweeperServiceTest#rejectsMineCountAtOrAboveCellCount`, wrapped in a JUnit
+   `@Timeout(value = 2, unit = SECONDS)` specifically so that if this validation were ever removed
+   or weakened in the future, the test suite would hang and fail loudly (a timeout) rather than
+   silently pass on a request that happened to return an error for an unrelated reason.
+
+### 6. Preventative Measures
+1. `InvalidBoardConfigException`'s message spells out *why* the bound exists ("so at least one
+   cell — the first click — can always be safe"), tying the validation to the first-click-safe
+   policy it also protects, not just to the hang.
+2. General lesson: any `while (condition)` loop whose condition depends on a randomized search
+   over a finite space needs the space's sufficiency proven *before* the loop starts, with a test
+   that pins the exact boundary (here: `mines == rows*cols`, one past the last valid value) under
+   a hard timeout — a plain `assertThrows` alone would not have caught a regression that turned
+   this back into a hang, since a hung test and a slow-but-eventually-passing test look identical
+   without an explicit timeout.
+3. Same root lesson as RCA-014: a module with zero tests has zero evidence its input handling is
+   correct. Two of this module's four typed exceptions (`InvalidBoardConfigException` here,
+   `InvalidCellException` in RCA-016) exist because writing the *first* tests for previously
+   untested code is exactly when input-validation gaps like this one get found.
+
+## RCA-016: Minesweeper's Reveal and Flag Endpoints Skipped Bounds Checking and Threw an Unhandled 500
+
+**Severity:** Medium (a real unhandled-500 path on a straightforward out-of-range request; no
+data corruption or availability impact, unlike RCA-015)
+**Date:** 2026-08-25
+**Status:** Resolved
+**Affected:** `com.lld.minesweeper.service.MinesweeperService#revealCell`,
+`#flagCell` (pre-refactor)
+
+### 1. Overview & Severity
+Found alongside RCA-015 while writing this module's first-ever bounds tests. Neither `revealCell`
+nor `flagCell` validated `row`/`col` against the board's actual dimensions before indexing into
+it:
+```java
+// before this fix
+Cell cell = game.getBoard()[row][col]; // row/col are raw caller input, unchecked
+```
+A `row` or `col` outside `[0, rows)` / `[0, cols)` — including a negative value, or a value at or
+past the configured board size — threw a bare `ArrayIndexOutOfBoundsException`. Like RCA-014,
+this exception type is not one `GlobalExceptionHandler` special-cases, so it surfaced as an
+unhandled `500` with the message stripped, not the typed `4xx` every other reference module in
+this repo returns for bad input.
+
+### 2. Symptoms & Error Logs
+No production incident — caught by a new boundary test. The failure this closes:
+```
+POST /api/minesweeper/games/1/reveal  { "row": -1, "col": 0 }
+→ HTTP 500 Internal Server Error
+  (actual cause: ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 9 — never
+   reaches the response body)
+```
+
+### 3. Root Cause
+Both methods went straight from "look up the game" to "index the board" with no validation step
+in between — the same missing-boundary-check shape as RCA-014 and RCA-015, in a third location in
+the same module. All three exist because the module had never had a test written against it that
+tried an invalid input; every one of its methods was written and merged against only the
+happy-path frontend, which never sends an out-of-range coordinate because the UI only ever emits
+clicks from within the rendered grid.
+
+### 4. Diagnostic Commands
+```bash
+cd backend && mvn -o -q test -Dtest='com.lld.minesweeper.MinesweeperServiceTest#outOfBoundsCellThrows'
+
+# Confirm the pre-fix code path: both reveal and flag indexed the board with no guard.
+git show HEAD~1:backend/src/main/java/com/lld/minesweeper/service/MinesweeperService.java | grep -n "game.getBoard()\[row\]\[col\]"
+```
+
+### 5. Step-by-Step Resolution
+1. Added `MinesweeperService#requireInBounds(game, row, col)`, called at the top of both
+   `revealCell`'s and `flagCell`'s (shared) `applyReveal`/`applyFlag` implementations, before any
+   board access.
+2. Added `InvalidCellException` (`@ResponseStatus(400)`), extending the module's new abstract
+   `MinesweeperException` base.
+3. Added `MinesweeperServiceTest#outOfBoundsCellThrows`, covering a negative row, a row at exactly
+   the board's row count (the classic off-by-one), a column past the board's column count, and a
+   wildly out-of-range value on both reveal and flag.
+
+### 6. Preventative Measures
+1. Both `revealCell` and `flagCell` now funnel through the same `requireInBounds` check — a
+   single choke point rather than two independent (and, as this incident showed, independently
+   incomplete) validation sites.
+2. General lesson, the same one as RCA-014 and RCA-015: this repo's `GlobalExceptionHandler` is
+   deliberately narrow (`DomainException`, `IllegalArgumentException`/`IllegalStateException`,
+   `NoSuchElementException` only — see its own javadoc) specifically so that an uncaught exception
+   type surfaces as a loud, ugly `500` in testing rather than being silently absorbed into a
+   generic `400` that would have hidden the fact that no validation existed at all. Three
+   findings in one module in one afternoon of writing its first tests is a strong signal to check
+   every other array/list index derived from raw request input across the rest of the portfolio,
+   not just this module.
+3. Reinforces the standing repo-wide rule this PR's task description called out explicitly: a
+   module with zero test coverage has zero verified correctness, no matter how long it has been
+   running without a reported incident — reported incidents require someone to have tried the
+   input that breaks it.

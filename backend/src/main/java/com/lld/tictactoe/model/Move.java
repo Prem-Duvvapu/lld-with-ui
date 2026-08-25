@@ -1,5 +1,8 @@
 package com.lld.tictactoe.model;
 
+import lombok.Getter;
+
+@Getter
 public class Move {
     private final int moveNumber;
     private final String playerName;
@@ -16,11 +19,4 @@ public class Move {
         this.col = col;
         this.timestamp = System.currentTimeMillis();
     }
-
-    public int getMoveNumber() { return moveNumber; }
-    public String getPlayerName() { return playerName; }
-    public Symbol getSymbol() { return symbol; }
-    public int getRow() { return row; }
-    public int getCol() { return col; }
-    public long getTimestamp() { return timestamp; }
 }

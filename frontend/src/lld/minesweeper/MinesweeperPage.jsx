@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { createGame, getGame, revealCell, flagCell } from './api';
+import { createGame, getGame, revealCell, flagCell, simReset, simReveal } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
@@ -189,10 +189,13 @@ function AnimatedFlow() {
 
   const reset = () => { setStep(0); setGame(null); setBoard(null); setError(''); setRevealedCells([]); };
 
+  // Drives the isolated /api/minesweeper/sim/* engine — a completely separate in-memory game
+  // from the "Game" tab (fixed 5x5 board, 3 mines, lazily placed first-click-safe), so replaying
+  // the demo can never corrupt a real match.
   const createGameAction = async () => {
     setLoading(true); setError('');
     try {
-      const g = await createGame(5, 5, 3);
+      const g = await simReset();
       if (!mountedRef.current) return;
       if (g.error) { setError(g.error); return; }
       setGame(g);
@@ -213,7 +216,7 @@ function AnimatedFlow() {
         for (let c = 0; c < 5 && !found; c++) {
           const cell = boardData[r][c];
           if (!cell.revealed && !cell.flagged && !cell.mine) {
-            const updated = await revealCell(g.id, r, c);
+            const updated = await simReveal(r, c);
             if (!mountedRef.current) return;
             if (updated.error) { setError(updated.error); return; }
             g = updated;
