@@ -102,16 +102,17 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 
 ## Tic Tac Toe Module
 ### Backend
-- `TicTacToeService`: createGame, makeMove, undoLastMove, resetGame.
-- `GameMode`: HUMAN_VS_HUMAN, HUMAN_VS_AI.
-- `AIDifficulty`: EASY, MEDIUM, UNBEATABLE (Minimax Algorithm).
-- `AIMoveStrategy`: Strategy pattern for AI move calculation (`RandomAIMoveStrategy`, `MinimaxAIMoveStrategy`).
-- Thread safety: `ConcurrentHashMap` repository + per-game `ReentrantLock`.
+- `TicTacToeService`: `createGame`, `getGame`, `makeMove`, `undoLastMove`, `resetGame` — a 2-player, human-vs-human 3x3 board. There is no AI opponent, `GameMode`, or `AIDifficulty` in this codebase (an earlier version of this doc described a Minimax AI that was never actually implemented — corrected here).
+- `Game`/`Board`/`Cell`: `Board` owns the 3x3 grid, cell occupancy, the O(N) row/column/diagonal win scan (returns the exact `[startRow, startCol, endRow, endCol]` winning line), and fill/draw detection; `Game` owns turn order, status, winner, and move history.
+- Exception hierarchy: `TicTacToeException` (abstract) `extends com.lld.config.DomainException` with `GameNotFoundException` (404), `InvalidMoveException` (400, out-of-bounds), `CellOccupiedException` (422, rule violation), `NotYourTurnException` (409), `GameOverException` (409) — replacing the previous ad hoc `IllegalArgumentException`/`IllegalStateException` + manual controller `try/catch` building `ErrorResponse` by hand.
+- Concurrency: a per-game `ReentrantLock` (`ConcurrentHashMap<String, ReentrantLock>`, `computeIfAbsent`) held for the whole span of `makeMove`/`undoLastMove`/`resetGame`, mirroring `ChessService`.
+- Isolated `/api/tictactoe/sim/*` engine: a second `GameRepository` instance (`simReset`/`simGetGame`/`simMove`/`simUndo`/`simGetEventLog`) so the demo cannot touch a real match; `simReset` seeds a fresh Alice-vs-Bob game and clears the `SimEvent` log.
+- Tests: `TicTacToeServiceTest` (row/column/main-diagonal/anti-diagonal win detection — including from a mid-game fork position, not just an empty-board opening — draw, undo, reset, every exception path, sim-engine isolation), `TicTacToeConcurrencyTest` (two and twenty threads racing the same cell on one game — exactly one wins; disjoint games never contend).
 
 ### Frontend
-- 6 tabs: 🎮 Game Board, 🤖 AI Arena, 📜 Move History & Replay, 🕹️ Interactive 2D Simulation, Class Diagram, Design Details.
+- Uses the shared `LldPage` shell. Tabs: board, history, simulation, diagram, details.
 - Routes: `/tic-tac-toe` and `/tictactoe`.
-- 8-step Interactive 2D Simulation scene (neon grid, AI brain pulse, laser winning line, live telemetry HUD).
+- The Simulation tab now drives the isolated `/api/tictactoe/sim/*` sandbox (it previously called the real game endpoints directly, so replaying the scripted demo could corrupt an in-progress match).
 
 ## Splitwise Module
 ### Backend
@@ -402,6 +403,53 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 - 4 tabs: 📋 Products & Alerts, 🕹️ Interactive Simulation, Class Diagram, Design Details — rebuilt onto the shared `LldPage` shell (it previously rendered `ClassDiagram`/`DesignDetails` directly, bypassing the shell entirely).
 - Products & Alerts: category filter, add-product form, per-product manage panel (stock update, reorder-policy trigger), and a live-polled recent-alerts feed.
 - 8-step Interactive Simulation against isolated `/api/inventory/sim/*` endpoints — reset, view seeded stock, a normal sale, a sale that crosses the reorder line (LOW_STOCK), selling out completely (OUT_OF_STOCK), restocking back above the line (RESTOCKED), an auto-reorder (REORDER_PLACED), and a live N-buyers race for the last units with a telemetry HUD (succeeded/rejected/remaining stock) — the previous "simulation" tab mutated **live** stock directly instead of using this sandbox at all.
+
+## LRU Cache Module
+### Backend
+- `LruCache<K,V>`: capacity, a `Map<K, Node<K,V>>` for O(1) key lookup, the active `EvictionPolicy<K,V>`, one `ReentrantLock` guarding the whole instance for the full span of every operation, hit/miss/eviction counters, and a rolling 50-entry operation log.
+- **Strategy Pattern** (already present before this PR): `EvictionPolicy<K,V>` — `LRUEvictionPolicy` (sentinel head/tail doubly-linked list, O(1) promote/evict), `LFUEvictionPolicy` (ranks by access count, ties broken by oldest `lastAccessedAt`), `FIFOEvictionPolicy` (strict insertion order — an access never protects an entry). `setPolicy()` swaps the active strategy at runtime and replays every current node into it.
+- `LruCacheService`: Facade holding exactly two `LruCache<String,String>` instances — the primary cache the Operations/Telemetry/Logs tabs show, and a fully independent `simCache` backing `/api/lrucache/sim/*` (already a complete, working isolated engine before this PR — verified, not rebuilt).
+- Exception hierarchy (new): `LruCacheException` (abstract) `extends com.lld.config.DomainException` with `InvalidCapacityException` (400) — the constructor and `setCapacity()` previously silently no-op'd on a non-positive capacity (the caller got a stale 200 with no signal anything was wrong); both now throw. The controller's `setCapacity`/`setPolicy` handlers no longer swallow the resulting exception in a `try/catch(Exception ignored)` — failures now surface as real HTTP errors.
+- This module has no repository package — cache state lives directly on the `LruCache` model instance, so there is no separate persistence layer to test.
+- Tests: `LruCacheServiceTest` (pre-existing — basic put/get, eviction, capacity resize, policy switching, plus a lenient concurrency smoke test that only asserted `hits > 0`), `LruCacheModelTest` (new — constructor/`setCapacity` validation, direct LRU/FIFO/LFU eviction-order assertions), `LruCacheConcurrencyTest` (new — latch-gated, not sleep-based, per RCA-006: N distinct-key inserts settle at exactly capacity and never above it, N inserts under capacity are never lost or corrupted, a mixed GET/PUT storm on a small shared key space never exceeds capacity and never returns a corrupted value, concurrent `remove()` of the same key is linearizable).
+
+### Frontend
+- Uses the shared `LldPage` shell. Tabs: operations, telemetry, logs, simulation, diagram, design.
+- The Simulation tab ("Interactive 2D Memory Rack") was already correctly wired to the isolated `/api/lrucache/sim/*` engine before this PR — confirmed by reading the controller/service, not assumed.
+
+## Snake & Ladders Module
+### Backend
+Full build-out — this module shipped with zero tests across its entire history; see RCA-014 for a
+real bug that history let ship.
+- `Game`: id, 2-4 `Player`s, current-turn index, the snake/ladder `Map<Integer,Integer>` lookups, its own injected `DiceRoller`, `GameState`, winner, and the last roll/message the UI shows.
+- **Strategy Pattern (new)**: `DiceRoller` (`roll(): int`) — `RandomDiceRoller` (production, a Spring bean wrapping `java.util.Random`) and `FixedDiceRoller` (tests — replays a fixed sequence, repeating its last value once exhausted rather than throwing). The model previously called a static `Random` directly from `Dice.roll()`, which made deterministic testing of exact-landing/snake/ladder rules impossible; `Dice.java` is now deleted.
+- Exact-count win rule (verified correct by new tests, not a bug): landing exactly on cell 100 wins; overshooting forfeits the roll and the player stays in place, turn still passes.
+- Snake-bite and ladder-climb resolution (verified correct): a single Map lookup per landed-on cell, no chaining across the default board (no snake head/ladder top/bottom overlaps another's destination).
+- Multiplayer turn order (verified correct): cycles and wraps correctly for 2, 3, and 4 players; stops advancing past the winner.
+- Exception hierarchy (new): `SnakeLaddersException` (abstract) `extends com.lld.config.DomainException` with `GameNotFoundException` (404), `InvalidPlayerCountException` (400 — see RCA-014: 5+ players previously threw an unhandled `IndexOutOfBoundsException` since only 4 token colors exist), `GameAlreadyFinishedException` (409 — rolling on a finished game previously returned `-1` silently instead of signaling anything).
+- Concurrency (new): a per-game `ReentrantLock` map, mirroring `ChessService` — the module previously had **no locking at all** around `rollDice`, unlike every other reference module in this repo.
+- Isolated `/api/snakeladders/sim/*` engine (new): a second `GameRepository` instance (`simReset`/`simGetGame`/`simRoll`/`simGetEventLog`) seeded with a 2-player game, so the demo tab cannot touch a real match.
+- Tests (new, 18 cases in one class — this module's repository is an identical-shape thin wrapper to tictactoe's with no independent behaviour, so that coverage is merged into the service test rather than duplicated in a separate repository test): player-count validation at 0/1/2/3/4/5, exact-landing win, overshoot forfeiture, snake bite, ladder climb, 3- and 4-player turn cycling, win stopping the turn cycle, the finished-game roll guard, both `DiceRoller` implementations, sim-engine isolation.
+
+### Frontend
+- The Simulation tab now drives the isolated `/api/snakeladders/sim/*` sandbox (it previously called the real `createGame`/`rollDice` endpoints directly).
+
+## Minesweeper Module
+### Backend
+Full build-out — this module shipped with zero tests across its entire history; see RCA-015 and
+RCA-016 for two real bugs that history let ship, one of them a live availability hang.
+- `Game`: id, `Cell[][]` board, dimensions, `totalMines`, `GameStatus`, flag/reveal counters, and a new `firstClickDone` flag.
+- **First-click-safe policy (new — did not exist before)**: mines are placed lazily, on the first `revealCell` call, excluding only the clicked cell (not its full neighborhood — the simpler of the two conventional policies, documented on `MinesweeperService`). Previously mines were placed at `createGame` time, so a player's very first click could immediately lose the game.
+- **Strategy Pattern (new)**: `MinePlacer` (`place(board, rows, cols, totalMines, excludeRow, excludeCol)`) — `RandomMinePlacer` (production, a Spring bean) and `FixedMinePlacer` (tests — an explicit coordinate list, ignoring the exclusion, for asserting flood-fill/win/loss against a known board). The service previously called a bare, unseeded `Random` directly, which is what made this module's flood-fill/win/loss/first-click behavior impossible to test deterministically before now.
+- Flood-fill reveal (verified correct by new tests, not a bug): a zero-adjacency cell cascades into all 8 neighbors recursively; a numbered (non-zero-adjacency) cell is revealed as a leaf and never cascades further; bounds are checked before every array access so a corner/edge reveal cannot index out of range.
+- Win condition (verified correct): every non-mine cell revealed. Loss condition (verified correct): a mine revealed.
+- Exception hierarchy (new): `MinesweeperException` (abstract) `extends com.lld.config.DomainException` with `GameNotFoundException` (404), `GameOverException` (409), `InvalidCellException` (400 — see RCA-016: an out-of-bounds reveal/flag previously threw a bare, unhandled `ArrayIndexOutOfBoundsException`), `InvalidBoardConfigException` (400 — see RCA-015: a mine count at or above the cell count previously spun the placement loop **forever**, an unbounded CPU-pinning hang, not just a wrong status code).
+- Concurrency (new): a per-game `ReentrantLock` map replacing a previous single module-wide lock that serialized every unrelated game against every other for no reason.
+- Isolated `/api/minesweeper/sim/*` engine (new): a second `MinesweeperRepository` instance on a fixed 5x5/3-mine board (`simReset`/`simReveal`/`simFlag`/`simGetGame`/`simGetEventLog`).
+- Tests (new): `MinesweeperServiceTest` (20 cases — board-config validation including the former hang case under a JUnit `@Timeout`, first-click-safety proven **deterministically** by filling every non-excluded cell with mines so the excluded cell's mine-freedom isn't just statistically likely, flood-fill cascade shape and its numbered-cell stopping point, corner-reveal bounds safety, win/loss, flagging interactions, out-of-bounds guards, the game-over guard, both `MinePlacer` strategies, sim-engine isolation), `MinesweeperConcurrencyTest` (3 cases — concurrent first-reveal race on one cell places mines exactly once, concurrent distinct reveals never corrupt `revealedCount`, disjoint games never contend for one lock). This module's repository is a bare id/save/get wrapper with no independent behaviour, so that coverage is merged into the service test rather than duplicated.
+
+### Frontend
+- The Simulation tab now drives the isolated `/api/minesweeper/sim/*` sandbox on its fixed 5x5 board (it previously called the real `createGame`/`revealCell` endpoints directly).
 
 ## Concurrency Primitives
 
