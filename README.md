@@ -38,7 +38,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 28 | [Car Rental System](#28-car-rental-system) | Vehicle fleet & booking | Overlapping-Interval Per-Vehicle Lock, Strategy + Factory (tiered pricing), State Machine |
 | 29 | [Online Auction System](#29-online-auction-system) | Bidding engine | Observer, Strategy + Factory (bid increment), Per-Auction ReentrantLock |
 | 30 | Restaurant Management | Order & kitchen workflow | State Machine, Factory |
-| 31 | Social Network | Posts & feeds | Graph Model, Observer |
+| 31 | [Social Network](#31-social-network) | Posts & feeds | Observer (feed fan-out), Canonical Pair Locking, Isolated Sim Engine |
 | 32 | [Concert Ticket Booking](#32-concert-ticket-booking) | Event seats & reservation | Per-Seat ReentrantLock, Hold TTL, Strategy (refund policy) |
 | 33 | [CricInfo](#33-cricinfo) | Live cricket scorecard | Observer Pattern (ball-by-ball fan-out), Live Scorecard Projection, Per-Match Lock |
 | 34 | [Course Registration System](#34-course-registration-system) | Student enrollment | Facade, Repository, Per-Section ReentrantLock + FIFO Waitlist, Prerequisite & Schedule-Conflict Checks |
@@ -713,6 +713,41 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/auction/sim/close`
 - `POST /api/auction/sim/race`
 - `GET /api/auction/sim/events`
+
+---
+
+### 31. Social Network
+
+#### Key Features
+- **Observer Pattern for Feed Fan-Out**: `FeedNotifier` (Subject) fans a `FeedEvent` out to independent observers on every `createPost` — `InAppFeedObserver` (queryable log behind `GET /api/social/feed-events`, bounded to 100) and `LoggingFeedObserver` (server log) — neither aware the other exists, mirroring `inventory.observer.StockAlertNotifier`.
+- **Canonical Pair Locking for Friend Requests**: a `ConcurrentHashMap<String, ReentrantLock>` keyed by `min(userId1, userId2) + "#" + max(userId1, userId2)` (the `LinkedInService` idiom, adapted to `long` ids) serializes `sendFriendRequest`/`respondToRequest` between the same pair regardless of call direction, so two concurrent sends or two concurrent accepts on the same pair can never both succeed.
+- **Typed Exception Hierarchy**: `SocialException` (abstract) with `UserNotFoundException`/`PostNotFoundException`/`FriendRequestNotFoundException` (404), `AlreadyFriendsException`/`DuplicateFriendRequestException`/`RequestAlreadyRespondedException` (409), `InvalidSocialActionException` (400).
+- **Isolated Simulation Sandbox with a Live Pair-Lock Race**: `/api/social/sim/*` runs against a second repository/notifier pair seeded with 3 demo users; `simRaceFriendRequests` fires N concurrent friend-request attempts (alternating direction) at one pair via a `CountDownLatch` and returns exactly how many won and how many were rejected.
+
+#### API Endpoints
+- `POST /api/social/users`
+- `GET /api/social/users`
+- `GET /api/social/users/{id}`
+- `POST /api/social/friends/request`
+- `PUT /api/social/friends/respond/{requestId}`
+- `GET /api/social/friends/{userId}`
+- `GET /api/social/requests/{userId}`
+- `POST /api/social/posts`
+- `GET /api/social/feed/{userId}`
+- `GET /api/social/posts`
+- `GET /api/social/feed-events`
+- `POST /api/social/posts/{postId}/like`
+- `POST /api/social/posts/{postId}/comment`
+- `POST /api/social/sim/reset`
+- `POST /api/social/sim/users`
+- `POST /api/social/sim/posts`
+- `POST /api/social/sim/friends/request`
+- `POST /api/social/sim/friends/respond/{requestId}`
+- `POST /api/social/sim/posts/{postId}/like`
+- `POST /api/social/sim/posts/{postId}/comment`
+- `POST /api/social/sim/race`
+- `GET /api/social/sim/events`
+- `GET /api/social/sim/snapshot`
 
 ---
 

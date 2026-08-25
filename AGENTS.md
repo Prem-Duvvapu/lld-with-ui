@@ -549,6 +549,66 @@ match `inventory`/`trafficsignal` for shape.
 - `AuctionPage.jsx`/`api.js` call real endpoints throughout — no mocking. The Auctions tab gained increment-policy/start-delay fields on auction creation, a bid-history ladder, and a live outbid-notifications panel per auction.
 - The Simulation tab was previously a client-only, entirely fake "gavel simulator" with no backend calls at all — replaced with an 8-step interactive demo wired to `/api/auction/sim/*`: reset, view the seeded sandbox, place the opening bid, get outbid (Observer pattern fires live), a too-low bid rejected, both lifecycle guards (`PENDING` and `CLOSED`) rejected, the `PERCENTAGE` strategy on a second auction, and an 8-bidder concurrent race. A telemetry HUD (current ask, notification count, bids placed, race succeeded/rejected), a countdown timer to the tracked auction's end time, animated bidder avatars that highlight the current leader and flash on being outbid, and a live bid ladder give the demo a genuine live-auction feel rather than a bare API log.
 
+## SocialNetwork Module
+### Backend
+Deepened from a bare CRUD service (`IllegalArgumentException` everywhere, hand-written getters, no
+tests, no patterns) to the reference bar — see RCA.md for the one non-trivial gotcha hit along the way.
+- `User`/`Post`/`Comment`/`FriendRequest`: converted to Lombok `@Data @Builder @NoArgsConstructor
+  @AllArgsConstructor`. `Post` keeps hand-written `addLike`/`removeLike`/`addComment` alongside the
+  generated accessors, backed by `CopyOnWriteArraySet`/`CopyOnWriteArrayList` for safe concurrent
+  engagement.
+- `SocialRepository`: `ConcurrentHashMap`s for users/posts/friendRequests plus an adjacency-list
+  `Map<Long, Set<Long>>` for the friend graph. Its no-arg constructor now seeds 3 demo users (Alice,
+  Bob — already friends — and Carol) plus 2 posts, the same "constructor seeds demo data" idiom as
+  `InventoryRepository`; used both by the live Spring singleton and to rebuild the `/sim/*` sandbox.
+- **Observer Pattern (new)**: `FeedNotifier` (Subject) fans a `FeedEvent` out to a
+  `CopyOnWriteArrayList<FeedObserver>` on every `createPost` — `InAppFeedObserver` (queryable log
+  behind `GET /api/social/feed-events`, bounded to 100) and `LoggingFeedObserver` (server log),
+  neither aware the other exists. Mirrors `com.lld.inventory.observer.StockAlertNotifier` exactly.
+- **Canonical Pair Locking (new)**: `SocialService#friendPairLocks` is a
+  `ConcurrentHashMap<String, ReentrantLock>` keyed by `min(userId1,userId2) + "#" + max(userId1,userId2)`
+  (the `linkedin.service.LinkedInService#sendConnectionRequest` idiom, generalized from `String` ids
+  to `long`s). `sendFriendRequest` and `respondToRequest` between the same pair always resolve to the
+  SAME lock object regardless of call direction; every check-then-act read (already friends? already
+  pending? current request status?) happens after acquiring the lock and re-reads state inside it —
+  that is what stops two concurrent sends or two concurrent accepts on the same pair from both
+  succeeding.
+- Typed exception hierarchy (new): `SocialException` (abstract) `extends com.lld.config.DomainException`
+  with `UserNotFoundException` (404), `PostNotFoundException` (404), `FriendRequestNotFoundException`
+  (404), `AlreadyFriendsException` (409), `DuplicateFriendRequestException` (409),
+  `RequestAlreadyRespondedException` (409 — a second accept/reject on an already-resolved request),
+  `InvalidSocialActionException` (400 — blank name/email/content, self-friend-request). Replaces every
+  `IllegalArgumentException` the old service threw.
+- Isolated `/api/social/sim/*` engine (new): a second `SocialRepository`/`FeedNotifier`/
+  `InAppFeedObserver` triple rebuilt from scratch on every `simReset()`, plus a `List<SimEvent>`
+  telemetry log (`simCreateUser`/`simCreatePost`/`simSendFriendRequest`/`simRespond`/`simLikePost`/
+  `simAddComment`/`simRaceFriendRequests`/`simGetEvents`/`getSimSnapshot`). `simRaceFriendRequests`
+  fires N concurrent `sendFriendRequest` calls at one pair (alternating direction) via a
+  `CountDownLatch`, so the pair-lock's correctness is demonstrable live in the UI, not just in a test.
+- Tests (new, 4 flavours across `SocialServiceTest`, `FeedNotifierTest`, `SocialRepositoryTest`,
+  `SocialConcurrencyTest`): service-level validation and exception mapping for every endpoint, the
+  Observer fan-out contract in isolation (one misbehaving observer can't break the rest, the 100-entry
+  cap), repository seed data and friend-request/friendship invariants, and a concurrency suite proving
+  the pair lock: N threads racing to send a friend request between the same pair from both directions
+  (exactly 1 wins), N threads racing to accept/reject the same request (exactly 1 wins, no lost
+  accept), disjoint pairs never contend, and a 200-round repeated race that never produces two
+  winners — all latch-gated, no `Thread.sleep`.
+
+### Frontend
+- `SocialNetworkPage.jsx` already called the real `/api/social/*` endpoints via `api.js` before this
+  pass (an earlier `HANDOFF.md` claim that it mocked data was stale) — confirmed by reading the
+  wiring, not rebuilt.
+- New 🕹️ Interactive Simulation tab (8 steps) against the isolated `/api/social/sim/*` sandbox: reset
+  & seed, send a friend request, a duplicate send rejected live in the UI, accept forming a
+  friendship, publish a post and watch the Observer fan-out count, like/comment engagement, a new
+  user joining, and an 8-way concurrent friend-request race between two users with a telemetry HUD
+  (users/friendships/pending/posts/feed-fan-outs tiles, a won/rejected race bar) plus a small SVG
+  social-graph visualization (solid edges = friends, dashed = pending) that pulses the node touched by
+  each step.
+- New Sequence Diagram tab (`data/sequences/social-network.js`): the concurrent friend-request race
+  showing exactly when the pair lock is acquired relative to the "already friends"/"already pending"
+  reads, and the post-publish → Observer fan-out hop.
+
 ## Concurrency Primitives
 
 Classic multithreaded-ordering interview problems, each `com.lld.concurrency.<primitive>/` sibling
