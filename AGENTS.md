@@ -451,6 +451,68 @@ RCA-016 for two real bugs that history let ship, one of them a live availability
 ### Frontend
 - The Simulation tab now drives the isolated `/api/minesweeper/sim/*` sandbox on its fixed 5x5 board (it previously called the real `createGame`/`revealCell` endpoints directly).
 
+## TaskManagement Module
+### Backend
+Raised from a bare CRUD service (plain getters/setters, a `TaskStatus` enum with no transition
+rules, no exceptions, no tests) to the reference bar — same pass shape as inventory/trafficsignal.
+- `Board`/`Task` (new — Lombok `@Data @Builder`): `Task` carries `boardId` as a foreign key instead
+  of `Board` embedding a task map directly, so a board and its tasks can never be mutated out of
+  sync with each other (the old `Board.tasks` `ConcurrentHashMap` duplicated `TaskRepository`'s
+  own map and could drift).
+- **State Pattern (new)**: `com.lld.taskmanagement.state` — one singleton class per `TaskStatus`
+  (`TodoState`, `InProgressState`, `ReviewState`, `BlockedState`, `DoneState`, `CancelledState`),
+  each declaring its own `Set<TaskStatus> allowedNext()` — the same class-per-state shape as
+  `trafficsignal.state.SignalState`, but a declared **set** of legal next statuses per state rather
+  than a single `next()` pointer, since e.g. `REVIEW` legally fans out to `DONE`, back to
+  `IN_PROGRESS` (changes requested), or `BLOCKED`. `Task#transitionTo(target)` is the one
+  enforcement point; an illegal request throws `IllegalTaskTransitionException` (409) and leaves
+  the task's status unchanged. `TODO -> IN_PROGRESS -> REVIEW -> DONE` is the happy path; `BLOCKED`
+  is reachable from `IN_PROGRESS`/`REVIEW`, `CANCELLED` from any non-terminal status; `DONE` and
+  `CANCELLED` are terminal.
+- **Strategy + Factory (new — Board Ordering)**: `TaskOrderingStrategy` — `FifoWithinPriorityStrategy`
+  (priority weight descending, ties by creation order), `DueDateFirstStrategy` (earliest deadline
+  first, no-due-date tasks sort last), `WeightedScoreStrategy` (priority weight `x100` plus a
+  deterministic urgency bonus for a deadline within 30 days of creation — computed from
+  `dueDate - createdAt`, not wall-clock `now`, so it pins exactly in tests) — resolved by
+  `TaskOrderingStrategyFactory` via an `EnumMap`, the same shape as
+  `inventory.strategy.ReorderStrategyFactory`. `TaskService` never branches on the policy itself.
+- **Per-Task Lock guarding two real check-then-act races (the concurrency centerpiece)**: a fair
+  `ReentrantLock` per task (`computeIfAbsent`, same idiom as `InventoryService`) guards both
+  `moveTask` (re-validates the transition against the CURRENT status inside the lock, so two
+  callers racing for different terminal statuses from the same source status can never both apply)
+  and `claimTask` (assigns only if currently unassigned, re-checked inside the lock, so two actors
+  racing to claim the same task can never both win). Live and sim paths share the exact same
+  `doMoveTask`/`doClaimTask` methods, parameterized by which repository/lock-map to use.
+- Exception hierarchy (new): `TaskException` (abstract) `extends com.lld.config.DomainException`
+  with `TaskNotFoundException` (404), `BoardNotFoundException` (404),
+  `IllegalTaskTransitionException` (409), `TaskAlreadyAssignedException` (409),
+  `InvalidTaskOperationException` (400). Being abstract, `TaskException` is excluded from
+  `DomainExceptionContractTest`'s scan automatically, the same as `InventoryException`.
+- Isolated `/api/tasks/sim/*` engine (new): a second `TaskRepository` instance seeded with 4 demo
+  tasks walked through the real state machine to reach their seed status (not set directly), plus
+  `simMove`/`simClaim`/`simOrder`/`simClaimRace`/`simTransitionRace`/`simGetEvents`.
+- Tests (new, 5 classes): `TaskStateTest` (the full declared transition table, terminal-state
+  rejection, the REVIEW->IN_PROGRESS loop-back, the TODO..DONE happy path), `TaskOrderingStrategyTest`
+  (pins the exact ordering and tie-break rules for all three strategies plus factory resolution),
+  `TaskRepositoryTest` (board/task id generation, board-scoped and status-scoped lookups, `clear()`),
+  `TaskServiceTest` (board/task CRUD, the state machine wired through the service, claim exclusivity,
+  sim sandbox isolation), `TaskConcurrencyTest` (N actors racing to claim one task — exactly one
+  wins, repeated 300 rounds; two actors racing `DONE` vs `CANCELLED` from `REVIEW` — exactly one
+  applies and the final status is always a legal terminal outcome, repeated 300 rounds; many
+  identical concurrent move-to-`DONE` calls — exactly one succeeds; disjoint tasks never contend).
+
+### Frontend
+- Rebuilt onto the shared `LldPage` shell with 5 tabs: Board, Interactive Simulation, Class
+  Diagram, Sequence Diagram, Design Details — the board view groups tasks into 6 status columns
+  and lets a board-wide ordering policy (FIFO/Due-Date/Weighted) reorder cards within each column
+  via `GET /boards/{id}/ordered`, without the frontend re-implementing any ordering rule itself.
+- 8-step Interactive Simulation against the isolated `/api/tasks/sim/*` engine: reset, view the
+  seeded board, a legal move (state pattern), an illegal move rejected with the exact server
+  message (state pattern's guard), another legal move, a side-by-side FIFO-vs-Weighted-Score
+  comparison (strategy pattern), an N-actor claim race with a live succeeded/rejected/winner HUD,
+  and a two-actor `DONE`-vs-`CANCELLED` transition race — the previous "simulation" tab was a
+  purely client-side CSS animation with no backend calls at all.
+
 ## Concurrency Primitives
 
 Classic multithreaded-ordering interview problems, each `com.lld.concurrency.<primitive>/` sibling

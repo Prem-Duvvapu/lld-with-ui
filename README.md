@@ -31,7 +31,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 21 | [Vending Machine](#21-vending-machine) | State-based dispenser | State Pattern (Idle/Selection/Money/Dispensing), Chain of Responsibility Change Hopper |
 | 22 | Logging Framework | Log sink engine | Chain of Responsibility, Singleton |
 | 23 | Traffic Signal | Signal timing engine | State Pattern, Observer |
-| 24 | Task Management System | Task workflow | State Pattern, Strategy |
+| 24 | [Task Management System](#24-task-management-system) | Task workflow | State Pattern, Strategy + Factory (board ordering), Per-Task ReentrantLock |
 | 25 | [LinkedIn](#25-linkedin) | Professional network | Graph Model, Strategy (ranking), Observer (alerts), Pair Locking |
 | 26 | [LRU Cache](#26-lru-cache) | In-memory cache | Strategy (LRU/LFU/FIFO eviction), Doubly Linked List + HashMap, Isolated Sim Engine |
 | 27 | [Pub Sub System](#27-pubsub-system-message-broker) | Message broker | Observer, Dedicated Per-Subscriber FIFO Worker Threads |
@@ -583,6 +583,38 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/vendingmachine/sim/restock`
 - `GET /api/vendingmachine/sim/events`
 - `GET /api/vendingmachine/sim/snapshot`
+
+---
+
+### 24. Task Management System
+
+#### Key Features
+- **State Pattern**: `com.lld.taskmanagement.state` — one singleton class per `TaskStatus` (`TodoState`, `InProgressState`, `ReviewState`, `BlockedState`, `DoneState`, `CancelledState`), each declaring the exact `Set<TaskStatus>` it may legally move to next. `Task#transitionTo()` is the one enforcement point; an illegal jump (e.g. `TODO` straight to `DONE`) throws `IllegalTaskTransitionException` (409) instead of being silently applied.
+- **Strategy + Factory (Board Ordering)**: `TaskOrderingStrategyFactory` resolves `FIFO_PRIORITY` (priority weight, ties by creation order), `DUE_DATE_FIRST` (earliest deadline first), or `WEIGHTED_SCORE` (priority weight plus a deterministic urgency bonus) via an `EnumMap` — `TaskService` never branches on the policy itself.
+- **Per-Task ReentrantLock guarding two real races**: a fair per-task lock re-validates the transition (or the claim-if-unassigned check) against the CURRENT state inside the lock, so two actors racing to move the same task to two different terminal statuses — or racing to claim the same unassigned task — can never both win.
+- **Isolated Simulation Sandbox with Two Live Races**: `/api/tasks/sim/*` runs against a second repository seeded with tasks walked through the real state machine; `simClaimRace` and `simTransitionRace` fire concurrent callers via a `CountDownLatch` and return exactly who won and who was rejected.
+
+#### API Endpoints
+- `GET /api/tasks/boards`
+- `POST /api/tasks/boards`
+- `GET /api/tasks/boards/{boardId}`
+- `GET /api/tasks/boards/{boardId}/tasks`
+- `GET /api/tasks/boards/{boardId}/ordered`
+- `POST /api/tasks/boards/{boardId}/tasks`
+- `GET /api/tasks/{id}`
+- `PUT /api/tasks/{id}/status`
+- `PUT /api/tasks/{id}/priority`
+- `PUT /api/tasks/{id}/assignee`
+- `POST /api/tasks/{id}/claim`
+- `DELETE /api/tasks/{id}`
+- `POST /api/tasks/sim/reset`
+- `GET /api/tasks/sim/state`
+- `POST /api/tasks/sim/move`
+- `POST /api/tasks/sim/claim`
+- `POST /api/tasks/sim/order`
+- `POST /api/tasks/sim/claim-race`
+- `POST /api/tasks/sim/transition-race`
+- `GET /api/tasks/sim/events`
 
 ---
 
