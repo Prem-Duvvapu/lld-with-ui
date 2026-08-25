@@ -7,10 +7,20 @@ export default {
   classes: [
     {
       name: 'SnakeLaddersService',
+      stereotype: 'singleton',
+      fields: [
+        '- repository: GameRepository',
+        '- diceRoller: DiceRoller',
+        '- gameLocks: ConcurrentHashMap<String, ReentrantLock>',
+        '- simRepository: GameRepository',
+        '- simEventLog: List<SimEvent>'
+      ],
       methods: [
         '+ createGame(playerNames): Game',
-        '+ rollDice(gameId): RollResult',
-        '+ checkWin(player): boolean'
+        '+ getGame(id): Game',
+        '+ rollDice(gameId): Game',
+        '+ simReset(): Game',
+        '+ simRoll(): Game'
       ]
     },
     {
@@ -18,14 +28,18 @@ export default {
       fields: [
         '- id: String',
         '- players: List<Player>',
-        '- board: Map<Integer, Integer>',
         '- currentPlayerIndex: int',
-        '- state: GameState'
+        '- snakes: Map<Integer, Integer>',
+        '- ladders: Map<Integer, Integer>',
+        '- diceRoller: DiceRoller',
+        '- state: GameState',
+        '- winner: Player',
+        '- lastDiceValue: int',
+        '- lastMessage: String'
       ],
       methods: [
-        '+ movePlayer(player, steps): void',
-        '+ applySnakeOrLadder(pos): int',
-        '+ nextTurn(): void'
+        '+ rollAndMove(): int',
+        '+ getCurrentPlayer(): Player'
       ]
     },
     {
@@ -40,9 +54,30 @@ export default {
       ]
     },
     {
-      name: 'Dice',
+      name: 'DiceRoller',
+      stereotype: 'interface',
+      fields: [],
       methods: [
         '+ roll(): int'
+      ]
+    },
+    {
+      name: 'RandomDiceRoller',
+      fields: [
+        '- random: Random'
+      ],
+      methods: [
+        'implements DiceRoller'
+      ]
+    },
+    {
+      name: 'FixedDiceRoller',
+      fields: [
+        '- sequence: int[]',
+        '- index: int'
+      ],
+      methods: [
+        'implements DiceRoller'
       ]
     },
     {
@@ -65,8 +100,57 @@ export default {
       name: 'GameState',
       stereotype: 'enum',
       fields: [
+        'WAITING',
         'IN_PROGRESS',
         'FINISHED'
+      ],
+      methods: []
+    },
+    {
+      name: 'GameRepository',
+      fields: [
+        '- games: ConcurrentHashMap<String, Game>'
+      ],
+      methods: [
+        '+ save(game): void',
+        '+ get(id): Game',
+        '+ generateId(): String'
+      ]
+    },
+    {
+      name: 'SnakeLaddersException',
+      stereotype: 'exception',
+      fields: [],
+      methods: []
+    },
+    {
+      name: 'GameNotFoundException',
+      stereotype: 'exception',
+      fields: ['@ResponseStatus 404'],
+      methods: []
+    },
+    {
+      name: 'InvalidPlayerCountException',
+      stereotype: 'exception',
+      fields: ['@ResponseStatus 400'],
+      methods: []
+    },
+    {
+      name: 'GameAlreadyFinishedException',
+      stereotype: 'exception',
+      fields: ['@ResponseStatus 409'],
+      methods: []
+    },
+    {
+      name: 'SimEvent',
+      fields: [
+        '- id: long',
+        '- timestamp: String',
+        '- actor: String',
+        '- description: String',
+        '- diceValue: int',
+        '- playersSnapshot: List<Player>',
+        '- status: GameState'
       ],
       methods: []
     }
@@ -74,33 +158,70 @@ export default {
   relationships: [
     {
       from: 'SnakeLaddersService',
+      to: 'GameRepository',
+      label: 'uses'
+    },
+    {
+      from: 'SnakeLaddersService',
       to: 'Game',
       label: 'manages'
     },
     {
+      from: 'SnakeLaddersService',
+      to: 'DiceRoller',
+      label: 'injects'
+    },
+    {
       from: 'Game',
       to: 'Player',
-      label: 'has'
+      label: 'has 2-4'
     },
     {
       from: 'Game',
-      to: 'Dice',
-      label: 'uses'
-    },
-    {
-      from: 'Game',
-      to: 'Snake',
-      label: 'has 6'
-    },
-    {
-      from: 'Game',
-      to: 'Ladder',
-      label: 'has 11'
+      to: 'DiceRoller',
+      label: 'rolls via'
     },
     {
       from: 'Game',
       to: 'GameState',
       label: 'has state'
+    },
+    {
+      from: 'RandomDiceRoller',
+      to: 'DiceRoller',
+      label: 'implements',
+      dashed: true
+    },
+    {
+      from: 'FixedDiceRoller',
+      to: 'DiceRoller',
+      label: 'implements',
+      dashed: true
+    },
+    {
+      from: 'GameNotFoundException',
+      to: 'SnakeLaddersException',
+      label: 'extends'
+    },
+    {
+      from: 'InvalidPlayerCountException',
+      to: 'SnakeLaddersException',
+      label: 'extends'
+    },
+    {
+      from: 'GameAlreadyFinishedException',
+      to: 'SnakeLaddersException',
+      label: 'extends'
+    },
+    {
+      from: 'SnakeLaddersService',
+      to: 'SnakeLaddersException',
+      label: 'throws'
+    },
+    {
+      from: 'SnakeLaddersService',
+      to: 'SimEvent',
+      label: 'logs (/sim/* engine)'
     }
   ]
 };

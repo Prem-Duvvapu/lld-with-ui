@@ -4,20 +4,28 @@
 
 export default {
   title: 'Minesweeper — Design Details',
+  tldr: [
+    'Classic Minesweeper on an N x M grid with flood-fill reveal, flagging, and win/loss detection.',
+    'First-click-safe: mines are placed lazily on the first reveal, excluding the clicked cell, so a player\'s opening click can never lose the game.',
+    'Mine placement is a Strategy (MinePlacer): RandomMinePlacer in production, FixedMinePlacer with an explicit layout in tests — the only way flood-fill shape, win/loss, and the first-click guarantee can be asserted deterministically.',
+    'Typed exception contract (GameNotFoundException, GameOverException, InvalidCellException, InvalidBoardConfigException) replacing two real unhandled-failure paths: an out-of-bounds cell that threw a bare ArrayIndexOutOfBoundsException, and a mine count >= cell count that spun the placement loop forever.',
+    'Per-game ReentrantLock (one per game id, not one for the whole module) around every reveal/flag.',
+    'An isolated /api/minesweeper/sim/* engine — a separate MinesweeperRepository instance on a fixed 5x5/3-mine board — so replaying the demo can never corrupt a real match.'
+  ],
   requirements: [
-    'Classic Minesweeper game on a grid with N rows × M columns',
-    'M mines are randomly placed on the board (configurable difficulty)',
-    'Left-click to reveal a cell; if it\'s a mine → game over (LOST)',
-    'If revealed cell has 0 adjacent mines → flood-fill (BFS) reveals all neighboring cells recursively',
-    'If revealed cell has N adjacent mines → shows number N (1-8)',
-    'Right-click to toggle a flag on a cell; flag counter tracks flags used vs total mines',
-    'Win condition: all non-mine cells are revealed (WON)',
-    'Thread-safe concurrent access via ReentrantLock — multiple reveal/flag operations are atomic'
+    'Classic Minesweeper game on a grid with N rows x M columns',
+    'M mines are placed on the board (configurable difficulty) — lazily, on the first reveal, never on the clicked cell',
+    'Revealing a cell: if it\'s a mine, the game ends LOST; otherwise it shows its adjacent-mine count',
+    'Revealing a cell with 0 adjacent mines flood-fills — recursively reveals all connected zero-adjacency cells and the numbered cells bordering them, without cascading past a numbered cell',
+    'Right-click (or long-press) toggles a flag on a hidden cell; a flagged cell cannot be revealed until un-flagged, and a revealed cell cannot be flagged',
+    'Win condition: every non-mine cell has been revealed (WON)',
+    'Board dimensions and mine count are validated: non-positive dimensions, a negative mine count, or mines >= total cells are all rejected up front',
+    'Thread-safe concurrent access via a per-game ReentrantLock — reveal/flag operations (including the lazy first-reveal mine placement) are atomic per game, and unrelated games never contend for the same lock'
   ],
   entities: [
     {
       name: 'MinesweeperService',
-      description: 'Core business logic for Minesweeper. Handles game creation (mine placement + adjacency calculation), cell reveal (with flood-fill BFS), flag toggle, and win/loss detection.',
+      description: 'Facade for the whole module: board setup/validation, first-click-safe mine placement, flood-fill reveal, flagging, win/loss detection, and the isolated /sim/* engine.',
       fields: [
         {
           name: 'repository',
@@ -25,36 +33,41 @@ export default {
           description: 'Data access layer injected via constructor'
         },
         {
-          name: 'lock',
-          type: 'ReentrantLock',
-          description: 'Ensures thread-safe game mutations'
+          name: 'minePlacer',
+          type: 'MinePlacer',
+          description: 'Injected Strategy for choosing mine positions — RandomMinePlacer in production, FixedMinePlacer in tests'
         },
         {
-          name: 'random',
-          type: 'Random',
-          description: 'Random number generator for mine placement'
+          name: 'gameLocks',
+          type: 'ConcurrentHashMap<Long, ReentrantLock>',
+          description: 'One ReentrantLock per game id, taken for the whole read-validate-mutate span of reveal/flag — replaces a previous single module-wide lock'
+        },
+        {
+          name: 'simRepository / simEventLog',
+          type: 'MinesweeperRepository / List<SimEvent>',
+          description: 'A second, fully independent repository and its own telemetry log backing /sim/*'
         }
       ],
       methods: [
         {
           name: 'createGame(rows, cols, mines)',
           returns: 'Game',
-          description: 'Creates board, randomly places mines, calculates adjacent counts for each cell'
+          description: 'Validates board config, then creates an empty (mine-free) board — mines are not placed yet'
         },
         {
           name: 'revealCell(gameId, row, col)',
           returns: 'Game',
-          description: 'Reveals cell; if mine → LOST; if 0 adjacent → flood-fill; checks win condition'
+          description: 'On the first reveal for this game, places all mines via MinePlacer (excluding this cell) and computes adjacency; then reveals — mine → LOST; 0-adjacency → flood-fill; checks win'
         },
         {
           name: 'flagCell(gameId, row, col)',
           returns: 'Game',
-          description: 'Toggles flag on cell (only on hidden cells), tracks flag count'
+          description: 'Toggles flag on a hidden cell, tracks flag count'
         },
         {
           name: 'getGame(id)',
           returns: 'Game',
-          description: 'Returns current game state (hides mine positions while game is PLAYING)'
+          description: 'Returns current game state, masking adjacentMines to -1 on unrevealed mine cells while the game is still PLAYING'
         }
       ]
     },
@@ -69,62 +82,30 @@ export default {
         }
       ],
       methods: [
-        {
-          name: 'save(game)',
-          returns: 'void',
-          description: 'Stores/updates game in the map'
-        },
-        {
-          name: 'get(id)',
-          returns: 'Game',
-          description: 'Retrieves game by ID'
-        }
+        { name: 'save(game)', returns: 'void', description: 'Stores/updates game in the map' },
+        { name: 'get(id)', returns: 'Game', description: 'Retrieves game by ID' },
+        { name: 'nextId()', returns: 'long', description: 'Atomically issues the next game id' }
       ]
+    },
+    {
+      name: 'MinePlacer',
+      description: 'Strategy interface for mine placement — place(board, rows, cols, totalMines, excludeRow, excludeCol). RandomMinePlacer (production, Spring bean) places uniformly at random, skipping the excluded cell; FixedMinePlacer (tests) places at an explicit, caller-given list of coordinates, ignoring the exclusion entirely so flood-fill/win/loss can be tested against a known board.',
+      fields: [],
+      methods: []
     },
     {
       name: 'Game',
       description: 'Central entity holding the Minesweeper board, game state, and statistics.',
       fields: [
-        {
-          name: 'id',
-          type: 'long',
-          description: 'Unique game identifier'
-        },
-        {
-          name: 'board',
-          type: 'Cell[][]',
-          description: '2D array of cells (rows × cols)'
-        },
-        {
-          name: 'rows',
-          type: 'int',
-          description: 'Number of rows'
-        },
-        {
-          name: 'cols',
-          type: 'int',
-          description: 'Number of columns'
-        },
-        {
-          name: 'totalMines',
-          type: 'int',
-          description: 'Total number of mines on the board'
-        },
-        {
-          name: 'status',
-          type: 'GameStatus',
-          description: 'PLAYING, WON, or LOST'
-        },
-        {
-          name: 'flagsUsed',
-          type: 'int',
-          description: 'Number of flags currently placed'
-        },
-        {
-          name: 'revealedCount',
-          type: 'int',
-          description: 'Number of successfully revealed cells'
-        }
+        { name: 'id', type: 'long', description: 'Unique game identifier' },
+        { name: 'board', type: 'Cell[][]', description: '2D array of cells (rows x cols)' },
+        { name: 'rows', type: 'int', description: 'Number of rows' },
+        { name: 'cols', type: 'int', description: 'Number of columns' },
+        { name: 'totalMines', type: 'int', description: 'Total number of mines on the board' },
+        { name: 'status', type: 'GameStatus', description: 'PLAYING, WON, or LOST' },
+        { name: 'flagsUsed', type: 'int', description: 'Number of flags currently placed' },
+        { name: 'revealedCount', type: 'int', description: 'Number of successfully revealed cells' },
+        { name: 'firstClickDone', type: 'boolean', description: 'False until the first reveal places mines — the first-click-safe policy\'s state flag' }
       ],
       methods: []
     },
@@ -132,78 +113,70 @@ export default {
       name: 'Cell',
       description: 'A single cell on the Minesweeper board with position and state.',
       fields: [
-        {
-          name: 'row',
-          type: 'int',
-          description: 'Row index (0-based)'
-        },
-        {
-          name: 'col',
-          type: 'int',
-          description: 'Column index (0-based)'
-        },
-        {
-          name: 'isMine',
-          type: 'boolean',
-          description: 'Whether this cell contains a mine'
-        },
-        {
-          name: 'isRevealed',
-          type: 'boolean',
-          description: 'Whether the cell has been revealed'
-        },
-        {
-          name: 'isFlagged',
-          type: 'boolean',
-          description: 'Whether the cell is flagged (cannot be revealed while flagged)'
-        },
-        {
-          name: 'adjacentMines',
-          type: 'int',
-          description: 'Count of mines in adjacent cells (0-8). -1 if this cell itself is a mine'
-        }
+        { name: 'row', type: 'int', description: 'Row index (0-based)' },
+        { name: 'col', type: 'int', description: 'Column index (0-based)' },
+        { name: 'mine', type: 'boolean', description: 'Whether this cell contains a mine' },
+        { name: 'revealed', type: 'boolean', description: 'Whether the cell has been revealed' },
+        { name: 'flagged', type: 'boolean', description: 'Whether the cell is flagged (cannot be revealed while flagged)' },
+        { name: 'adjacentMines', type: 'int', description: 'Count of mines in adjacent cells (0-8). Masked to -1 by getGame() on unrevealed mine cells while PLAYING' }
       ],
+      methods: []
+    },
+    {
+      name: 'MinesweeperException hierarchy',
+      description: 'Abstract module base (never thrown directly) plus four concrete, typed failures: GameNotFoundException (404), GameOverException (409), InvalidCellException (400, out-of-bounds), InvalidBoardConfigException (400, bad dimensions or mines >= cell count).',
+      fields: [],
       methods: []
     }
   ],
   designPatterns: [
     {
+      name: 'Strategy Pattern',
+      used: true,
+      explanation: 'MinePlacer decouples "where mines go" from the reveal/flood-fill/win logic. RandomMinePlacer and FixedMinePlacer are interchangeable at construction time — the service never knows or cares which one it was given.'
+    },
+    {
       name: 'Repository Pattern',
       used: true,
-      explanation: 'MinesweeperRepository abstracts all data access behind semantic methods like save() and get(). The service never touches maps directly, keeping business logic clean and the data layer swappable.'
+      explanation: 'MinesweeperRepository abstracts all data access behind semantic methods like save() and get(). The service never touches a map directly.'
     },
     {
-      name: 'Singleton Pattern',
+      name: 'Facade Pattern',
       used: true,
-      explanation: 'Spring @Service and @Repository singletons ensure one consistent game state across all requests. Critical since all game data lives in memory.'
+      explanation: 'MinesweeperService is the single entry point the controller delegates to — board validation, per-game locking, lazy mine placement and win/loss all live here.'
     },
     {
-      name: 'Dependency Injection (IoC)',
+      name: 'Sandboxed Simulation Instance',
       used: true,
-      explanation: 'MinesweeperService receives MinesweeperRepository via constructor injection. Spring auto-wires the dependency, enabling easy testing with mock repositories.'
+      explanation: 'The /sim/* engine reuses the same MinePlacer bean and reveal/flag logic against a second, independent MinesweeperRepository instance on a fixed 5x5 board, so the demo tab can never touch a real game.'
+    },
+    {
+      name: 'Exception Hierarchy',
+      used: true,
+      explanation: 'A per-module abstract base (MinesweeperException) lets the shared GlobalExceptionHandler map every concrete failure — including the two paths that used to be an unhandled 500/hang — to the right HTTP status.'
     },
     {
       name: 'Observer Pattern',
       used: false,
-      explanation: 'The frontend polls for game state updates. A WebSocket-based observer would push cell reveal events and game-over notifications in real-time without polling.'
+      explanation: 'The frontend polls for game state updates. A WebSocket-based observer would push cell-reveal and game-over events in real time without polling.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'MinesweeperService handles game logic (mine placement, reveal, flood-fill, win/loss). MinesweeperRepository handles data storage. GameController handles HTTP mapping. Each has one reason to change.'
+      description: 'MinesweeperService handles game orchestration; MinePlacer handles exactly one thing (where mines go); MinesweeperRepository handles storage; MinesweeperController handles HTTP mapping.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'Adding new difficulty presets (rows/cols/mines combinations) requires no code changes to the core game logic. New cell states or game features can be added without modifying the existing reveal/flag flow.'
+      description: 'A new mine-placement strategy (e.g. a symmetric or difficulty-curved layout) is a new MinePlacer implementation — revealCell/flood-fill/win logic never change.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'Service depends on repository abstraction, not on ConcurrentHashMap directly. Spring injects the concrete implementation, enabling storage strategy swaps.'
+      description: 'MinesweeperService depends on the MinePlacer and MinesweeperRepository abstractions, not on java.util.Random or ConcurrentHashMap directly — the exact gap that made deterministic testing impossible before this build-out.'
     },
     {
-      name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Flood-fill logic is a single recursive function reused for all zero-count reveals. Adjacent mine counting uses one loop structure. Win check is a single formula (revealed + mines = total).'
+      name: 'Fail Fast',
+      description: 'Board config (dimensions, mine count) and cell bounds are validated at the boundary, before any state mutation — replacing two previously-unhandled failure paths (an infinite placement loop; a bare ArrayIndexOutOfBoundsException) with typed 400s.'
     }
   ],
   oopConcepts: [
@@ -214,44 +187,39 @@ export default {
     },
     {
       name: 'Recursion — Flood-Fill Algorithm',
-      description: 'When a cell with 0 adjacent mines is revealed, the service recursively reveals all 8 neighboring cells. If those also have 0 mines, the recursion continues (BFS-style). This mirrors the classic Minesweeper behavior.',
-      alternative: 'Could use an iterative queue-based BFS. Recursion is chosen because it\'s simpler and the board size is small (max 256 cells), so stack overflow is not a concern.'
+      description: 'When a cell with 0 adjacent mines is revealed, the service recursively reveals all 8 neighboring cells, stopping at any numbered (non-zero) cell — that cell is still revealed, just not cascaded past. Bounds are checked before every array access.',
+      alternative: 'Could use an iterative queue-based BFS. Recursion is chosen because it\'s simpler and the board size is small (max ~256 cells at Expert), so stack depth is not a concern.'
     },
     {
       name: '2D Array Composition',
-      description: 'The board is a 2D array of Cell objects. The Game contains the board, not extends it. This composition approach allows the board to be easily accessed via grid coordinates.',
-      alternative: 'Could use a flat array with index = row × cols + col. 2D array is chosen because it makes coordinate-based operations (neighbor lookup, flood-fill) more intuitive.'
+      description: 'The board is a 2D array of Cell objects. Game contains the board, not extends it. This composition approach allows the board to be easily accessed via grid coordinates.',
+      alternative: 'Could use a flat array with index = row * cols + col. 2D array is chosen because it makes coordinate-based operations (neighbor lookup, flood-fill) more intuitive.'
     }
   ],
   extensibility: [
     {
       area: 'New Difficulty Levels',
-      description: 'Add new preset to the frontend selector with custom rows/cols/mines. Backend already accepts these as parameters. No code changes needed.',
+      description: 'Add a new preset to the frontend selector with custom rows/cols/mines. The backend already accepts these as parameters and validates them.',
       difficulty: 'Easy'
     },
     {
       area: 'Timer / Leaderboard',
-      description: 'Add timer field to Game. Track completion time. Frontend shows elapsed time. Leaderboard stores best times per difficulty. RevealCell stops timer on game over.',
+      description: 'Add a timer field to Game, track completion time, and store best times per difficulty. revealCell would stop the timer on WON/LOST.',
       difficulty: 'Medium'
     },
     {
-      area: 'First-Click Safety',
-      description: 'Guarantee first reveal is never a mine. In createGame(), delay mine placement until first reveal. Place mines avoiding the first-click cell and its neighbors.',
+      area: 'Chord Reveal',
+      description: 'If a revealed number cell has N flagged neighbors and N = adjacentMines, auto-reveal its remaining neighbors — reduces repetitive clicking.',
       difficulty: 'Medium'
     },
     {
-      area: 'Auto-Flag / Chord Reveal',
-      description: 'Chord reveal: if a revealed number cell has N flagged neighbors and N = adjacentMines, auto-reveal remaining neighbors. Reduces repetitive clicking.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Mine-Free Zones (Patterns)',
-      description: 'Allow creating predefined patterns (e.g., guaranteed safe border). Useful for puzzles. Requires only changing mine placement logic in createGame().',
+      area: 'Wider first-click-safe opening',
+      description: 'The current policy excludes only the clicked cell from mine placement. Excluding its full 3x3 neighborhood as well would guarantee an opening cascade on the first click, at the cost of a slightly weaker random distribution near the edges of small boards.',
       difficulty: 'Easy'
     },
     {
       area: 'Database Persistence',
-      description: 'Implement JpaMinesweeperRepository. Swap via Spring @Profile. Service layer unchanged.',
+      description: 'Implement a JPA-backed MinesweeperRepository and swap it in via Spring @Profile — the service layer is unchanged since it only depends on the repository\'s save/get/nextId contract.',
       difficulty: 'Medium'
     }
   ]

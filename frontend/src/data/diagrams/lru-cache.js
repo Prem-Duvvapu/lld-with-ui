@@ -9,7 +9,8 @@ export default {
       name: 'LruCacheService',
       stereotype: 'singleton',
       fields: [
-        '- cache: LruCache<String, String>'
+        '- cache: LruCache<String, String>',
+        '- simCache: LruCache<String, String>'
       ],
       methods: [
         '+ get(key): String',
@@ -20,7 +21,10 @@ export default {
         '+ setPolicy(type): void',
         '+ getSnapshot(): Map',
         '+ getStats(): Map',
-        '+ batchSimulate(): Map'
+        '+ batchSimulate(): Map',
+        '+ simGet/simPut/simRemove/simClear(...): ...',
+        '+ simSetCapacity/simSetPolicy(...): void',
+        '+ getSimSnapshot(): Map'
       ]
     },
     {
@@ -110,6 +114,18 @@ export default {
         'FIFO'
       ],
       methods: []
+    },
+    {
+      name: 'LruCacheException',
+      stereotype: 'exception',
+      fields: [],
+      methods: []
+    },
+    {
+      name: 'InvalidCapacityException',
+      stereotype: 'exception',
+      fields: ['@ResponseStatus 400'],
+      methods: []
     }
   ],
   relationships: [
@@ -155,6 +171,21 @@ export default {
       from: 'LRUEvictionPolicy',
       to: 'Node',
       label: 'doubly-linked list HEAD/TAIL'
+    },
+    {
+      from: 'LruCacheService',
+      to: 'LruCache',
+      label: 'sim instance (isolated /sim/*)'
+    },
+    {
+      from: 'InvalidCapacityException',
+      to: 'LruCacheException',
+      label: 'extends'
+    },
+    {
+      from: 'LruCache',
+      to: 'LruCacheException',
+      label: 'throws'
     }
   ]
 };
