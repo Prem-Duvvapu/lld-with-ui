@@ -1,33 +1,36 @@
 package com.lld.trafficsignal.repository;
 
-import com.lld.trafficsignal.model.*;
+import com.lld.trafficsignal.model.Intersection;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Repository
 public class TrafficRepository {
-    private final Intersection intersection;
-    private final ReentrantLock lock = new ReentrantLock();
+    private final Map<Integer, Intersection> intersections = new ConcurrentHashMap<>();
+    private final AtomicInteger idGenerator = new AtomicInteger(1);
 
-    public TrafficRepository() {
-        List<TrafficLight> lights = List.of(
-            new TrafficLight(0, "North"),
-            new TrafficLight(1, "South"),
-            new TrafficLight(2, "East"),
-            new TrafficLight(3, "West")
-        );
-        lights.get(0).setCurrentState(LightState.GREEN); // Start with North Green
-        this.intersection = new Intersection(1, "Main Intersection", lights);
+    public int nextIntersectionId() {
+        return idGenerator.getAndIncrement();
     }
 
-    public Intersection getIntersection() {
-        lock.lock();
-        try {
-            return intersection;
-        } finally {
-            lock.unlock();
-        }
+    public void save(Intersection intersection) {
+        intersections.put(intersection.getId(), intersection);
+    }
+
+    public Intersection find(int id) {
+        return intersections.get(id);
+    }
+
+    public List<Intersection> findAll() {
+        return List.copyOf(intersections.values());
+    }
+
+    public void clear() {
+        intersections.clear();
+        idGenerator.set(1);
     }
 }
