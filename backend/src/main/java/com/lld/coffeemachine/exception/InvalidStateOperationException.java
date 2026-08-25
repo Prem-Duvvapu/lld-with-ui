@@ -1,6 +1,10 @@
 package com.lld.coffeemachine.exception;
 
-public class InvalidStateOperationException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(HttpStatus.CONFLICT)
+public class InvalidStateOperationException extends CoffeeMachineException {
     public InvalidStateOperationException(String message) {
         super(message);
     }

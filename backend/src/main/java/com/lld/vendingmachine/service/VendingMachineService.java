@@ -88,6 +88,21 @@ public class VendingMachineService {
         mainMachine.restockSlot(slotCode, quantity);
     }
 
+    /**
+     * Select + insert cash + dispense as one atomic customer interaction. See
+     * {@link VendingMachine#purchase(String, List)} for why this exists instead of composing the
+     * three separately-locked calls above from a concurrent caller.
+     */
+    public Transaction purchase(String slotCode, List<Integer> denominationValues) {
+        List<Denomination> cash = new ArrayList<>();
+        if (denominationValues != null) {
+            for (int value : denominationValues) {
+                cash.add(Denomination.fromValue(value));
+            }
+        }
+        return mainMachine.purchase(slotCode, cash);
+    }
+
     public void refillChange(int denominationValue, int count) {
         Denomination denomination = Denomination.fromValue(denominationValue);
         mainMachine.refillChange(denomination, count);

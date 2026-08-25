@@ -158,4 +158,45 @@ public class VendingMachine {
             lock.unlock();
         }
     }
+
+    /**
+     * Runs an entire customer interaction — select, pay, dispense — as one atomic unit under
+     * the machine-wide lock, instead of three separately-locked calls.
+     *
+     * <p>A real vending machine only serves one customer at a time: the select/insertMoney/
+     * dispense split above is fine for a single physical customer walking through the steps at
+     * their own pace, but it is NOT safe for concurrent customers, because {@code
+     * currentTransaction} is one shared field. Two customers interleaving select() calls would
+     * silently overwrite each other's in-flight transaction. This method is the safe entry point
+     * for concurrent callers (e.g. multiple kiosk sessions, or an automated ordering system):
+     * it holds {@link #lock} — which is reentrant, so the inner calls to the already-locking
+     * select/insert/dispense methods do not deadlock — for the whole purchase, so concurrent
+     * purchases on the same machine queue up and run one at a time, exactly like real customers
+     * would at a single physical machine. Stock is never oversold: a purchase that arrives after
+     * the slot has been emptied by an earlier purchase fails with {@link OutOfStockException} at
+     * the select step.
+     *
+     * @param slotCode the slot to buy from
+     * @param cash     denominations to insert, in the order they should be fed in; must total at
+     *                 least the item price or {@link InsufficientPaymentException} is thrown at
+     *                 dispense time
+     * @return the completed (DISPENSED) transaction
+     */
+    public Transaction purchase(String slotCode, List<Denomination> cash) {
+        lock.lock();
+        try {
+            if (currentState != idleState) {
+                throw new InvalidStateException("Machine is busy with another transaction. Please wait.");
+            }
+            selectProduct(slotCode);
+            if (cash != null) {
+                for (Denomination denomination : cash) {
+                    insertMoney(denomination);
+                }
+            }
+            return dispense();
+        } finally {
+            lock.unlock();
+        }
+    }
 }

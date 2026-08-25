@@ -1,11 +1,14 @@
 package com.lld.coffeemachine.model;
 
+import lombok.Data;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Data
 public class CoffeeOrder {
     private long orderId;
     private String baseCoffeeName;
@@ -37,37 +40,4 @@ public class CoffeeOrder {
         this.timestamp = LocalDateTime.now();
         this.message = "Order initiated for " + description + " (₹" + totalPrice + ")";
     }
-
-    public long getOrderId() { return orderId; }
-    public void setOrderId(long orderId) { this.orderId = orderId; }
-
-    public String getBaseCoffeeName() { return baseCoffeeName; }
-    public void setBaseCoffeeName(String baseCoffeeName) { this.baseCoffeeName = baseCoffeeName; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public double getTotalPrice() { return totalPrice; }
-    public void setTotalPrice(double totalPrice) { this.totalPrice = totalPrice; }
-
-    public double getAmountPaid() { return amountPaid; }
-    public void setAmountPaid(double amountPaid) { this.amountPaid = amountPaid; }
-
-    public double getChangeReturned() { return changeReturned; }
-    public void setChangeReturned(double changeReturned) { this.changeReturned = changeReturned; }
-
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-
-    public List<String> getCustomizations() { return customizations; }
-    public void setCustomizations(List<String> customizations) { this.customizations = customizations; }
-
-    public Map<String, Integer> getRequiredIngredients() { return requiredIngredients; }
-    public void setRequiredIngredients(Map<String, Integer> requiredIngredients) { this.requiredIngredients = requiredIngredients; }
-
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
-
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
 }

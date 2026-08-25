@@ -182,6 +182,29 @@ public class CoffeeMachineServiceTest {
     }
 
     @Test
+    @DisplayName("simSetStock pins the sim sandbox's ingredient level so the insufficient-ingredient demo step is deterministic")
+    void simSetStockPinsIngredientDeterministically() {
+        service.simReset();
+        Map<String, Object> snap = service.simSetStock(IngredientType.CARAMEL_SYRUP, 5, 7);
+        assertNotNull(snap);
+
+        @SuppressWarnings("unchecked")
+        Map<IngredientType, Integer> inventory = (Map<IngredientType, Integer>) snap.get("inventory");
+        assertEquals(5, inventory.get(IngredientType.CARAMEL_SYRUP));
+
+        // Mocha needs 20ml of Caramel Syrup; with only 5ml pinned, selecting it must be rejected
+        // before any state changes — this is the sim's failure-path demo step.
+        assertThrows(InsufficientIngredientException.class, () -> service.simSelectBase(CoffeeType.MOCHA, 7));
+        assertEquals("IDLE", service.getSimMachine().getCurrentState().getStateName(),
+                "a rejected selection must not leave the sandbox mid-transition");
+
+        // The event log must have recorded the rejection, not silently swallowed it.
+        boolean hasErrorEvent = service.simGetEvents().stream()
+                .anyMatch(e -> "SELECT_BASE_ERROR".equals(e.getEventType()) && "ERROR".equals(e.getStatus()));
+        assertTrue(hasErrorEvent, "the rejection must be visible in the telemetry event log");
+    }
+
+    @Test
     @DisplayName("Should execute simulation scenario and record telemetry events")
     void testSimulationScenarioFlow() {
         Map<String, Object> resetSnap = service.simReset();

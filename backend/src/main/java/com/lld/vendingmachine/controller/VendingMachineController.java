@@ -115,6 +115,25 @@ public class VendingMachineController {
         }
     }
 
+    @PostMapping("/purchase")
+    public ResponseEntity<?> purchase(@RequestBody Map<String, Object> body) {
+        try {
+            String slotCode = (String) body.get("slotCode");
+            @SuppressWarnings("unchecked")
+            List<Integer> cash = ((List<Number>) body.getOrDefault("denominations", List.of()))
+                    .stream().map(Number::intValue).collect(java.util.stream.Collectors.toList());
+            return ResponseEntity.ok(service.purchase(slotCode, cash));
+        } catch (SlotNotFoundException | ProductNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(e));
+        } catch (OutOfStockException | InsufficientChangeException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(e));
+        } catch (InsufficientPaymentException e) {
+            return ResponseEntity.status(HttpStatus.PAYMENT_REQUIRED).body(ErrorResponse.of(e));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ErrorResponse.of(e));
+        }
+    }
+
     @PostMapping("/restock")
     public ResponseEntity<?> restock(@RequestBody Map<String, Object> body) {
         try {
