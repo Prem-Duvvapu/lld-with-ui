@@ -36,7 +36,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 26 | [LRU Cache](#26-lru-cache) | In-memory cache | Strategy (LRU/LFU/FIFO eviction), Doubly Linked List + HashMap, Isolated Sim Engine |
 | 27 | [Pub Sub System](#27-pubsub-system-message-broker) | Message broker | Observer, Dedicated Per-Subscriber FIFO Worker Threads |
 | 28 | [Car Rental System](#28-car-rental-system) | Vehicle fleet & booking | Overlapping-Interval Per-Vehicle Lock, Strategy + Factory (tiered pricing), State Machine |
-| 29 | Online Auction System | Bidding engine | Observer, Strategy |
+| 29 | [Online Auction System](#29-online-auction-system) | Bidding engine | Observer, Strategy + Factory (bid increment), Per-Auction ReentrantLock |
 | 30 | Restaurant Management | Order & kitchen workflow | State Machine, Factory |
 | 31 | Social Network | Posts & feeds | Graph Model, Observer |
 | 32 | [Concert Ticket Booking](#32-concert-ticket-booking) | Event seats & reservation | Per-Seat ReentrantLock, Hold TTL, Strategy (refund policy) |
@@ -685,6 +685,34 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `PUT /api/car-rental/reservations/{id}/cancel`
 - `POST /api/car-rental/sim/reset`
 - `POST /api/car-rental/sim/reservations`
+
+---
+
+### 29. Online Auction System
+
+#### Key Features
+- **Per-Auction ReentrantLock with Check-Then-Act Fix**: `AuctionService#doPlaceBid` takes a fair per-auction lock (`computeIfAbsent`, same idiom as `InventoryService.productLocks`) and re-fetches the auction and re-checks the current highest bid **inside** the lock, so two bidders offering the identical amount at the identical instant can never both be recorded as the leading bid — exactly one wins, the rest get `BidTooLowException`.
+- **Observer Pattern**: `AuctionNotifier` fans every `OutbidEvent` out to independent observers — `InAppAuctionObserver` (the queryable feed behind `GET /notifications`) and `LoggingAuctionObserver` — neither aware the other exists, and only fired when a bid actually supersedes a previous leading bidder.
+- **Strategy + Factory (Bid Increment)**: `BidIncrementStrategyFactory` resolves `FIXED` (flat currency step) or `PERCENTAGE` (percent of the current bid, rounded to the cent) via an `EnumMap` — `AuctionService` never branches on the policy itself.
+- **Time-Derived Lifecycle Guards**: a bid before an auction's start time throws `InvalidAuctionWindowException`; a bid after its end time or on an already-closed auction throws `AuctionClosedException` — both derived from wall-clock time against `startTime`/`endTime` directly, not from a background-scheduler-maintained status flag that could go stale.
+- **Isolated Simulation Sandbox with a Live Race**: `/api/auction/sim/*` runs against a second repository/notifier pair, seeded with 3 bidders and 4 auctions across both increment policies and every lifecycle state; `simRace` fires N concurrent identical-amount bids via a `CountDownLatch` and returns exactly how many succeeded, how many were rejected, and the winning bidder.
+
+#### API Endpoints
+- `GET /api/auction/auctions`
+- `POST /api/auction/auctions`
+- `GET /api/auction/auctions/{id}`
+- `POST /api/auction/auctions/{id}/close`
+- `GET /api/auction/auctions/{id}/bids`
+- `POST /api/auction/bidders`
+- `GET /api/auction/bidders`
+- `POST /api/auction/bids`
+- `GET /api/auction/notifications`
+- `POST /api/auction/sim/reset`
+- `GET /api/auction/sim/snapshot`
+- `POST /api/auction/sim/bid`
+- `POST /api/auction/sim/close`
+- `POST /api/auction/sim/race`
+- `GET /api/auction/sim/events`
 
 ---
 

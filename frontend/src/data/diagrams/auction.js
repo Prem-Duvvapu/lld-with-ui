@@ -1,121 +1,180 @@
 // classDiagrams — auction
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Grounded directly in the real backend classes under com.lld.auction.*.
 
 export default {
-  title: 'Auction System — Class Diagram',
+  title: 'Online Auction House — Class Diagram',
   classes: [
     {
-      name: 'Auction',
-      fields: [
-        '- id: String',
-        '- item: Item',
-        '- startingBid: double',
-        '- currentBid: Bid',
-        '- status: AuctionStatus',
-        '- bids: List<Bid>',
-        '- auctioneer: Auctioneer',
-        '- startTime: LocalDateTime',
-        '- endTime: LocalDateTime'
-      ],
+      name: 'AuctionController',
+      stereotype: 'controller',
+      fields: ['- service: AuctionService'],
       methods: [
-        '+ placeBid(bidder, amount): boolean',
-        '+ close(): Bid',
-        '+ getWinner(): Bidder'
+        '+ createAuction(request): Auction',
+        '+ placeBid(request): Bid',
+        '+ closeAuction(id): Auction',
+        '+ getNotifications(): List<OutbidEvent>',
+        '+ simRace(body): Map'
       ]
     },
     {
-      name: 'Item',
+      name: 'AuctionService',
+      stereotype: 'facade',
       fields: [
-        '- id: String',
-        '- name: String',
-        '- description: String',
-        '- reservePrice: double',
-        '- seller: Bidder'
+        '- repository, simRepository: AuctionRepository',
+        '- notifier, simNotifier: AuctionNotifier',
+        '- strategyFactory: BidIncrementStrategyFactory',
+        '- auctionLocks: ConcurrentHashMap<Long, ReentrantLock>'
       ],
+      methods: [
+        '+ createAuction(itemName, description, startingBid, durationMinutes, startDelayMinutes, policy, incrementValue): Auction',
+        '+ placeBid(auctionId, bidderId, amount): Bid',
+        '+ closeAuction(auctionId): Auction',
+        '+ simRace(auctionId, bidderCount, step): Map',
+        '- doPlaceBid(repo, notifier, auctionId, bidderId, amount): Bid',
+        '- requireBiddable(auction, now): void',
+        '- syncStatus(repo, auction, now): void'
+      ]
+    },
+    {
+      name: 'AuctionRepository',
+      stereotype: 'repository',
+      fields: [
+        '- auctions: ConcurrentHashMap<Long, Auction>',
+        '- bidders: ConcurrentHashMap<Long, Bidder>',
+        '- bids: ConcurrentHashMap<Long, Bid>'
+      ],
+      methods: [
+        '+ saveAuction(auction): void',
+        '+ getAuction(id): Auction',
+        '+ getAllAuctions(): List<Auction>',
+        '+ saveBid(bid): void',
+        '+ getBidsForAuction(auctionId): List<Bid>',
+        '+ nextAuctionId/nextBidderId/nextBidId(): long'
+      ]
+    },
+    {
+      name: 'Auction',
+      stereotype: 'entity',
+      fields: [
+        '- id: long', '- itemName: String', '- startingBid: double', '- currentBid: double',
+        '- highestBidderId: Long', '- status: AuctionStatus',
+        '- incrementPolicy: BidIncrementPolicy', '- incrementValue: double',
+        '- startTime: long', '- endTime: long'
+      ],
+      methods: ['+ hasStarted(now): boolean', '+ hasEnded(now): boolean']
+    },
+    {
+      name: 'Bid',
+      stereotype: 'entity',
+      fields: ['- id: long', '- auctionId: long', '- bidderId: long', '- amount: double', '- timestamp: long'],
       methods: []
     },
     {
       name: 'Bidder',
-      fields: [
-        '- id: String',
-        '- name: String',
-        '- email: String',
-        '- bids: List<Bid>',
-        '- notifications: List<String>'
-      ],
-      methods: [
-        '+ placeBid(auction, amount): Bid',
-        '+ getWonAuctions(): List<Auction>'
-      ]
+      stereotype: 'entity',
+      fields: ['- id: long', '- name: String', '- email: String'],
+      methods: []
     },
     {
-      name: 'Bid',
+      name: 'BidIncrementStrategy',
+      stereotype: 'interface',
+      fields: [],
+      methods: ['+ name(): String', '+ minNextBid(auction): double']
+    },
+    {
+      name: 'FixedIncrementStrategy',
+      stereotype: 'strategy',
+      fields: [],
+      methods: ['+ minNextBid(auction): double']
+    },
+    {
+      name: 'PercentageIncrementStrategy',
+      stereotype: 'strategy',
+      fields: [],
+      methods: ['+ minNextBid(auction): double']
+    },
+    {
+      name: 'BidIncrementStrategyFactory',
+      stereotype: 'factory',
+      fields: ['- strategies: EnumMap<BidIncrementPolicy, BidIncrementStrategy>'],
+      methods: ['+ forPolicy(policy): BidIncrementStrategy']
+    },
+    {
+      name: 'AuctionNotifier',
+      stereotype: 'subject',
+      fields: ['- observers: CopyOnWriteArrayList<AuctionObserver>'],
+      methods: ['+ registerObserver(observer): void', '+ removeObserver(observer): void', '+ publish(event): void']
+    },
+    {
+      name: 'AuctionObserver',
+      stereotype: 'interface',
+      fields: [],
+      methods: ['+ onOutbid(event): void']
+    },
+    {
+      name: 'InAppAuctionObserver',
+      stereotype: 'observer',
+      fields: ['- events: Deque<OutbidEvent>'],
+      methods: ['+ onOutbid(event): void', '+ recentEvents(): List<OutbidEvent>']
+    },
+    {
+      name: 'LoggingAuctionObserver',
+      stereotype: 'observer',
+      fields: [],
+      methods: ['+ onOutbid(event): void']
+    },
+    {
+      name: 'OutbidEvent',
+      stereotype: 'entity',
       fields: [
-        '- id: String',
-        '- bidder: Bidder',
-        '- auction: Auction',
-        '- amount: double',
-        '- timestamp: LocalDateTime'
+        '- auctionId: long', '- previousBidderId: long', '- previousAmount: double',
+        '- newBidderId: long', '- newAmount: double', '- message: String'
       ],
       methods: []
     },
     {
-      name: 'Auctioneer',
-      fields: [
-        '- id: String',
-        '- name: String',
-        '- auctions: List<Auction>'
-      ],
-      methods: [
-        '+ createAuction(item, startBid, duration): Auction',
-        '+ startAuction(auctionId): void',
-        '+ endAuction(auctionId): void'
-      ]
+      name: 'AuctionException',
+      stereotype: 'exception',
+      fields: [],
+      methods: []
     },
     {
       name: 'AuctionStatus',
       stereotype: 'enum',
-      fields: [
-        'PENDING',
-        'ACTIVE',
-        'SOLD',
-        'UNSOLD',
-        'CANCELLED'
-      ],
+      fields: ['PENDING', 'ACTIVE', 'CLOSED'],
+      methods: []
+    },
+    {
+      name: 'BidIncrementPolicy',
+      stereotype: 'enum',
+      fields: ['FIXED', 'PERCENTAGE'],
       methods: []
     }
   ],
   relationships: [
-    {
-      from: 'Auction',
-      to: 'Item',
-      label: 'sells'
-    },
-    {
-      from: 'Auction',
-      to: 'Bid',
-      label: 'contains'
-    },
-    {
-      from: 'Auction',
-      to: 'Bidder',
-      label: 'has winner'
-    },
-    {
-      from: 'Auction',
-      to: 'Auctioneer',
-      label: 'managed by'
-    },
-    {
-      from: 'Auction',
-      to: 'AuctionStatus',
-      label: 'has state'
-    },
-    {
-      from: 'Bid',
-      to: 'Bidder',
-      label: 'placed by'
-    }
+    { from: 'AuctionController', to: 'AuctionService', label: 'delegates to' },
+    { from: 'AuctionService', to: 'AuctionRepository', label: 'uses' },
+    { from: 'AuctionService', to: 'AuctionNotifier', label: 'publishes via' },
+    { from: 'AuctionService', to: 'BidIncrementStrategyFactory', label: 'resolves via' },
+    { from: 'AuctionService', to: 'AuctionException', label: 'throws', dashed: true },
+    { from: 'AuctionNotifier', to: 'AuctionObserver', label: 'notifies' },
+    { from: 'AuctionNotifier', to: 'OutbidEvent', label: 'publishes' },
+    { from: 'InAppAuctionObserver', to: 'AuctionObserver', label: 'implements', dashed: true },
+    { from: 'LoggingAuctionObserver', to: 'AuctionObserver', label: 'implements', dashed: true },
+    { from: 'BidIncrementStrategyFactory', to: 'BidIncrementStrategy', label: 'resolves' },
+    { from: 'FixedIncrementStrategy', to: 'BidIncrementStrategy', label: 'implements', dashed: true },
+    { from: 'PercentageIncrementStrategy', to: 'BidIncrementStrategy', label: 'implements', dashed: true },
+    { from: 'BidIncrementStrategyFactory', to: 'BidIncrementPolicy', label: 'keyed by' },
+    { from: 'AuctionRepository', to: 'Auction', label: 'stores' },
+    { from: 'AuctionRepository', to: 'Bidder', label: 'stores' },
+    { from: 'AuctionRepository', to: 'Bid', label: 'stores' },
+    { from: 'Auction', to: 'AuctionStatus', label: 'has state' },
+    { from: 'Auction', to: 'BidIncrementPolicy', label: 'priced by' },
+    { from: 'Bid', to: 'Auction', label: 'placed on' },
+    { from: 'Bid', to: 'Bidder', label: 'placed by' },
+    { from: 'OutbidEvent', to: 'Auction', label: 'concerns' }
   ]
 };

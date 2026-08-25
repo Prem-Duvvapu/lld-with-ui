@@ -1,24 +1,21 @@
 package com.lld.auction.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/** An accepted bid. Bids are append-only — a rejected attempt (too low, wrong window) never
+ *  reaches the repository, so every {@link Bid} on record was, at the moment it was placed,
+ *  the auction's new leading bid. */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Bid {
-    private static long idCounter = 0;
-    private final long id;
-    private final long auctionId;
-    private final long bidderId;
-    private final double amount;
-    private final long timestamp;
-
-    public Bid(long auctionId, long bidderId, double amount) {
-        this.id = ++idCounter;
-        this.auctionId = auctionId;
-        this.bidderId = bidderId;
-        this.amount = amount;
-        this.timestamp = System.currentTimeMillis();
-    }
-
-    public long getId() { return id; }
-    public long getAuctionId() { return auctionId; }
-    public long getBidderId() { return bidderId; }
-    public double getAmount() { return amount; }
-    public long getTimestamp() { return timestamp; }
+    private long id;
+    private long auctionId;
+    private long bidderId;
+    private double amount;
+    private long timestamp;
 }
