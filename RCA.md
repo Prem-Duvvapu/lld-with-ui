@@ -1568,3 +1568,82 @@ grep -n "createIntersection\|new TrafficSignalService" backend/src/main/java/com
    intersections precisely so demo activity can't corrupt production state — this incident is the
    mirror-image lesson: the real intersections' own observability needs the same volume discipline
    the sim path already has.
+
+## RCA-019: Editing a Source File While Its Background `mvn compile` Was Still Running Produced Stale `.class` Files
+
+**Severity:** Low (self-diagnosed and self-resolved during development; never reached a merged
+build or a shipped test)
+**Date:** 2026-08-25
+**Status:** Resolved
+**Affected:** `backend/` build process in this specific shared, multi-agent WSL environment —
+tooling/workflow only, no application code.
+
+### 1. Overview & Severity
+While building out the auction module, a plain `mvn -o -q compile` was kicked off in the
+background because this environment was unusually slow — several other agent sessions were
+compiling their own worktrees on the same shared host at the same time, and a single `compile`
+took over ten minutes of wall-clock time instead of the usual well-under-a-minute. While that
+compile was still in flight, `AuctionInitializer.java` was edited to add a fourth seeded auction
+(`seedAuctions` went from 3 items to 4). After the background compile reported success and the new
+`AuctionRepositoryTest`/`AuctionServiceTest` suites were run, two assertions failed with
+`expected: <4> but was: <3>` — even though `cat`-ing the source file on disk clearly showed four
+`repo.saveAuction(...)` calls. Severity is Low because it cost a few minutes of confusion and
+resolved itself with one full rebuild, but it is worth recording because the mismatch between "the
+source file plainly says 4" and "the test says 3" looks exactly like a real logic bug, not a stale
+build artifact.
+
+### 2. Symptoms & Error Logs
+```
+[ERROR] AuctionRepositoryTest.initializerSeedsAuctionsAcrossLifecycleStates:152
+        expected: <4> but was: <3>
+[ERROR] AuctionServiceTest.simReset_freshSandbox:330
+        expected: <4> but was: <3>
+```
+`grep -n "itemName(" AuctionInitializer.java` at the same moment showed all four items ("Vintage
+Guitar", "Antique Pocket Watch", "Rare Stamp Collection", "Antique Clock") present in the file —
+the disk content and the test failure directly contradicted each other.
+
+### 3. Root Cause
+A bare `mvn compile` (no `clean`) determines which sources need recompiling and reads their
+content at the moment its compile goal actually executes for that file — not at the moment the
+`mvn` command was invoked. On a fast machine that window is milliseconds, so an edit made "during"
+the build is, in practice, always either fully before or fully after it. Here the build legitimately
+took 10+ minutes end to end (slow cross-drive WSL I/O plus CPU contention from multiple concurrent
+`mvn`/`java` processes launched by other parallel agent worktrees on the same host — confirmed via
+`ps aux` showing 3-4 simultaneous `org.codehaus.plexus.classworlds.launcher.Launcher` processes),
+which made that window wide enough for a mid-flight edit to land in an indeterminate spot relative
+to javac's read of that specific file: the resulting `target/classes/.../AuctionInitializer.class`
+reflected the pre-edit, 3-auction version even though the `.java` source on disk already had the
+post-edit, 4-auction version.
+
+### 4. Diagnostic Commands
+```bash
+# The smoking gun: source says 4, but the failure says 3 — check what's actually on disk right now.
+grep -c "repo.saveAuction" backend/src/main/java/com/lld/auction/config/AuctionInitializer.java
+
+# Force a clean, unambiguous rebuild and compare.
+cd backend && mvn -o -q clean compile
+mvn -o -q test -Dtest='com.lld.auction.*Test'
+```
+
+### 5. Step-by-Step Resolution
+1. Confirmed the source file already had the intended 4-auction seed (`grep` above) — ruled out
+   "the edit never saved."
+2. Ran `mvn -o -q clean compile` (not a bare `compile`) to force every `.class` file to be
+   regenerated from the current source tree rather than trusting the incremental up-to-date check.
+3. Re-ran `mvn -o -q test -Dtest='com.lld.auction.*Test'` — both previously-failing assertions
+   passed with no code change to the test or the initializer.
+4. Ran the full backend suite afterward to confirm nothing else was affected by the same staleness.
+
+### 6. Preventative Measures
+1. Treat a source file as off-limits for edits while a background `mvn compile`/`mvn test` for
+   that same module tree is still running — wait for the completion notification first, then edit,
+   then (re)compile.
+2. If an edit during an in-flight background build is unavoidable, always follow up with
+   `mvn clean compile` (not a bare `compile`) before trusting the next test run's result — `clean`
+   removes the ambiguity of "did javac see the old or the new content" entirely.
+3. In an environment already known to be slow or shared with other concurrent agent sessions (see
+   RCA-010 for the sibling worktree/`node_modules` version of this class of gotcha), prefer
+   running one full `mvn -o -q compile` (or `test`) to completion, in the foreground or awaited via
+   its background-task notification, before making further source edits — rather than treating a
+   long-running build as a safe window for parallel work on the same files.
