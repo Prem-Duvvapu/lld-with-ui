@@ -299,6 +299,32 @@ public class CoffeeMachineService {
         return getSimSnapshot();
     }
 
+    /**
+     * Deterministically pins one ingredient's stock to a demo level (capacity/threshold
+     * untouched), so the simulation can reliably demonstrate the failure path — ordering a drink
+     * whose recipe needs more of that ingredient than is on hand — without depending on how much
+     * earlier demo steps happened to consume.
+     */
+    public synchronized Map<String, Object> simSetStock(IngredientType type, int level, int step) {
+        IngredientStore store = simMachine.getIngredientStore();
+        int capacity = store.getCapacities().getOrDefault(type, 2000);
+        int threshold = store.getLowStockThresholds().getOrDefault(type, 100);
+        store.initIngredient(type, level, capacity, threshold);
+
+        SimEvent event = new SimEvent(
+                "SIM-EV-" + simEventIdGen.getAndIncrement(),
+                step,
+                "SET_STOCK",
+                "Hopper Pinned Low: " + type.name(),
+                "Set " + type.name() + " to " + level + type.getUnit() + " for the insufficient-ingredient demo.",
+                "WARNING"
+        ).addDetail("ingredient", type.name())
+         .addDetail("newStock", level);
+
+        simEvents.add(event);
+        return getSimSnapshot();
+    }
+
     public synchronized Map<String, Object> simSimulateRace(int step) {
         // Demonstrate concurrent overlapping multi-ingredient locking
         // Order A needs {COFFEE_BEANS: 18, WATER: 60}

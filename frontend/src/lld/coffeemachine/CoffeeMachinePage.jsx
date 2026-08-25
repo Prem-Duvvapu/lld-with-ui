@@ -20,6 +20,7 @@ import {
   simCollect,
   simCancel,
   simRefill,
+  simSetStock,
   simRace,
   simGetSnapshot,
 } from './api';
@@ -667,7 +668,7 @@ const SIM_STEPS = [
   { step: 4, title: 'Step 4: Cash Deposit & Pre-check', desc: 'Inserts ₹200. Preliminary check confirms assembled ingredients availability.' },
   { step: 5, title: 'Step 5: Atomic Multi-Lock & Brew', desc: 'Acquires locks in ascending enum order (BEANS -> MILK -> WATER -> CREAM), decrements stores atomically, and brews.' },
   { step: 6, title: 'Step 6: Dispense & Cup Collection', desc: 'Dispenses cup with ₹10 change. Customer collects drink; state resets to IDLE.' },
-  { step: 7, title: 'Step 7: Low-Stock Refill Telemetry', desc: 'Admin refills Water hopper (+500ml); telemetry audit log records event.' },
+  { step: 7, title: 'Step 7: Insufficient Ingredient Rejection', desc: 'Caramel Syrup hopper is pinned to 5ml (Mocha needs 20ml). Ordering a Mocha is cleanly rejected with InsufficientIngredientException, then the hopper is refilled.' },
   { step: 8, title: 'Step 8: Overlapping Race Condition Test', desc: 'Dispatches 2 concurrent threads demanding overlapping ingredients ({Beans, Water} vs {Water, Milk}) -> zero deadlocks.' },
 ];
 
@@ -690,7 +691,19 @@ function ConcurrencySimulationTab() {
       } else if (stepNum === 4) snap = await simInsertPayment(200, 4);
       else if (stepNum === 5) snap = await simBrew(5);
       else if (stepNum === 6) snap = await simCollect(6);
-      else if (stepNum === 7) snap = await simRefill('WATER', 500, 7);
+      else if (stepNum === 7) {
+        // Pin Caramel Syrup low, then attempt a Mocha (needs 20ml) — this is the failure path:
+        // the real backend rejects it with InsufficientIngredientException before any state
+        // changes, which the telemetry log records as an ERROR event. Refill afterward so the
+        // hopper is healthy again for the rest of the demo.
+        await simSetStock('CARAMEL_SYRUP', 5, 7);
+        try {
+          await simSelectBase('MOCHA', 7);
+        } catch (rejectionExpected) {
+          // Expected — the whole point of this step. Surfaced via the event log below.
+        }
+        snap = await simRefill('CARAMEL_SYRUP', 500, 7);
+      }
       else if (stepNum === 8) snap = await simRace(8);
 
       setSnapshot(snap);
@@ -800,14 +813,27 @@ function ConcurrencySimulationTab() {
             )}
           </div>
 
-          {/* Ingredient Hoppers Mini Grid */}
+          {/* Ingredient Hoppers Grid — every hopper, so a pinned-low ingredient (Step 7) is visible */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-            {Object.entries(snapshot?.inventory || {}).slice(0, 4).map(([k, v]) => (
-              <div key={k} style={{ background: 'rgba(15, 23, 42, 0.8)', padding: 6, borderRadius: 6, textAlign: 'center', border: '1px solid #312e81' }}>
-                <div style={{ fontSize: 9, color: '#94a3b8' }}>{k}</div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#c084fc' }}>{v}</div>
-              </div>
-            ))}
+            {Object.entries(snapshot?.inventory || {}).map(([k, v]) => {
+              const threshold = snapshot?.lowStockAlerts?.includes(k) ? true : v < 50;
+              return (
+                <div
+                  key={k}
+                  style={{
+                    background: threshold ? 'rgba(239, 68, 68, 0.15)' : 'rgba(15, 23, 42, 0.8)',
+                    padding: 6,
+                    borderRadius: 6,
+                    textAlign: 'center',
+                    border: threshold ? '1px solid #ef4444' : '1px solid #312e81',
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  <div style={{ fontSize: 9, color: '#94a3b8' }}>{k}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: threshold ? '#f87171' : '#c084fc' }}>{v}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

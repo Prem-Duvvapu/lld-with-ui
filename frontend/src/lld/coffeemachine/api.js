@@ -138,6 +138,14 @@ export function simRefill(ingredient, amount = 500, step = 7) {
   }).then(handleResponse);
 }
 
+export function simSetStock(ingredient, level, step = 7) {
+  return fetch(`${BASE_URL}/sim/set-stock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ingredient, level, step }),
+  }).then(handleResponse);
+}
+
 export function simRace(step = 8) {
   return fetch(`${BASE_URL}/sim/race`, {
     method: 'POST',

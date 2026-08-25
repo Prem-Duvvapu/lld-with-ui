@@ -226,6 +226,19 @@ public class CoffeeMachineController {
         }
     }
 
+    @PostMapping("/sim/set-stock")
+    public ResponseEntity<?> simSetStock(@RequestBody Map<String, Object> body) {
+        try {
+            String ingStr = (String) body.get("ingredient");
+            int level = ((Number) body.get("level")).intValue();
+            int step = ((Number) body.getOrDefault("step", 7)).intValue();
+            IngredientType type = IngredientType.valueOf(ingStr.trim().toUpperCase());
+            return ResponseEntity.ok(service.simSetStock(type, level, step));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", ErrorResponse.messageOf(e), "snapshot", service.getSimSnapshot()));
+        }
+    }
+
     @PostMapping("/sim/race")
     public ResponseEntity<?> simRace(@RequestBody(required = false) Map<String, Object> body) {
         try {
