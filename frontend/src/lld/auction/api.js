@@ -1,53 +1,89 @@
-const BASE_URL = '/api/auction';
+import { apiFetch } from '../../utils/api';
 
-export async function createAuction(itemName, description, startingBid, durationMinutes) {
-  const res = await fetch(`${BASE_URL}/auctions`, {
+// ------------------------------------------------------------------- live
+
+export function createAuction(itemName, description, startingBid, durationMinutes, options = {}) {
+  const { startDelayMinutes, incrementPolicy, incrementValue } = options;
+  return apiFetch('/auction/auctions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ itemName, description, startingBid, durationMinutes }),
+    body: JSON.stringify({
+      itemName, description, startingBid, durationMinutes,
+      ...(startDelayMinutes != null ? { startDelayMinutes } : {}),
+      ...(incrementPolicy ? { incrementPolicy } : {}),
+      ...(incrementValue != null ? { incrementValue } : {}),
+    }),
   });
-  return res.json();
 }
 
-export async function getAllAuctions() {
-  const res = await fetch(`${BASE_URL}/auctions`);
-  return res.json();
+export function getAllAuctions() {
+  return apiFetch('/auction/auctions');
 }
 
-export async function getAuction(id) {
-  const res = await fetch(`${BASE_URL}/auctions/${id}`);
-  return res.json();
+export function getAuction(id) {
+  return apiFetch(`/auction/auctions/${id}`);
 }
 
-export async function registerBidder(name, email) {
-  const res = await fetch(`${BASE_URL}/bidders`, {
+export function registerBidder(name, email) {
+  return apiFetch('/auction/bidders', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email }),
   });
-  return res.json();
 }
 
-export async function getAllBidders() {
-  const res = await fetch(`${BASE_URL}/bidders`);
-  return res.json();
+export function getAllBidders() {
+  return apiFetch('/auction/bidders');
 }
 
-export async function placeBid(auctionId, bidderId, amount) {
-  const res = await fetch(`${BASE_URL}/bids`, {
+export function placeBid(auctionId, bidderId, amount) {
+  return apiFetch('/auction/bids', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ auctionId, bidderId, amount }),
   });
-  return res.json();
 }
 
-export async function getBidsForAuction(auctionId) {
-  const res = await fetch(`${BASE_URL}/auctions/${auctionId}/bids`);
-  return res.json();
+export function getBidsForAuction(auctionId) {
+  return apiFetch(`/auction/auctions/${auctionId}/bids`);
 }
 
-export async function closeAuction(auctionId) {
-  const res = await fetch(`${BASE_URL}/auctions/${auctionId}/close`, { method: 'POST' });
-  return res.json();
+export function closeAuction(auctionId) {
+  return apiFetch(`/auction/auctions/${auctionId}/close`, { method: 'POST' });
+}
+
+export function getNotifications() {
+  return apiFetch('/auction/notifications');
+}
+
+// -------------------------------------------------------------------- sim
+
+export function simReset() {
+  return apiFetch('/auction/sim/reset', { method: 'POST' });
+}
+
+export function simSnapshot() {
+  return apiFetch('/auction/sim/snapshot');
+}
+
+export function simPlaceBid(auctionId, bidderId, amount, step) {
+  return apiFetch('/auction/sim/bid', {
+    method: 'POST',
+    body: JSON.stringify({ auctionId, bidderId, amount, step }),
+  });
+}
+
+export function simClose(auctionId, step) {
+  return apiFetch('/auction/sim/close', {
+    method: 'POST',
+    body: JSON.stringify({ auctionId, step }),
+  });
+}
+
+export function simRace(auctionId, bidderCount, step) {
+  return apiFetch('/auction/sim/race', {
+    method: 'POST',
+    body: JSON.stringify({ auctionId, bidderCount, step }),
+  });
+}
+
+export function simGetEvents() {
+  return apiFetch('/auction/sim/events');
 }
