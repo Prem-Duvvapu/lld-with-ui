@@ -6,18 +6,18 @@
 > (`git rm HANDOFF.md`) — the durable versions of everything here live in `AGENTS.md`
 > (conventions), `README.md` (what each module is), and `RCA.md` (what broke and why).
 
-**Status at time of writing (2026-08-25):** Waves 1 (inventory only), 2 (chess only), 3
-(blocking-queue, ttl-cache, foo-bar, zero-even-odd, fizz-buzz, h2o) and the Phase-1-foundations
-top-up (tictactoe, lru-cache, snakeladders, minesweeper) are done — uber, zomato, stackoverflow,
-tictactoe, lru-cache, hotel, car-rental, concert-ticket, course-registration, cricinfo,
-music-streaming, restaurant, chess, inventory, snakeladders, minesweeper, and six of eight
-concurrency primitives are all at or near the 17-criteria bar with verified concurrency tests.
-Backend suite green (948 tests), frontend suite green (286 tests). **Work is now proceeding in
-the interview-study phase order the user specified**, not strictly the wave order below — see
-recent session history for the live order (foundations → single-actor patterns → repository
-domains → concurrency locking → remaining primitives → booking systems → marketplaces →
-graph/event platforms → advanced games). Single-actor pattern top-up (vending-machine,
-coffee-machine, traffic-signal) is in flight as of this writing.
+**Status at time of writing (2026-08-25, updated):** Waves 1b (vendingmachine, coffeemachine,
+trafficsignal — PR #26) is done, plus a same-day hotfix (PR #27) for an unthrottled stdout flood
+in trafficsignal's production logging observer (RCA-018). **Wave 1 is in flight**: digitalwallet
+(PR #28, merged) and taskmanagement (PR #29, merged) are done; auction and socialnetwork are each
+being built out in an isolated worktree agent and have not yet landed. Everything from the prior
+status note still holds — uber, zomato, stackoverflow, tictactoe, lru-cache, hotel, car-rental,
+concert-ticket, course-registration, cricinfo, music-streaming, restaurant, chess, inventory,
+snakeladders, minesweeper, and six of eight concurrency primitives are all at or near the
+17-criteria bar with verified concurrency tests. Backend suite was 948 tests / frontend 286 before
+this session; digitalwallet alone brought backend to 1068 — rerun both suites for the current
+count once auction/socialnetwork land. Live tracker (module tier matrix, wave plan, activity log):
+see the `status-artifact` memory entry for the current URL.
 
 ## What remains — the honest "not ready" list
 
@@ -25,12 +25,18 @@ Verified against the tree on `main` (2026-08-25):
 
 | Wave | Modules | Core gap |
 |---|---|---|
-| **1 — pattern-gap domains** | digitalwallet, taskmanagement, auction, socialnetwork | README claims Observer/Strategy/Command/State that don't exist; no tests, no sim, no exceptions. (inventory done) |
-| **1b — single-actor patterns** | vendingmachine, coffeemachine, trafficsignal | vendingmachine/coffeemachine already have State/CoR/Factory/Decorator + exceptions, need concurrency tests + Lombok top-up; trafficsignal needs a full build-out (in flight) |
+| **1 — pattern-gap domains** | ~~digitalwallet~~ (done, PR #28), ~~taskmanagement~~ (done, PR #29), auction, socialnetwork | README claims Observer/Strategy/Command/State that don't exist; no tests, no sim, no exceptions. auction/socialnetwork are actively in progress. |
+| **1b — single-actor patterns** | ~~vendingmachine, coffeemachine, trafficsignal~~ | Done — PR #26, plus PR #27 hotfix for trafficsignal's log-spam bug (RCA-018). |
 | **2 — games** | ludo | Pure rules engine with **zero tests**; no sim, no exceptions. (chess, minesweeper, snakeladders, tictactoe done) |
 | **3 — concurrency primitives** | concurrent-hashmap, bloom-filter, merge-sort | React-only animations; no backend. `com.lld.concurrency` has blockingqueue/ttlcache/foobar/zeroevenodd/fizzbuzz/h2o done as templates. These three remain in the `PENDING_DESIGN_CONTENT` allowlist |
 | **4 — thin upgrades** | elevator | Working but shallow (few tests, missing flavours). (lru-cache done) |
-| **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | Only splitwise, uber, zomato have `data/sequences/<module>.js` |
+| **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | Only splitwise, uber, zomato, digitalwallet, taskmanagement have `data/sequences/<module>.js` so far |
+
+**Unverified against the bar** (not tracked in any wave above, no recorded `/audit-lld` pass):
+airline, atm, library, parking, pubsub, shoppingcart, stock-brokerage. `linkedin` and `movieticket`
+are referenced elsewhere in this doc as pattern exemplars (canonical pair locking, seat/hold
+concurrency respectively) and can be treated as reference-tier. Run `/audit-lld` on the other
+seven before assuming they're at the bar.
 
 ## How to use this file
 
