@@ -1,7 +1,12 @@
 package com.lld.lrucache.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 
+@Getter
+@Setter
 public class Node<K, V> {
     private K key;
     private V value;
@@ -20,53 +25,9 @@ public class Node<K, V> {
         this.lastAccessedAt = now;
     }
 
-    public K getKey() {
-        return key;
-    }
-
-    public void setKey(K key) {
-        this.key = key;
-    }
-
-    public V getValue() {
-        return value;
-    }
-
-    public void setValue(V value) {
-        this.value = value;
-    }
-
-    public Node<K, V> getPrev() {
-        return prev;
-    }
-
-    public void setPrev(Node<K, V> prev) {
-        this.prev = prev;
-    }
-
-    public Node<K, V> getNext() {
-        return next;
-    }
-
-    public void setNext(Node<K, V> next) {
-        this.next = next;
-    }
-
-    public int getAccessCount() {
-        return accessCount;
-    }
-
     public void incrementAccessCount() {
         this.accessCount++;
         this.lastAccessedAt = Instant.now().toEpochMilli();
-    }
-
-    public long getCreatedAt() {
-        return createdAt;
-    }
-
-    public long getLastAccessedAt() {
-        return lastAccessedAt;
     }
 
     public void updateLastAccessedAt() {

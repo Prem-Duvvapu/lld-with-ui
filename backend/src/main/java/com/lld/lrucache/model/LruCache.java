@@ -1,5 +1,6 @@
 package com.lld.lrucache.model;
 
+import com.lld.lrucache.exception.InvalidCapacityException;
 import com.lld.lrucache.strategy.EvictionPolicy;
 import com.lld.lrucache.strategy.EvictionPolicyType;
 import com.lld.lrucache.strategy.FIFOEvictionPolicy;
@@ -25,6 +26,9 @@ public class LruCache<K, V> {
     private final List<Map<String, Object>> logs;
 
     public LruCache(int capacity) {
+        if (capacity <= 0) {
+            throw new InvalidCapacityException("Cache capacity must be positive, got: " + capacity);
+        }
         this.capacity = capacity;
         this.map = new ConcurrentHashMap<>();
         this.evictionPolicy = new LRUEvictionPolicy<>();
@@ -111,7 +115,9 @@ public class LruCache<K, V> {
     public void setCapacity(int newCapacity) {
         lock.lock();
         try {
-            if (newCapacity <= 0) return;
+            if (newCapacity <= 0) {
+                throw new InvalidCapacityException("Cache capacity must be positive, got: " + newCapacity);
+            }
             this.capacity = newCapacity;
             while (map.size() > capacity) {
                 Node<K, V> evicted = evictionPolicy.evictKey();
