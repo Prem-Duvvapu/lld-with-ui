@@ -43,6 +43,7 @@ export async function holdSeats(flightId, seatNumbers, userId) {
   return handleResponse(res);
 }
 
+// bookingData may include an optional `fareType` ('FLEXIBLE' | 'BASIC'); defaults server-side to FLEXIBLE.
 export async function bookFlight(bookingData) {
   const res = await fetch(`${BASE_URL}/bookings`, {
     method: 'POST',
@@ -79,11 +80,11 @@ export async function simHold(flightId, seatNumbers, userId) {
   return handleResponse(res);
 }
 
-export async function simBook(flightId, seatNumbers, passengerName, userId) {
+export async function simBook(flightId, seatNumbers, passengerName, userId, fareType = 'FLEXIBLE') {
   const res = await fetch(`${BASE_URL}/sim/book`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ flightId, seatNumbers, passengerName, userId }),
+    body: JSON.stringify({ flightId, seatNumbers, passengerName, userId, fareType }),
   });
   return handleResponse(res);
 }

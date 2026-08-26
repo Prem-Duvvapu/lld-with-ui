@@ -1,16 +1,18 @@
 package com.lld.airline.service;
 
 import com.lld.airline.enums.BookingStatus;
+import com.lld.airline.enums.FareType;
+import com.lld.airline.enums.PricingModel;
 import com.lld.airline.enums.SeatClass;
 import com.lld.airline.enums.SeatStatus;
 import com.lld.airline.exception.BookingFailedException;
 import com.lld.airline.exception.FlightNotFoundException;
 import com.lld.airline.exception.InvalidCancellationException;
 import com.lld.airline.model.*;
-import com.lld.airline.strategy.ClassBasedPricingStrategy;
-import com.lld.airline.strategy.PricingStrategy;
-import com.lld.airline.strategy.RefundPolicy;
-import com.lld.airline.strategy.TieredCancellationRefundPolicy;
+import com.lld.airline.repository.AirlineRepository;
+import com.lld.airline.strategy.PricingStrategyFactory;
+import com.lld.airline.strategy.RefundPolicyFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -27,50 +29,50 @@ import java.util.stream.Collectors;
 @Service
 public class AirlineService {
 
-    private static volatile AirlineService instance;
-
-    // Real Repositories
-    private final Map<String, Aircraft> aircrafts = new ConcurrentHashMap<>();
-    private final Map<String, Flight> flightsById = new ConcurrentHashMap<>();
-    private final Map<String, Booking> bookingsById = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> userBookings = new ConcurrentHashMap<>();
-    private final AtomicLong bookingIdGen = new AtomicLong(1001);
+    // Real repository (live state)
+    private final AirlineRepository repository;
 
     private final SeatLockManager seatLockManager;
     private final PaymentProcessor paymentProcessor;
-    private final RefundPolicy refundPolicy;
-    private final PricingStrategy pricingStrategy;
+    private final RefundPolicyFactory refundPolicyFactory;
+    private final PricingStrategyFactory pricingStrategyFactory;
 
-    // Isolated Simulation Engine State
+    // Isolated Simulation Engine State — a fixed demo flight/booking sandbox, deliberately kept
+    // separate from AirlineRepository so /sim/* traffic can never corrupt the live catalog.
     private final Map<String, Flight> simFlightsById = new ConcurrentHashMap<>();
     private final Map<String, Booking> simBookingsById = new ConcurrentHashMap<>();
     private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
     private final AtomicLong simEventIdGen = new AtomicLong(1);
     private final AtomicLong simBookingIdGen = new AtomicLong(9001);
 
+    /**
+     * Convenience constructor for tests that don't care about repository isolation — builds a
+     * private {@link AirlineRepository}. Spring never sees this one: with two constructors present
+     * and neither a no-arg default, the primary constructor below must be the explicit
+     * {@code @Autowired} target or context startup fails with "No default constructor found"
+     * (RCA-024).
+     */
     public AirlineService(SeatLockManager seatLockManager,
                           PaymentProcessor paymentProcessor,
-                          RefundPolicy refundPolicy,
-                          PricingStrategy pricingStrategy) {
+                          RefundPolicyFactory refundPolicyFactory,
+                          PricingStrategyFactory pricingStrategyFactory) {
+        this(new AirlineRepository(), seatLockManager, paymentProcessor, refundPolicyFactory, pricingStrategyFactory);
+    }
+
+    @Autowired
+    public AirlineService(AirlineRepository repository,
+                          SeatLockManager seatLockManager,
+                          PaymentProcessor paymentProcessor,
+                          RefundPolicyFactory refundPolicyFactory,
+                          PricingStrategyFactory pricingStrategyFactory) {
+        this.repository = repository != null ? repository : new AirlineRepository();
         this.seatLockManager = seatLockManager != null ? seatLockManager : new SeatLockManager();
         this.paymentProcessor = paymentProcessor != null ? paymentProcessor : new PaymentProcessor();
-        this.refundPolicy = refundPolicy != null ? refundPolicy : new TieredCancellationRefundPolicy();
-        this.pricingStrategy = pricingStrategy != null ? pricingStrategy : new ClassBasedPricingStrategy();
+        this.refundPolicyFactory = refundPolicyFactory;
+        this.pricingStrategyFactory = pricingStrategyFactory;
 
         initDefaultData();
         simReset();
-    }
-
-    public static AirlineService getInstance() {
-        if (instance == null) {
-            synchronized (AirlineService.class) {
-                if (instance == null) {
-                    instance = new AirlineService(new SeatLockManager(), new PaymentProcessor(),
-                            new TieredCancellationRefundPolicy(), new ClassBasedPricingStrategy());
-                }
-            }
-        }
-        return instance;
     }
 
     // =========================================================================
@@ -78,21 +80,21 @@ public class AirlineService {
     // =========================================================================
 
     public Aircraft registerAircraft(String model, String tailNumber, List<SeatTemplate> templates) {
-        Aircraft aircraft = new Aircraft(model, tailNumber, templates);
-        aircrafts.put(tailNumber, aircraft);
-        return aircraft;
+        Aircraft aircraft = Aircraft.of(model, tailNumber, templates);
+        return repository.saveAircraft(aircraft);
     }
 
     public Flight createFlight(String flightNumber, String source, String destination,
-                               LocalDateTime departureTime, LocalDateTime arrivalTime, Aircraft aircraft) {
+                               LocalDateTime departureTime, LocalDateTime arrivalTime, Aircraft aircraft,
+                               PricingModel pricingModel) {
         String flightId = flightNumber + "-" + departureTime.toLocalDate().toString().replace("-", "");
-        Flight flight = new Flight(flightId, flightNumber, source, destination, departureTime, arrivalTime, aircraft);
-        flightsById.put(flightId, flight);
-        return flight;
+        Flight flight = Flight.create(flightId, flightNumber, source, destination, departureTime, arrivalTime,
+                aircraft, pricingStrategyFactory.forModel(pricingModel));
+        return repository.saveFlight(flight);
     }
 
     public Flight getFlight(String flightId) {
-        Flight flight = flightsById.get(flightId);
+        Flight flight = repository.findFlightById(flightId);
         if (flight == null) {
             throw new FlightNotFoundException("Flight not found with ID: " + flightId);
         }
@@ -100,11 +102,11 @@ public class AirlineService {
     }
 
     public List<Flight> getAllFlights() {
-        return new ArrayList<>(flightsById.values());
+        return repository.getAllFlights();
     }
 
     public List<Flight> searchFlights(String source, String destination, LocalDate date) {
-        return flightsById.values().stream()
+        return repository.getAllFlights().stream()
                 .filter(f -> (source == null || source.isBlank() || f.getSource().equalsIgnoreCase(source.trim())) &&
                              (destination == null || destination.isBlank() || f.getDestination().equalsIgnoreCase(destination.trim())) &&
                              (date == null || f.getDepartureTime().toLocalDate().equals(date)))
@@ -126,24 +128,28 @@ public class AirlineService {
 
     public Booking bookFlight(String flightId, List<String> seatNumbers, List<Passenger> passengers,
                               String userId, String paymentMethod, String idempotencyKey) {
+        return bookFlight(flightId, seatNumbers, passengers, userId, paymentMethod, idempotencyKey, FareType.FLEXIBLE);
+    }
+
+    public Booking bookFlight(String flightId, List<String> seatNumbers, List<Passenger> passengers,
+                              String userId, String paymentMethod, String idempotencyKey, FareType fareType) {
         Flight flight = getFlight(flightId);
 
         if (seatNumbers == null || passengers == null || seatNumbers.size() != passengers.size() || seatNumbers.isEmpty()) {
             throw new BookingFailedException("Passenger list and seat number list must be non-empty and matching in size.");
         }
 
-        // 1. Confirm and Lock Seats under SeatLockManager
+        // 1. Confirm and Lock Seats under SeatLockManager. This is also where overbooking is
+        // rejected: confirmSeats re-validates every seat is still HELD by this user under an
+        // ascending-order multi-seat lock, so a seat someone else already booked (or that this
+        // user never actually held) throws instead of silently double-selling it.
         seatLockManager.confirmSeats(flightId, seatNumbers, userId, flight);
 
-        // 2. Calculate Total Price
-        double totalAmount = 0.0;
-        for (String seatNum : seatNumbers) {
-            Seat s = flight.getSeat(seatNum);
-            totalAmount += (s != null ? s.getBasePrice() : 4500.0);
-        }
+        // 2. Calculate Total Price from the seats' strategy-computed base prices
+        double totalAmount = computeTotal(flight, seatNumbers);
 
         // 3. Process Payment Idempotently
-        String bookingId = "BK-" + bookingIdGen.getAndIncrement();
+        String bookingId = repository.nextBookingId();
         try {
             paymentProcessor.processPayment(bookingId, totalAmount, paymentMethod, idempotencyKey);
         } catch (Exception e) {
@@ -153,17 +159,31 @@ public class AirlineService {
         }
 
         // 4. Register Booking Entity
-        Booking booking = new Booking(bookingId, flightId, userId, passengers, seatNumbers, totalAmount);
-        booking.setStatus(BookingStatus.CONFIRMED);
+        Booking booking = Booking.builder()
+                .bookingId(bookingId)
+                .flightId(flightId)
+                .userId(userId)
+                .passengers(passengers)
+                .seatNumbers(seatNumbers)
+                .totalAmount(totalAmount)
+                .fareType(fareType != null ? fareType : FareType.FLEXIBLE)
+                .status(BookingStatus.CONFIRMED)
+                .build();
 
-        bookingsById.put(bookingId, booking);
-        userBookings.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(bookingId);
+        return repository.saveBooking(booking);
+    }
 
-        return booking;
+    private double computeTotal(Flight flight, List<String> seatNumbers) {
+        double total = 0.0;
+        for (String seatNum : seatNumbers) {
+            Seat s = flight.getSeat(seatNum);
+            total += (s != null ? s.getBasePrice() : 4500.0);
+        }
+        return total;
     }
 
     public Booking cancelBooking(String bookingId) {
-        Booking booking = bookingsById.get(bookingId);
+        Booking booking = repository.findBookingById(bookingId);
         if (booking == null) {
             throw new InvalidCancellationException("Booking not found: " + bookingId);
         }
@@ -172,7 +192,7 @@ public class AirlineService {
             throw new InvalidCancellationException("Booking has already been cancelled.");
         }
 
-        Flight flight = flightsById.get(booking.getFlightId());
+        Flight flight = repository.findFlightById(booking.getFlightId());
         if (flight == null) {
             throw new FlightNotFoundException("Flight not found for booking: " + booking.getFlightId());
         }
@@ -182,8 +202,10 @@ public class AirlineService {
             throw new InvalidCancellationException("Cannot cancel booking for a flight that has already departed.");
         }
 
-        // Calculate refund via Strategy Pattern
-        double refund = refundPolicy.calculateRefund(booking, flight.getDepartureTime(), now);
+        // Calculate refund via the fare's Strategy — FLEXIBLE bookings get the tiered schedule,
+        // BASIC bookings get nothing back, resolved by RefundPolicyFactory off the booking's fareType.
+        double refund = refundPolicyFactory.forFareType(booking.getFareType())
+                .calculateRefund(booking, flight.getDepartureTime(), now);
         booking.setRefundAmount(refund);
         booking.setStatus(refund > 0 ? BookingStatus.REFUNDED : BookingStatus.CANCELLED);
         booking.setCancelledAt(java.time.Instant.now());
@@ -195,15 +217,11 @@ public class AirlineService {
     }
 
     public List<Booking> getUserBookings(String userId) {
-        List<String> bIds = userBookings.getOrDefault(userId, Collections.emptyList());
-        return bIds.stream()
-                .map(bookingsById::get)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+        return repository.getBookingsByUser(userId);
     }
 
     public Booking getBooking(String bookingId) {
-        Booking b = bookingsById.get(bookingId);
+        Booking b = repository.findBookingById(bookingId);
         if (b == null) {
             throw new InvalidCancellationException("Booking not found: " + bookingId);
         }
@@ -216,7 +234,7 @@ public class AirlineService {
 
     @Scheduled(fixedRate = 30000)
     public void scheduledStaleHoldCleanup() {
-        for (Flight flight : flightsById.values()) {
+        for (Flight flight : repository.getAllFlights()) {
             seatLockManager.expireStaleHolds(flight);
         }
     }
@@ -233,24 +251,25 @@ public class AirlineService {
         // Standard 737 seat layout template
         List<SeatTemplate> templates = new ArrayList<>();
         // Business: 1A, 1B, 1C, 1D
-        templates.add(new SeatTemplate("1A", SeatClass.BUSINESS, true, false));
-        templates.add(new SeatTemplate("1B", SeatClass.BUSINESS, false, true));
-        templates.add(new SeatTemplate("1C", SeatClass.BUSINESS, false, true));
-        templates.add(new SeatTemplate("1D", SeatClass.BUSINESS, true, false));
+        templates.add(SeatTemplate.builder().seatNumber("1A").seatClass(SeatClass.BUSINESS).window(true).aisle(false).build());
+        templates.add(SeatTemplate.builder().seatNumber("1B").seatClass(SeatClass.BUSINESS).window(false).aisle(true).build());
+        templates.add(SeatTemplate.builder().seatNumber("1C").seatClass(SeatClass.BUSINESS).window(false).aisle(true).build());
+        templates.add(SeatTemplate.builder().seatNumber("1D").seatClass(SeatClass.BUSINESS).window(true).aisle(false).build());
 
         // Economy: 12A, 12B, 12C, 12D, 12E, 12F
-        templates.add(new SeatTemplate("12A", SeatClass.ECONOMY, true, false));
-        templates.add(new SeatTemplate("12B", SeatClass.ECONOMY, false, false));
-        templates.add(new SeatTemplate("12C", SeatClass.ECONOMY, false, true));
-        templates.add(new SeatTemplate("12D", SeatClass.ECONOMY, false, true));
-        templates.add(new SeatTemplate("12E", SeatClass.ECONOMY, false, false));
-        templates.add(new SeatTemplate("12F", SeatClass.ECONOMY, true, false));
+        templates.add(SeatTemplate.builder().seatNumber("12A").seatClass(SeatClass.ECONOMY).window(true).aisle(false).build());
+        templates.add(SeatTemplate.builder().seatNumber("12B").seatClass(SeatClass.ECONOMY).window(false).aisle(false).build());
+        templates.add(SeatTemplate.builder().seatNumber("12C").seatClass(SeatClass.ECONOMY).window(false).aisle(true).build());
+        templates.add(SeatTemplate.builder().seatNumber("12D").seatClass(SeatClass.ECONOMY).window(false).aisle(true).build());
+        templates.add(SeatTemplate.builder().seatNumber("12E").seatClass(SeatClass.ECONOMY).window(false).aisle(false).build());
+        templates.add(SeatTemplate.builder().seatNumber("12F").seatClass(SeatClass.ECONOMY).window(true).aisle(false).build());
 
-        Aircraft simAircraft = new Aircraft("Boeing 737-800", "SIM-VT-737", templates);
+        Aircraft simAircraft = Aircraft.of("Boeing 737-800", "SIM-VT-737", templates);
 
         LocalDateTime dep = LocalDateTime.now().plusDays(2).withHour(10).withMinute(0);
         LocalDateTime arr = dep.plusHours(2).plusMinutes(15);
-        Flight simFlight = new Flight("SIM-AI-202", "AI202", "DEL", "BOM", dep, arr, simAircraft);
+        Flight simFlight = Flight.create("SIM-AI-202", "AI202", "DEL", "BOM", dep, arr, simAircraft,
+                pricingStrategyFactory.forModel(PricingModel.STANDARD));
 
         // Pre-fill most seats to set up a Last-Seat Race collision on 12A, 12B, 12C
         simFlight.getSeat("1A").setStatus(SeatStatus.BOOKED);
@@ -286,26 +305,41 @@ public class AirlineService {
         return getSimSnapshots();
     }
 
-    public synchronized Map<String, Object> simBook(String flightId, List<String> seatNumbers, String passengerName, String userId) {
+    public synchronized Map<String, Object> simBook(String flightId, List<String> seatNumbers, String passengerName,
+                                                     String userId, FareType fareType) {
         Flight flight = simFlightsById.get(flightId);
         if (flight == null) return getSimSnapshots();
 
         try {
             seatLockManager.confirmSeats(flightId, seatNumbers, userId, flight);
 
-            double total = seatNumbers.size() * 4500.0;
+            double total = computeTotal(flight, seatNumbers);
             String bId = "SIM-BK-" + simBookingIdGen.getAndIncrement();
             List<Passenger> passengers = seatNumbers.stream()
-                    .map(s -> new Passenger("P-" + s, passengerName + " (" + s + ")", "user@sim.com", "A1234567"))
+                    .map(s -> Passenger.builder()
+                            .passengerId("P-" + s)
+                            .name(passengerName + " (" + s + ")")
+                            .email("user@sim.com")
+                            .passportOrId("A1234567")
+                            .build())
                     .toList();
 
-            Booking booking = new Booking(bId, flightId, userId, passengers, seatNumbers, total);
-            booking.setStatus(BookingStatus.CONFIRMED);
+            Booking booking = Booking.builder()
+                    .bookingId(bId)
+                    .flightId(flightId)
+                    .userId(userId)
+                    .passengers(passengers)
+                    .seatNumbers(seatNumbers)
+                    .totalAmount(total)
+                    .fareType(fareType != null ? fareType : FareType.FLEXIBLE)
+                    .status(BookingStatus.CONFIRMED)
+                    .build();
             simBookingsById.put(bId, booking);
 
             logSimEvent("BOOKING_CONFIRMED", userId,
-                    String.format("Confirmed booking %s for seats %s (Total: ₹%.2f).", bId, seatNumbers, total),
-                    Map.of("bookingId", bId, "seats", seatNumbers));
+                    String.format("Confirmed %s booking %s for seats %s (Total: ₹%.2f).",
+                            booking.getFareType(), bId, seatNumbers, total),
+                    Map.of("bookingId", bId, "seats", seatNumbers, "fareType", booking.getFareType().name()));
         } catch (Exception e) {
             logSimEvent("BOOKING_FAILED", userId,
                     String.format("Booking commit rejected for %s: %s", seatNumbers, e.getMessage()), null);
@@ -323,16 +357,18 @@ public class AirlineService {
         Flight flight = simFlightsById.get(booking.getFlightId());
         LocalDateTime cancelTime = flight.getDepartureTime().minusHours(hoursBeforeDeparture);
 
-        double refund = refundPolicy.calculateRefund(booking, flight.getDepartureTime(), cancelTime);
+        double refund = refundPolicyFactory.forFareType(booking.getFareType())
+                .calculateRefund(booking, flight.getDepartureTime(), cancelTime);
         booking.setRefundAmount(refund);
         booking.setStatus(refund > 0 ? BookingStatus.REFUNDED : BookingStatus.CANCELLED);
         booking.setCancelledAt(java.time.Instant.now());
 
         seatLockManager.releaseSeats(flight.getFlightId(), booking.getSeatNumbers(), flight);
 
+        double pct = booking.getTotalAmount() > 0 ? (refund / booking.getTotalAmount()) * 100 : 0.0;
         logSimEvent("BOOKING_CANCELLED", booking.getUserId(),
-                String.format("Cancelled %s at T-%d hours. Refund: ₹%.2f (%.0f%%). Seats %s released to AVAILABLE.",
-                        bookingId, hoursBeforeDeparture, refund, (refund / booking.getTotalAmount()) * 100, booking.getSeatNumbers()),
+                String.format("Cancelled %s (%s fare) at T-%d hours. Refund: ₹%.2f (%.0f%%). Seats %s released to AVAILABLE.",
+                        bookingId, booking.getFareType(), hoursBeforeDeparture, refund, pct, booking.getSeatNumbers()),
                 Map.of("refund", refund, "seats", booking.getSeatNumbers()));
 
         return getSimSnapshots();
@@ -368,7 +404,14 @@ public class AirlineService {
 
     private void logSimEvent(String type, String actor, String desc, Map<String, Object> data) {
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"));
-        SimEvent event = new SimEvent(simEventIdGen.getAndIncrement(), ts, type, actor, desc, data);
+        SimEvent event = SimEvent.builder()
+                .id(simEventIdGen.getAndIncrement())
+                .timestamp(ts)
+                .type(type)
+                .actor(actor)
+                .description(desc)
+                .data(data)
+                .build();
         simEventLog.add(event);
     }
 
@@ -381,27 +424,29 @@ public class AirlineService {
         List<SeatTemplate> b737Templates = new ArrayList<>();
         // Row 1-2: Business
         for (int r = 1; r <= 2; r++) {
-            b737Templates.add(new SeatTemplate(r + "A", SeatClass.BUSINESS, true, false));
-            b737Templates.add(new SeatTemplate(r + "C", SeatClass.BUSINESS, false, true));
-            b737Templates.add(new SeatTemplate(r + "D", SeatClass.BUSINESS, false, true));
-            b737Templates.add(new SeatTemplate(r + "F", SeatClass.BUSINESS, true, false));
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "A").seatClass(SeatClass.BUSINESS).window(true).aisle(false).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "C").seatClass(SeatClass.BUSINESS).window(false).aisle(true).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "D").seatClass(SeatClass.BUSINESS).window(false).aisle(true).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "F").seatClass(SeatClass.BUSINESS).window(true).aisle(false).build());
         }
         // Row 3-15: Economy
         for (int r = 3; r <= 15; r++) {
-            b737Templates.add(new SeatTemplate(r + "A", SeatClass.ECONOMY, true, false));
-            b737Templates.add(new SeatTemplate(r + "B", SeatClass.ECONOMY, false, false));
-            b737Templates.add(new SeatTemplate(r + "C", SeatClass.ECONOMY, false, true));
-            b737Templates.add(new SeatTemplate(r + "D", SeatClass.ECONOMY, false, true));
-            b737Templates.add(new SeatTemplate(r + "E", SeatClass.ECONOMY, false, false));
-            b737Templates.add(new SeatTemplate(r + "F", SeatClass.ECONOMY, true, false));
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "A").seatClass(SeatClass.ECONOMY).window(true).aisle(false).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "B").seatClass(SeatClass.ECONOMY).window(false).aisle(false).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "C").seatClass(SeatClass.ECONOMY).window(false).aisle(true).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "D").seatClass(SeatClass.ECONOMY).window(false).aisle(true).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "E").seatClass(SeatClass.ECONOMY).window(false).aisle(false).build());
+            b737Templates.add(SeatTemplate.builder().seatNumber(r + "F").seatClass(SeatClass.ECONOMY).window(true).aisle(false).build());
         }
 
         Aircraft ac1 = registerAircraft("Boeing 737-800", "VT-AXN", b737Templates);
         Aircraft ac2 = registerAircraft("Airbus A320neo", "VT-IND", b737Templates);
 
         LocalDateTime now = LocalDateTime.now();
-        createFlight("AI-202", "DEL", "BOM", now.plusDays(3).withHour(8).withMinute(0), now.plusDays(3).withHour(10).withMinute(15), ac1);
-        createFlight("6E-505", "BOM", "BLR", now.plusDays(3).withHour(14).withMinute(30), now.plusDays(3).withHour(16).withMinute(15), ac2);
-        createFlight("UK-818", "DEL", "BLR", now.plusDays(4).withHour(18).withMinute(0), now.plusDays(4).withHour(20).withMinute(45), ac1);
+        // AI-202 flies in 3 days: within the DEMAND_SURGE strategy's 3-14 day window, so its fares
+        // demonstrably differ from the other two STANDARD-priced flights (see PricingStrategyFactory).
+        createFlight("AI-202", "DEL", "BOM", now.plusDays(3).withHour(8).withMinute(0), now.plusDays(3).withHour(10).withMinute(15), ac1, PricingModel.DEMAND_SURGE);
+        createFlight("6E-505", "BOM", "BLR", now.plusDays(3).withHour(14).withMinute(30), now.plusDays(3).withHour(16).withMinute(15), ac2, PricingModel.STANDARD);
+        createFlight("UK-818", "DEL", "BLR", now.plusDays(4).withHour(18).withMinute(0), now.plusDays(4).withHour(20).withMinute(45), ac1, PricingModel.STANDARD);
     }
 }

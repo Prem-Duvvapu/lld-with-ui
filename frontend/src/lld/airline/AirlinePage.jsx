@@ -17,7 +17,19 @@ import {
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import ThemeToggle from '../../components/ThemeToggle';
+
+const SIM_STEPS = [
+  { label: 'Reset sandbox', hint: 'Seed flight AI202 (DEL→BOM) with only 12A, 12B, 12C free in Economy.' },
+  { label: 'View seeded cabin', hint: 'Confirm the starting state before racing anyone for a seat.' },
+  { label: 'Alice holds 12A', hint: 'A 60-second hold under a per-seat ReentrantLock — HOLD_SUCCESS.' },
+  { label: 'Bob races Alice for 12A', hint: 'Same seat, same instant — SeatLockManager rejects the loser with HOLD_COLLISION.' },
+  { label: 'Alice confirms a FLEXIBLE booking', hint: 'confirmSeats re-validates the hold, then BOOKING_CONFIRMED under the tiered-refund fare.' },
+  { label: 'Charlie books a BASIC (saver) seat', hint: 'Holds 12B then confirms under the non-refundable fare — a different RefundPolicy entirely.' },
+  { label: 'Cancel both bookings 30h out', hint: "Same notice window, different refund: Alice's FLEXIBLE fare gets 100% back, Charlie's BASIC fare gets 0%." },
+  { label: 'Expire a stale hold', hint: 'Sweep any lingering HELD seat back to AVAILABLE and review the full event log.' },
+];
 
 export default function AirlinePage() {
   const [activeTab, setActiveTab] = useState('flights');
@@ -44,8 +56,15 @@ export default function AirlinePage() {
   const [simSelectedSeats, setSimSelectedSeats] = useState(['12A']);
   const [simUserId, setSimUserId] = useState('Sim-Alice');
   const [simPassengerName, setSimPassengerName] = useState('Alice Vance');
+  const [simFareType, setSimFareType] = useState('FLEXIBLE');
   const [simCancelHours, setSimCancelHours] = useState(25);
   const [simLoading, setSimLoading] = useState(false);
+
+  // Guided 8-step walkthrough state
+  const [simStep, setSimStep] = useState(0);
+  const [simGuidedBusy, setSimGuidedBusy] = useState(false);
+  const [simAliceBookingId, setSimAliceBookingId] = useState(null);
+  const [simCharlieBookingId, setSimCharlieBookingId] = useState(null);
 
   // Status Banner
   const [statusMsg, setStatusMsg] = useState({ text: '', type: 'info' });
@@ -212,11 +231,72 @@ export default function AirlinePage() {
       setSimSnapshots(snap);
       const events = await simGetEvents();
       setSimEvents(events || []);
+      setSimStep(0);
+      setSimAliceBookingId(null);
+      setSimCharlieBookingId(null);
       showBanner('Simulation sandbox reset to default flight state.', 'info');
     } catch (err) {
       console.error(err);
     } finally {
       setSimLoading(false);
+    }
+  };
+
+  // Guided 8-step walkthrough — each step drives the isolated /sim/* endpoints directly so the
+  // narrative always reflects real backend state, never a client-side fake.
+  const runGuidedStep = async () => {
+    if (simGuidedBusy || simStep >= SIM_STEPS.length) return;
+    setSimGuidedBusy(true);
+    try {
+      let snap = simSnapshots;
+      switch (simStep) {
+        case 0:
+          snap = await simReset();
+          setSimAliceBookingId(null);
+          setSimCharlieBookingId(null);
+          break;
+        case 1:
+          snap = await simGetSnapshots();
+          break;
+        case 2:
+          snap = await simHold('SIM-AI-202', ['12A'], 'Sim-Alice');
+          break;
+        case 3:
+          snap = await simHold('SIM-AI-202', ['12A'], 'Sim-Bob');
+          break;
+        case 4: {
+          snap = await simBook('SIM-AI-202', ['12A'], 'Alice Vance', 'Sim-Alice', 'FLEXIBLE');
+          const aliceBooking = (snap.bookings || []).find(b => b.userId === 'Sim-Alice' && b.status === 'CONFIRMED');
+          if (aliceBooking) setSimAliceBookingId(aliceBooking.bookingId);
+          break;
+        }
+        case 5: {
+          await simHold('SIM-AI-202', ['12B'], 'Sim-Charlie');
+          snap = await simBook('SIM-AI-202', ['12B'], 'Charlie Kim', 'Sim-Charlie', 'BASIC');
+          const charlieBooking = (snap.bookings || []).find(b => b.userId === 'Sim-Charlie' && b.status === 'CONFIRMED');
+          if (charlieBooking) setSimCharlieBookingId(charlieBooking.bookingId);
+          break;
+        }
+        case 6: {
+          if (simAliceBookingId) snap = await simCancel(simAliceBookingId, 30);
+          if (simCharlieBookingId) snap = await simCancel(simCharlieBookingId, 30);
+          break;
+        }
+        case 7:
+          snap = await simExpire('SIM-AI-202');
+          break;
+        default:
+          break;
+      }
+      setSimSnapshots(snap);
+      const events = await simGetEvents();
+      setSimEvents(events || []);
+      setSimStep(s => Math.min(s + 1, SIM_STEPS.length));
+    } catch (err) {
+      console.error(err);
+      showBanner(err.message || 'Simulation step failed.', 'error');
+    } finally {
+      setSimGuidedBusy(false);
     }
   };
 
@@ -233,7 +313,7 @@ export default function AirlinePage() {
 
   const handleSimBook = async () => {
     try {
-      const snap = await simBook('SIM-AI-202', simSelectedSeats, simPassengerName, simUserId);
+      const snap = await simBook('SIM-AI-202', simSelectedSeats, simPassengerName, simUserId, simFareType);
       setSimSnapshots(snap);
       const events = await simGetEvents();
       setSimEvents(events || []);
@@ -316,6 +396,7 @@ export default function AirlinePage() {
           { id: 'bookings', label: '🎫 My Bookings & Refunds', badge: userBookings.length },
           { id: 'simulation', label: '🕹️ Concurrency Simulation' },
           { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'sequence', label: '🔀 Sequence Diagram' },
           { id: 'details', label: '📋 Design Details' },
         ].map(t => (
           <button
@@ -636,6 +717,86 @@ export default function AirlinePage() {
                 </button>
               </div>
 
+              {/* 8-Step Guided Walkthrough */}
+              <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 10, padding: 16, marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                  {SIM_STEPS.map((s, i) => (
+                    <div
+                      key={s.label}
+                      title={s.label}
+                      style={{
+                        width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, fontWeight: 800,
+                        background: i < simStep ? '#10b981' : i === simStep ? '#0284c7' : '#1e293b',
+                        color: i <= simStep ? '#fff' : '#64748b',
+                        border: i === simStep ? '2px solid #38bdf8' : '1px solid #334155',
+                      }}
+                    >
+                      {i < simStep ? '✓' : i + 1}
+                    </div>
+                  ))}
+                  <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 4 }}>
+                    Step {Math.min(simStep + 1, SIM_STEPS.length)} / {SIM_STEPS.length}
+                  </span>
+                </div>
+                {simStep < SIM_STEPS.length ? (
+                  <>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: '#f8fafc', marginBottom: 4 }}>
+                      {SIM_STEPS[simStep].label}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12 }}>
+                      {SIM_STEPS[simStep].hint}
+                    </div>
+                    <button
+                      onClick={runGuidedStep}
+                      disabled={simGuidedBusy}
+                      style={{
+                        padding: '10px 20px', borderRadius: 8, border: 'none', fontWeight: 800, fontSize: 13,
+                        background: '#0284c7',
+                        color: '#fff', cursor: simGuidedBusy ? 'wait' : 'pointer', opacity: simGuidedBusy ? 0.6 : 1,
+                      }}
+                    >
+                      {simGuidedBusy ? 'Running…' : simStep === 0 ? '▶ Start Walkthrough' : `▶ Run Step ${simStep + 1}`}
+                    </button>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>
+                    ✓ Walkthrough complete — inspect the cabin, HUD and event log below, or Reset to run it again.
+                  </div>
+                )}
+              </div>
+
+              {/* Live Telemetry HUD */}
+              {simSnapshots?.flights?.[0] && (() => {
+                const cabinSeats = simSnapshots.flights[0].seats || [];
+                const available = cabinSeats.filter(s => s.status === 'AVAILABLE').length;
+                const held = cabinSeats.filter(s => s.status === 'HELD').length;
+                const booked = cabinSeats.filter(s => s.status === 'BOOKED').length;
+                const lastEvent = simEvents[simEvents.length - 1];
+                const collisions = simEvents.filter(e => e.type.includes('COLLISION')).length;
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 20 }}>
+                    {[
+                      { label: 'Available', value: available, color: '#10b981' },
+                      { label: 'Held', value: held, color: '#eab308' },
+                      { label: 'Booked', value: booked, color: '#ef4444' },
+                      { label: 'Collisions Blocked', value: collisions, color: '#f87171' },
+                      { label: 'Total Events', value: simEvents.length, color: '#38bdf8' },
+                      { label: 'Last Event', value: lastEvent ? lastEvent.type.replaceAll('_', ' ') : '—', color: '#a855f7', small: true },
+                    ].map(tile => (
+                      <div key={tile.label} style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: tile.small ? 12 : 20, fontWeight: 800, color: tile.color }}>{tile.value}</div>
+                        <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', marginTop: 2 }}>{tile.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/* Manual Sandbox Controls (free-form experimentation beyond the guided script) */}
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>
+                Manual Sandbox Controls
+              </div>
               {/* Simulation Controls Panel */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: '#0f172a', padding: 16, borderRadius: 10, marginBottom: 20 }}>
                 {/* 1. Hold Seats Collision */}
@@ -658,6 +819,17 @@ export default function AirlinePage() {
                       onChange={e => setSimSelectedSeats(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
                       style={{ width: 110, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
                     />
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <select
+                      value={simFareType}
+                      onChange={e => setSimFareType(e.target.value)}
+                      title="Which RefundPolicy governs a future cancellation of this booking"
+                      style={{ width: '100%', padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                    >
+                      <option value="FLEXIBLE">FLEXIBLE fare (tiered refund)</option>
+                      <option value="BASIC">BASIC fare (non-refundable)</option>
+                    </select>
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button
@@ -689,18 +861,21 @@ export default function AirlinePage() {
                   </button>
                 </div>
 
-                {/* 3. Tiered Cancellation Refund */}
+                {/* 3. Fare-Aware Cancellation Refund */}
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#a855f7', marginBottom: 8 }}>3. Test Tiered Refund Policy</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#a855f7', marginBottom: 8 }}>3. Test Fare-Aware Refund Policy</div>
+                  <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 8px 0' }}>
+                    Same notice window, different result: FLEXIBLE follows the tiered schedule, BASIC always refunds ₹0.
+                  </p>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                     <select
                       value={simCancelHours}
                       onChange={e => setSimCancelHours(parseInt(e.target.value))}
                       style={{ flex: 1, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
                     >
-                      <option value={30}>&gt;24h Out (100% Refund)</option>
-                      <option value={12}>12h Out (50% Refund)</option>
-                      <option value={1}>1h Out (0% Refund - Imminent)</option>
+                      <option value={30}>&gt;24h Out (FLEXIBLE: 100%)</option>
+                      <option value={12}>12h Out (FLEXIBLE: 50%)</option>
+                      <option value={1}>1h Out (FLEXIBLE: 0%)</option>
                     </select>
                   </div>
                   {simSnapshots?.bookings?.filter(b => b.status === 'CONFIRMED').map(b => (
@@ -709,7 +884,7 @@ export default function AirlinePage() {
                       onClick={() => handleSimCancel(b.bookingId)}
                       style={{ width: '100%', padding: '4px 8px', borderRadius: 4, background: '#a855f7', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', fontWeight: 600, marginTop: 4 }}
                     >
-                      Cancel {b.bookingId} at T-{simCancelHours}h
+                      Cancel {b.bookingId} ({b.fareType}) at T-{simCancelHours}h
                     </button>
                   ))}
                 </div>
@@ -789,7 +964,12 @@ export default function AirlinePage() {
         {activeTab === 'diagram' && <ClassDiagram module="airline" />}
 
         {/* =================================================================== */}
-        {/* TAB 5: DESIGN DETAILS */}
+        {/* TAB 5: SEQUENCE DIAGRAM */}
+        {/* =================================================================== */}
+        {activeTab === 'sequence' && <SequenceDiagram module="airline" />}
+
+        {/* =================================================================== */}
+        {/* TAB 6: DESIGN DETAILS */}
         {/* =================================================================== */}
         {activeTab === 'details' && <DesignDetails module="airline" />}
       </main>

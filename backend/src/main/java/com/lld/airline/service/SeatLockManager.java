@@ -26,6 +26,11 @@ public class SeatLockManager {
     public List<ReentrantLock> lockSeatsInOrder(String flightId, List<String> seatNumbers) {
         if (seatNumbers == null || seatNumbers.isEmpty()) return Collections.emptyList();
 
+        // Lock ordering: always acquire per-seat locks in ascending seat-number order, never in
+        // request order. Two passengers racing to book {12A, 12B} and {12B, 12A} respectively would
+        // deadlock (each holds the other's first lock) if we locked in whatever order the caller
+        // supplied seats in; sorting first makes every concurrent multi-seat request agree on a
+        // single global acquisition order, so one of the two always wins the first lock outright.
         List<String> sortedSeats = seatNumbers.stream().distinct().sorted().toList();
         List<ReentrantLock> acquiredLocks = new ArrayList<>();
 
@@ -103,11 +108,21 @@ public class SeatLockManager {
                     throw new SeatNotAvailableException("Seat " + seatNum + " not found.");
                 }
 
+                // Overbooking guard: a seat someone else already confirmed is never touched here —
+                // only a HELD-but-stale seat gets reset to AVAILABLE below. Without this check, a
+                // client that calls confirm directly against an already-BOOKED seat (skipping hold)
+                // would silently release someone else's confirmed seat back into the pool (RCA-024).
+                if (seat.getStatus() == SeatStatus.BOOKED) {
+                    throw new SeatNotAvailableException("Seat " + seatNum + " is already booked by another passenger.");
+                }
+
                 // Re-validate hold ownership and non-expired TTL
                 if (seat.getStatus() != SeatStatus.HELD || !userId.equals(seat.getHeldByUserId()) || now > seat.getHoldExpiresAt()) {
-                    seat.setStatus(SeatStatus.AVAILABLE);
-                    seat.setHeldByUserId(null);
-                    seat.setHoldExpiresAt(0L);
+                    if (seat.getStatus() == SeatStatus.HELD) {
+                        seat.setStatus(SeatStatus.AVAILABLE);
+                        seat.setHeldByUserId(null);
+                        seat.setHoldExpiresAt(0L);
+                    }
                     throw new HoldExpiredException("Seat hold for " + seatNum + " has expired. Please reselect your seats.");
                 }
             }

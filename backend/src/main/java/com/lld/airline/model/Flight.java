@@ -1,76 +1,62 @@
 package com.lld.airline.model;
 
+import com.lld.airline.strategy.PricingStrategy;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Flight {
-    private final String flightId;
-    private final String flightNumber;
-    private final String source;
-    private final String destination;
-    private final LocalDateTime departureTime;
-    private final LocalDateTime arrivalTime;
-    private final Aircraft aircraft;
-    private final Map<String, Seat> seats = new ConcurrentHashMap<>();
+    private String flightId;
+    private String flightNumber;
+    private String source;
+    private String destination;
+    private LocalDateTime departureTime;
+    private LocalDateTime arrivalTime;
+    private Aircraft aircraft;
+    @Builder.Default
+    private Map<String, Seat> seats = new ConcurrentHashMap<>();
 
-    public Flight(String flightId, String flightNumber, String source, String destination,
-                  LocalDateTime departureTime, LocalDateTime arrivalTime, Aircraft aircraft) {
-        this.flightId = flightId;
-        this.flightNumber = flightNumber;
-        this.source = source != null ? source.toUpperCase() : "DEL";
-        this.destination = destination != null ? destination.toUpperCase() : "BOM";
-        this.departureTime = departureTime;
-        this.arrivalTime = arrivalTime;
-        this.aircraft = aircraft;
+    /**
+     * Builds a flight and materializes one independent {@link Seat} per {@link SeatTemplate} on its
+     * aircraft, priced through the given {@link PricingStrategy} — the strategy that actually decides
+     * fares, not a hardcoded per-class switch duplicated on this class.
+     */
+    public static Flight create(String flightId, String flightNumber, String source, String destination,
+                                 LocalDateTime departureTime, LocalDateTime arrivalTime, Aircraft aircraft,
+                                 PricingStrategy pricingStrategy) {
+        Flight flight = Flight.builder()
+                .flightId(flightId)
+                .flightNumber(flightNumber)
+                .source(source != null ? source.toUpperCase() : "DEL")
+                .destination(destination != null ? destination.toUpperCase() : "BOM")
+                .departureTime(departureTime)
+                .arrivalTime(arrivalTime)
+                .aircraft(aircraft)
+                .build();
 
-        // Generate independent per-flight Seat instances from Aircraft SeatTemplate
-        if (aircraft != null) {
+        if (aircraft != null && aircraft.getSeatTemplates() != null) {
             for (SeatTemplate template : aircraft.getSeatTemplates()) {
-                double basePrice = calculateDefaultPrice(template.getSeatClass());
-                Seat seat = new Seat(template.getSeatNumber(), template.getSeatClass(), basePrice);
-                seats.put(seat.getSeatNumber(), seat);
+                double basePrice = pricingStrategy.calculateSeatPrice(template, flight);
+                Seat seat = Seat.builder()
+                        .seatNumber(template.getSeatNumber())
+                        .seatClass(template.getSeatClass())
+                        .basePrice(basePrice)
+                        .build();
+                flight.seats.put(seat.getSeatNumber(), seat);
             }
         }
-    }
-
-    private double calculateDefaultPrice(com.lld.airline.enums.SeatClass seatClass) {
-        if (seatClass == null) return 4500.0;
-        switch (seatClass) {
-            case FIRST: return 22500.0;
-            case BUSINESS: return 13500.0;
-            case PREMIUM_ECONOMY: return 6750.0;
-            case ECONOMY:
-            default: return 4500.0;
-        }
-    }
-
-    public String getFlightId() {
-        return flightId;
-    }
-
-    public String getFlightNumber() {
-        return flightNumber;
-    }
-
-    public String getSource() {
-        return source;
-    }
-
-    public String getDestination() {
-        return destination;
-    }
-
-    public LocalDateTime getDepartureTime() {
-        return departureTime;
-    }
-
-    public LocalDateTime getArrivalTime() {
-        return arrivalTime;
-    }
-
-    public Aircraft getAircraft() {
-        return aircraft;
+        return flight;
     }
 
     public List<Seat> getAllSeats() {

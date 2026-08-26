@@ -13,6 +13,7 @@ import _wallet from './sequences/wallet.js';
 import _auction from './sequences/auction.js';
 import _socialNetwork from './sequences/social-network.js';
 import _ludo from './sequences/ludo.js';
+import _airline from './sequences/airline.js';
 
 const sequenceDiagrams = {
   uber: _uber,
@@ -23,6 +24,7 @@ const sequenceDiagrams = {
   auction: _auction,
   socialNetwork: _socialNetwork,
   ludo: _ludo,
+  airline: _airline,
 };
 
 export default sequenceDiagrams;

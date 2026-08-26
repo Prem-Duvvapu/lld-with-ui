@@ -24,7 +24,14 @@ public class PaymentProcessor {
         }
 
         String paymentId = "PAY-" + UUID.randomUUID().toString().substring(0, 8);
-        Payment payment = new Payment(paymentId, bookingId, amount, paymentMethod, PaymentStatus.SUCCESS, idempotencyKey);
+        Payment payment = Payment.builder()
+                .paymentId(paymentId)
+                .bookingId(bookingId)
+                .amount(amount)
+                .paymentMethod(paymentMethod != null ? paymentMethod : "CARD")
+                .status(PaymentStatus.SUCCESS)
+                .idempotencyKey(idempotencyKey)
+                .build();
 
         if (idempotencyKey != null) {
             paymentIdempotencyCache.put(idempotencyKey, payment);

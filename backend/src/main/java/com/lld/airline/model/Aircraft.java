@@ -1,32 +1,31 @@
 package com.lld.airline.model;
 
-import java.util.Collections;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.List;
 
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Aircraft {
-    private final String model;
-    private final String tailNumber;
-    private final List<SeatTemplate> seatTemplates;
+    private String model;
+    private String tailNumber;
+    private List<SeatTemplate> seatTemplates;
 
-    public Aircraft(String model, String tailNumber, List<SeatTemplate> seatTemplates) {
-        this.model = model;
-        this.tailNumber = tailNumber;
-        this.seatTemplates = seatTemplates != null ? List.copyOf(seatTemplates) : List.of();
-    }
-
-    public String getModel() {
-        return model;
-    }
-
-    public String getTailNumber() {
-        return tailNumber;
-    }
-
-    public List<SeatTemplate> getSeatTemplates() {
-        return Collections.unmodifiableList(seatTemplates);
+    /** Defensive-copy factory — the seat layout is fixed once an aircraft is registered. */
+    public static Aircraft of(String model, String tailNumber, List<SeatTemplate> seatTemplates) {
+        return Aircraft.builder()
+                .model(model)
+                .tailNumber(tailNumber)
+                .seatTemplates(seatTemplates != null ? List.copyOf(seatTemplates) : List.of())
+                .build();
     }
 
     public int getTotalSeats() {
-        return seatTemplates.size();
+        return seatTemplates != null ? seatTemplates.size() : 0;
     }
 }
