@@ -4,10 +4,10 @@ export function getElevators() {
   return apiFetch('/elevator/elevators');
 }
 
-export function requestElevator(fromFloor, toFloor) {
+export function requestElevator(sourceFloor, destinationFloor) {
   return apiFetch('/elevator/request', {
     method: 'POST',
-    body: JSON.stringify({ fromFloor, toFloor }),
+    body: JSON.stringify({ sourceFloor, destinationFloor }),
   });
 }
 
@@ -35,7 +35,22 @@ export function tick() {
   });
 }
 
-// Simulation Endpoints
+export function getDispatchPolicy() {
+  return apiFetch('/elevator/policy');
+}
+
+export function setDispatchPolicy(policy) {
+  return apiFetch('/elevator/policy', {
+    method: 'POST',
+    body: JSON.stringify({ policy }),
+  });
+}
+
+// =========================================================================
+// ISOLATED SIMULATION ENGINE (/api/elevator/sim/*) — a separate sandbox
+// instance, so replaying the demo can never corrupt the real elevator bank.
+// =========================================================================
+
 export function simReset() {
   return apiFetch('/elevator/sim/reset', { method: 'POST' });
 }
