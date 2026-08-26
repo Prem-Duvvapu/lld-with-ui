@@ -13,7 +13,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # full suite — 948 tests, 103 classes
+mvn test                                  # full suite — 1278 tests, 135 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
