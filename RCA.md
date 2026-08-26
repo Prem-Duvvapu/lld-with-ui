@@ -1959,3 +1959,217 @@ find backend/src/main/java -name '*.java' -exec basename {} \; | sort | uniq -d
    ludo) — when a `@SpringBootTest`-based suite fails with `Failed to load ApplicationContext`,
    read the full `Caused by:` chain before assuming the failing test class's own domain is at
    fault.
+
+## RCA-024: Airline's `confirmSeats` Could Release an Already-Booked Seat Back to AVAILABLE When a Client Skipped the Hold Step
+
+**Severity:** High (a confirmed passenger's seat could be silently freed and double-sold — the
+exact race the module's `SeatLockManager` exists to prevent)
+**Date:** 2026-08-26
+**Status:** Resolved
+**Affected:** `com.lld.airline.service.SeatLockManager#confirmSeats`, `com.lld.airline.service.AirlineService#bookFlight`
+
+### 1. Overview & Severity
+Auditing the airline module's concurrency layer against `movieticket`/`concertticket`'s
+`SeatLockManager` idiom (per this build-out's own reference pattern) surfaced a genuine
+overbooking hazard in `confirmSeats`, the method `bookFlight` calls to turn a HELD seat into a
+BOOKED one. The re-validation branch treated "not currently HELD by this caller" as a single
+undifferentiated case — which also covers a seat that is already `BOOKED` by a *different*
+passenger, not just a stale/expired hold. In that branch it unconditionally reset the seat back to
+`AVAILABLE` before throwing. A client that called the booking endpoint directly against an
+already-confirmed seat (skipping the hold step, whether by a buggy retry, a malicious direct POST,
+or simply racing with someone else's just-completed booking) would silently release that other
+passenger's confirmed seat back into the pool — the airline analogue of losing someone's paid seat
+assignment.
+
+### 2. Symptoms & Error Logs
+No test in the pre-audit suite exercised this path — `AirlineServiceTest` only ever booked seats it
+had itself held first, so the bug was latent rather than observed in CI. It was found by writing
+`testOverbookingRejectedWhenSeatAlreadyBooked` (a second passenger calling `bookFlight` on seat `5A`
+immediately after the first passenger's booking confirmed, without holding first):
+```
+expected: <com.lld.airline.exception.SeatNotAvailableException>
+ but was: <com.lld.airline.exception.HoldExpiredException>
+org.opentest4j.AssertionFailedError
+	at AirlineServiceTest.testOverbookingRejectedWhenSeatAlreadyBooked(AirlineServiceTest.java)
+```
+and a follow-up assertion — `flight.getSeat("5A").getStatus()` — showed the seat had flipped back
+to `AVAILABLE` after the second (rejected) call, even though the first passenger's booking was
+still `CONFIRMED`.
+
+### 3. Root Cause
+```java
+// SeatLockManager#confirmSeats, before the fix
+if (seat.getStatus() != SeatStatus.HELD || !userId.equals(seat.getHeldByUserId()) || now > seat.getHoldExpiresAt()) {
+    seat.setStatus(SeatStatus.AVAILABLE);   // <-- runs even when status == BOOKED
+    seat.setHeldByUserId(null);
+    seat.setHoldExpiresAt(0L);
+    throw new HoldExpiredException(...);
+}
+```
+The condition's three clauses were meant to catch "hold expired" / "held by someone else" /
+"never held at all," but `status == BOOKED` also satisfies `status != HELD`, so it fell into the
+same branch as a genuinely stale hold and was reset identically. The method held the correct
+per-seat lock the whole time (this was never a missing-lock race), so the bug was a pure logic
+error inside the critical section, not a concurrency gap — the lock protected the wrong invariant.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly against the service layer:
+cd backend && mvn -o -q test -Dtest='AirlineServiceTest#testOverbookingRejectedWhenSeatAlreadyBooked'
+
+# Find every other "reset on any non-HELD status" pattern in the sibling seat-lock managers,
+# in case the same shortcut was copied elsewhere:
+grep -rn "SeatStatus.AVAILABLE);$" backend/src/main/java/com/lld/*/service/SeatLockManager.java
+```
+
+### 5. Step-by-Step Resolution
+1. Added an explicit `status == BOOKED` guard *before* the reset branch, throwing
+   `SeatNotAvailableException` (the correct "someone else already has this" signal — matching how
+   `holdSeats` reports the same situation) and returning immediately, so a booked seat is never
+   touched.
+2. Narrowed the reset-to-`AVAILABLE` side effect in the remaining branch to only fire when
+   `status == HELD` (i.e. a genuinely stale hold), so a seat that was never held by anyone
+   (`status == AVAILABLE`, which should not reach `confirmSeats` at all but is now handled safely
+   regardless) is not mutated either.
+3. Rewrote `testOverbookingRejectedWhenSeatAlreadyBooked` to assert both the new exception type and
+   that seat `5A` remains `BOOKED` after the rejected second call, then re-ran the full airline
+   suite (`mvn -o -q test -Dtest='com.lld.airline.**'`) to confirm the existing hold-expiry test
+   (`testHoldExpiryAtCommit`, which legitimately depends on the stale-hold reset still firing) kept
+   passing.
+
+### 6. Preventative Measures
+1. `movieticket.service.SeatLockManager#confirmSeats` was checked for the same shortcut — it does
+   not have it, because it validates `status != HELD` and a separate stale-hold branch rather than
+   folding three unrelated conditions into one reset. Airline's `SeatLockManager` predates that
+   module's audit and had drifted from the safer shape; it now matches it.
+2. General lesson for any seat/resource state machine in this repo: when a re-validation check
+   ORs together multiple distinct failure reasons ("expired," "held by someone else," "never
+   held," "already finalized by someone else"), each reason needs its own branch if the recovery
+   action differs — collapsing them into one `if` with one shared side effect silently applies the
+   wrong side effect to at least one of the cases. A confirmed/terminal state should never be
+   mutated by a code path whose job is only to clean up a still-pending one.
+3. This is exactly the kind of gap a "confirm it does what it claims" audit test catches and a
+   happy-path-only test suite cannot — `AirlineConcurrencyTest`'s contested-seat races only ever
+   raced `holdSeats` against `holdSeats`; the missing case was a `bookFlight` call landing on a seat
+   someone else had *already finished* booking. Any module with a hold→confirm two-phase seat flow
+   should carry an explicit "confirm rejects an already-booked seat without mutating it" test
+   alongside its hold-collision tests, not just infer the guarantee from the lock.
+
+## RCA-025: Deepening Airline's Strategy Layer Reintroduced Both of RCA-023's Failure Modes at Once — a Bean-Name Collision and an Unresolvable Multi-Constructor Bean
+
+**Severity:** High (broke `ApplicationContext` startup for the whole `com.lld` component scan —
+identical blast radius to RCA-023 — plus, independently, would have broken it again even after
+the first fix)
+**Date:** 2026-08-26
+**Status:** Resolved
+**Affected:** `com.lld.airline.strategy.PricingStrategyFactory`, `com.lld.airline.service.AirlineService`,
+every `@SpringBootTest` in the repo (via `com.lld.config.ErrorContractIntegrationTest`)
+
+### 1. Overview & Severity
+Adding `PricingStrategyFactory` and `RefundPolicyFactory` to give airline's pricing/refund
+Strategy pattern a real `EnumMap`-resolved factory (matching `inventory.strategy.ReorderStrategyFactory`,
+the exact template this build-out has been copying module to module) reproduced RCA-023's bean-name
+collision the very next day: `com.lld.airline.strategy.PricingStrategyFactory` and
+`com.lld.carrental.strategy.PricingStrategyFactory` and `com.lld.parkinglot.strategy.PricingStrategyFactory`
+all share the same simple class name, and `carrental`'s copy had *already* been given an explicit
+`@Component("carRentalPricingStrategyFactory")` name — evidence this exact class of bug had already
+bitten this repo for this exact class name before RCA-023 was even written, and the lesson didn't
+propagate to the new copy. Fixing that collision then uncovered a second, unrelated wiring bug in
+the same class: giving `AirlineService` a second constructor (for repository-isolated tests) with
+neither constructor annotated `@Autowired` left Spring unable to pick one, so it fell back to
+looking for a no-arg constructor that doesn't exist.
+
+### 2. Symptoms & Error Logs
+Both bugs surfaced as the same downstream symptom — every `@SpringBootTest`-based suite in the
+repo failing `Failed to load ApplicationContext`, not just an airline-local failure:
+```
+[ERROR] ErrorContractIntegrationTest.frameworkErrorsAreUntouched -- Time elapsed: 0.003 s <<< ERROR!
+java.lang.IllegalStateException: Failed to load ApplicationContext for [...]
+```
+Bug 1 (`mvn test` run #1), several frames down:
+```
+Caused by: org.springframework.context.annotation.ConflictingBeanDefinitionException:
+Annotation-specified bean name 'pricingStrategyFactory' for bean class
+[com.lld.parkinglot.strategy.PricingStrategyFactory] conflicts with existing, non-compatible bean
+definition of same name and class [com.lld.airline.strategy.PricingStrategyFactory]
+```
+Bug 2 (`mvn test` run #2, *after* fixing bug 1 — the exact same test class failed again with a
+completely different root cause underneath the identical outer symptom):
+```
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean
+with name 'airlineController': ... Error creating bean with name 'airlineService': Failed to
+instantiate [com.lld.airline.service.AirlineService]: No default constructor found
+Caused by: java.lang.NoSuchMethodException: com.lld.airline.service.AirlineService.<init>()
+```
+A same-session `AirlineConcurrencyTest` run also failed alongside the first bug, but for a third,
+independent reason (wrong seat numbers in the new test — out-of-range rows on the seeded aircraft
+layout); it is called out here only because it landed in the same `mvn test` output and could have
+been mistaken for a consequence of either Spring bug. It wasn't — fixing it required no service or
+config change, only correcting the test's seat numbers to the seeded 3–15 row range.
+
+### 3. Root Cause
+Bug 1: identical to RCA-023 — Spring's default bean-name generator uses the decapitalized simple
+class name regardless of package, so `PricingStrategyFactory` in `airline`, `carrental` and
+`parkinglot` all default to bean name `pricingStrategyFactory` unless given an explicit
+`@Component("...")` value. `carrental` had already worked around this; `parkinglot` and the new
+`airline` copy had not, so the *first* two `PricingStrategyFactory` beans to register (in package
+scan order) silently won and the third threw `ConflictingBeanDefinitionException`.
+
+Bug 2: `AirlineService` was given a second, 4-argument constructor purely so unit tests could
+construct it without threading through a repository instance explicitly, alongside the original
+5-argument constructor `AirlineService` now needs (`AirlineRepository` plus its four collaborators).
+Spring's constructor-autowiring resolution requires either exactly one constructor, or one
+explicitly marked `@Autowired`, when a class has no no-arg constructor. With two unannotated
+constructors present, Spring could not deterministically choose and fell back to
+`getDeclaredConstructor()` with no arguments — which doesn't exist on this class — rather than
+picking the larger, fully-satisfiable constructor.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce and see the real cause several frames down, for either bug:
+cd backend && mvn -o -q test -Dtest='com.lld.config.ErrorContractIntegrationTest' 2>&1 | grep -A2 "Caused by"
+
+# Find every other simple-class-name collision across modules before it bites the same way
+# (the same check RCA-023 recommended — it would have caught this one too, a day later):
+find backend/src/main/java -name '*.java' -exec basename {} \; | sort | uniq -d
+
+# Find any other @Component/@Service/@Repository class with more than one constructor and no
+# @Autowired annotation on any of them — the shape that produced bug 2:
+grep -rL "@Autowired" $(grep -rl "public [A-Za-z]*(" backend/src/main/java/com/lld/*/service/*.java) 2>/dev/null
+```
+
+### 5. Step-by-Step Resolution
+1. Gave both new factories explicit bean names — `@Component("airlinePricingStrategyFactory")` and
+   `@Component("airlineRefundPolicyFactory")` — following `carrental`'s existing precedent for this
+   exact class name, and documented the collision risk in both classes' javadoc so the next module
+   that copies the `ReorderStrategyFactory` template doesn't repeat it a third time.
+2. Re-ran `mvn test`; `ConflictingBeanDefinitionException` was gone, but `ErrorContractIntegrationTest`
+   failed again with a different `Caused by:` chain — read that chain fully rather than assuming the
+   first fix was sufficient (the same lesson RCA-023 §3 already called out).
+3. Added `@Autowired` to the 5-argument `AirlineService` constructor (the one with an
+   `AirlineRepository` parameter — the one Spring should actually use in production) and documented
+   in its javadoc why the 4-argument convenience constructor exists and why it must stay
+   unannotated.
+4. Fixed the unrelated `AirlineConcurrencyTest` seat-number bug found in the same run (seats named
+   `20A`–`23B` don't exist — the seeded 737 layout only has rows 1–15) by moving every contested/
+   disjoint seat in that test into the valid row range.
+5. Re-ran the full suite (`mvn -o -q test`) to confirm `ErrorContractIntegrationTest` and every
+   airline suite passed together, with zero unrelated regressions.
+
+### 6. Preventative Measures
+1. Run `find backend/src/main/java -name '*.java' -exec basename {} \; | sort | uniq -d` as a
+   pre-merge check on *every* PR that copies a class name from a sibling module's "reference
+   pattern" (Strategy+Factory, SeatLockManager, PaymentProcessor, etc.) — this is the second time
+   in two days this repo's own copy-the-reference-module convention has produced this exact bug
+   class, and it will keep recurring as more modules copy `ReorderStrategyFactory`'s shape unless
+   this becomes a standing habit, not a one-off fix.
+2. Any `@Component`/`@Service`/`@Repository` class with more than one constructor needs an explicit
+   `@Autowired` on the one Spring should use, full stop — even when every constructor's parameters
+   are individually satisfiable as beans, Spring will not guess. A convenience constructor added
+   for tests is exactly the situation that introduces this without anyone intending to add "a
+   second constructor" as a deliberate design change.
+3. When a test run reports multiple, unrelated-looking failures together, don't fix one and declare
+   victory — diagnose each independently. Here, three genuinely separate bugs (a bean collision, an
+   ambiguous constructor, and a bad seat number in a brand-new test) all surfaced in the same `mvn
+   test` invocation; fixing only the first would have left CI red twice more in a row, each time
+   looking like a fresh, mysterious failure instead of the next item on an already-visible list.

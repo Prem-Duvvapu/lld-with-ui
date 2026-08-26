@@ -444,25 +444,30 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 13. Airline Reservation
 
 #### Key Features
-- **Multi-Passenger Flight Booking**: Atomic reservation and booking of multiple seats paired to passenger details in a single transactional unit.
-- **Deadlock-Free Multi-Seat Locking**: Per-seat `ReentrantLock` keyed `flightId:seatNumber` acquired in ascending alphabetical order to eliminate circular-wait deadlocks.
-- **Seat Hold State Machine & TTL**: `AVAILABLE` ➔ `HELD` (5-minute TTL) ➔ `BOOKED` with automated background cleanup of stale holds.
-- **Strategy Pattern for Pricing & Refunds**: Class-based pricing (`Economy`, `Business`, `First`) and `TieredCancellationRefundPolicy` (>24h full refund, 24h–2h partial 50%, <2h no refund).
+- **Multi-Passenger Flight Booking**: Atomic reservation and booking of multiple seats paired to passenger details in a single transactional unit, backed by an `AirlineRepository` CRUD layer (matching `MovieTicketRepository`/`ConcertTicketRepository`'s shape).
+- **Deadlock-Free Multi-Seat Locking**: Per-seat `ReentrantLock` keyed `flightId:seatNumber`, always acquired in ascending seat-number order (an explicit lock-ordering comment documents why) to eliminate circular-wait deadlocks — proven with real threads and latches in `AirlineConcurrencyTest`.
+- **Seat Hold State Machine & TTL**: `AVAILABLE` ➔ `HELD` (5-minute TTL) ➔ `BOOKED` with automated background cleanup of stale holds. `confirmSeats` rejects an already-`BOOKED` seat without mutating it (RCA-024) — overbooking is refused at both the hold and the confirm step.
+- **Strategy + Factory for Pricing**: `PricingStrategyFactory` resolves a `PricingModel` (`STANDARD` flat per-class fare, `DEMAND_SURGE` dynamic pricing that scales up inside the 14-day/3-day departure windows) to the `PricingStrategy` that prices every seat at flight-creation time.
+- **Strategy + Factory for Refunds**: `RefundPolicyFactory` resolves each booking's `FareType` (`FLEXIBLE` ➔ tiered refund: 100% ≥24h, 50% 24h–2h, 0% <2h; `BASIC` ➔ always non-refundable) independently per cancellation.
 - **Idempotent Payment Capture**: `PaymentProcessor` ensuring zero duplicate charges on retried bookings.
 
 #### API Endpoints
 - `GET /api/airline/flights`
 - `GET /api/airline/flights/search`
+- `GET /api/airline/flights/{flightId}`
 - `GET /api/airline/flights/{flightId}/seats`
 - `POST /api/airline/flights/{flightId}/hold`
 - `POST /api/airline/bookings`
 - `POST /api/airline/bookings/{bookingId}/cancel`
+- `GET /api/airline/bookings/{bookingId}`
 - `GET /api/airline/users/{userId}/bookings`
 - `POST /api/airline/sim/reset`
 - `POST /api/airline/sim/hold`
 - `POST /api/airline/sim/book`
 - `POST /api/airline/sim/cancel`
 - `POST /api/airline/sim/expire`
+- `GET /api/airline/sim/snapshots`
+- `GET /api/airline/sim/events`
 
 ---
 

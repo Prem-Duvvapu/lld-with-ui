@@ -211,15 +211,18 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 
 ## Airline Management Module
 ### Backend
-- `AirlineService`: Singleton facade managing flight schedules, seat inventories, multi-passenger bookings, and tiered cancellation refunds.
-- Concurrency & Deadlock Prevention: `SeatLockManager` using per-seat `ReentrantLock` (`flightId:seatNumber`), ascending-order multi-seat lock acquisition, and 5-minute hold TTL.
+- `AirlineService`: Facade managing aircraft/flight schedules, seat inventories, multi-passenger bookings, and fare-aware cancellation refunds. Live state lives in `AirlineRepository` (a bare `ConcurrentHashMap` CRUD layer, matching `MovieTicketRepository`/`ConcertTicketRepository`'s shape); the isolated `/sim/*` sandbox keeps its own inline maps in the service since it always seeds one fixed demo flight rather than an open catalog.
+- Concurrency & Deadlock Prevention: `SeatLockManager` using per-seat `ReentrantLock` (`flightId:seatNumber`) with an explicit ascending-seat-number lock-ordering comment, fair-lock construction, and a 5-minute hold TTL swept by a `@Scheduled` background cleanup. `AirlineConcurrencyTest` proves it with real threads/latches: exactly one of N racers wins a contested `holdSeats`/`bookFlight`, disjoint seats all succeed in parallel, and a reversed-order two-seat request from two threads resolves without deadlock.
 - State Machine Pattern: `SeatStatus` (`AVAILABLE` ➔ `HELD` ➔ `BOOKED`) and `BookingStatus` (`PENDING` ➔ `CONFIRMED` ➔ `CANCELLED` / `REFUNDED`).
-- Strategy Pattern: `PricingStrategy` (`ClassBasedPricingStrategy`) and `RefundPolicy` (`TieredCancellationRefundPolicy` evaluating 100% >24h, 50% 24h–2h, 0% <2h).
+- Strategy + Factory Pattern (two independent families, both `EnumMap`-resolved like `inventory.strategy.ReorderStrategyFactory`): `PricingStrategyFactory` resolves `PricingModel` (`STANDARD` flat per-class fare via `ClassBasedPricingStrategy`, `DEMAND_SURGE` — same base fare scaled up inside the 14-day/3-day departure windows — via `DemandSurgePricingStrategy`) and is the sole source of a `Seat`'s `basePrice`, set once in `Flight.create(...)`; `RefundPolicyFactory` resolves a `Booking`'s `FareType` (`FLEXIBLE` ➔ `TieredCancellationRefundPolicy` — 100% ≥24h, 50% 24h–2h, 0% <2h; `BASIC` ➔ `NonRefundableFarePolicy` — always ₹0) at `cancelBooking()` time.
+- Overbooking guard: `holdSeats` refuses an already-HELD/BOOKED seat outright; `confirmSeats` refuses (without mutating) a seat someone else already `BOOKED` — see RCA-024, a real bug this audit found where that branch used to reset an already-booked seat back to `AVAILABLE` and misreport it as an expired hold.
+- Lombok models throughout (`@Data @Builder @NoArgsConstructor @AllArgsConstructor`, matching `com.lld.inventory.model`): `Flight.create(...)` and `Aircraft.of(...)` are static factories layered on top of the generated builder for the seat-materialization/defensive-copy logic a plain builder can't express.
 - Custom Exceptions: `SeatNotAvailableException` (409), `HoldExpiredException` (410), `BookingFailedException` (422), `InvalidCancellationException` (400), `FlightNotFoundException` (404).
+- Tests: `AirlineServiceTest` (booking/cancellation workflow, overbooking rejection, pricing-strategy and fare-type wiring, sim engine), `AirlineConcurrencyTest` (contested-seat hold/booking races, disjoint-seat parallelism, reversed multi-seat lock order), `strategy/PricingStrategyFactoryTest`, `strategy/RefundPolicyFactoryTest`, `repository/AirlineRepositoryTest`.
 
 ### Frontend
-- 5 tabs: 🛫 Flight Search & Seat Map, 🎫 My Bookings & Refunds, 🕹️ Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
-- Interactive 2D aircraft cabin layout with seat classes, window/aisle indicators, hold countdown timer (`⏱ 04:59`), multi-passenger booking checkout, and simulation sandbox.
+- 6 tabs: 🛫 Flight Search & Seat Map, 🎫 My Bookings & Refunds, 🕹️ Concurrency Simulation, 📐 Class Diagram, 🔀 Sequence Diagram, 📋 Design Details.
+- Interactive 2D aircraft cabin layout with seat classes, window/aisle indicators, hold countdown timer (`⏱ 04:59`), multi-passenger booking checkout with a FLEXIBLE/BASIC fare selector, and an 8-step guided simulation walkthrough (reset → view seeded cabin → hold → collision → FLEXIBLE booking → BASIC booking → fare-aware cancellation comparison → TTL expiry) with a live telemetry HUD (available/held/booked seat counts, collisions blocked, total events, last event) plus the underlying manual sandbox controls for free-form experimentation.
 
 ## Concert Ticket Booking Module
 ### Backend
