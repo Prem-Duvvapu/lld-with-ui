@@ -49,10 +49,10 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 39 | Fizz Buzz Multithreaded | Multithreading concurrency | ReentrantLock + Condition (4-thread monitor), real backend trace replay |
 | 40 | Building H2O | Multithreading concurrency | Semaphore-Bounded CyclicBarrier, real backend trace replay |
 | 41 | Thread-Safe TTL Cache | Concurrent caching | Scheduled Executor, ConcurrentHashMap |
-| 42 | Concurrent HashMap | Concurrent data structure | Segment Locking / Bucket Lock |
+| 42 | Concurrent HashMap | Concurrent data structure | Striped-Lock Segments (from scratch), real backend trace replay |
 | 43 | Blocking Queue | Concurrent queue | Producer-Consumer, ReentrantLock + Condition |
-| 44 | Concurrent Bloom Filter | Probabilistic structure | BitSet + Hash Functions |
-| 45 | Multi-threaded Merge Sort | Parallel sorting | ForkJoinPool / RecursiveTask |
+| 44 | Concurrent Bloom Filter | Probabilistic structure | BitSet + Kirsch–Mitzenmacher Double Hashing, real backend trace replay |
+| 45 | Multi-threaded Merge Sort | Parallel sorting | ForkJoinPool / RecursiveAction, real backend trace replay |
 
 ---
 
