@@ -94,11 +94,12 @@ components drifted apart in the first place.
 
 ### Module maturity is uneven
 
-42 of 45 modules have backends; only 3 concurrency primitives remain frontend-only —
-`bloom-filter`, `concurrent-hashmap`, `merge-sort` (tracked in `designDataCoverage.test.js`'s
-`PENDING_DESIGN_CONTENT` allowlist). **splitwise**, **logging** and **uber** are the reference
-implementations — match their depth (layered packages, real patterns, typed exceptions,
-concurrency tests, `/sim/*` engine) when building out a module.
+All 45 modules now have backends — the last three concurrency primitives (`bloom-filter`,
+`concurrent-hashmap`, `merge-sort`) graduated from frontend-only fake animations to real Java
+backends with genuine threads; `designDataCoverage.test.js`'s `PENDING_DESIGN_CONTENT` allowlist is
+now empty. **splitwise**, **logging** and **uber** are the reference implementations — match their
+depth (layered packages, real patterns, typed exceptions, concurrency tests, `/sim/*` engine) when
+building out a module.
 
 `designDataCoverage.test.js` holds a `PENDING_DESIGN_CONTENT` allowlist of modules still lacking
 full design data. Filling one in means removing it from that list.

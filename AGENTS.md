@@ -664,6 +664,71 @@ mathematically-unreachable-but-still-timeout-guarded thread-join failure path �
   timer, folding events into visual state exactly the way `blocking-queue`'s page does — nothing on
   screen is client-computed once a run starts.
 
+### Bloom Filter / Concurrent HashMap / Merge Sort — the last frontend-only primitives
+
+These three were different from the six siblings above: they had **no backend at all** — a pure
+CSS/JS animation with `setTimeout` fakery and zero real threads (tracked in
+`designDataCoverage.test.js`'s `PENDING_DESIGN_CONTENT` allowlist, now empty). Each got the exact
+same `TraceRecorder`/`{Primitive}Service`/`RunResult`/`POST /api/concurrency/<name>/run` shape as
+`blockingqueue`, built from a from-scratch primitive rather than a JDK wrapper, and each page's
+*existing* visual vocabulary (segment grid, bit strip, array bars) was kept and rewired to replay
+the real trace instead of driving it from client-side `setTimeout` state.
+
+- **Concurrent HashMap** (`concurrenthashmap/`): `StripedHashMap<K,V>` — a striped-lock map built
+  from scratch (deliberately not a wrapper around `java.util.concurrent.ConcurrentHashMap`, to tell
+  the segment-locking story explicitly): an array of `segmentCount` independent segments, each a
+  plain `HashMap` guarded by its own `ReentrantLock`; `segmentFor(key)` is
+  `(key.hashCode() & 0x7fffffff) % segmentCount`, and every operation locks exactly one segment
+  (never two at once, so there is no lock-ordering deadlock risk). `put`/`get`/`remove` are the
+  obvious single-segment operations; `merge(key, delta, remap)` is an atomic read-modify-write under
+  the segment lock (mirrors `ConcurrentHashMap.merge`); `computeIfAbsent(key, fn)` checks-then-acts
+  under the same lock so a racing key is computed by exactly one thread. `ConcurrentHashMapService`
+  proves both properties with real threads: Phase A starts `incrementer-N` threads `merge()`-ing a
+  small set of shared counter keys and asserts `sumOfFinalCounters == totalIncrements` (no lost
+  updates under contention); Phase B releases `racer-N` threads together via a `CountDownLatch` to
+  race `computeIfAbsent()` on the same absent key and asserts `computeExecutions == 1`. Tests:
+  `StripedHashMapTest` (single-threaded correctness), `StripedHashMapConcurrencyTest` (latch-gated
+  real-thread proofs of both properties), `ConcurrentHashMapServiceTest` (orchestration + full
+  validation matrix). Frontend keeps the pre-existing segment-grid visual (lock-owner highlighting,
+  live bucket contents) but now folds it from the real replayed trace, plus a phase badge and a live
+  `computeIfAbsent`-execution counter that should hold at exactly 1.
+- **Concurrent Bloom Filter** (`bloomfilter/`): `BloomFilter` — a real `BitSet` bit array behind one
+  `ReentrantLock` (`BitSet` itself is not thread-safe), with two independent deterministic hash
+  functions combined via Kirsch–Mitzenmacher double hashing: `h1` is Java's specified
+  `String.hashCode()` polynomial, `h2` is a from-scratch 32-bit FNV-1a over the UTF-8 bytes, and
+  `position_i = floorMod(h1 + i*h2, bitSize)` for `i` in `0..hashCount-1`. `add`/`mightContain` never
+  false-negative for an added item but can false-positive for one that was not added — the central
+  probabilistic guarantee the whole module exists to demonstrate. `BloomFilterService` (defaults
+  `bitSize=28, hashCount=3, addThreads=4`) splits a fixed 10-word item batch round-robin across real
+  `adder-N` threads, then — fully deterministically, since both hash functions are pure functions of
+  the string — scans `probe-0..probe-999` on the calling thread until it finds one `mightContain()`
+  wrongly reports as present, reliably landing on `"probe-2"` with these defaults and zero collisions
+  against its 6 true-negative candidates. Tests: `BloomFilterTest` (never-false-negative property
+  across many item/param combinations), `BloomFilterConcurrencyTest` (latch-gated concurrent adders
+  never lose a bit-array write), `BloomFilterServiceTest` (asserts the run's false positive actually
+  reproduces, all added items are true positives). Frontend renders the bit array as a strip that
+  lights up bit-by-bit as `BIT_NEWLY_SET`/`BIT_ALREADY_SET` events replay, then groups query results
+  into ✅ true positives / ⭕ true negatives / ⚠️ the demonstrated false positive with its own callout.
+- **Multi-threaded Merge Sort** (`mergesort/`): `ParallelMergeSorter` — a real
+  `ForkJoinPool`/`RecursiveAction` divide-and-conquer sort, deliberately its own
+  `new ForkJoinPool(parallelism)` rather than `ForkJoinPool.commonPool()` so which worker threads
+  appear is reproducible regardless of the machine's core count. `SortTask.compute()` partitions
+  `[lo,hi]`, and above `sequentialThreshold` genuinely forks: `right.fork(); left.compute(); right.join();`
+  — `right` may be stolen and run on a different pool worker while `left` continues on the current
+  thread, which is what shows up as differing `threadName`s in the trace (the actual proof of real
+  parallel execution, not just recursion). Every value written during a merge is its own
+  `MERGE_WRITE` trace event carrying the destination index, the value, and whether it came from the
+  `LEFT` or `RIGHT` half. `MergeSortService` reports `distinctThreadsUsed` (count of distinct thread
+  names across the trace) as the frontend-visible parallelism proof. Tests: `ParallelMergeSorterTest`
+  (30-iteration fuzz against `Arrays.sort` as the reference, edge cases: empty/single/duplicates/
+  negatives, input-array immutability), `ParallelMergeSorterConcurrencyTest` (asserts
+  `distinctThreadsUsed > 1` for a large-enough array/threshold, several iterations since ForkJoin
+  scheduling varies run to run), `MergeSortServiceTest` (defaults, custom array, validation matrix
+  including an array/size mismatch). Frontend animates the array as bars, brackets the active
+  `[lo,hi]` range on `PARTITION`/`FORK_RIGHT`, recolors cells live as `MERGE_WRITE` events replay
+  (LEFT vs. RIGHT provenance), and ticks up a "distinct worker threads used so far" badge roster —
+  the real-parallelism payoff made visible.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9090
