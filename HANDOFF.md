@@ -6,31 +6,39 @@
 > (`git rm HANDOFF.md`) — the durable versions of everything here live in `AGENTS.md`
 > (conventions), `README.md` (what each module is), and `RCA.md` (what broke and why).
 
-**Status at time of writing (2026-08-25, updated):** Waves 1b (vendingmachine, coffeemachine,
-trafficsignal — PR #26) is done, plus a same-day hotfix (PR #27) for an unthrottled stdout flood
-in trafficsignal's production logging observer (RCA-018). **Wave 1 is in flight**: digitalwallet
-(PR #28, merged) and taskmanagement (PR #29, merged) are done; auction and socialnetwork are each
-being built out in an isolated worktree agent and have not yet landed. Everything from the prior
-status note still holds — uber, zomato, stackoverflow, tictactoe, lru-cache, hotel, car-rental,
-concert-ticket, course-registration, cricinfo, music-streaming, restaurant, chess, inventory,
-snakeladders, minesweeper, and six of eight concurrency primitives are all at or near the
-17-criteria bar with verified concurrency tests. Backend suite was 948 tests / frontend 286 before
-this session; digitalwallet alone brought backend to 1068 — rerun both suites for the current
-count once auction/socialnetwork land. Live tracker (module tier matrix, wave plan, activity log):
-see the `status-artifact` memory entry for the current URL.
+**Status at time of writing (2026-08-26, updated):** **Wave 1 (pattern-gap domains) is fully
+done** — digitalwallet (PR #28), taskmanagement (PR #29), auction (PR #30), socialnetwork (PR #31)
+all merged. Wave 1b (vendingmachine, coffeemachine, trafficsignal — PR #26) is done too, plus a
+same-day hotfix (PR #27) for an unthrottled stdout flood in trafficsignal's production logging
+observer (RCA-018). Two parallel agents are now in flight on the next waves: **ludo** (Wave 2
+games) and the three frontend-only **concurrency primitives** (Wave 3 — concurrent-hashmap,
+bloom-filter, merge-sort), each in an isolated worktree. Everything from the prior status note
+still holds — uber, zomato, stackoverflow, tictactoe, lru-cache, hotel, car-rental, concert-ticket,
+course-registration, cricinfo, music-streaming, restaurant, chess, inventory, snakeladders,
+minesweeper, and six of eight concurrency primitives are all at or near the 17-criteria bar with
+verified concurrency tests. Backend suite was 948 tests / frontend 286 at the start of this
+session; auction alone brought backend to 1077 — rerun both suites for the current count once
+ludo/primitives land. **Every module touched in Wave 1 needed a rebase against `main` before
+merging** — three of four parallel agents landed a real conflict (not just a stale branch) in
+`AGENTS.md`/`README.md`/`frontend/src/data/sequenceDiagrams.js`, always purely additive (two new
+module sections inserted at the same point), and RCA numbering collided twice (two independent
+modules each picked the next number off their own stale `main`) — resolve by renumbering to the
+next free slot on current `main`, never by dropping either entry. Land Wave 1/2/3-style parallel
+work one PR at a time, or budget for this rebase step after every merge. Live tracker (module tier
+matrix, wave plan, activity log): see the `status-artifact` memory entry for the current URL.
 
 ## What remains — the honest "not ready" list
 
-Verified against the tree on `main` (2026-08-25):
+Verified against the tree on `main` (2026-08-26):
 
 | Wave | Modules | Core gap |
 |---|---|---|
-| **1 — pattern-gap domains** | ~~digitalwallet~~ (done, PR #28), ~~taskmanagement~~ (done, PR #29), auction, socialnetwork | README claims Observer/Strategy/Command/State that don't exist; no tests, no sim, no exceptions. auction/socialnetwork are actively in progress. |
+| **1 — pattern-gap domains** | ~~digitalwallet, taskmanagement, auction, socialnetwork~~ | Done — PR #28, #29, #30, #31. |
 | **1b — single-actor patterns** | ~~vendingmachine, coffeemachine, trafficsignal~~ | Done — PR #26, plus PR #27 hotfix for trafficsignal's log-spam bug (RCA-018). |
-| **2 — games** | ludo | Pure rules engine with **zero tests**; no sim, no exceptions. (chess, minesweeper, snakeladders, tictactoe done) |
-| **3 — concurrency primitives** | concurrent-hashmap, bloom-filter, merge-sort | React-only animations; no backend. `com.lld.concurrency` has blockingqueue/ttlcache/foobar/zeroevenodd/fizzbuzz/h2o done as templates. These three remain in the `PENDING_DESIGN_CONTENT` allowlist |
+| **2 — games** | ludo | Pure rules engine with **zero tests**; no sim, no exceptions. In progress. (chess, minesweeper, snakeladders, tictactoe done) |
+| **3 — concurrency primitives** | concurrent-hashmap, bloom-filter, merge-sort | React-only animations; no backend. `com.lld.concurrency` has blockingqueue/ttlcache/foobar/zeroevenodd/fizzbuzz/h2o done as templates. In progress. These three remain in the `PENDING_DESIGN_CONTENT` allowlist until landed |
 | **4 — thin upgrades** | elevator | Working but shallow (few tests, missing flavours). (lru-cache done) |
-| **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | Only splitwise, uber, zomato, digitalwallet, taskmanagement have `data/sequences/<module>.js` so far |
+| **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | splitwise, uber, zomato, digitalwallet, taskmanagement, auction, socialnetwork have `data/sequences/<module>.js` so far |
 
 **Unverified against the bar** (not tracked in any wave above, no recorded `/audit-lld` pass):
 airline, atm, library, parking, pubsub, shoppingcart, stock-brokerage. `linkedin` and `movieticket`
