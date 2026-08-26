@@ -12,6 +12,7 @@ import _taskManagement from './sequences/task-management.js';
 import _wallet from './sequences/wallet.js';
 import _auction from './sequences/auction.js';
 import _socialNetwork from './sequences/social-network.js';
+import _ludo from './sequences/ludo.js';
 
 const sequenceDiagrams = {
   uber: _uber,
@@ -21,6 +22,7 @@ const sequenceDiagrams = {
   wallet: _wallet,
   auction: _auction,
   socialNetwork: _socialNetwork,
+  ludo: _ludo,
 };
 
 export default sequenceDiagrams;

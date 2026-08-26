@@ -1647,3 +1647,315 @@ mvn -o -q test -Dtest='com.lld.auction.*Test'
    running one full `mvn -o -q compile` (or `test`) to completion, in the foreground or awaited via
    its background-task notification, before making further source edits — rather than treating a
    long-running build as a safe window for parallel work on the same files.
+
+## RCA-020: Ludo's Home-Entry Roll Could Overshoot the Final Cell and Wrap the Token Around the Board Again
+
+**Severity:** Medium (silently violates a core rule of the game — "exact count to finish" — for
+every game that reaches the endgame; never crashes, so it shipped invisibly until this module's
+first-ever tests exercised the endgame path)
+**Date:** 2026-08-26
+**Status:** Resolved
+**Affected:** `com.lld.ludo.service.LudoService#moveToken` (now `#moveOnTrack`)
+
+### 1. Overview & Severity
+While building out ludo's first-ever test suite (it shipped with zero tests across its entire
+history, the same starting state minesweeper and snakeladders had before RCA-014/015/016),
+writing the "a token needs the exact roll to enter home" test turned up a genuine defect: the
+service never checked whether a roll would carry a token past its home cell before applying it.
+`newPos = (token.getPosition() + dice) % Game.TRACK_SIZE` computes a valid track cell for *any*
+dice value 1-6, including one that lands past the token's own home cell and wraps it around into
+another lap. Ludo's "exact count" rule — well known to anyone who has played the board game — was
+simply never enforced; the only outcome the old code recognized as "finished" was landing *exactly*
+on the home cell (`checkFinished`'s `token.getPosition() == endPos` check), so an overshoot did not
+crash or corrupt state, it just silently returned the token to circling the main track indefinitely,
+which is a real, observable rule violation a player would notice immediately.
+
+### 2. Symptoms & Error Logs
+No production bug report — caught by the first test written against the endgame path. The failure
+this closes would have looked like:
+```
+// Player 0's home cell is 51. Token sits at 47 (4 cells from home). Roll a 6.
+POST /api/ludo/games/{id}/move  { "playerIndex": 0, "tokenIndex": 0 }
+// old behaviour: newPos = (47 + 6) % 52 = 1 — the token is silently moved PAST its own home
+// cell and back out onto the main track, instead of the roll being rejected.
+```
+
+### 3. Root Cause
+```java
+// LudoService#moveToken, before this fix (else branch — token already on the track)
+int newPos = (token.getPosition() + dice) % Game.TRACK_SIZE;
+... // own-token block check, capture, position set
+checkFinished(token, playerIndex, game); // only recognizes an EXACT landing on endPos
+```
+Nothing between reading the dice value and computing `newPos` ever asked "does this roll carry the
+token further than the distance remaining to home?" The modulo arithmetic that correctly wraps a
+mid-track move around the 52-cell loop does exactly the wrong thing once a token is close enough
+to home that a full 1-6 roll could carry it past that cell — it just keeps wrapping, indistinguishable
+in the code from a completely ordinary mid-board move.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly against the service, no HTTP layer needed:
+cd backend && mvn -o -q test -Dtest='com.lld.ludo.LudoServiceTest#moveToken_overshootHomeRejected'
+
+# Confirm the fixed exact-count boundary is also covered the other direction:
+mvn -o -q test -Dtest='com.lld.ludo.LudoServiceTest#moveToken_exactRollFinishesToken'
+```
+
+### 5. Step-by-Step Resolution
+1. Added `LudoService#stepsToHome(Token, playerIndex)`, computing the exact number of cells
+   remaining to that color's home cell via `(endPosition - position + TRACK_SIZE) % TRACK_SIZE`.
+2. `moveOnTrack` now compares the roll against `stepsToHome` **before** computing `newPos`: a roll
+   greater than the steps remaining throws `InvalidMoveException` and leaves the token completely
+   unmoved (the chosen contract for an illegal move throughout this module — see also RCA-022); a
+   roll exactly equal to the steps remaining transitions the token to `FINISHED` via the new
+   `TokenState` machine; anything smaller is an ordinary advance.
+3. `LudoService#hasAnyLegalMove` (the roll-time "does this player have any legal move" check) was
+   updated to use the same `stepsToHome` boundary, so a roll that would only overshoot every
+   on-track token is correctly treated as "no legal move" and the turn auto-passes, rather than
+   leaving the player stuck holding an unusable roll (see RCA-022 for the related bug in that same
+   check).
+4. Added `LudoServiceTest#moveToken_overshootHomeRejected` (asserts the exact rejection and that
+   the token's position is provably unchanged) and `#moveToken_exactRollFinishesToken` (asserts the
+   boundary case lands and finishes) to pin both sides of the boundary permanently.
+
+### 6. Preventative Measures
+1. `moveOnTrack`'s exception message states both the exact distance remaining and the value
+   rolled ("needs exactly N to reach home — rolled M"), so a future reader sees the invariant
+   enforced explicitly rather than having to re-derive it from modulo arithmetic.
+2. General lesson reinforced by this module's zero-test history (the same lesson RCA-014 drew for
+   snakeladders): a "wrap around a fixed-size loop" computation is only correct for cells that are
+   genuininely mid-loop — any position within striking distance of a designated exit/finish needs
+   its own explicit boundary check before the wraparound formula is allowed to run, or the two
+   cases become silently indistinguishable in the code.
+
+## RCA-021: Ludo's createGame Indexed a Fixed 4-Slot Player Array Without Validating Its Length
+
+**Severity:** Medium (a real unhandled-500 path reachable by any caller sending anything other
+than exactly 4 player names; the frontend's setup form always sends exactly 4, so this never fired
+in the shipped UI, but the endpoint accepted the malformed input silently until it blew up)
+**Date:** 2026-08-26
+**Status:** Resolved
+**Affected:** `com.lld.ludo.model.Game` constructor (now `Game.newGame`), `com.lld.ludo.service.LudoService#createGame`
+
+### 1. Overview & Severity
+The same boundary question that found RCA-014 in snakeladders — "what happens if the caller sends
+the wrong number of player names?" — turned up an identical defect here. The original `Game`
+constructor looped `for (int i = 0; i < 4; i++)` and read `playerNames[i]` directly, with nothing
+upstream ever checking `playerNames.length` first. A request with fewer than 4 names threw a bare
+`ArrayIndexOutOfBoundsException`; this repo's `GlobalExceptionHandler` has no handler for that
+exception type (by design — see its own javadoc), so it fell through to Spring's default resolver
+as an opaque `500` with the real cause never reaching the response body, exactly the failure mode
+RCA-014 already documented for the same bug shape in a sibling module.
+
+### 2. Symptoms & Error Logs
+No user-facing report — the frontend's setup form only ever submits exactly 4 names. Direct API
+use would have looked like:
+```
+POST /api/ludo/games  { "players": ["Alice", "Bob"] }
+→ HTTP 500 Internal Server Error
+  (real cause: ArrayIndexOutOfBoundsException: Index 2 out of bounds for length 2, never surfaced)
+```
+
+### 3. Root Cause
+```java
+// Game(long id, String[] playerNames), before this fix
+for (int i = 0; i < 4; i++) {
+    players.add(new Player(i, playerNames[i], colors[i])); // <- no length check on playerNames
+    ...
+}
+```
+Identical shape to RCA-014: a loop bound (`4`, the fixed size of `COLORS`/`START_POSITIONS`/
+`SAFE_SPOTS`) was trusted to also be a safe bound for a completely different, caller-supplied
+collection, with nothing checking that the two were actually the same size.
+
+### 4. Diagnostic Commands
+```bash
+cd backend && mvn -o -q test -Dtest='com.lld.ludo.LudoServiceTest#createGame_rejectsWrongPlayerCount'
+grep -n "@ExceptionHandler" backend/src/main/java/com/lld/config/GlobalExceptionHandler.java
+```
+
+### 5. Step-by-Step Resolution
+1. Added `LudoService#validatePlayerCount`, called at the top of `createGame`, enforcing
+   `playerNames.size() == 4` (Ludo's board geometry — 4 fixed colored seats — is compile-time, not
+   variable the way Snake & Ladders' 2-4 range is, so the valid range here is a single value, not a
+   window) and that no name is null/blank.
+2. Added a new typed exception, `InvalidPlayerCountException` (`@ResponseStatus(400)`), extending
+   the module's new abstract `LudoException` base — an invalid player list now returns a clean
+   `400` with a real message instead of an opaque `500`.
+3. Added `LudoServiceTest#createGame_rejectsWrongPlayerCount` (0, 3, 5 names, and `null`) and
+   `#createGame_rejectsBlankNames`, covering the boundary this bug lived at.
+
+### 6. Preventative Measures
+1. Same lesson RCA-014 already drew, reinforced by a second, independent instance of it in a
+   different module: any collection indexed by a caller-supplied size needs its bound validated at
+   the entry point before the indexing operation runs, not discovered by whichever exception the
+   JDK happens to throw.
+2. Moving the player-list assembly out of a raw constructor and into a validated static factory
+   (`Game.newGame`, called only after `validatePlayerCount` has already run) makes it structurally
+   impossible to construct a `Game` from an unvalidated player list anywhere else in the module —
+   the old bare constructor had no such guard rail and could be called directly from any future
+   call site.
+
+## RCA-022: Ludo's Skip-Turn Check Under-Reported Blocked Moves, and a Pending Roll Could Be Silently Re-Rolled
+
+**Severity:** Medium (two related roll/move-contract gaps found while writing the state-machine
+tests: one could stall a player's turn with a roll that looked legal but had no actually-playable
+move and no auto-pass; the other let a caller discard an unfavorable roll and try again for free,
+undermining the "roll a 6 to leave home" / exact-count rules the rest of the module enforces)
+**Date:** 2026-08-26
+**Status:** Resolved
+**Affected:** `com.lld.ludo.service.LudoService#rollDice` (now `#doRoll`/`#hasAnyLegalMove`)
+
+### 1. Overview & Severity
+Two defects surfaced together while pinning down `rollDice`'s exact contract for the new test
+suite:
+
+1. **`hasAnyMove` under-checked home exits.** On a roll of 6, the original check
+   (`tokens.stream().anyMatch(Token::isHome)`) reported a legal move existed the moment *any* token
+   was HOME — without checking whether that token's start square was actually free. If the start
+   square was blocked by the player's own token (a real, reachable board state), `rollDice` would
+   never auto-pass the turn, yet every subsequent `moveToken` call for that HOME token would be
+   rejected by the very same block check `moveToken` itself enforced. A player could roll
+   correctly, be told a move was available, and have no way to actually make one.
+2. **No guard against re-rolling a pending, unspent roll.** `rollDice` unconditionally overwrote
+   `diceValue` on every call, with nothing checking whether the previous roll had already been
+   spent on a move. A caller could roll, dislike the result, and simply call roll again — and
+   again — discarding every unfavorable value until a good one appeared, which defeats the "need a
+   6 to leave home" and exact-count rules by letting a player route around them by re-rolling
+   instead of moving.
+
+### 2. Symptoms & Error Logs
+Both were caught by the new suite, not in production:
+```
+// (1) Player 0 has one token ACTIVE sitting exactly on its own start square (a legal, reachable
+// state — e.g. it re-entered there after being captured elsewhere and moving back around), and
+// every other token HOME. Roll a 6:
+POST /api/ludo/games/{id}/roll   -> 200, diceValue: 6   (looked playable)
+POST /api/ludo/games/{id}/move   { playerIndex: 0, tokenIndex: <a HOME token> }
+   -> 400 "Start square is blocked by your own token"   (but rollDice never offered to pass the turn)
+
+// (2) Any game, any state:
+POST /api/ludo/games/{id}/roll   -> 200, diceValue: 2
+POST /api/ludo/games/{id}/roll   -> 200, diceValue: 6   (the 2 was simply discarded, no move required)
+```
+
+### 3. Root Cause
+Both gaps share one root cause: `rollDice`'s two responsibilities — "is there anything legal to do
+with this roll" and "has the previous roll already been resolved" — were each partially
+implemented. `hasAnyMove` re-derived home-exit legality with a shortcut (`anyMatch(Token::isHome)`)
+instead of calling the same block-check `moveToken` used, so the two could disagree. And nothing
+in `rollDice` ever read `diceValue` before overwriting it, because the original design assumed
+(without enforcing) that a client would always call `moveToken` between rolls.
+
+### 4. Diagnostic Commands
+```bash
+cd backend && mvn -o -q test -Dtest='com.lld.ludo.LudoServiceTest#rollDice_autoPassesWhenNoLegalMove'
+mvn -o -q test -Dtest='com.lld.ludo.LudoServiceTest#rollDice_alreadyRolledRejected'
+```
+
+### 5. Step-by-Step Resolution
+1. Rewrote `hasAnyLegalMove` to call the exact same `isBlockedByOwnToken`/`stepsToHome` helpers
+   `moveOutOfHome`/`moveOnTrack` use, so "rollDice says a move exists" and "moveToken accepts that
+   move" can never disagree again.
+2. Added a guard at the top of `doRoll`: if `game.getDiceValue() != 0` (a previous roll is still
+   unspent), the call throws `InvalidMoveException` instead of overwriting it — a pending roll must
+   now be resolved with `moveToken` before another roll is accepted.
+3. Added `LudoServiceTest#rollDice_autoPassesWhenNoLegalMove` and `#rollDice_alreadyRolledRejected`
+   to pin both fixes, plus `LudoConcurrencyTest`'s per-game-lock races to prove the roll/move
+   check-and-write stays atomic under concurrent access.
+
+### 6. Preventative Measures
+1. `doRoll` and `doMove` now share one documented contract, stated on `LudoService`'s class
+   javadoc: a game alternates strictly between "no pending roll" and "pending roll," and each
+   method enforces its own half of that invariant rather than trusting the caller's call order.
+2. General lesson: when two code paths (a "can I do X" check and the code that actually does X)
+   independently re-derive the same legality rule, they will eventually drift — as `hasAnyMove` and
+   `moveToken`'s block check already had. Extracting the shared predicate once removes the
+   possibility structurally instead of relying on the two staying manually in sync.
+
+## RCA-023: A Duplicate `@Component` Simple Class Name Between Ludo and Snake & Ladders Broke the Entire Spring Context at Test Time
+
+**Severity:** High (not confined to ludo — it failed `ApplicationContext` startup for the whole
+`com.lld` component scan, taking down every `@SpringBootTest`-based suite in the repo, including
+unrelated modules' `ErrorContractIntegrationTest`)
+**Date:** 2026-08-26
+**Status:** Resolved
+**Affected:** `com.lld.ludo.dice.RandomDiceRoller`, `com.lld.snakeladders.dice.RandomDiceRoller`,
+every `@SpringBootTest` in the repo (via `com.lld.config.ErrorContractIntegrationTest`)
+
+### 1. Overview & Severity
+Adding ludo's injectable-dice pair (`DiceRoller` / `RandomDiceRoller` / `FixedDiceRoller`), modeled
+directly on `com.lld.snakeladders.dice`'s existing classes of the same name, reproduced the exact
+same simple class name — `RandomDiceRoller` — as a second, unrelated `@Component`. Spring's
+component scan derives a bean name from the *simple* class name when none is given explicitly
+(`randomDiceRoller` for both), and two different classes registering the same bean name is a hard
+`ConflictingBeanDefinitionException` that aborts the whole `ApplicationContext`. Because
+`LldApplication` scans all of `com.lld` in one pass, this was not a ludo-local failure: every test
+in the module that boots the full Spring context (`ErrorContractIntegrationTest`, which exists
+purely to prove routing/error-handling wiring for airline/library/stockbroker) failed with 5
+`IllegalStateException`s, none of which mentioned ludo anywhere in their own stack trace — the real
+cause was three frames down, in a nested `ConflictingBeanDefinitionException`.
+
+### 2. Symptoms & Error Logs
+```
+[ERROR] ErrorContractIntegrationTest.frameworkErrorsAreUntouched -- Time elapsed: 0.003 s <<< ERROR!
+java.lang.IllegalStateException: Failed to load ApplicationContext for [...]
+Caused by: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse
+configuration class [com.lld.LldApplication]
+Caused by: org.springframework.context.annotation.ConflictingBeanDefinitionException:
+Annotation-specified bean name 'randomDiceRoller' for bean class
+[com.lld.snakeladders.dice.RandomDiceRoller] conflicts with existing, non-compatible bean
+definition of same name and class [com.lld.ludo.dice.RandomDiceRoller]
+```
+The other 4 `ErrorContractIntegrationTest` cases failed identically via JUnit/Spring's "context
+failure threshold exceeded" short-circuit once the first attempt had already failed — a single
+root cause fanned out into 5 reported test errors, none obviously pointing at ludo.
+
+### 3. Root Cause
+Both `snakeladders.dice.RandomDiceRoller` and the new `ludo.dice.RandomDiceRoller` are annotated
+`@Component` with no explicit bean name. Spring's default naming strategy
+(`AnnotationBeanNameGenerator`) uses the decapitalized simple class name, ignoring the package —
+so two classes in different packages with the same simple name collide the instant both are on the
+classpath of one component scan. `LldApplication`'s `@SpringBootApplication(scanBasePackages =
+"com.lld")` scans every module in a single application context, so any two modules that copy the
+same "reference module" naming convention (`RandomDiceRoller`, mirrored intentionally from
+snakeladders per this module's own design brief) are one collision away from breaking the whole
+build's context-loading tests, not just their own.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce and see the real cause 3 frames down:
+cd backend && mvn -o -q test -Dtest='com.lld.config.ErrorContractIntegrationTest' 2>&1 | grep -A2 ConflictingBeanDefinitionException
+
+# Find every other simple-class-name collision across modules before it bites the same way:
+find backend/src/main/java -name '*.java' -exec basename {} \; | sort | uniq -d
+```
+
+### 5. Step-by-Step Resolution
+1. Gave `com.lld.ludo.dice.RandomDiceRoller` an explicit bean name,
+   `@Component("ludoRandomDiceRoller")`, so its registered name no longer collides with
+   snakeladders' `randomDiceRoller`. `FixedDiceRoller` was never at risk — it is not a `@Component`
+   in either module, only ever constructed directly.
+2. Re-ran the full suite (`mvn -o -q test`) to confirm `ErrorContractIntegrationTest` and every
+   other `@SpringBootTest` loaded cleanly again, alongside ludo's own new suites.
+3. Documented the collision risk directly in `RandomDiceRoller`'s javadoc so the next module that
+   copies this same "RandomXRoller/FixedXRoller" naming convention from a sibling module knows to
+   qualify its bean name up front instead of discovering the collision at test time.
+
+### 6. Preventative Measures
+1. `find backend/src/main/java -name '*.java' -exec basename {} \; | sort | uniq -d` (the
+   diagnostic above) is a cheap pre-merge check for this exact class of collision — run it whenever
+   a new module deliberately mirrors a sibling module's class names (a common, encouraged pattern
+   in this repo's "match the reference module's shape" convention).
+2. General lesson: `@SpringBootApplication(scanBasePackages = "com.lld")` scanning every module
+   into one context means bean-name uniqueness is a whole-repo constraint, not a per-module one —
+   any two modules are free to reuse each other's class *names* (Java's package system already
+   disambiguates the types themselves) but not their default *bean* names. An explicit
+   `@Component("...")` value is required the moment a class name is intentionally copied from
+   another module, not just when a real naming clash is suspected.
+3. This is also why a single hard failure in one area can present as failures in a completely
+   unrelated test class (`ErrorContractIntegrationTest` covers airline/library/stockbroker, not
+   ludo) — when a `@SpringBootTest`-based suite fails with `Failed to load ApplicationContext`,
+   read the full `Caused by:` chain before assuming the failing test class's own domain is at
+   fault.

@@ -21,3 +21,31 @@ export function moveToken(gameId, playerIndex, tokenIndex) {
     body: JSON.stringify({ playerIndex, tokenIndex }),
   });
 }
+
+// =========================================================================
+// ISOLATED SIMULATION ENGINE (/api/ludo/sim/*) — a separate sandbox instance,
+// so replaying the demo can never corrupt a real game.
+// =========================================================================
+
+export function simReset() {
+  return apiFetch('/ludo/sim/reset', { method: 'POST' });
+}
+
+export function simGetGame() {
+  return apiFetch('/ludo/sim/game');
+}
+
+export function simGetLog() {
+  return apiFetch('/ludo/sim/log');
+}
+
+export function simRoll() {
+  return apiFetch('/ludo/sim/roll', { method: 'POST' });
+}
+
+export function simMove(playerIndex, tokenIndex) {
+  return apiFetch('/ludo/sim/move', {
+    method: 'POST',
+    body: JSON.stringify({ playerIndex, tokenIndex }),
+  });
+}
