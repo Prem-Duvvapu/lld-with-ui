@@ -1,0 +1,82 @@
+// Sequence diagram content for social-network.
+// Grounded directly in SocialService#doSendFriendRequest / #doRespondToRequest / #doCreatePost
+// and SocialConcurrencyTest's race assertions.
+export default {
+  title: 'Social Network — Friend Request Race & Feed Fan-Out',
+  description:
+    'The class diagram shows SocialService sitting between SocialController, SocialRepository and FeedNotifier — only a sequence diagram shows WHEN the canonical pair lock is acquired relative to the "already friends" / "already pending" reads, and that a post publish is one write followed by a completely separate Observer broadcast that the writer never waits on.',
+  flows: [
+    {
+      id: 'friend-request-race',
+      label: 'Concurrent friend request — canonical pair lock',
+      description:
+        'Alice (#1) and Bob (#2) each try to send the other a friend request at almost the same instant (SocialConcurrencyTest#concurrentSendFriendRequest_onlyOneCreatesAPendingRequest). Both calls resolve to the SAME lock key — min(1,2)#max(1,2) — no matter which direction the request travels, so only one caller can be inside the critical section at a time.',
+      participants: [
+        { id: 'alice', name: 'Alice — Thread A', kind: 'actor' },
+        { id: 'bob', name: 'Bob — Thread B', kind: 'actor' },
+        { id: 'controller', name: 'SocialController', kind: 'component', stereotype: 'controller' },
+        { id: 'service', name: 'SocialService', kind: 'component', stereotype: 'facade' },
+        { id: 'lock', name: 'friendPairLocks\n["1#2"]', kind: 'component', stereotype: 'lock' },
+        { id: 'repo', name: 'SocialRepository', kind: 'store' },
+      ],
+      steps: [
+        { from: 'alice', to: 'controller', text: 'POST /friends/request {fromUserId:1, toUserId:2}',
+          detail: 'Alice\'s HTTP call lands first at the controller but the two threads are racing — Bob\'s call (from:2, to:1) is issued at nearly the same instant.' },
+        { from: 'bob', to: 'controller', text: 'POST /friends/request {fromUserId:2, toUserId:1}' },
+        { from: 'controller', to: 'service', text: 'sendFriendRequest(1, 2)', activate: 'service' },
+        { from: 'controller', to: 'service', text: 'sendFriendRequest(2, 1)',
+          detail: 'Both calls enter doSendFriendRequest(). Neither has touched the lock yet — the self-check and both requireUser() lookups run lock-free because they read immutable/already-created data.' },
+        { from: 'service', to: 'lock', text: 'lockFor(1,2) → key = "1#2"',
+          detail: 'pairKey() always orders the ids ascending: Math.min(1,2) + "#" + Math.max(1,2) = "1#2" — Bob\'s call computes the IDENTICAL key even though his fromUserId/toUserId are reversed. That is the entire trick: direction never changes which lock object gets used.' },
+        { from: 'service', to: 'lock', text: 'lock.lock()  — Alice\'s thread wins the race', activate: 'lock' },
+        { type: 'note', over: ['lock'], text: 'Bob\'s thread blocks on the SAME ReentrantLock instance here — it cannot proceed past this line until Alice\'s critical section exits.' },
+        { from: 'service', to: 'repo', text: 'areFriends(1,2)? → false; hasPendingRequestBetween(1,2)? → false',
+          detail: 'Both checks run AFTER the lock is held, reading current repository state — this is what "check-then-act inside the lock" means. If they ran before locking, Bob could pass both checks between Alice\'s check and her write.' },
+        { from: 'repo', to: 'service', text: 'return false, false', type: 'return' },
+        { from: 'service', to: 'repo', text: 'sendFriendRequest(1, 2) → FriendRequest#7 PENDING' },
+        { from: 'service', to: 'lock', text: 'lock.unlock()', deactivate: 'lock' },
+        { from: 'service', to: 'controller', text: 'return FriendRequest#7', type: 'return', deactivate: 'service' },
+        { from: 'controller', to: 'alice', text: '200 OK  FriendRequest#7 {status: PENDING}', type: 'return' },
+        { from: 'service', to: 'lock', text: 'lock.lock()  — Bob\'s thread proceeds, now unblocked', activate: 'service' },
+        { from: 'service', to: 'repo', text: 'areFriends(2,1)? → false; hasPendingRequestBetween(2,1)? → true',
+          detail: 'Bob\'s check now sees request #7, created while he was blocked. hasPendingRequestBetween checks BOTH directions, so Bob\'s reversed (from:2,to:1) call still finds it.' },
+        { from: 'repo', to: 'service', text: 'return false, true', type: 'return' },
+        { from: 'service', to: 'service', text: 'throw new DuplicateFriendRequestException(2, 1)',
+          detail: 'GlobalExceptionHandler maps this to HTTP 409. Bob never created a second FriendRequest row — the repository ends the race with exactly one PENDING request, never zero, never two.' },
+        { from: 'service', to: 'controller', text: 'throws DuplicateFriendRequestException', type: 'return', deactivate: 'service' },
+        { from: 'controller', to: 'bob', text: '409 Conflict  "A pending friend request already exists between 2 and 1"', type: 'return' },
+      ],
+    },
+    {
+      id: 'post-feed-fanout',
+      label: 'Publish a post — Observer feed fan-out',
+      description:
+        'Alice publishes a post. SocialService#doCreatePost persists it, builds one FeedEvent, and publishes it once through FeedNotifier — InAppFeedObserver and LoggingFeedObserver each receive it independently and neither knows the other exists (SocialServiceTest#createPost_fansOutToBothObservers).',
+      participants: [
+        { id: 'alice', name: 'Alice', kind: 'actor' },
+        { id: 'controller', name: 'SocialController', kind: 'component', stereotype: 'controller' },
+        { id: 'service', name: 'SocialService', kind: 'component', stereotype: 'facade' },
+        { id: 'repo', name: 'SocialRepository', kind: 'store' },
+        { id: 'notifier', name: 'FeedNotifier', kind: 'component', stereotype: 'subject' },
+        { id: 'inapp', name: 'InAppFeedObserver', kind: 'component', stereotype: 'observer' },
+        { id: 'logging', name: 'LoggingFeedObserver', kind: 'component', stereotype: 'observer' },
+      ],
+      steps: [
+        { from: 'alice', to: 'controller', text: 'POST /posts {userId:1, content:"Shipped it! 🎉"}' },
+        { from: 'controller', to: 'service', text: 'createPost(1, "Shipped it! 🎉")', activate: 'service' },
+        { from: 'service', to: 'repo', text: 'requireUser(1); createPost(1, content) → Post#12' },
+        { from: 'repo', to: 'service', text: 'return Post#12', type: 'return' },
+        { from: 'service', to: 'repo', text: 'getFriendIds(1) → {2}  (1 friend)' },
+        { from: 'service', to: 'service', text: 'build FeedEvent{postId:12, authorName:"Alice", friendsNotified:1}' },
+        { from: 'service', to: 'notifier', text: 'notifier.publish(event)', activate: 'notifier' },
+        { from: 'notifier', to: 'inapp', text: 'onFeedEvent(event)',
+          detail: 'InAppFeedObserver appends to a bounded Deque (max 100) — this is what GET /api/social/feed-events and the sim HUD read back.' },
+        { from: 'notifier', to: 'logging', text: 'onFeedEvent(event)',
+          detail: 'LoggingFeedObserver writes one line to stdout. If this observer threw, FeedNotifier.publish() catches it per-observer so InAppFeedObserver still received its copy.' },
+        { from: 'notifier', to: 'service', text: 'return (fan-out complete)', type: 'return', deactivate: 'notifier' },
+        { from: 'service', to: 'controller', text: 'return Post#12', type: 'return', deactivate: 'service' },
+        { from: 'controller', to: 'alice', text: '200 OK  Post#12', type: 'return' },
+      ],
+    },
+  ],
+};

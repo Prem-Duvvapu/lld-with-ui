@@ -1,120 +1,212 @@
 // classDiagrams — socialNetwork
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+// Grounded directly in com.lld.socialnetwork.{model,repository,service,observer,exception,controller}.
 
 export default {
   title: 'Social Network — Class Diagram',
   classes: [
     {
-      name: 'User',
+      name: 'SocialController',
+      stereotype: 'controller',
+      fields: ['- service: SocialService'],
+      methods: [
+        '+ createUser(body): User',
+        '+ sendFriendRequest(body): FriendRequest',
+        '+ respondToRequest(requestId, accept): FriendRequest',
+        '+ createPost(body): Post',
+        '+ getFeed(userId): List<Post>',
+        '+ likePost(postId, body): void',
+        '+ addComment(postId, body): Comment'
+      ]
+    },
+    {
+      name: 'SocialService',
+      stereotype: 'facade',
       fields: [
-        '- id: String',
-        '- name: String',
-        '- email: String',
-        '- friends: List<User>',
-        '- posts: List<Post>',
-        '- pendingRequests: List<FriendRequest>'
+        '- repository, simRepository: SocialRepository',
+        '- feedNotifier, simFeedNotifier: FeedNotifier',
+        '- friendPairLocks: ConcurrentHashMap<String, ReentrantLock>'
       ],
       methods: [
-        '+ sendFriendRequest(to): void',
-        '+ acceptRequest(from): void',
-        '+ createPost(content): Post',
-        '+ getNewsFeed(): List<Post>'
+        '+ createPost(userId, content): Post',
+        '+ sendFriendRequest(fromUserId, toUserId): FriendRequest',
+        '+ respondToRequest(requestId, accept): FriendRequest',
+        '+ simRaceFriendRequests(userId1, userId2, attempts, step): Map',
+        '- doCreatePost(repo, notifier, userId, content): Post',
+        '- doSendFriendRequest(repo, fromUserId, toUserId): FriendRequest',
+        '- doRespondToRequest(repo, requestId, accept): FriendRequest',
+        '- lockFor(userId1, userId2): ReentrantLock'
       ]
+    },
+    {
+      name: 'FeedNotifier',
+      stereotype: 'subject',
+      fields: ['- observers: CopyOnWriteArrayList<FeedObserver>'],
+      methods: [
+        '+ registerObserver(observer): void',
+        '+ removeObserver(observer): void',
+        '+ publish(event): void'
+      ]
+    },
+    {
+      name: 'FeedObserver',
+      stereotype: 'interface',
+      fields: [],
+      methods: ['+ onFeedEvent(event): void']
+    },
+    {
+      name: 'InAppFeedObserver',
+      stereotype: 'observer',
+      fields: ['- events: Deque<FeedEvent>'],
+      methods: ['+ onFeedEvent(event): void', '+ recentEvents(): List<FeedEvent>']
+    },
+    {
+      name: 'LoggingFeedObserver',
+      stereotype: 'observer',
+      fields: [],
+      methods: ['+ onFeedEvent(event): void']
+    },
+    {
+      name: 'FeedEvent',
+      stereotype: 'entity',
+      fields: [
+        '- postId: long', '- authorId: long', '- authorName: String',
+        '- contentPreview: String', '- friendsNotified: int', '- timestamp: LocalDateTime'
+      ],
+      methods: []
+    },
+    {
+      name: 'SocialRepository',
+      stereotype: 'repository',
+      fields: [
+        '- users: ConcurrentHashMap<Long, User>',
+        '- posts: ConcurrentHashMap<Long, Post>',
+        '- friendRequests: ConcurrentHashMap<Long, FriendRequest>',
+        '- friendships: ConcurrentHashMap<Long, Set<Long>>'
+      ],
+      methods: [
+        '+ saveUser(name, email, bio): User',
+        '+ createPost(authorId, content): Post',
+        '+ sendFriendRequest(fromUserId, toUserId): FriendRequest',
+        '+ acceptFriendRequest(requestId): void',
+        '+ areFriends(userId1, userId2): boolean',
+        '+ hasPendingRequestBetween(userId1, userId2): boolean',
+        '+ getFeed(userId): List<Post>'
+      ]
+    },
+    {
+      name: 'User',
+      stereotype: 'entity',
+      fields: ['- id: long', '- name: String', '- email: String', '- bio: String'],
+      methods: []
     },
     {
       name: 'Post',
+      stereotype: 'entity',
       fields: [
-        '- id: String',
-        '- author: User',
-        '- content: String',
-        '- likes: Set<String>',
-        '- comments: List<Comment>',
-        '- timestamp: LocalDateTime'
+        '- id: long', '- authorId: long', '- content: String', '- timestamp: LocalDateTime',
+        '- likes: Set<Long>', '- comments: List<Comment>'
       ],
-      methods: [
-        '+ like(userId): void',
-        '+ addComment(comment): void'
-      ]
+      methods: ['+ addLike(userId): boolean', '+ removeLike(userId): boolean', '+ addComment(comment): void']
+    },
+    {
+      name: 'Comment',
+      stereotype: 'entity',
+      fields: ['- id: long', '- postId: long', '- authorId: long', '- content: String', '- timestamp: LocalDateTime'],
+      methods: []
     },
     {
       name: 'FriendRequest',
-      fields: [
-        '- from: User',
-        '- to: User',
-        '- status: FriendRequestStatus',
-        '- timestamp: LocalDateTime'
-      ],
-      methods: [
-        '+ accept(): void',
-        '+ reject(): void'
-      ]
-    },
-    {
-      name: 'NewsFeed',
-      fields: [
-        '- user: User',
-        '- posts: List<Post>'
-      ],
-      methods: [
-        '+ generate(user): NewsFeed',
-        '+ refresh(): void'
-      ]
-    },
-    {
-      name: 'Notification',
-      fields: [
-        '- id: String',
-        '- user: User',
-        '- type: String (LIKE/COMMENT/REQUEST)',
-        '- message: String',
-        '- isRead: boolean'
-      ],
-      methods: [
-        '+ markRead(): void'
-      ]
+      stereotype: 'entity',
+      fields: ['- id: long', '- fromUserId: long', '- toUserId: long', '- status: FriendRequestStatus', '- timestamp: LocalDateTime'],
+      methods: []
     },
     {
       name: 'FriendRequestStatus',
       stereotype: 'enum',
-      fields: [
-        'PENDING',
-        'ACCEPTED',
-        'REJECTED'
-      ],
+      fields: ['PENDING', 'ACCEPTED', 'REJECTED'],
+      methods: []
+    },
+    {
+      name: 'SimEvent',
+      stereotype: 'entity',
+      fields: ['- stepNumber: int', '- eventType: String', '- status: String', '- description: String', '- details: Map<String, Object>'],
+      methods: ['+ addDetail(key, value): SimEvent']
+    },
+    {
+      name: 'SocialException',
+      stereotype: 'exception',
+      fields: [],
+      methods: []
+    },
+    {
+      name: 'UserNotFoundException',
+      stereotype: 'exception',
+      fields: ['404'],
+      methods: []
+    },
+    {
+      name: 'PostNotFoundException',
+      stereotype: 'exception',
+      fields: ['404'],
+      methods: []
+    },
+    {
+      name: 'FriendRequestNotFoundException',
+      stereotype: 'exception',
+      fields: ['404'],
+      methods: []
+    },
+    {
+      name: 'AlreadyFriendsException',
+      stereotype: 'exception',
+      fields: ['409'],
+      methods: []
+    },
+    {
+      name: 'DuplicateFriendRequestException',
+      stereotype: 'exception',
+      fields: ['409'],
+      methods: []
+    },
+    {
+      name: 'RequestAlreadyRespondedException',
+      stereotype: 'exception',
+      fields: ['409'],
+      methods: []
+    },
+    {
+      name: 'InvalidSocialActionException',
+      stereotype: 'exception',
+      fields: ['400'],
       methods: []
     }
   ],
   relationships: [
-    {
-      from: 'User',
-      to: 'User',
-      label: 'friends with'
-    },
-    {
-      from: 'User',
-      to: 'Post',
-      label: 'creates'
-    },
-    {
-      from: 'User',
-      to: 'FriendRequest',
-      label: 'sends/receives'
-    },
-    {
-      from: 'FriendRequest',
-      to: 'FriendRequestStatus',
-      label: 'has status'
-    },
-    {
-      from: 'User',
-      to: 'NewsFeed',
-      label: 'has'
-    },
-    {
-      from: 'User',
-      to: 'Notification',
-      label: 'receives'
-    }
+    { from: 'SocialController', to: 'SocialService', label: 'delegates to' },
+    { from: 'SocialService', to: 'SocialRepository', label: 'uses' },
+    { from: 'SocialService', to: 'FeedNotifier', label: 'publishes via' },
+    { from: 'SocialService', to: 'SocialException', label: 'throws', dashed: true },
+    { from: 'FeedNotifier', to: 'FeedObserver', label: 'notifies' },
+    { from: 'FeedNotifier', to: 'FeedEvent', label: 'publishes' },
+    { from: 'InAppFeedObserver', to: 'FeedObserver', label: 'implements', dashed: true },
+    { from: 'LoggingFeedObserver', to: 'FeedObserver', label: 'implements', dashed: true },
+    { from: 'InAppFeedObserver', to: 'FeedEvent', label: 'stores' },
+    { from: 'SocialRepository', to: 'User', label: 'stores' },
+    { from: 'SocialRepository', to: 'Post', label: 'stores' },
+    { from: 'SocialRepository', to: 'FriendRequest', label: 'stores' },
+    { from: 'User', to: 'User', label: 'friends with (adjacency)' },
+    { from: 'User', to: 'Post', label: 'authors' },
+    { from: 'Post', to: 'Comment', label: 'has' },
+    { from: 'FriendRequest', to: 'FriendRequestStatus', label: 'has status' },
+    { from: 'FriendRequest', to: 'User', label: 'from / to' },
+    { from: 'UserNotFoundException', to: 'SocialException', label: 'extends', dashed: true },
+    { from: 'PostNotFoundException', to: 'SocialException', label: 'extends', dashed: true },
+    { from: 'FriendRequestNotFoundException', to: 'SocialException', label: 'extends', dashed: true },
+    { from: 'AlreadyFriendsException', to: 'SocialException', label: 'extends', dashed: true },
+    { from: 'DuplicateFriendRequestException', to: 'SocialException', label: 'extends', dashed: true },
+    { from: 'RequestAlreadyRespondedException', to: 'SocialException', label: 'extends', dashed: true },
+    { from: 'InvalidSocialActionException', to: 'SocialException', label: 'extends', dashed: true }
   ]
 };

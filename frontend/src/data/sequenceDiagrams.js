@@ -11,6 +11,7 @@ import _splitwise from './sequences/splitwise.js';
 import _taskManagement from './sequences/task-management.js';
 import _wallet from './sequences/wallet.js';
 import _auction from './sequences/auction.js';
+import _socialNetwork from './sequences/social-network.js';
 
 const sequenceDiagrams = {
   uber: _uber,
@@ -19,6 +20,7 @@ const sequenceDiagrams = {
   'task-management': _taskManagement,
   wallet: _wallet,
   auction: _auction,
+  socialNetwork: _socialNetwork,
 };
 
 export default sequenceDiagrams;
