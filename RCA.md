@@ -2173,3 +2173,101 @@ grep -rL "@Autowired" $(grep -rl "public [A-Za-z]*(" backend/src/main/java/com/l
    ambiguous constructor, and a bad seat number in a brand-new test) all surfaced in the same `mvn
    test` invocation; fixing only the first would have left CI red twice more in a row, each time
    looking like a fresh, mysterious failure instead of the next item on an already-visible list.
+
+## RCA-026: Elevator's Two-Phase Dispatch Queued a Placeholder Stop That Was Never the Rider's Real Destination
+
+**Severity:** Medium (every real elevator trip made one spurious extra stop, and a rider's request
+could never be correctly marked `COMPLETED` at the floor they actually asked for)
+**Date:** 2026-08-26
+**Status:** Resolved
+**Affected:** `com.lld.elevator.service.ElevatorControllerService#handleExternalRequest`,
+`#assignRequestToElevator`, `#completeMatchingRequests`
+
+### 1. Overview & Severity
+Raising the elevator module to the reference bar meant reading `ElevatorControllerService` closely
+enough to add a guarded state machine around every `setState` call — which required understanding
+exactly which floors each state transition was reacting to. That reading surfaced a genuine
+correctness bug in the existing, pre-upgrade dispatch flow: `handleExternalRequest(sourceFloor,
+direction)` built its `Request` with a **placeholder** destination floor (`sourceFloor +/- 1`,
+whichever direction the caller pressed) rather than the rider's real destination, and
+`assignRequestToElevator` queued that placeholder as an actual elevator stop. The real destination
+was only added afterward via a separate `handleInternalRequest` call — meaning every dispatched car
+ended up with three queued stops (source, placeholder, real destination) instead of two, making one
+extra, unrequested stop on every single trip. Because `completeMatchingRequests` compared an
+elevator's arrival floor against `request.getDestinationFloor()` — which held that same placeholder,
+never the real destination — a request could also never be marked `COMPLETED` at the floor the rider
+actually got off on.
+
+### 2. Symptoms & Error Logs
+No exception or crash — this was a silent behavioral defect, not a failure. It would only surface as:
+- An elevator visibly stopping at an unrequested floor one step past every pickup, in the live
+  building visualizer.
+- `GET /api/elevator/requests` showing a `Request`'s `destinationFloor` field that never matched
+  what the caller actually asked the `/request` endpoint for.
+- No test previously exercised end-to-end trip completion against the real requested floor —
+  `ElevatorConcurrencyTest`'s only assertion was capacity-never-exceeded, which this bug happens
+  not to violate, so the existing suite passed straight through it.
+
+### 3. Root Cause
+```java
+// before — sourceFloor +/- 1 is NOT the rider's real destination:
+Request request = new Request(sourceFloor, sourceFloor + (direction == Direction.UP ? 1 : -1));
+...
+elevator.addStop(request.getSourceFloor());
+elevator.addStop(request.getDestinationFloor());   // queues the placeholder as a real stop
+```
+The design split dispatch into two calls — `handleExternalRequest(sourceFloor, direction)`
+("call button pressed") followed by a separate `handleInternalRequest(elevatorId, toFloor)`
+("floor button pressed once inside") — modeling a real elevator's two physical buttons. But the
+caller (`ElevatorService#requestElevator(fromFloor, toFloor)`) already knows *both* floors up front
+(the frontend's `/request` call always supplies both), so the first phase had no real destination to
+put in the `Request` and synthesized one just to satisfy the constructor — never intending it to be
+a real queued stop, but `assignRequestToElevator` queued it anyway.
+
+### 4. Diagnostic Commands
+```bash
+# Watch the actual stops queued for a single dispatched request:
+cd backend && mvn -o -q test -Dtest='ElevatorControllerServiceTest#tripCompletesAtTheRealRequestedDestinationNotABogusPlaceholder'
+
+# Before the fix, this would show 3 stops (source, sourceFloor+/-1, realDestination) instead of 2 —
+# inspect Elevator#getPendingFloors() right after assignment in a debugger or an ad-hoc print.
+```
+
+### 5. Step-by-Step Resolution
+1. Changed `handleExternalRequest`'s signature to `(sourceFloor, destinationFloor)` — the real
+   destination, not a direction — deriving `Direction` from the two floors instead of taking it as
+   a separate parameter. `Request.of(sourceFloor, destinationFloor)` now always carries the rider's
+   actual destination from the moment the request is created.
+2. `assignRequestToElevator` now queues `request.getSourceFloor()` and `request.getDestinationFloor()`
+   in one step — both real floors, no placeholder — so `completeMatchingRequests` correctly matches
+   a request's completion against the floor the rider actually asked for.
+3. `ElevatorService#requestElevator(fromFloor, toFloor)` simplified to a single
+   `controller.handleExternalRequest(fromFloor, toFloor)` call, removing the now-unnecessary
+   follow-up `handleInternalRequest` call it previously made to add the real destination after the
+   fact. `handleInternalRequest` itself is unchanged and still exercised independently — it remains
+   the correct path for a rider already on board pressing a different floor than what was announced
+   downstairs.
+4. Found and fixed the same-shaped edge case in the sim engine's `simRequest`, which had an
+   equivalent same-floor-assignment gap (a car assigned a call at the floor it was already parked on
+   never removed that floor from its own pending-stop set — a stale entry that would sit unused in
+   the set forever). Added `elevator.removeStop(target)` to both the real and sim same-floor branches
+   of assignment, matching what `stepSimulation` already does when a car arrives at a stop mid-transit.
+5. Added `ElevatorControllerServiceTest#requestElevatorAssignsBothSourceAndDestinationStopsUpFront`
+   and `#tripCompletesAtTheRealRequestedDestinationNotABogusPlaceholder`, which fail against the
+   pre-fix code (the former by finding a bogus queued floor between source and destination, the
+   latter by timing out waiting for `COMPLETED` at the real destination) and pass against the fix.
+
+### 6. Preventative Measures
+1. Whenever a service splits one logical operation into two calls "because a real-world device has
+   two buttons," check whether the *caller* actually has both pieces of information available at
+   the first call site — if it does (as here), the split adds a placeholder-data risk with no
+   corresponding benefit, and the two calls should collapse into one.
+2. A synthesized/placeholder value that is only meant to satisfy a constructor's required field
+   should never be capable of flowing into a code path that treats it as real domain data (here: an
+   actual elevator stop) — either make the field genuinely optional, or don't construct the object
+   until the real value is known, as the fix now does.
+3. `ElevatorConcurrencyTest`'s original assertion set (capacity-never-exceeded) is a real, useful
+   invariant but does not on its own prove *correctness* of dispatch, only *safety*. Any module with
+   a fixed-point "did the operation complete against the right target" check available (here:
+   stepping the simulation to completion and asserting `COMPLETED` lands at the real requested
+   floor) should have at least one test that asserts it end-to-end, not just the safety invariant.

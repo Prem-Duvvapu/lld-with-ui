@@ -1,14 +1,15 @@
 package com.lld.elevator.service;
 
-import com.lld.elevator.model.Direction;
 import com.lld.elevator.model.Elevator;
 import com.lld.elevator.model.Request;
 import com.lld.elevator.repository.ElevatorRepository;
+import com.lld.elevator.strategy.DispatchPolicy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/** Thin facade the controller delegates to for the real (non-sim) elevator bank. */
 @Service
 public class ElevatorService {
 
@@ -24,13 +25,9 @@ public class ElevatorService {
         return controller.getElevators();
     }
 
+    /** One call: the dispatched car gets both the pickup and destination stops immediately. */
     public Request requestElevator(int fromFloor, int toFloor) {
-        Direction dir = fromFloor < toFloor ? Direction.UP : Direction.DOWN;
-        Request req = controller.handleExternalRequest(fromFloor, dir);
-        if (req.getAssignedElevatorId() > 0) {
-            controller.handleInternalRequest(req.getAssignedElevatorId(), toFloor);
-        }
-        return req;
+        return controller.handleExternalRequest(fromFloor, toFloor);
     }
 
     public List<Request> getRequests() {
@@ -39,6 +36,14 @@ public class ElevatorService {
 
     public List<Elevator> tick() {
         return controller.stepSimulation();
+    }
+
+    public DispatchPolicy getDispatchPolicy() {
+        return controller.getDispatchPolicy();
+    }
+
+    public void setDispatchPolicy(DispatchPolicy policy) {
+        controller.setDispatchPolicy(policy);
     }
 
     @Scheduled(fixedRate = 1500)

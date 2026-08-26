@@ -1,10 +1,12 @@
 package com.lld.elevator.controller;
 
+import com.lld.elevator.exception.InvalidElevatorRequestException;
 import com.lld.elevator.model.Elevator;
 import com.lld.elevator.model.Request;
 import com.lld.elevator.model.SimEvent;
 import com.lld.elevator.service.ElevatorControllerService;
 import com.lld.elevator.service.ElevatorService;
+import com.lld.elevator.strategy.DispatchPolicy;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,9 +32,9 @@ public class ElevatorController {
 
     @PostMapping("/request")
     public Request requestElevator(@RequestBody Map<String, Object> body) {
-        int fromFloor = Integer.parseInt(body.get("fromFloor").toString());
-        int toFloor = Integer.parseInt(body.get("toFloor").toString());
-        return elevatorService.requestElevator(fromFloor, toFloor);
+        int sourceFloor = Integer.parseInt(body.get("sourceFloor").toString());
+        int destinationFloor = Integer.parseInt(body.get("destinationFloor").toString());
+        return elevatorService.requestElevator(sourceFloor, destinationFloor);
     }
 
     @PostMapping("/destination")
@@ -57,6 +59,27 @@ public class ElevatorController {
     @PostMapping("/tick")
     public List<Elevator> tick() {
         return elevatorService.tick();
+    }
+
+    @GetMapping("/policy")
+    public Map<String, DispatchPolicy> getDispatchPolicy() {
+        return Map.of("policy", elevatorService.getDispatchPolicy());
+    }
+
+    @PostMapping("/policy")
+    public Map<String, DispatchPolicy> setDispatchPolicy(@RequestBody Map<String, Object> body) {
+        Object raw = body.get("policy");
+        if (raw == null) {
+            throw new InvalidElevatorRequestException("Request body must include a 'policy' field");
+        }
+        DispatchPolicy policy;
+        try {
+            policy = DispatchPolicy.valueOf(raw.toString());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidElevatorRequestException("Unknown dispatch policy: " + raw);
+        }
+        elevatorService.setDispatchPolicy(policy);
+        return Map.of("policy", elevatorService.getDispatchPolicy());
     }
 
     // =========================================================================

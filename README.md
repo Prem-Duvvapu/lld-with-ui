@@ -380,9 +380,11 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 9. Elevator System
 
 #### Key Features
-- **SCAN Dispatch Strategy**: LOOK/SCAN distance + direction proximity penalty scoring with 3-tier tie-breaking.
-- **State Machine & Capacity Limits**: Elevator states (`IDLE`, `MOVING_UP`, `MOVING_DOWN`, `DOOR_OPEN`, `MAINTENANCE`) with atomic capacity bounds.
-- **5-Tab Visualizer**: Animated sliding doors, occupancy gauges, floor call buttons, and interactive simulation replay.
+- **Two Dispatch Strategies Behind a Factory**: LOOK/SCAN (distance + direction proximity penalty scoring, 3-tier tie-breaking) and a raw Nearest-Car baseline, resolved by an `EnumMap`-backed `ElevatorDispatchStrategyFactory` and switchable at runtime.
+- **Guarded State Machine**: A declared legal-transition table (one singleton class per `ElevatorState` — `IDLE`, `MOVING_UP`, `MOVING_DOWN`, `DOOR_OPEN`, `MAINTENANCE`) enforced on every state change via `Elevator#transitionTo`, rejecting an illegal jump with a typed 409 instead of silently overwriting the field.
+- **Full Typed Exception Hierarchy**: out-of-range floors, unknown elevators, illegal state transitions and maintenance-unavailable calls all map to the correct 4xx/409 status.
+- **Real Observer Wiring**: state-change/door/floor-reached telemetry fanned out to a logging observer and a bounded in-memory event ring buffer.
+- **5-Tab Visualizer**: live building with animated sliding doors driven by real backend state (no client-side guessing), floor call buttons, a dispatch-policy selector, and an 8-step interactive simulation against an isolated sandbox.
 
 #### API Endpoints
 - `GET /api/elevator/elevators`
@@ -390,9 +392,14 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/elevator/destination`
 - `POST /api/elevator/maintenance`
 - `POST /api/elevator/tick`
+- `GET /api/elevator/policy`
+- `POST /api/elevator/policy`
 - `POST /api/elevator/sim/reset`
 - `POST /api/elevator/sim/request`
 - `POST /api/elevator/sim/step`
+- `POST /api/elevator/sim/maintenance`
+- `GET /api/elevator/sim/events`
+- `GET /api/elevator/sim/snapshots`
 
 ---
 

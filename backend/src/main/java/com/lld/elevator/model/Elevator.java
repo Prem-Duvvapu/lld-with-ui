@@ -1,5 +1,8 @@
 package com.lld.elevator.model;
 
+import com.lld.elevator.exception.IllegalElevatorStateTransitionException;
+import com.lld.elevator.state.ElevatorLifecycleStates;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -91,13 +94,39 @@ public class Elevator {
         return state;
     }
 
+    /**
+     * Raw setter — bypasses the legal-transition table. Reserved for constructing test fixtures
+     * and seeding initial state; production call sites should use {@link #transitionTo(ElevatorState)}.
+     */
     public void setState(ElevatorState state) {
         this.state = state;
     }
 
+    /**
+     * Guarded transition: validates {@code target} against this elevator's current
+     * {@link com.lld.elevator.state.ElevatorLifecycleState#allowedNext()} before applying it.
+     * This is the one place production code should ever change {@link #state}.
+     *
+     * @throws IllegalElevatorStateTransitionException if {@code target} is not a legal next state
+     */
+    public void transitionTo(ElevatorState target) {
+        if (!ElevatorLifecycleStates.of(this.state).canTransitionTo(target)) {
+            throw new IllegalElevatorStateTransitionException(
+                    "Elevator " + id + " (" + name + ") cannot transition from " + this.state + " to " + target);
+        }
+        this.state = target;
+    }
+
+    /**
+     * The coarse-grained status the frontend renders. Previously collapsed {@code DOOR_OPEN} into
+     * {@code STOPPED}, which meant the JSON contract could never actually tell a caller doors
+     * were open — the frontend had to fake it with a client-side timer guess. Now that
+     * {@link ElevatorState#DOOR_OPEN} is a real, guarded state, it is reported honestly.
+     */
     public ElevatorStatus getStatus() {
         if (state == ElevatorState.MAINTENANCE) return ElevatorStatus.OUT_OF_ORDER;
         if (state == ElevatorState.MOVING_UP || state == ElevatorState.MOVING_DOWN) return ElevatorStatus.MOVING;
+        if (state == ElevatorState.DOOR_OPEN) return ElevatorStatus.DOOR_OPEN;
         return ElevatorStatus.STOPPED;
     }
 

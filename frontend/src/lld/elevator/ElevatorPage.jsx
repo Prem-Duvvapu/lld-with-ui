@@ -1,535 +1,463 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { getElevators, getRequests, requestElevator, tick } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import DesignDetails from '../../components/DesignDetails';
+import LldPage from '../../components/LldPage';
+import { usePolling } from '../../hooks/usePolling';
+import {
+  getElevators, getRequests, requestElevator,
+  getDispatchPolicy, setDispatchPolicy,
+  simReset, simRequest, simStep, simMaintenance,
+} from './api';
 
 const styles = `
-.app { max-width: 800px; margin: 0 auto; }
-.header { background: #1a1a2e; color: white; padding: 20px 30px; border-radius: 12px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-.header h1 { font-size: 22px; font-weight: 600; }
-.header p { font-size: 13px; opacity: 0.7; }
-.building {
-  background: white; border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden;
-  border: 2px solid #ddd;
-}
-.building-header {
-  background: #1a1a2e; color: white; padding: 12px 20px;
-  font-weight: 700; font-size: 16px; display: flex; justify-content: space-between;
-}
-.floor-row {
-  display: flex; align-items: center; height: 64px;
-  border-bottom: 1px solid #eee; padding: 0 12px;
-  transition: background 0.2s;
-}
-.floor-row:last-child { border-bottom: none; }
-.floor-row:hover { background: #f8f9ff; }
-.floor-num {
-  width: 50px; font-weight: 700; font-size: 16px; color: #333;
-}
-.floor-buttons {
-  width: 60px; display: flex; gap: 4px;
-}
-.floor-btn {
-  width: 28px; height: 28px; border: none; border-radius: 50%;
-  font-size: 12px; cursor: pointer; display: flex;
-  align-items: center; justify-content: center;
-  transition: all 0.15s; font-weight: 700;
-}
-.floor-btn:hover { transform: scale(1.15); }
-.floor-btn-up { background: #4caf50; color: white; }
-.floor-btn-down { background: #ff9800; color: white; }
-.floor-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
-.shafts-area {
-  flex: 1; display: flex; gap: 8px; justify-content: center;
-  position: relative; height: 64px;
-}
-.shaft-col {
-  width: 60px; position: relative; border-left: 1px solid #e0e0e0;
-  border-right: 1px solid #e0e0e0; background: #fafafa;
-}
-.el-car-indicator {
-  position: absolute; left: 4px; right: 4px; height: 28px;
-  background: linear-gradient(135deg, #2196f3, #1976d2);
-  border-radius: 4px; display: flex; align-items: center;
-  justify-content: center; color: white; font-size: 10px;
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(33,150,243,0.3);
-  z-index: 2; top: 50%; transform: translateY(-50%);
-}
-.el-car-indicator .door-l, .el-car-indicator .door-r {
-  position: absolute; top: 0; width: 50%; height: 100%;
-  background: #1565c0; transition: transform 0.3s;
-}
-.el-car-indicator .door-l { left: 0; border-radius: 4px 0 0 4px; }
-.el-car-indicator .door-r { right: 0; border-radius: 0 4px 4px 0; }
-.el-car-indicator.door-open .door-l { transform: translateX(-100%); }
-.el-car-indicator.door-open .door-r { transform: translateX(100%); }
-.floor-active { background: #fff8e1; }
-.floor-arrived { background: #e8f5e9; }
-.info-panel {
-  display: flex; gap: 20px; margin-top: 16px;
-}
-.info-card {
-  flex: 1; background: white; border-radius: 12px; padding: 16px 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-}
-.info-card h3 { font-size: 14px; color: #1a1a2e; margin-bottom: 10px; }
-.request-list { max-height: 150px; overflow-y: auto; }
-.request-item {
-  display: flex; align-items: center; gap: 8px; padding: 4px 0;
-  font-size: 12px; border-bottom: 1px solid #f0f0f0;
-}
-.request-item:last-child { border-bottom: none; }
-.elevator-list { display: flex; flex-direction: column; gap: 8px; }
-.elevator-item { background: #f8f9fa; border-radius: 8px; padding: 8px 12px; }
-.ei-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.ei-name { font-weight: 700; font-size: 13px; color: #1a1a2e; }
-.ei-status { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
-.ei-status.idle { background: #e0e0e0; color: #666; }
-.ei-status.moving { background: #e3f2fd; color: #1565c0; }
-.ei-status.stopped { background: #fff3e0; color: #e65100; }
-.ei-details { display: flex; gap: 12px; font-size: 11px; color: #666; }
-.req-status { margin-left: auto; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: #e3f2fd; color: #1565c0; }
-.no-requests { color: #999; font-size: 12px; font-style: italic; }
-.load-bar-container { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; background: rgba(0,0,0,0.15); border-radius: 0 0 4px 4px; z-index: 1; overflow: hidden; }
-.load-bar { height: 100%; border-radius: 0 0 4px 4px; background: #4caf50; transition: width 0.3s; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #1a1a2e; border-radius: 6px; color: #1a1a2e; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
-.back-home:hover { background: #1a1a2e; color: white; }
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
-.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a5a; transition: all 0.3s; }
-.step-dot.active { background: var(--accent, #667eea); box-shadow: 0 0 8px rgba(102,126,234,0.5); }
-.step-dot.done { background: #3fb950; }
-.el-scene { width: 100%; min-height: 400px; background: var(--bg-primary, #f5f5f5); border-radius: 12px; border: 1px solid var(--border-primary, #e0e0e0); padding: 16px; margin-bottom: 12px; overflow: hidden; }
-.el-building { display: flex; gap: 8px; justify-content: center; align-items: flex-end; height: 320px; padding: 8px; background: linear-gradient(180deg, var(--bg-secondary, #e8eaf6), var(--bg-primary, #f5f5f5)); border-radius: 8px; border: 1px solid var(--border-primary, #e0e0e0); position: relative; }
-.el-floor { display: flex; align-items: center; gap: 4px; position: absolute; left: 8px; right: 8px; height: 28px; border-bottom: 1px solid var(--border-primary, #e0e0e0); font-size: 10px; color: var(--text-muted, #888); }
-.el-shaft { position: relative; width: 40px; height: 100%; background: rgba(128,128,128,0.05); border: 1px solid var(--border-primary, #e0e0e0); border-radius: 4px; }
-.el-car { position: absolute; left: 2px; right: 2px; height: 26px; background: #667eea; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; font-weight: 700; transition: bottom 1s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2; }
-.el-car.arriving { background: #4facfe; }
-.el-car.moving { background: #f093fb; }
-.el-info { text-align: center; margin-top: 8px; padding: 8px; background: var(--bg-card, white); border-radius: 8px; font-size: 13px; color: var(--text-secondary, #666); }
-.el-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card, white); border: 2px solid var(--accent, #667eea); border-radius: 12px; padding: 20px; text-align: center; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: popIn 0.4s ease-out; min-width: 200px; }
-@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+.el-page { max-width: 900px; margin: 0 auto; }
+.el-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.el-toolbar-stat { font-size: 12px; color: var(--text-secondary); }
+.el-policy { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.el-policy select { padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 12px; font-weight: 600; }
 
-.el-flow-scene {
-  position: relative; min-height: 380px;
-  background: var(--bg-primary); border-radius: 12px;
-  border: 1px solid var(--border-primary); padding: 20px;
-  margin-bottom: 16px; overflow: hidden;
-}
-.el-flow-building {
-  display: flex; gap: 12px; justify-content: center;
-  align-items: flex-end; height: 340px;
-  padding: 12px; background: linear-gradient(180deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
-  border-radius: 10px; position: relative; border: 2px solid #333;
-}
-.el-flow-floor {
-  display: flex; align-items: center; gap: 4px;
-  position: absolute; left: 12px; right: 12px; height: 28px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-size: 10px; color: rgba(255,255,255,0.5);
-}
-.el-flow-floor-label {
-  font-weight: 700; font-size: 11px; min-width: 24px;
-  color: rgba(255,255,255,0.7);
-}
-.el-flow-shaft {
-  position: relative; width: 48px; height: 100%;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 4px; overflow: visible;
-}
-.el-flow-car {
-  position: absolute; left: 3px; right: 3px; height: 26px;
-  border-radius: 4px; display: flex; align-items: center;
-  justify-content: center; font-size: 9px; font-weight: 700;
-  color: white; z-index: 3;
-  transition: bottom 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-.el-flow-car.idle { background: linear-gradient(135deg, #667eea, #764ba2); }
-.el-flow-car.moving { background: linear-gradient(135deg, #f093fb, #f5576c); animation: carGlow 0.6s ease-in-out infinite alternate; }
-@keyframes carGlow { from { box-shadow: 0 2px 8px rgba(240,147,251,0.3); } to { box-shadow: 0 2px 16px rgba(240,147,251,0.6); } }
-.el-flow-car.arrived { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+.el-building { background: var(--bg-card, #fff); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid var(--border-primary); }
+.el-building-header { background: #1a1a2e; color: #fff; padding: 12px 20px; font-weight: 700; font-size: 15px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.el-floor-row { display: flex; align-items: center; min-height: 52px; border-bottom: 1px solid var(--border-primary); padding: 0 12px; transition: background 0.2s; }
+.el-floor-row:last-child { border-bottom: none; }
+.el-floor-row.arrived { background: rgba(76,175,80,0.08); }
+.el-floor-num { width: 46px; font-weight: 700; font-size: 14px; color: var(--text-primary); }
+.el-floor-buttons { width: 56px; display: flex; gap: 4px; }
+.el-floor-btn { width: 26px; height: 26px; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 700; transition: transform 0.15s; }
+.el-floor-btn:hover { transform: scale(1.15); }
+.el-floor-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+.el-floor-btn-up { background: #4caf50; color: #fff; }
+.el-floor-btn-down { background: #ff9800; color: #fff; }
+.el-shafts { flex: 1; display: flex; gap: 6px; justify-content: center; position: relative; height: 52px; }
+.el-shaft { width: 56px; position: relative; border-left: 1px solid var(--border-primary); border-right: 1px solid var(--border-primary); background: rgba(128,128,128,0.04); }
+.el-car { position: absolute; left: 3px; right: 3px; height: 26px; top: 50%; transform: translateY(-50%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.3); overflow: hidden; }
+.el-car.idle { background: linear-gradient(135deg, #667eea, #5568d3); }
+.el-car.moving { background: linear-gradient(135deg, #f093fb, #f5576c); }
+.el-car.door-open { background: linear-gradient(135deg, #4caf50, #2e9c44); }
+.el-car.maintenance { background: linear-gradient(135deg, #888, #555); }
+.el-car .door-l, .el-car .door-r { position: absolute; top: 0; width: 50%; height: 100%; background: rgba(0,0,0,0.35); transition: transform 0.3s; }
+.el-car .door-l { left: 0; }
+.el-car .door-r { right: 0; }
+.el-car.door-open .door-l { transform: translateX(-100%); }
+.el-car.door-open .door-r { transform: translateX(100%); }
+.el-load-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: rgba(0,0,0,0.2); width: 100%; }
+.el-load-fill { height: 100%; background: #fff; opacity: 0.8; }
 
-.el-flow-msg {
-  text-align: center; margin-top: 12px; padding: 10px 16px;
-  background: var(--bg-card); border-radius: 10px;
-  font-size: 13px; font-weight: 600;
-  border: 1px solid var(--border-primary);
-}
-.el-flow-msg .msg-icon { font-size: 20px; margin-right: 6px; }
-.el-flow-msg .msg-text { color: var(--text-primary); }
+.el-panel-grid { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+.el-panel { flex: 1; min-width: 220px; background: var(--bg-card, #fff); border-radius: 12px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid var(--border-primary); }
+.el-panel h3 { font-size: 13px; color: var(--text-primary); margin-bottom: 10px; }
+.el-car-row { display: flex; flex-direction: column; gap: 6px; }
+.el-car-item { background: var(--bg-primary); border-radius: 8px; padding: 8px 10px; border: 1px solid var(--border-primary); }
+.el-car-item-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.el-car-name { font-weight: 700; font-size: 12px; }
+.el-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+.el-badge.idle { background: #e0e0e0; color: #555; }
+.el-badge.moving { background: #ffe0e8; color: #c2185b; }
+.el-badge.door-open { background: #d7f5db; color: #1b7a30; }
+.el-badge.out-of-order { background: #eee; color: #999; }
+.el-car-details { display: flex; gap: 10px; font-size: 10.5px; color: var(--text-secondary); }
+.el-req-list { max-height: 160px; overflow-y: auto; }
+.el-req-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 11.5px; border-bottom: 1px dashed var(--border-primary); color: var(--text-secondary); }
+.el-req-item:last-child { border-bottom: none; }
+.el-req-status { margin-left: auto; font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: #e3f2fd; color: #1565c0; }
+.el-empty { color: var(--text-muted, #999); font-size: 12px; font-style: italic; }
 
-.el-flow-popup {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  background: white; border-radius: 14px; padding: 24px 32px;
-  text-align: center; z-index: 10;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
-  animation: popIn 0.4s ease-out; min-width: 240px;
-}
-.el-flow-popup .popup-icon { font-size: 42px; margin-bottom: 8px; }
-.el-flow-popup .popup-title { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-.el-flow-popup .popup-sub { font-size: 13px; color: #666; }
-
-.el-flow-status-wrap {
-  display: flex; justify-content: center; gap: 16px; margin-top: 8px;
-}
-.el-flow-status-item {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--text-muted);
-  padding: 4px 10px; background: var(--bg-card);
-  border-radius: 20px; border: 1px solid var(--border-primary);
-}
-.el-flow-status-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-}
-.el-flow-btn-wrap {
-  display: flex; justify-content: center; gap: 8px; margin-top: 12px;
-}
-.el-flow-btn {
-  padding: 10px 28px; border: none; border-radius: 8px;
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white; transition: all 0.2s;
-}
-.el-flow-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
-.el-flow-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.el-step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+.el-step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-primary); transition: all 0.3s; }
+.el-step-dot.active { background: var(--accent, #667eea); box-shadow: 0 0 8px rgba(102,126,234,0.5); }
+.el-step-dot.done { background: #3fb950; }
+.el-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 12px 0; }
+.el-hud-tile { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 10px; text-align: center; }
+.el-hud-tile .v { font-size: 15px; font-weight: 800; color: var(--text-primary); }
+.el-hud-tile .l { font-size: 9.5px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+.el-log { max-height: 170px; overflow-y: auto; background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 10px; font-size: 11.5px; margin-top: 10px; }
+.el-log-row { padding: 4px 0; border-bottom: 1px dashed var(--border-primary); color: var(--text-secondary); }
+.el-log-row:last-child { border-bottom: none; color: var(--text-primary); font-weight: 600; }
+.el-actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.el-btn { padding: 9px 20px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; color: #fff; background: var(--accent, #667eea); transition: all 0.2s; }
+.el-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+.el-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.el-btn-outline { padding: 8px 16px; border: 2px solid var(--border-primary); border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text-primary); }
+.el-btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.el-btn-danger { background: #d64545; }
+.el-error { text-align: center; padding: 8px 12px; margin: 8px 0; font-size: 12.5px; color: #fff; background: #d64545; border-radius: 6px; }
+.el-intro { text-align: center; padding: 24px 12px; color: var(--text-secondary); font-size: 13px; }
+.el-intro code { background: var(--bg-primary); padding: 1px 5px; border-radius: 4px; }
+.el-form-row { display: flex; gap: 8px; justify-content: center; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+.el-form-row select { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 12.5px; }
 `;
 
 const TOTAL_FLOORS = 10;
+const FLOOR_HEIGHT = 52;
+
+const STATUS_LABEL = { IDLE: 'idle', MOVING: 'moving', DOOR_OPEN: 'door-open', STOPPED: 'idle', OUT_OF_ORDER: 'out-of-order' };
+const CAR_CLASS = { IDLE: 'idle', MOVING: 'moving', DOOR_OPEN: 'door-open', STOPPED: 'idle', OUT_OF_ORDER: 'maintenance' };
 
 function directionArrow(direction) {
-  if (direction === 'UP') return '\u25B2';
-  if (direction === 'DOWN') return '\u25BC';
-  return '\u2014';
+  if (direction === 'UP') return '▲';
+  if (direction === 'DOWN') return '▼';
+  return '—';
 }
 
-function ElevatorCarIndicator({ elevator }) {
-  const [doorOpen, setDoorOpen] = useState(false);
-  const prevRef = useRef(elevator.currentFloor);
-
-  useEffect(() => {
-    if (prevRef.current !== null && prevRef.current !== elevator.currentFloor) setDoorOpen(false);
-    prevRef.current = elevator.currentFloor;
-  }, [elevator.currentFloor]);
-
-  useEffect(() => {
-    if (elevator.status === 'STOPPED' || elevator.status === 'IDLE') {
-      const t = setTimeout(() => setDoorOpen(true), 300);
-      return () => clearTimeout(t);
-    } else setDoorOpen(false);
-  }, [elevator.currentFloor, elevator.status]);
-
-  const pct = elevator.capacity > 0 ? (elevator.currentLoad / elevator.capacity) * 100 : 0;
-
+/** Shared shaft/car visualization for both the live building and the isolated simulation — cars
+ * are absolutely positioned by floor so they can smoothly slide between floor rows, with a real
+ * door-open animation driven entirely by the backend's ElevatorStatus (no client-side guessing). */
+function ShaftOverlay({ elevators, floors = TOTAL_FLOORS }) {
   return (
-    <div className={`el-car-indicator ${doorOpen ? 'door-open' : ''}`}>
-      <div className="door-l" />
-      <div className="door-r" />
-      <span style={{ position: 'relative', zIndex: 3 }}>{elevator.name}</span>
-      <div className="load-bar-container">
-        <div className="load-bar" style={{ width: `${Math.min(pct, 100)}%` }} />
+    <div style={{ display: 'flex', gap: 6, justifyContent: 'center', position: 'relative', height: floors * FLOOR_HEIGHT }}>
+      {elevators.map((el) => {
+        const bottom = (el.currentFloor - 1) * FLOOR_HEIGHT;
+        const cls = CAR_CLASS[el.status] || 'idle';
+        const pct = el.capacity > 0 ? Math.min(100, (el.currentLoad ?? el.occupancy ?? 0) / el.capacity * 100) : 0;
+        return (
+          <div key={el.id} style={{ width: 56, position: 'relative', height: '100%' }}>
+            <div
+              className={`el-car ${cls}`}
+              style={{ bottom, transition: 'bottom 0.8s cubic-bezier(0.4,0,0.2,1)' }}
+              title={`${el.name} — F${el.currentFloor} — ${el.status}`}
+            >
+              <span style={{ position: 'relative', zIndex: 3 }}>{el.name?.split(' ')[0] || el.name}</span>
+              <div className="door-l" />
+              <div className="door-r" />
+              <div className="el-load-bar"><div className="el-load-fill" style={{ width: `${pct}%` }} /></div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ElevatorCard({ el }) {
+  const badge = STATUS_LABEL[el.status] || 'idle';
+  return (
+    <div className="el-car-item">
+      <div className="el-car-item-h">
+        <span className="el-car-name">{el.name}</span>
+        <span className={`el-badge ${badge}`}>{el.status}</span>
+      </div>
+      <div className="el-car-details">
+        <span>F{el.currentFloor}</span>
+        <span>{directionArrow(el.direction)} {el.direction}</span>
+        <span>Load {el.currentLoad ?? el.occupancy}/{el.capacity}</span>
       </div>
     </div>
   );
 }
 
-function AnimatedFlow() {
-  const [step, setStep] = useState(0);
+function AppTab() {
   const [elevators, setElevators] = useState([]);
-  const [request, setRequest] = useState(null);
-  const [msg, setMsg] = useState('');
+  const [requests, setRequests] = useState([]);
+  const [policy, setPolicy] = useState('LOOK_SCAN');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const mountedRef = useRef(true);
-  const steps = ['Start', 'Call', 'Arriving', 'Moving', 'Done'];
-  const maxFloor = 10;
 
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+  usePolling(async () => {
+    try { const data = await getElevators(); if (Array.isArray(data)) setElevators(data); } catch { /* retry next tick */ }
+  }, 1000, []);
+
+  usePolling(async () => {
+    try { const data = await getRequests(); if (Array.isArray(data)) setRequests(data); } catch { /* retry next tick */ }
+  }, 2000, []);
 
   useEffect(() => {
-    getElevators().then(setElevators).catch(() => {});
+    getDispatchPolicy().then((d) => { if (d?.policy) setPolicy(d.policy); }).catch(() => {});
   }, []);
 
-  const reset = () => { setStep(0); setRequest(null); setMsg(''); setError(''); setLoading(false); };
-
-  const floorY = (fl) => (fl - 1) * 28;
-
-  const callElevatorAction = async () => {
-    setLoading(true); setError('');
-    try {
-      setMsg('Calling elevator from Floor 1 \u2192 Floor 5...');
-      const req = await requestElevator(1, 5);
-      if (!mountedRef.current) return;
-      if (req.error) { setError(req.error); setLoading(false); return; }
-      setRequest(req);
-      setMsg('Elevator arriving...');
-      const poll = setInterval(async () => {
-        if (!mountedRef.current) { clearInterval(poll); return; }
-        try {
-          const evs = await getElevators();
-          if (!mountedRef.current) { clearInterval(poll); return; }
-          setElevators(evs);
-          const e = evs.find(x => x.id === req.assignedElevatorId);
-          if (e && e.currentFloor === 1) {
-            clearInterval(poll);
-            setStep(2);
-            setMsg('Elevator arrived at Floor 1');
-            setLoading(false);
-          }
-        } catch { if (mountedRef.current) setError('Polling failed'); }
-      }, 1000);
-    } catch { if (mountedRef.current) { setError('Failed to call elevator'); setLoading(false); } }
+  const handleCall = async (from, to) => {
+    setError('');
+    try { await requestElevator(from, to); }
+    catch (e) { setError(e.message || 'Failed to request elevator'); }
   };
 
-  const enterElevatorAction = () => {
-    setLoading(true);
-    setMsg('Moving to Floor 5...');
-    const ticker = setInterval(async () => {
-      if (!mountedRef.current) { clearInterval(ticker); return; }
-      try {
-        const evs = await tick();
-        if (!mountedRef.current) { clearInterval(ticker); return; }
-        setElevators(evs);
-        const e = evs.find(x => x.id === request?.assignedElevatorId);
-        if (e && e.currentFloor >= 5) {
-          clearInterval(ticker);
-          setStep(3);
-          setMsg('Arrived at Floor 5!');
-          setLoading(false);
-        }
-      } catch { if (mountedRef.current) setError('Tick failed'); }
-    }, 1000);
+  const handlePolicyChange = async (next) => {
+    setPolicy(next);
+    try { await setDispatchPolicy(next); }
+    catch (e) { setError(e.message || 'Failed to switch dispatch policy'); }
   };
 
-  const arrivedAction = () => {
-    setStep(4);
-    setMsg('Trip Complete!');
-  };
-
-  const assignedEl = elevators.find(e => e.id === request?.assignedElevatorId);
-
-  const displayMsg = (() => {
-    if (step === 0) return 'Press \u25B6 to start';
-    if (step === 1 && loading) return 'Calling elevator from Floor 1 \u2192 Floor 5...';
-    if (step === 1 && !loading) return 'Elevator arriving...';
-    if (step === 2) return 'Elevator arrived! Enter and press floor 5';
-    if (step === 3 && loading) return 'Moving up... Floor ' + (assignedEl?.currentFloor || '-');
-    if (step === 3 && !loading) return 'Arrived at Floor 5!';
-    if (step === 4) return 'Trip complete!';
-    return msg || '';
-  })();
-
-  const stepIcon = step === 0 ? '\u{1F680}' : step === 1 ? (loading ? '\u{1F680}' : '\u23F3') : step === 2 ? '\u{1F6AA}' : step === 3 ? (loading ? '\u2B06\uFE0F' : '\u2705') : step === 4 ? '\u{1F389}' : '';
-
-  const carClass = (el) => {
-    if (el.id !== request?.assignedElevatorId) return 'idle';
-    if (step === 3) return 'moving';
-    if (step >= 2) return 'arrived';
-    return 'idle';
-  };
-
-  const statusDot = { IDLE: '#4caf50', MOVING: '#f5576c', STOPPED: '#4facfe' };
+  const floors = Array.from({ length: TOTAL_FLOORS }, (_, i) => TOTAL_FLOORS - i);
 
   return (
     <div>
-      <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
-        ))}
-        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
+      <div className="el-toolbar">
+        <span className="el-toolbar-stat">Live elevator bank &middot; polls every 1s</span>
+        <div className="el-policy">
+          <span>Dispatch policy:</span>
+          <select value={policy} onChange={(e) => handlePolicyChange(e.target.value)}>
+            <option value="LOOK_SCAN">LOOK / SCAN</option>
+            <option value="NEAREST_CAR">Nearest Car</option>
+          </select>
+        </div>
       </div>
 
-      <div className="el-flow-scene">
-        <div className="el-flow-building" style={{ height: maxFloor * 28 + 24, padding: '12px 12px 12px 48px' }}>
-          {Array.from({ length: maxFloor }).map((_, i) => {
-            const fl = maxFloor - i;
-            return (
-              <div key={fl} className="el-flow-floor" style={{ bottom: (fl - 1) * 28 }}>
-                <span className="el-flow-floor-label">F{fl}</span>
+      {error && <div className="el-error">{error}</div>}
+
+      <div className="el-building" style={{ position: 'relative' }}>
+        <div className="el-building-header">
+          <span>Building Status</span>
+          <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.9 }}>
+            {elevators.length} cars &middot; {elevators.filter((e) => e.status === 'MOVING').length} moving &middot;{' '}
+            {elevators.filter((e) => e.status === 'DOOR_OPEN').length} doors open
+          </span>
+        </div>
+        <div style={{ display: 'flex' }}>
+          <div style={{ width: 220 }}>
+            {floors.map((floor) => (
+              <div key={floor} className="el-floor-row" style={{ height: FLOOR_HEIGHT, minHeight: FLOOR_HEIGHT }}>
+                <div className="el-floor-num">F{floor}</div>
+                <div className="el-floor-buttons">
+                  {floor < TOTAL_FLOORS && (
+                    <button className="el-floor-btn el-floor-btn-up" onClick={() => handleCall(floor, floor + 1)} title={`Call up from F${floor}`}>&#9650;</button>
+                  )}
+                  {floor > 1 && (
+                    <button className="el-floor-btn el-floor-btn-down" onClick={() => handleCall(floor, floor - 1)} title={`Call down from F${floor}`}>&#9660;</button>
+                  )}
+                </div>
               </div>
-            );
-          })}
-          {elevators.map((el) => (
-            <div key={el.id} className="el-flow-shaft">
-              <div className={'el-flow-car ' + carClass(el)} style={{ bottom: floorY(el.currentFloor) }}>
-                {el.id === request?.assignedElevatorId ? '\u{1F680}' : '\u{1F6D7}'} {el.name}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="el-flow-msg">
-          <span className="msg-icon">{stepIcon}</span>
-          <span className="msg-text">{displayMsg}</span>
-        </div>
-
-        <div className="el-flow-status-wrap">
-          {elevators.map(el => (
-            <div key={el.id} className="el-flow-status-item">
-              <span className="el-flow-status-dot" style={{ background: statusDot[el.status] || '#888' }} />
-              {el.name}: F{el.currentFloor}
-            </div>
-          ))}
-        </div>
-
-        <div className="el-flow-btn-wrap">
-          {step === 0 && (
-            <button className="el-flow-btn" onClick={() => setStep(1)}>
-              {'\u25B6'} Start Simulation
-            </button>
-          )}
-
-          {step === 1 && (
-            <button className="el-flow-btn" onClick={callElevatorAction} disabled={loading}>
-              {loading ? '\u23F3 Calling...' : '\u{1F4DE} Call Elevator to Floor 1'}
-            </button>
-          )}
-
-          {step === 2 && !loading && (
-            <button className="el-flow-btn" onClick={enterElevatorAction}>
-              {'\u{1F6AA}'} Enter Elevator
-            </button>
-          )}
-
-          {step === 3 && (
-            <button className="el-flow-btn" onClick={arrivedAction}>
-              {'\u2705'} Arrived at Floor 5
-            </button>
-          )}
-        </div>
-
-        {step === 4 && (
-          <div className="el-flow-popup">
-            <div className="popup-icon">{'\u{1F389}'}</div>
-            <div className="popup-title">Trip Complete!</div>
-            {assignedEl && <div className="popup-sub">Elevator {assignedEl.name} {'\u2022'} Floor {assignedEl.currentFloor}</div>}
-            <button className="el-flow-btn" onClick={reset} style={{ marginTop: 12, fontSize: 13, padding: '8px 20px' }}>
-              {'\u{1F504}'} New Trip
-            </button>
+            ))}
           </div>
-        )}
+          <div style={{ flex: 1, padding: '0 12px' }}>
+            <ShaftOverlay elevators={elevators} />
+          </div>
+        </div>
       </div>
 
-      {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>Reset</button></div>}
+      <div className="el-panel-grid">
+        <div className="el-panel">
+          <h3>Elevator Status</h3>
+          <div className="el-car-row">
+            {elevators.length === 0 && <div className="el-empty">No elevators available.</div>}
+            {elevators.map((el) => <ElevatorCard key={el.id} el={el} />)}
+          </div>
+        </div>
+        <div className="el-panel">
+          <h3>Recent Requests</h3>
+          <div className="el-req-list">
+            {requests.length === 0 && <div className="el-empty">No requests yet.</div>}
+            {requests.slice().reverse().slice(0, 12).map((req, idx) => (
+              <div className="el-req-item" key={req.id || idx}>
+                <span>F{req.sourceFloor} &rarr; F{req.destinationFloor}</span>
+                <span className="el-req-status">{req.status || 'PENDING'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const SIM_STEPS = [
+  'Reset sandbox',
+  'View seeded fleet',
+  'Call an elevator',
+  'Step toward pickup',
+  'Doors open at pickup',
+  'Step toward destination',
+  'Take a car offline (reassignment)',
+  'Review telemetry & event log',
+];
+
+function SimulationTab() {
+  const [snapshot, setSnapshot] = useState(null); // { elevators: {id: snapshot}, events, pendingRequests }
+  const [step, setStep] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [source, setSource] = useState(1);
+  const [destination, setDestination] = useState(6);
+  const [assignedId, setAssignedId] = useState(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
+
+  const elevatorsList = snapshot ? Object.values(snapshot.elevators || {}) : [];
+  const events = snapshot?.events || [];
+  const assigned = assignedId != null ? elevatorsList.find((e) => e.id === assignedId) : null;
+
+  const applyResult = (result, advanceHint) => {
+    if (!mountedRef.current) return;
+    if (result?.error) { setError(result.error); return; }
+    setSnapshot(result);
+    if (advanceHint) setStep((s) => Math.min(SIM_STEPS.length - 1, Math.max(s, advanceHint)));
+  };
+
+  const withBusy = async (fn) => {
+    setBusy(true); setError('');
+    try { await fn(); } finally { if (mountedRef.current) setBusy(false); }
+  };
+
+  const doReset = () => withBusy(async () => {
+    const result = await simReset();
+    setAssignedId(null);
+    applyResult(result, 1);
+  });
+
+  const advanceStepFromCarState = (car) => {
+    if (!car) return;
+    if (car.currentFloor === destination && car.state === 'DOOR_OPEN') setStep((s) => Math.max(s, 5));
+    else if (car.currentFloor === source && car.state === 'DOOR_OPEN') setStep((s) => Math.max(s, 4));
+    else setStep((s) => Math.max(s, 3));
+  };
+
+  const doCall = () => withBusy(async () => {
+    if (source === destination) { setError('Source and destination floors must differ'); return; }
+    const result = await simRequest(source, destination);
+    let newAssignedId = null;
+    if (!result?.error) {
+      const lastEvent = result.events?.[result.events.length - 1];
+      newAssignedId = lastEvent?.data?.assignedElevatorId ?? null;
+      if (newAssignedId != null) setAssignedId(newAssignedId);
+    }
+    applyResult(result, 2);
+    if (newAssignedId != null) advanceStepFromCarState(result.elevators?.[newAssignedId]);
+  });
+
+  const doStep = () => withBusy(async () => {
+    const result = await simStep();
+    applyResult(result);
+    if (!result?.error && assignedId != null) {
+      advanceStepFromCarState(result.elevators?.[assignedId]);
+    }
+  });
+
+  const doMaintenance = (elevatorId, maintenance) => withBusy(async () => {
+    const result = await simMaintenance(elevatorId, maintenance);
+    applyResult(result, 6);
+  });
+
+  const reset = () => { setSnapshot(null); setStep(0); setError(''); setAssignedId(null); };
+
+  const finalStep = () => setStep(7);
+
+  return (
+    <div>
+      <div className="el-step-indicator">
+        {SIM_STEPS.map((s, i) => (
+          <div key={s} className={`el-step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 8 }}>{SIM_STEPS[step]}</span>
+      </div>
+
+      {error && <div className="el-error">{error}</div>}
+
+      {!snapshot ? (
+        <div className="el-intro">
+          <p>
+            Runs entirely against the isolated <code>/api/elevator/sim/*</code> sandbox — 4 seeded cars
+            (E1@F1, E2@F5, E3@F8, E4@F10 in MAINTENANCE) — so nothing here can ever touch the real
+            elevator bank.
+          </p>
+          <div className="el-actions">
+            <button className="el-btn" onClick={doReset} disabled={busy}>&#9654; Reset Sandbox</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="el-hud">
+            <div className="el-hud-tile"><div className="v">{elevatorsList.filter((e) => e.state !== 'MAINTENANCE').length}/{elevatorsList.length}</div><div className="l">Cars In Service</div></div>
+            <div className="el-hud-tile"><div className="v">{elevatorsList.filter((e) => e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN').length}</div><div className="l">Moving</div></div>
+            <div className="el-hud-tile"><div className="v">{snapshot.pendingRequests?.length ?? 0}</div><div className="l">Queued Calls</div></div>
+            <div className="el-hud-tile"><div className="v">{assigned ? `F${assigned.currentFloor}` : '—'}</div><div className="l">Tracked Car</div></div>
+            <div className="el-hud-tile"><div className="v">{events.length}</div><div className="l">Events Logged</div></div>
+          </div>
+
+          <div className="el-building">
+            <div className="el-building-header">
+              <span>Simulation Sandbox</span>
+              <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.9 }}>
+                Tracking: {assigned ? assigned.name : 'no active call yet'}
+              </span>
+            </div>
+            <div style={{ padding: '12px 16px' }}>
+              <ShaftOverlay elevators={elevatorsList.map((e) => ({
+                id: e.id, name: e.name, currentFloor: e.currentFloor,
+                status: e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN' ? 'MOVING'
+                  : e.state === 'DOOR_OPEN' ? 'DOOR_OPEN'
+                  : e.state === 'MAINTENANCE' ? 'OUT_OF_ORDER' : 'STOPPED',
+                direction: e.direction, capacity: e.capacity, currentLoad: e.occupancy,
+              }))} />
+            </div>
+          </div>
+
+          {step <= 2 && (
+            <div className="el-form-row">
+              <label>From F</label>
+              <select value={source} onChange={(e) => setSource(Number(e.target.value))}>
+                {Array.from({ length: TOTAL_FLOORS }, (_, i) => i + 1).map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <label>to F</label>
+              <select value={destination} onChange={(e) => setDestination(Number(e.target.value))}>
+                {Array.from({ length: TOTAL_FLOORS }, (_, i) => i + 1).map((f) => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <button className="el-btn" onClick={doCall} disabled={busy}>&#128222; Call Elevator</button>
+            </div>
+          )}
+
+          <div className="el-panel-grid">
+            <div className="el-panel">
+              <h3>Fleet</h3>
+              <div className="el-car-row">
+                {elevatorsList.map((e) => (
+                  <div className="el-car-item" key={e.id}>
+                    <div className="el-car-item-h">
+                      <span className="el-car-name">{e.name}</span>
+                      <span className={`el-badge ${STATUS_LABEL[e.state === 'MAINTENANCE' ? 'OUT_OF_ORDER' : (e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN') ? 'MOVING' : e.state] || 'idle'}`}>{e.state}</span>
+                    </div>
+                    <div className="el-car-details">
+                      <span>F{e.currentFloor}</span>
+                      <span>{directionArrow(e.direction)} {e.direction}</span>
+                      <span>Load {e.occupancy}/{e.capacity}</span>
+                    </div>
+                    {step >= 5 && e.state !== 'MAINTENANCE' && (
+                      <button className="el-btn-outline" style={{ marginTop: 6, fontSize: 10, padding: '4px 10px' }}
+                        onClick={() => doMaintenance(e.id, true)} disabled={busy}>
+                        Take offline
+                      </button>
+                    )}
+                    {e.state === 'MAINTENANCE' && (
+                      <button className="el-btn-outline" style={{ marginTop: 6, fontSize: 10, padding: '4px 10px' }}
+                        onClick={() => doMaintenance(e.id, false)} disabled={busy}>
+                        Return to service
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="el-panel">
+              <h3>Event Log</h3>
+              <div className="el-log">
+                {events.slice().reverse().slice(0, 30).map((ev) => (
+                  <div key={ev.id} className="el-log-row">
+                    <strong>{ev.actorName}</strong>: {ev.description}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="el-actions">
+            {step >= 2 && step < 6 && assignedId != null && (
+              <button className="el-btn" onClick={doStep} disabled={busy}>{busy ? 'Stepping…' : '⏭ Step Simulation'}</button>
+            )}
+            {step >= 6 && step < 7 && (
+              <button className="el-btn-outline" onClick={finalStep} disabled={busy}>Review Telemetry &rarr;</button>
+            )}
+            <button className="el-btn-outline" onClick={doReset} disabled={busy}>&#8635; Reset</button>
+            <button className="el-btn-outline" onClick={reset} disabled={busy}>Exit Sandbox</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 export default function ElevatorPage() {
-  const [elevators, setElevators] = useState([]);
-  const [requests, setRequests] = useState([]);
-
-  usePolling(async () => {
-    try { const data = await getElevators(); if (Array.isArray(data)) setElevators(data); }
-    catch (e) { /* polling retry */ }
-  }, 1000, []);
-
-  usePolling(async () => {
-    try { const data = await getRequests(); if (Array.isArray(data)) setRequests(data); }
-    catch (e) { /* polling retry */ }
-  }, 2000, []);
-
-  const handleCall = async (from, to) => {
-    try { await requestElevator(from, to); }
-    catch (e) { console.error('Failed to request elevator', e); }
-  };
-
-  const TOTAL_FLOORS = 10;
-  const floors = Array.from({ length: TOTAL_FLOORS }, (_, i) => TOTAL_FLOORS - i);
-  const arrivedFloors = elevators.filter(e => e.status === 'STOPPED' || e.status === 'IDLE').map(e => e.currentFloor);
-  const movingCount = elevators.filter(e => e.status === 'MOVING').length;
-  const idleCount = elevators.filter(e => e.status === 'IDLE').length;
-  const stoppedCount = elevators.filter(e => e.status === 'STOPPED').length;
-
-  const directionArrow = (dir) => {
-    if (dir === 'UP') return '▲';
-    if (dir === 'DOWN') return '▼';
-    return '•';
-  };
-
   return (
-    <LldPage
-      module="elevator"
-      title="Elevator Control System"
-      icon="🛗"
-      tabs={['app', 'simulation', 'diagram', 'design']}
-    >
+    <LldPage module="elevator" title="Elevator Control System" icon="🛗" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
-        <div className="app" style={{ padding: 0 }}>
+        <div className="el-page">
           <style>{styles}</style>
-          {activeTab === 'simulation' && <AnimatedFlow />}
-          {activeTab === 'app' && (
-            <>
-              <div className="building">
-                <div className="building-header">
-                  <span>Building Status</span>
-                  <span style={{ fontSize: 13, fontWeight: 400, opacity: 0.9 }}>
-                    {elevators.length} Elevators &middot; {movingCount} Moving &middot; {idleCount} Idle &middot; {stoppedCount} Stopped
-                  </span>
-                </div>
-                {floors.map(floor => (
-                  <div
-                    key={floor}
-                    className={`floor-row ${arrivedFloors.includes(floor) ? 'floor-arrived' : ''}`}
-                  >
-                    <div className="floor-num">F{floor}</div>
-                    <div className="floor-buttons">
-                      {floor < TOTAL_FLOORS && (
-                        <button className="floor-btn floor-btn-up" onClick={() => handleCall(floor, floor + 1)}>▲</button>
-                      )}
-                      {floor > 1 && (
-                        <button className="floor-btn floor-btn-down" onClick={() => handleCall(floor, floor - 1)}>▼</button>
-                      )}
-                    </div>
-                    <div className="shafts-area">
-                      {elevators.map(el => (
-                        <div className="shaft-col" key={el.id}>
-                          {el.currentFloor === floor && <ElevatorCarIndicator elevator={el} />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="info-panel">
-                <div className="info-card">
-                  <h3>Elevator Status</h3>
-                  <div className="elevator-list">
-                    {elevators.length === 0 && <div className="no-requests">No elevators available.</div>}
-                    {elevators.map(el => (
-                      <div className="elevator-item" key={el.id}>
-                        <div className="ei-header">
-                          <span className="ei-name">{el.name}</span>
-                          <span className={`ei-status ${el.status.toLowerCase()}`}>{el.status}</span>
-                        </div>
-                        <div className="ei-details">
-                          <span>Floor {el.currentFloor}</span>
-                          <span>{directionArrow(el.direction)} {el.direction}</span>
-                          <span>Load: {el.currentLoad}/{el.capacity}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="info-card">
-                  <h3>Recent Requests</h3>
-                  <div className="request-list">
-                    {requests.length === 0 && <div className="no-requests">No requests yet.</div>}
-                    {requests.slice().reverse().slice(0, 10).map((req, idx) => (
-                      <div className="request-item" key={req.id || idx}>
-                        <span>F{req.fromFloor} &rarr; F{req.toFloor}</span>
-                        <span className="req-status">{req.status || 'PENDING'}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          {activeTab === 'app' && <AppTab />}
+          {activeTab === 'simulation' && <SimulationTab />}
         </div>
       )}
     </LldPage>
