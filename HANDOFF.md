@@ -10,15 +10,19 @@
 done** — digitalwallet (PR #28), taskmanagement (PR #29), auction (PR #30), socialnetwork (PR #31)
 all merged. Wave 1b (vendingmachine, coffeemachine, trafficsignal — PR #26) is done too, plus a
 same-day hotfix (PR #27) for an unthrottled stdout flood in trafficsignal's production logging
-observer (RCA-018). Two parallel agents are now in flight on the next waves: **ludo** (Wave 2
-games) and the three frontend-only **concurrency primitives** (Wave 3 — concurrent-hashmap,
-bloom-filter, merge-sort), each in an isolated worktree. Everything from the prior status note
+observer (RCA-018). **Wave 3 (concurrency primitives — concurrent-hashmap, bloom-filter, merge-sort) is done: PR #36**
+gave all three real Java backends (striped-lock map, `BitSet` Bloom filter with deterministic
+double hashing, `ForkJoinPool` parallel merge sort) following the `blockingqueue` template, with
+real-trace-replay frontends, design/diagram data, and 62 new backend tests — `com.lld.concurrency`
+now has all nine primitives (blockingqueue/ttlcache/foobar/zeroevenodd/fizzbuzz/h2o plus these
+three) done as templates/reference, and `PENDING_DESIGN_CONTENT` is empty. **ludo** (Wave 2 games)
+is still in flight in its own isolated worktree. Everything from the prior status note
 still holds — uber, zomato, stackoverflow, tictactoe, lru-cache, hotel, car-rental, concert-ticket,
 course-registration, cricinfo, music-streaming, restaurant, chess, inventory, snakeladders,
-minesweeper, and six of eight concurrency primitives are all at or near the 17-criteria bar with
-verified concurrency tests. Backend suite was 948 tests / frontend 286 at the start of this
-session; auction alone brought backend to 1077 — rerun both suites for the current count once
-ludo/primitives land. **Every module touched in Wave 1 needed a rebase against `main` before
+minesweeper are all at or near the 17-criteria bar with verified concurrency tests. Backend suite
+was 948 tests / frontend 286 at the start of the Wave 1 session; auction alone brought backend to
+1077, and PR #36 (rebased onto post-socialnetwork `main`) brings it to 1278 tests / 135 classes,
+frontend to 304 tests — rerun both suites for the current count once ludo lands too. **Every module touched in Wave 1 needed a rebase against `main` before
 merging** — three of four parallel agents landed a real conflict (not just a stale branch) in
 `AGENTS.md`/`README.md`/`frontend/src/data/sequenceDiagrams.js`, always purely additive (two new
 module sections inserted at the same point), and RCA numbering collided twice (two independent
@@ -36,7 +40,7 @@ Verified against the tree on `main` (2026-08-26):
 | **1 — pattern-gap domains** | ~~digitalwallet, taskmanagement, auction, socialnetwork~~ | Done — PR #28, #29, #30, #31. |
 | **1b — single-actor patterns** | ~~vendingmachine, coffeemachine, trafficsignal~~ | Done — PR #26, plus PR #27 hotfix for trafficsignal's log-spam bug (RCA-018). |
 | **2 — games** | ludo | Pure rules engine with **zero tests**; no sim, no exceptions. In progress. (chess, minesweeper, snakeladders, tictactoe done) |
-| **3 — concurrency primitives** | concurrent-hashmap, bloom-filter, merge-sort | React-only animations; no backend. `com.lld.concurrency` has blockingqueue/ttlcache/foobar/zeroevenodd/fizzbuzz/h2o done as templates. In progress. These three remain in the `PENDING_DESIGN_CONTENT` allowlist until landed |
+| **3 — concurrency primitives** | ~~concurrent-hashmap, bloom-filter, merge-sort~~ | Done — PR #36. Real backends (striped-lock map, `BitSet` Bloom filter, `ForkJoinPool` merge sort) following the `blockingqueue` template; `PENDING_DESIGN_CONTENT` is now empty. |
 | **4 — thin upgrades** | elevator | Working but shallow (few tests, missing flavours). (lru-cache done) |
 | **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | splitwise, uber, zomato, digitalwallet, taskmanagement, auction, socialnetwork have `data/sequences/<module>.js` so far |
 
