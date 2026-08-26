@@ -24,7 +24,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 14 | [Coffee Machine](#14-coffee-machine) | Ingredient & brew engine | State Pattern, Factory (Recipes), Decorator (Customizations), Deadlock-Safe Multi-Ingredient Locking |
 | 15 | [Digital Wallet](#15-digital-wallet) | Payment & ledger | Command Pattern, Per-Wallet ReentrantLock, Ascending Lock Ordering |
 | 16 | Chess | 2-Player strategy game | Command, State, Strategy |
-| 17 | Ludo | Multiplayer board game | State Machine, Game Loop |
+| 17 | [Ludo](#17-ludo) | Multiplayer board game | Token-Lifecycle State Machine, Dice Strategy, Exact-Count Home Entry, Per-Game Lock, Isolated Sim Engine |
 | 18 | [Inventory Management](#18-inventory-management) | Stock & warehouse | Observer, Strategy + Factory (reorder policies), Per-Product ReentrantLock |
 | 19 | [Shopping Cart](#19-online-shopping-system-shopping-cart) | E-commerce & checkout | Command (Undo), Strategy (Payment), Ascending Lock Ordering |
 | 20 | [Minesweeper](#20-minesweeper) | Grid mine game | Strategy (mine placement), First-Click-Safe Policy, Recursive Flood-Fill, Per-Game Lock |
@@ -923,6 +923,25 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/chess/sim/game`
 - `GET /api/chess/sim/log`
 - `POST /api/chess/sim/move`
+
+---
+
+### 17. Ludo
+
+#### Key Features
+- **Token-Lifecycle State Machine**: `com.lld.ludo.state` — `HomeState`/`ActiveState`/`FinishedState`, each declaring the exact set of statuses it may move to next. `HOME -> ACTIVE` only on a roll of exactly 6, `ACTIVE -> HOME` on capture, `ACTIVE -> FINISHED` on an exact-count landing; `FINISHED` is terminal. `Token#transitionTo` is the single enforcement point — an illegal jump throws `InvalidMoveException` and leaves state unchanged.
+- **Dice as a Strategy**: `DiceRoller` — `RandomDiceRoller` in production, `FixedDiceRoller` replaying a pinned sequence in tests — the only way "roll a 6 to leave home" and exact-count home entry can be asserted deterministically.
+- **Exact-Count Home Entry**: a token needs the precise remaining roll to reach its home cell; an overshoot is rejected outright and the token stays exactly where it was (see RCA-020 for the overshoot-wraps-the-board bug this closed).
+- **Captures & Safe Squares**: landing on a non-safe square held by an opponent's token sends it back HOME; the 4 start squares plus 4 star squares (8 total) are immune to capture.
+- **Typed Exception Contract**: `GameNotFoundException` (404), `InvalidMoveException`/`InvalidPlayerCountException` (400), `NotYourTurnException`/`GameOverException` (409).
+- **Per-Game Locking + Isolated Simulation Sandbox**: a `ReentrantLock` per game id (replacing a single module-wide lock), the die rolled inside that lock so a pending roll can never be double-spent, and `/api/ludo/sim/*` on a fixed 4-player sandbox backed by a second in-memory repository.
+
+#### API Endpoints
+- `POST /api/ludo/games`
+- `GET /api/ludo/games/{id}`
+- `POST /api/ludo/games/{id}/roll`
+- `POST /api/ludo/games/{id}/move`
+- `POST /api/ludo/sim/reset`, `GET /api/ludo/sim/game`, `GET /api/ludo/sim/log`, `POST /api/ludo/sim/roll`, `POST /api/ludo/sim/move`
 
 ---
 
