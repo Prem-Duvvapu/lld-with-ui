@@ -1,0 +1,60 @@
+// Sequence diagram content for airline.
+// Grounded directly in SeatLockManager#confirmSeats and AirlineConcurrencyTest#exactlyOneThreadWinsAContestedSeatBooking,
+// plus the RCA-024 fix: a client that calls bookFlight directly against a seat someone else already
+// confirmed must be rejected WITHOUT releasing that seat back to AVAILABLE.
+export default {
+  title: 'Airline — Racing to Book the Last Contested Seat (Hold, Confirm, and the RCA-024 Guard)',
+  description:
+    'A class diagram shows that SeatLockManager exposes holdSeats/confirmSeats/releaseSeats — it does not show what happens when two passengers reach for the exact same seat at the exact same instant, nor what happens when a client skips the hold step entirely and calls confirm directly against a seat someone else already booked. This sequence follows both: two threads racing holdSeats+bookFlight on seat 21B (see AirlineConcurrencyTest#exactlyOneThreadWinsAContestedSeatBooking), then a third late caller hitting confirmSeats on the now-BOOKED seat — the exact path that used to silently reset it to AVAILABLE before RCA-024.',
+  flows: [
+    {
+      id: 'contested-seat-hold-and-confirm',
+      label: 'Two passengers race hold -> confirm on the same seat; a third arrives after it is already booked',
+      description:
+        'Seat 21B starts AVAILABLE. Passenger A and Passenger B both call holdSeats then bookFlight on 21B on separate threads at (near) the same instant. SeatLockManager\'s per-seat ReentrantLock (fair, ascending-order acquisition for multi-seat requests) serializes the two — exactly one wins the hold and goes on to confirm. Passenger C then calls bookFlight directly on 21B without ever holding it (a buggy retry, or simply arriving after the seat is already gone) — confirmSeats must reject this as SeatNotAvailable and leave the seat BOOKED, not reset it to AVAILABLE.',
+      participants: [
+        { id: 'passengerA', name: 'Passenger A\n(thread 1)', kind: 'actor' },
+        { id: 'passengerB', name: 'Passenger B\n(thread 2)', kind: 'actor' },
+        { id: 'passengerC', name: 'Passenger C\n(late, no hold)', kind: 'actor' },
+        { id: 'service', name: 'AirlineService', kind: 'component', stereotype: 'facade' },
+        { id: 'lockMgr', name: 'SeatLockManager', kind: 'component' },
+        { id: 'lock', name: 'seatLocks\n("FL1:21B" ReentrantLock)', kind: 'store' },
+        { id: 'seat', name: 'Seat 21B', kind: 'component' },
+      ],
+      steps: [
+        { type: 'note', over: ['seat'], text: 'Seat 21B starts AVAILABLE.' },
+        { from: 'passengerA', to: 'service', text: 'holdSeats(flightId, [21B], "A")' },
+        { from: 'service', to: 'lockMgr', text: 'holdSeats(...)' },
+        { from: 'lockMgr', to: 'lock', text: 'lockSeatsInOrder([21B]).lock()  — ACQUIRED', activate: 'lock' },
+        { from: 'passengerB', to: 'service', text: 'holdSeats(flightId, [21B], "B")  — arrives concurrently' },
+        { from: 'service', to: 'lockMgr', text: 'holdSeats(...)' },
+        { from: 'lockMgr', to: 'lock', text: 'lockSeatsInOrder([21B]).lock()  — BLOCKS (A holds it)',
+          detail: 'Both threads resolve the SAME ReentrantLock keyed "flightId:21B" — B blocks for the entire duration of A\'s critical section, so the two holds can never interleave.' },
+        { from: 'lockMgr', to: 'seat', text: '[A] seat.isAvailable(now)? yes -> status = HELD, heldByUserId = "A", holdExpiresAt = now+5m' },
+        { from: 'lockMgr', to: 'lock', text: '[A] unlock()', deactivate: 'lock' },
+        { from: 'service', to: 'passengerA', text: 'return { status: HELD }', type: 'return' },
+        { type: 'note', over: ['lock'], text: 'Lock just freed — B, still waiting, acquires it now.' },
+        { from: 'lockMgr', to: 'lock', text: '[B] lock()  — ACQUIRED (was blocked, now unblocks)', activate: 'lock' },
+        { from: 'lockMgr', to: 'seat', text: '[B] seat.isAvailable(now)? NO — status == HELD, holdExpiresAt in the future -> throw SeatNotAvailableException' },
+        { from: 'lockMgr', to: 'lock', text: '[B] unlock()', deactivate: 'lock' },
+        { from: 'service', to: 'passengerB', text: '409 SeatNotAvailableException — seat already held by A', type: 'return' },
+        { from: 'passengerA', to: 'service', text: 'bookFlight(flightId, [21B], ..., "A")' },
+        { from: 'service', to: 'lockMgr', text: 'confirmSeats(...)' },
+        { from: 'lockMgr', to: 'lock', text: '[A] lock()  — ACQUIRED', activate: 'lock' },
+        { from: 'lockMgr', to: 'seat', text: '[A] status==BOOKED? no. status==HELD, heldByUserId=="A", not expired -> OK' },
+        { from: 'lockMgr', to: 'seat', text: '[A] status = BOOKED, heldByUserId = "A", holdExpiresAt = 0' },
+        { from: 'lockMgr', to: 'lock', text: '[A] unlock()', deactivate: 'lock' },
+        { from: 'service', to: 'passengerA', text: 'return Booking { status: CONFIRMED, seats: [21B] }', type: 'return' },
+        { type: 'note', over: ['seat'], text: 'Seat 21B is now BOOKED by A. This is the state RCA-024 protects.' },
+        { from: 'passengerC', to: 'service', text: 'bookFlight(flightId, [21B], ..., "C")  — never called holdSeats first' },
+        { from: 'service', to: 'lockMgr', text: 'confirmSeats(...)' },
+        { from: 'lockMgr', to: 'lock', text: '[C] lock()  — ACQUIRED', activate: 'lock' },
+        { from: 'lockMgr', to: 'seat', text: '[C] status == BOOKED -> throw SeatNotAvailableException immediately, seat NOT touched',
+          detail: 'Before RCA-024: this fell into the same branch as a stale/expired hold, reset the seat to AVAILABLE, and threw HoldExpiredException instead — silently un-booking Passenger A\'s confirmed seat. The fix adds an explicit status==BOOKED guard ahead of the reset branch.' },
+        { from: 'lockMgr', to: 'lock', text: '[C] unlock()', deactivate: 'lock' },
+        { from: 'service', to: 'passengerC', text: '409 SeatNotAvailableException — seat already booked by another passenger', type: 'return' },
+        { type: 'note', over: ['seat'], text: 'Seat 21B remains BOOKED by A throughout — Passenger C\'s rejected attempt has zero side effects on it.' },
+      ],
+    },
+  ],
+};
