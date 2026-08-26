@@ -6,10 +6,12 @@ import _airline from './diagrams/airline.js';
 import _atm from './diagrams/atm.js';
 import _auction from './diagrams/auction.js';
 import _blockingQueue from './diagrams/blocking-queue.js';
+import _bloomFilter from './diagrams/bloom-filter.js';
 import _carRental from './diagrams/car-rental.js';
 import _chess from './diagrams/chess.js';
 import _coffee from './diagrams/coffee.js';
 import _concertTicket from './diagrams/concert-ticket.js';
+import _concurrentHashmap from './diagrams/concurrent-hashmap.js';
 import _courseRegistration from './diagrams/course-registration.js';
 import _cricinfo from './diagrams/cricinfo.js';
 import _elevator from './diagrams/elevator.js';
@@ -23,6 +25,7 @@ import _linkedin from './diagrams/linkedin.js';
 import _loggingFramework from './diagrams/logging-framework.js';
 import _lru_cache from './diagrams/lru-cache.js';
 import _ludo from './diagrams/ludo.js';
+import _mergeSort from './diagrams/merge-sort.js';
 import _minesweeper from './diagrams/minesweeper.js';
 import _movieticket from './diagrams/movieticket.js';
 import _musicStreaming from './diagrams/music-streaming.js';
@@ -50,10 +53,12 @@ const classDiagrams = {
   atm: _atm,
   auction: _auction,
   blockingQueue: _blockingQueue,
+  bloomFilter: _bloomFilter,
   carRental: _carRental,
   chess: _chess,
   coffee: _coffee,
   concertTicket: _concertTicket,
+  concurrentHashmap: _concurrentHashmap,
   courseRegistration: _courseRegistration,
   cricinfo: _cricinfo,
   elevator: _elevator,
@@ -67,6 +72,7 @@ const classDiagrams = {
   loggingFramework: _loggingFramework,
   'lru-cache': _lru_cache,
   ludo: _ludo,
+  mergeSort: _mergeSort,
   minesweeper: _minesweeper,
   movieticket: _movieticket,
   musicStreaming: _musicStreaming,

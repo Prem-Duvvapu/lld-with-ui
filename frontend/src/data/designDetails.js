@@ -6,10 +6,12 @@ import _airline from './design/airline.js';
 import _atm from './design/atm.js';
 import _auction from './design/auction.js';
 import _blockingQueue from './design/blocking-queue.js';
+import _bloomFilter from './design/bloom-filter.js';
 import _carRental from './design/car-rental.js';
 import _chess from './design/chess.js';
 import _coffee from './design/coffee.js';
 import _concertTicket from './design/concert-ticket.js';
+import _concurrentHashmap from './design/concurrent-hashmap.js';
 import _courseRegistration from './design/course-registration.js';
 import _cricinfo from './design/cricinfo.js';
 import _elevator from './design/elevator.js';
@@ -23,6 +25,7 @@ import _linkedin from './design/linkedin.js';
 import _loggingFramework from './design/logging-framework.js';
 import _lru_cache from './design/lru-cache.js';
 import _ludo from './design/ludo.js';
+import _mergeSort from './design/merge-sort.js';
 import _minesweeper from './design/minesweeper.js';
 import _movieticket from './design/movieticket.js';
 import _musicStreaming from './design/music-streaming.js';
@@ -50,10 +53,12 @@ const designDetails = {
   atm: _atm,
   auction: _auction,
   blockingQueue: _blockingQueue,
+  bloomFilter: _bloomFilter,
   carRental: _carRental,
   chess: _chess,
   coffee: _coffee,
   concertTicket: _concertTicket,
+  concurrentHashmap: _concurrentHashmap,
   courseRegistration: _courseRegistration,
   cricinfo: _cricinfo,
   elevator: _elevator,
@@ -67,6 +72,7 @@ const designDetails = {
   loggingFramework: _loggingFramework,
   'lru-cache': _lru_cache,
   ludo: _ludo,
+  mergeSort: _mergeSort,
   minesweeper: _minesweeper,
   movieticket: _movieticket,
   musicStreaming: _musicStreaming,
