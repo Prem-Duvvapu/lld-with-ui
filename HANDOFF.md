@@ -10,24 +10,32 @@
 done** — digitalwallet (PR #28), taskmanagement (PR #29), auction (PR #30), socialnetwork (PR #31)
 all merged. Wave 1b (vendingmachine, coffeemachine, trafficsignal — PR #26) is done too, plus a
 same-day hotfix (PR #27) for an unthrottled stdout flood in trafficsignal's production logging
-observer (RCA-018). **Wave 2 (ludo) is now done too** — raised to the reference bar (state pattern
+observer (RCA-018). **Wave 2 (ludo) is done** — raised to the reference bar (state pattern
 for token lifecycle, seeded dice, exception hierarchy, isolated sim engine, tests;
-RCA-020/021/022/023). The three frontend-only **concurrency primitives** (Wave 3 —
-concurrent-hashmap, bloom-filter, merge-sort) remain in flight in a separate isolated worktree.
-Everything from the prior status note
+RCA-020/021/022/023). **Wave 3 (concurrency primitives) is also done** — concurrent-hashmap,
+bloom-filter, merge-sort all graduated from frontend-only fake animations to real Java backends
+with genuine threads (striped-lock map, `BitSet` Bloom filter, `ForkJoinPool` parallel merge sort),
+`designDataCoverage.test.js`'s `PENDING_DESIGN_CONTENT` allowlist is now empty, and **all 45
+modules have a backend**. Everything from the prior status note
 still holds — uber, zomato, stackoverflow, tictactoe, lru-cache, hotel, car-rental, concert-ticket,
 course-registration, cricinfo, music-streaming, restaurant, chess, inventory, snakeladders,
-minesweeper, and six of eight concurrency primitives are all at or near the 17-criteria bar with
-verified concurrency tests. Backend suite was 948 tests / frontend 286 at the start of this
-session; auction alone brought backend to 1077 — rerun both suites for the current count once
-ludo/primitives land. **Every module touched in Wave 1 needed a rebase against `main` before
-merging** — three of four parallel agents landed a real conflict (not just a stale branch) in
+minesweeper, and the original six concurrency primitives are all at or near the 17-criteria bar
+with verified concurrency tests. Backend suite was 948 tests / frontend 286 at the start of this
+session; now at roughly 1278 backend / 304 frontend — rerun both suites to confirm the exact
+current count. **Every module touched in Wave 1/2/3 needed a rebase against `main` before
+merging** — parallel agents repeatedly landed real conflicts (not just a stale branch) in
 `AGENTS.md`/`README.md`/`frontend/src/data/sequenceDiagrams.js`, always purely additive (two new
 module sections inserted at the same point), and RCA numbering collided twice (two independent
 modules each picked the next number off their own stale `main`) — resolve by renumbering to the
-next free slot on current `main`, never by dropping either entry. Land Wave 1/2/3-style parallel
-work one PR at a time, or budget for this rebase step after every merge. Live tracker (module tier
-matrix, wave plan, activity log): see the `status-artifact` memory entry for the current URL.
+next free slot on current `main`, never by dropping either entry. One landed-but-orphaned branch
+(`feat/concurrency-primitives-depth`, PR #36) was force-pushed and re-opened *after* its original
+PR (#35) had already been merged from an earlier snapshot of the same branch — confirmed via a
+scoped diff that the actual primitive code was byte-identical to what was already on `main`, then
+closed #36 without merging to avoid duplicate history. Lesson: once a branch's PR is merged, don't
+keep pushing to that same branch name — cut a fresh branch for any follow-up work instead. Land
+parallel work one PR at a time, or budget for this rebase step after every merge. Live tracker
+(module tier matrix, wave plan, activity log): see the `status-artifact` memory entry for the
+current URL.
 
 ## What remains — the honest "not ready" list
 
@@ -38,7 +46,7 @@ Verified against the tree on `main` (2026-08-26):
 | **1 — pattern-gap domains** | ~~digitalwallet, taskmanagement, auction, socialnetwork~~ | Done — PR #28, #29, #30, #31. |
 | **1b — single-actor patterns** | ~~vendingmachine, coffeemachine, trafficsignal~~ | Done — PR #26, plus PR #27 hotfix for trafficsignal's log-spam bug (RCA-018). |
 | **2 — games** | ~~ludo~~ | Done — raised to the reference bar (state pattern for token lifecycle, seeded dice, exception hierarchy, isolated sim engine, tests; RCA-020/021/022/023). (chess, minesweeper, snakeladders, tictactoe done) |
-| **3 — concurrency primitives** | concurrent-hashmap, bloom-filter, merge-sort | React-only animations; no backend. `com.lld.concurrency` has blockingqueue/ttlcache/foobar/zeroevenodd/fizzbuzz/h2o done as templates. In progress. These three remain in the `PENDING_DESIGN_CONTENT` allowlist until landed |
+| **3 — concurrency primitives** | ~~concurrent-hashmap, bloom-filter, merge-sort~~ | Done — PR #35 (real Java backends: striped-lock map, `BitSet` Bloom filter, `ForkJoinPool` parallel merge sort). `PENDING_DESIGN_CONTENT` allowlist is now empty; all 45 modules have a backend. |
 | **4 — thin upgrades** | elevator | Working but shallow (few tests, missing flavours). (lru-cache done) |
 | **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | splitwise, uber, zomato, digitalwallet, taskmanagement, auction, socialnetwork have `data/sequences/<module>.js` so far |
 
