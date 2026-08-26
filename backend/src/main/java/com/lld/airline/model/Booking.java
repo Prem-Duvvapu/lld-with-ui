@@ -1,86 +1,34 @@
 package com.lld.airline.model;
 
 import com.lld.airline.enums.BookingStatus;
+import com.lld.airline.enums.FareType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Booking {
-    private final String bookingId;
-    private final String flightId;
-    private final String userId;
-    private final List<Passenger> passengers;
-    private final List<String> seatNumbers;
-    private final double totalAmount;
-    private volatile double refundAmount;
-    private volatile BookingStatus status;
-    private final Instant createdAt;
-    private volatile Instant cancelledAt;
-
-    public Booking(String bookingId, String flightId, String userId, List<Passenger> passengers,
-                   List<String> seatNumbers, double totalAmount) {
-        this.bookingId = bookingId;
-        this.flightId = flightId;
-        this.userId = userId;
-        this.passengers = passengers != null ? List.copyOf(passengers) : List.of();
-        this.seatNumbers = seatNumbers != null ? List.copyOf(seatNumbers) : List.of();
-        this.totalAmount = totalAmount;
-        this.refundAmount = 0.0;
-        this.status = BookingStatus.PENDING;
-        this.createdAt = Instant.now();
-        this.cancelledAt = null;
-    }
-
-    public String getBookingId() {
-        return bookingId;
-    }
-
-    public String getFlightId() {
-        return flightId;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public List<Passenger> getPassengers() {
-        return Collections.unmodifiableList(passengers);
-    }
-
-    public List<String> getSeatNumbers() {
-        return Collections.unmodifiableList(seatNumbers);
-    }
-
-    public double getTotalAmount() {
-        return totalAmount;
-    }
-
-    public double getRefundAmount() {
-        return refundAmount;
-    }
-
-    public void setRefundAmount(double refundAmount) {
-        this.refundAmount = refundAmount;
-    }
-
-    public BookingStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(BookingStatus status) {
-        this.status = status;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getCancelledAt() {
-        return cancelledAt;
-    }
-
-    public void setCancelledAt(Instant cancelledAt) {
-        this.cancelledAt = cancelledAt;
-    }
+    private String bookingId;
+    private String flightId;
+    private String userId;
+    private List<Passenger> passengers;
+    private List<String> seatNumbers;
+    private double totalAmount;
+    @Builder.Default
+    private double refundAmount = 0.0;
+    @Builder.Default
+    private BookingStatus status = BookingStatus.PENDING;
+    /** Which {@link com.lld.airline.strategy.RefundPolicy} governs a cancellation of this booking. */
+    @Builder.Default
+    private FareType fareType = FareType.FLEXIBLE;
+    @Builder.Default
+    private Instant createdAt = Instant.now();
+    private Instant cancelledAt;
 }

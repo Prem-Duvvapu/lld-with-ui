@@ -1,5 +1,6 @@
 package com.lld.airline.controller;
 
+import com.lld.airline.enums.FareType;
 import com.lld.airline.model.Booking;
 import com.lld.airline.model.Flight;
 import com.lld.airline.model.Passenger;
@@ -81,6 +82,7 @@ public class AirlineController {
         String userId = (String) body.getOrDefault("userId", "guest-user");
         String paymentMethod = (String) body.getOrDefault("paymentMethod", "CARD");
         String idempotencyKey = (String) body.getOrDefault("idempotencyKey", UUID.randomUUID().toString());
+        FareType fareType = parseFareType((String) body.get("fareType"));
 
         @SuppressWarnings("unchecked")
         List<String> seatNumbers = (List<String>) body.get("seatNumbers");
@@ -91,20 +93,26 @@ public class AirlineController {
         List<Passenger> passengers;
         if (passengerMaps != null && !passengerMaps.isEmpty()) {
             passengers = passengerMaps.stream()
-                    .map(pm -> new Passenger(
-                            pm.getOrDefault("passengerId", UUID.randomUUID().toString().substring(0, 8)),
-                            pm.getOrDefault("name", "Passenger"),
-                            pm.getOrDefault("email", "passenger@air.com"),
-                            pm.getOrDefault("passportOrId", "ID-" + UUID.randomUUID().toString().substring(0, 6))))
+                    .map(pm -> Passenger.builder()
+                            .passengerId(pm.getOrDefault("passengerId", UUID.randomUUID().toString().substring(0, 8)))
+                            .name(pm.getOrDefault("name", "Passenger"))
+                            .email(pm.getOrDefault("email", "passenger@air.com"))
+                            .passportOrId(pm.getOrDefault("passportOrId", "ID-" + UUID.randomUUID().toString().substring(0, 6)))
+                            .build())
                     .toList();
         } else {
             // Default generated passenger per seat
             passengers = seatNumbers.stream()
-                    .map(s -> new Passenger("P-" + s, "Passenger " + s, "p" + s + "@air.com", "ID-" + s))
+                    .map(s -> Passenger.builder()
+                            .passengerId("P-" + s)
+                            .name("Passenger " + s)
+                            .email("p" + s + "@air.com")
+                            .passportOrId("ID-" + s)
+                            .build())
                     .toList();
         }
 
-        Booking booking = airlineService.bookFlight(flightId, seatNumbers, passengers, userId, paymentMethod, idempotencyKey);
+        Booking booking = airlineService.bookFlight(flightId, seatNumbers, passengers, userId, paymentMethod, idempotencyKey, fareType);
         return ResponseEntity.ok(booking);
     }
 
@@ -148,9 +156,10 @@ public class AirlineController {
         String flightId = (String) body.getOrDefault("flightId", "SIM-AI-202");
         String userId = (String) body.getOrDefault("userId", "Sim-User-1");
         String passengerName = (String) body.getOrDefault("passengerName", "Sim Passenger");
+        FareType fareType = parseFareType((String) body.get("fareType"));
         @SuppressWarnings("unchecked")
         List<String> seats = (List<String>) body.get("seatNumbers");
-        return ResponseEntity.ok(airlineService.simBook(flightId, seats, passengerName, userId));
+        return ResponseEntity.ok(airlineService.simBook(flightId, seats, passengerName, userId, fareType));
     }
 
     @PostMapping("/sim/cancel")
@@ -175,5 +184,14 @@ public class AirlineController {
     @GetMapping("/sim/events")
     public ResponseEntity<List<SimEvent>> simGetEvents() {
         return ResponseEntity.ok(airlineService.getSimEvents());
+    }
+
+    private FareType parseFareType(String raw) {
+        if (raw == null || raw.isBlank()) return FareType.FLEXIBLE;
+        try {
+            return FareType.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return FareType.FLEXIBLE;
+        }
     }
 }
