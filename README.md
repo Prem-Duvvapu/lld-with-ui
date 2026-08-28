@@ -200,16 +200,27 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 #### Key Features
 - **Multi-Level Spot Tracking**: Manages spots across 3 floors tailored for CAR, BIKE, and TRUCK vehicle types.
-- **Ticket & Spot Strategy**: Dynamic spot assignment and hourly pricing calculation.
-- **Gate Management**: Controlled Entry (G1, G2) and Exit (G3, G4) gate workflows.
+- **Two Strategies Behind Two `EnumMap`-Backed Factories**: `NearestSpotStrategy`/`FarthestSpotStrategy` for spot assignment and `HourlyPricingStrategy`/`FlatRatePricingStrategy`/`DynamicPricingStrategy` for fares, each resolved in one lookup — the service never branches on the policy itself.
+- **Full Typed Exception Hierarchy**: unknown gates, wrong gate type, unsupported vehicle type, no spot available, unknown ticket, and an already-exited ticket all map to the correct 4xx/409 status.
+- **Race-Free Spot Allocation & Exit**: one lock guards the whole search-then-claim spot allocation, and ticket exit is an atomic check-then-pay — proven by concurrency tests with real `CountDownLatch`-synchronized threads, not sleeps.
+- **Gate Management**: Controlled Entry (G1, G2) and Exit (G3, G4) gate workflows, with a two-step exit (scan for a price preview, then pay & release).
+- **8-Tab Experience**: Entry, Exit, Spots, Tickets, an interactive sandboxed simulation with a telemetry HUD, class diagram, sequence diagram, and design details.
 
 #### API Endpoints
 - `GET /api/parking/gates`
 - `POST /api/parking/entry`
+- `POST /api/parking/exit/scan`
+- `POST /api/parking/exit/pay`
 - `POST /api/parking/exit`
 - `GET /api/parking/floors`
 - `GET /api/parking/spots/available`
 - `GET /api/parking/tickets/active`
+- `POST /api/parking/sim/reset`
+- `POST /api/parking/sim/entry`
+- `POST /api/parking/sim/scan`
+- `POST /api/parking/sim/pay`
+- `GET /api/parking/sim/state`
+- `GET /api/parking/sim/events`
 
 ---
 
