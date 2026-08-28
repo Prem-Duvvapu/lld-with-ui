@@ -1,336 +1,218 @@
 // designDetails — pubsub
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+// Grounded in the real backend (com.lld.pubsub.*) — every entity, method and pattern
+// listed below exists in code and is exercised by PubSubServiceTest / SubscriberWorkerTest /
+// PubSubRepositoryTest / PubSubConcurrencyTest.
 
 export default {
   title: 'Pub/Sub System (Message Broker) — Design Details',
   tldr: [
-    'Topic-based high-throughput message broker featuring Observer pattern and dedicated per-subscriber Producer-Consumer worker threads',
-    'Strict FIFO message delivery ordering guaranteed per subscriber by isolating each subscriber in its own ArrayBlockingQueue',
-    'Non-blocking publisher dispatch: publish() enqueues to subscriber queues and returns immediately without blocking on slow consumers',
-    'Backpressure rejection policy: when subscriber queue is full, new messages are rejected with QueueFullException without stalling the broker',
-    'Thread-safe subscriber registration via CopyOnWriteArrayList ensuring lock-free publish iteration during concurrent subscriptions'
+    'Topic-based broker where every subscriber gets its own dedicated worker thread draining a bounded ArrayBlockingQueue<Message> — strict FIFO delivery per subscriber, guaranteed by construction rather than by locking.',
+    'Broadcast publish() is non-blocking and never throws: a subscriber whose queue is full is reported back as a rejected id, so one slow consumer can never stall delivery to the rest of the topic.',
+    'A separate strict, single-target send (publishToSubscriber) exists for point-to-point redelivery — it throws QueueFullException (409, queue momentarily full) or DispatchFailedException (410, worker already stopped) instead of swallowing the failure.',
+    'Typed exception hierarchy (PubSubException) covers every real failure mode: unknown topic, unknown subscriber, duplicate subscription, full queue, and a dispatch to a stopped worker.',
+    'Isolated /sim/* sandbox runs its own Broker + PubSubRepository pair with its own telemetry event log, so the interactive demo can never touch the live topics seeded by PubSubInitializer.'
   ],
   requirements: [
     'Topic-based publish-subscribe messaging — publishers send messages to topics, subscribers receive messages from topics they subscribe to',
-    'Multiple subscribers per topic — each subscriber receives every message published to the topic (fan-out)',
-    'Subscriber can specify filters — receive only messages matching certain criteria (e.g., message type, content pattern)',
-    'Durable subscriptions — subscriber can disconnect and later receive missed messages (persistent queue per subscriber)',
-    'At-least-once delivery — messages are retried until subscriber acknowledges receipt, preventing message loss',
-    'Message ordering per topic — messages are delivered to subscribers in the order they were published (FIFO per topic)',
-    'Asynchronous publishing — publisher does not block while messages are being delivered to subscribers',
-    'Dead letter queue — messages that cannot be delivered after max retries are moved to a DLQ for manual inspection'
+    'Fan-out — every active subscriber on a topic receives every message published to it',
+    'Strict per-subscriber message ordering — each subscriber sees messages in the exact order they were published, even under concurrent publishers',
+    'Non-blocking publish — a publisher never waits on a slow or stuck subscriber; publish() returns as soon as the message is handed to every subscriber\'s queue',
+    'Bounded per-subscriber backpressure — each subscriber has a fixed-capacity queue; when full, new messages for that subscriber are dropped and reported, not silently lost or infinitely buffered',
+    'Reject rather than silently replace on duplicate subscription — re-subscribing an already-active (topic, subscriberId) pair is a conflict, not an implicit reset',
+    'Point-to-point redelivery — a caller can address exactly one subscriber directly and learn for certain whether that specific delivery succeeded, failed on a full queue, or failed because the subscriber is gone'
   ],
   entities: [
     {
       name: 'Broker',
-      description: 'Central message routing hub. Manages topics, routes messages from publishers to subscribers, and handles persistence and retry.',
+      description: 'Owns every Topic by name. The entry point for create/subscribe/unsubscribe/publish; delegates the actual fan-out and backpressure decisions to Topic.',
       fields: [
-        {
-          name: 'topics',
-          type: 'Map<String, Topic>',
-          description: 'All registered topics indexed by name'
-        },
-        {
-          name: 'executor',
-          type: 'ExecutorService',
-          description: 'Thread pool for async message delivery to subscribers'
-        },
-        {
-          name: 'deadLetterQueue',
-          type: 'Queue<Message>',
-          description: 'Messages that exceeded max delivery retries'
-        }
+        { name: 'topics', type: 'ConcurrentHashMap<String, Topic>', description: 'All registered topics indexed by name — lock-free reads on the hot publish path' },
+        { name: 'messageIdGen', type: 'AtomicLong', description: 'Generates globally unique message ids ("MSG-N")' }
       ],
       methods: [
-        {
-          name: 'createTopic(name)',
-          returns: 'Topic',
-          description: 'Creates a new topic for publishing/subscribing'
-        },
-        {
-          name: 'publish(topicName, message)',
-          returns: 'void',
-          description: 'Publishes a message to all subscribers of the topic'
-        },
-        {
-          name: 'subscribe(topicName, subscriber)',
-          returns: 'Subscription',
-          description: 'Subscribes a consumer to receive messages from the topic'
-        },
-        {
-          name: 'unsubscribe(subscription)',
-          returns: 'void',
-          description: 'Removes a subscriber from the topic'
-        }
+        { name: 'createTopic(name)', returns: 'void', description: 'Creates a topic if it doesn\'t already exist (idempotent, putIfAbsent)' },
+        { name: 'subscribe(topicName, subscriber, capacity)', returns: 'void', description: 'Registers a subscriber on a topic; throws TopicNotFoundException or DuplicateSubscriptionException' },
+        { name: 'publish(topicName, payload, publisherId, headers)', returns: 'List<String>', description: 'Broadcasts to every subscriber; returns the ids whose queue was full (never throws for that)' },
+        { name: 'publishToSubscriber(topicName, subscriberId, payload, publisherId, headers)', returns: 'void', description: 'Strict single-target send; throws QueueFullException / DispatchFailedException' },
+        { name: 'shutdown()', returns: 'void', description: 'Stops every SubscriberWorker thread across every topic gracefully' }
       ]
     },
     {
       name: 'Topic',
-      description: 'Logical channel that groups related messages. Maintains subscriber list and message queue. Ensures FIFO delivery order.',
+      description: 'One logical channel. Holds a lock-free list of SubscriberWorkers (one per active subscriber) and the message counter for this channel.',
       fields: [
-        {
-          name: 'name',
-          type: 'String',
-          description: 'Unique topic identifier'
-        },
-        {
-          name: 'subscribers',
-          type: 'List<Subscription>',
-          description: 'All active subscriptions with their filters and queues'
-        },
-        {
-          name: 'messageQueue',
-          type: 'Queue<Message>',
-          description: 'Pending messages yet to be delivered'
-        }
+        { name: 'name', type: 'String', description: 'Unique topic identifier' },
+        { name: 'workers', type: 'CopyOnWriteArrayList<SubscriberWorker>', description: 'Read-mostly list of active per-subscriber workers — publish iterates it without a lock' },
+        { name: 'publishedCount', type: 'AtomicLong', description: 'Total messages ever published to this topic' }
       ],
       methods: [
-        {
-          name: 'addSubscriber(subscription)',
-          returns: 'void',
-          description: 'Registers a new subscription'
-        },
-        {
-          name: 'removeSubscriber(subId)',
-          returns: 'void',
-          description: 'Removes a subscription'
-        },
-        {
-          name: 'publish(message)',
-          returns: 'void',
-          description: 'Enqueues message and dispatches to matching subscribers'
-        }
+        { name: 'addSubscriber(subscriber, capacity)', returns: 'void', description: 'Spawns a new SubscriberWorker; throws DuplicateSubscriptionException if this id is already active here' },
+        { name: 'removeSubscriber(subscriberId)', returns: 'void', description: 'Stops and removes that subscriber\'s worker; throws SubscriberNotFoundException if it isn\'t registered' },
+        { name: 'publish(message)', returns: 'List<String>', description: 'Enqueues to every worker; returns the ids that were rejected on a full queue' },
+        { name: 'publishToOne(subscriberId, message)', returns: 'void', description: 'Strict send to one worker; throws SubscriberNotFoundException / QueueFullException / DispatchFailedException' }
       ]
     },
     {
-      name: 'Subscription',
-      description: 'Represents a subscriber\'s interest in a topic. Contains delivery queue, filter criteria, and retry/ack state.',
+      name: 'SubscriberWorker',
+      description: 'A real background thread (Runnable, own daemon Thread) dedicated to exactly one subscriber, sequentially draining a bounded ArrayBlockingQueue<Message>. This is what makes per-subscriber FIFO ordering and backpressure isolation structural rather than a locking convention.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique subscription identifier'
-        },
-        {
-          name: 'subscriber',
-          type: 'Subscriber',
-          description: 'The consumer receiving messages'
-        },
-        {
-          name: 'filter',
-          type: 'MessageFilter',
-          description: 'Optional criteria for message selection'
-        },
-        {
-          name: 'queue',
-          type: 'Queue<Message>',
-          description: 'Durable queue of undelivered messages for this subscriber'
-        },
-        {
-          name: 'retryCount',
-          type: 'int',
-          description: 'Number of delivery attempts for current batch'
-        }
+        { name: 'subscriber', type: 'Subscriber', description: 'The consumer this worker drains messages into' },
+        { name: 'queue', type: 'ArrayBlockingQueue<Message>', description: 'Bounded — offer() fails fast instead of growing unbounded' },
+        { name: 'deliveredCount / rejectedCount / errorCount', type: 'AtomicLong', description: 'Live telemetry counters read by the /sim snapshot without locking' },
+        { name: 'running', type: 'volatile boolean', description: 'Graceful-stop flag; run() keeps draining the queue after this flips false until it is actually empty' }
       ],
       methods: [
-        {
-          name: 'deliver(message)',
-          returns: 'boolean',
-          description: 'Attempts to deliver message to subscriber. Returns false on failure.'
-        },
-        {
-          name: 'acknowledge(messageId)',
-          returns: 'void',
-          description: 'Marks message as delivered and removes from pending queue'
-        },
-        {
-          name: 'matches(message)',
-          returns: 'boolean',
-          description: 'Checks if message passes the subscription filter'
-        }
-      ]
-    },
-    {
-      name: 'Publisher',
-      description: 'Entity that produces messages to topics. Publishers don\'t know about subscribers — they only publish to topics via the Broker.',
-      fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique publisher identifier'
-        }
-      ],
-      methods: [
-        {
-          name: 'publish(broker, topicName, message)',
-          returns: 'void',
-          description: 'Sends a message to the broker for distribution'
-        }
+        { name: 'enqueue(message)', returns: 'boolean', description: 'Broadcast path: never throws, returns false on a full queue or a stopped worker' },
+        { name: 'enqueueOrThrow(message)', returns: 'void', description: 'Strict path: throws QueueFullException (full) or DispatchFailedException (stopped)' },
+        { name: 'run()', returns: 'void', description: 'Loop: poll(200ms) → subscriber.consume(message); an exception from consume() increments errorCount and is logged, never kills the thread' },
+        { name: 'stopGracefully()', returns: 'void', description: 'Flips running=false and interrupts the thread, but the run() loop keeps draining whatever was already queued' }
       ]
     },
     {
       name: 'Subscriber',
-      description: 'Consumer interface that receives messages from subscribed topics. Implementations define how messages are processed on receipt.',
+      description: 'Consumer interface. Broker/Topic/SubscriberWorker never depend on a concrete implementation — this is the seam that makes new consumer types (a database sink, a webhook forwarder) pure additions.',
+      fields: [],
+      methods: [
+        { name: 'getId()', returns: 'String', description: '' },
+        { name: 'getName()', returns: 'String', description: '' },
+        { name: 'consume(message)', returns: 'void', description: 'Runs on the subscriber\'s own dedicated worker thread, never the publisher\'s' }
+      ]
+    },
+    {
+      name: 'PrintSubscriber / LoggingSubscriber / SlowSubscriber',
+      description: 'Three Subscriber implementations seeded by PubSubInitializer and selectable from the UI. PrintSubscriber and LoggingSubscriber consume instantly; SlowSubscriber sleeps processDelayMs inside consume() — the deliberate stand-in for "a subscriber that can\'t keep up", used to provoke real backpressure against its own bounded queue without affecting any other subscriber on the same topic.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique subscriber identifier'
-        },
-        {
-          name: 'name',
-          type: 'String',
-          description: 'Human-readable subscriber name'
-        }
+        { name: 'receivedMessages / logs', type: 'CopyOnWriteArrayList', description: 'Thread-safe history read by getSubscriberMessages() while the worker thread is still appending to it' }
       ],
       methods: [
-        {
-          name: 'onMessage(message)',
-          returns: 'void',
-          description: 'Callback invoked when a message is delivered to this subscriber'
-        },
-        {
-          name: 'onError(exception)',
-          returns: 'void',
-          description: 'Callback for delivery errors'
-        }
+        { name: 'consume(message)', returns: 'void', description: 'PrintSubscriber/LoggingSubscriber: instant. SlowSubscriber: Thread.sleep(processDelayMs) first.' }
       ]
     },
     {
       name: 'Message',
-      description: 'Immutable data unit published to a topic. Contains payload, metadata, headers, and delivery tracking fields.',
+      description: 'Immutable value carrier (Lombok @Data @Builder). Message.of(...) stamps timestampEpoch and defaults a null headers map to empty.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique message identifier'
-        },
-        {
-          name: 'topic',
-          type: 'String',
-          description: 'Topic this message was published to'
-        },
-        {
-          name: 'payload',
-          type: 'Object',
-          description: 'Actual message content (JSON, text, bytes)'
-        },
-        {
-          name: 'timestamp',
-          type: 'long',
-          description: 'Epoch millis when the message was published'
-        },
-        {
-          name: 'headers',
-          type: 'Map<String, String>',
-          description: 'Metadata key-value pairs for routing and filtering'
-        }
+        { name: 'id', type: 'String', description: 'Broker-assigned unique id ("MSG-N")' },
+        { name: 'topicName', type: 'String', description: '' },
+        { name: 'payload', type: 'String', description: '' },
+        { name: 'publisherId', type: 'String', description: '' },
+        { name: 'timestampEpoch', type: 'long', description: '' },
+        { name: 'headers', type: 'Map<String, String>', description: '' }
       ],
       methods: []
+    },
+    {
+      name: 'PubSubRepository',
+      description: 'Subscriber directory keyed by (topicName, subscriberId) rather than subscriber id alone, backed by ConcurrentHashMap. This is what stops the same subscriber id being active on two different topics from clobbering each other\'s message history, and fixes a real thread-safety bug where the map it replaced was a plain, unsynchronized HashMap. The real service and the isolated /sim engine each hold their own separate instance.',
+      fields: [
+        { name: 'subscribersByKey', type: 'ConcurrentHashMap<String, Subscriber>', description: 'Key = topicName + "::" + subscriberId' }
+      ],
+      methods: [
+        { name: 'save(topicName, subscriber)', returns: 'void', description: '' },
+        { name: 'find(topicName, subscriberId)', returns: 'Subscriber', description: '' },
+        { name: 'exists(topicName, subscriberId)', returns: 'boolean', description: '' },
+        { name: 'remove(topicName, subscriberId)', returns: 'void', description: '' }
+      ]
     }
   ],
   designPatterns: [
     {
       name: 'Observer',
       used: true,
-      explanation: 'Pub-Sub is the Observer pattern at scale. The Broker is the subject, Subscribers are observers. When a message is published, all interested subscribers are notified. Decouples producers from consumers completely.'
+      explanation: 'Pub-Sub is Observer at scale. Topic is the subject; every SubscriberWorker wraps one observer. Topic#publish notifies all of them without knowing their concrete type — PubSubConcurrencyTest#manyPublishersManySubscribers proves every observer sees every event exactly once.'
+    },
+    {
+      name: 'Producer-Consumer',
+      used: true,
+      explanation: 'Each SubscriberWorker is a classic bounded-queue producer-consumer: Topic#publish (and any publisher thread) is the producer offering into an ArrayBlockingQueue, the worker\'s own run() loop is the sole consumer. The bound is what makes backpressure real instead of aspirational.'
     },
     {
       name: 'Singleton',
       used: true,
-      explanation: 'Broker is a singleton — one message hub serving all publishers and subscribers. Multiple broker instances would create isolated messaging domains requiring a federation layer.'
+      explanation: 'PubSubService is a Spring-managed singleton facade — one Broker + one PubSubRepository serve every publisher and subscriber in the live system, separate from the sim engine\'s own singleton pair.'
     },
     {
-      name: 'Strategy',
+      name: 'Facade',
       used: true,
-      explanation: 'DeliveryStrategy interface with FanOutStrategy (all subscribers), FilteredStrategy (based on filters), PriorityStrategy (by priority). Broker delegates delivery logic to the strategy.'
+      explanation: 'PubSubController never touches Broker, Topic or PubSubRepository directly — PubSubService is the single seam that composes them and is where every topic/subscriber-existence check and typed exception is thrown.'
     },
     {
-      name: 'Factory',
+      name: 'Factory Method',
       used: true,
-      explanation: 'MessageFactory creates message instances with proper IDs, timestamps, and headers. TopicFactory creates configured topics with desired delivery strategy.'
-    },
-    {
-      name: 'Command',
-      used: false,
-      explanation: 'Messages could be Command objects containing the action to execute on the subscriber. Enables queuing, scheduling, and transactional processing.'
+      explanation: 'PubSubService#createSubscriberInstance is a small factory resolving a "PRINT"/"SLOW"/"LOGGING" type string to the right Subscriber implementation, keeping that branch out of both subscribe() and the /sim equivalent.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'Broker routes messages. Topic manages subscribers and ordering. Subscription handles delivery, filtering, and ack. Publisher creates messages. Subscriber processes them. Each has one responsibility.'
+      description: 'Broker owns topic lookup and id generation. Topic owns its subscriber list and the duplicate/not-found checks. SubscriberWorker owns exactly one queue and one thread. PubSubRepository owns the subscriber directory. Each has one reason to change.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'New delivery strategies implement DeliveryStrategy. New message filters implement MessageFilter. New subscriber types implement Subscriber interface. Broker and Topic remain closed.'
+      description: 'A new consumer type is a new Subscriber implementation plus one branch in the factory method — Broker, Topic and SubscriberWorker never change.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'Broker depends on Topic and Subscriber abstractions. Topic depends on Subscription interface. High-level routing logic doesn\'t depend on low-level consumer implementations.'
+      description: 'Topic and SubscriberWorker depend on the Subscriber interface, never on PrintSubscriber/LoggingSubscriber/SlowSubscriber directly.'
     },
     {
       name: 'Interface Segregation (ISP)',
-      description: 'Publisher has minimal interface (publish). Subscriber has onMessage/onError. Subscription has deliver/acknowledge/matches. Each role gets only needed methods.'
+      description: 'Subscriber exposes exactly three members (id, name, consume) — no ack/filter/retry surface a simple consumer doesn\'t need.'
     },
     {
-      name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Message ID generation and timestamp assignment are centralized in MessageFactory. Retry logic is in Subscription — not duplicated per subscriber.'
+      name: 'Liskov Substitution (LSP)',
+      description: 'Any Subscriber implementation can be dropped into Topic#addSubscriber without Topic or SubscriberWorker caring which one it got — SlowSubscriber substitutes for PrintSubscriber with only a timing difference, never a contract difference.'
     }
   ],
   oopConcepts: [
     {
       name: 'Composition over Inheritance',
-      description: 'Broker has-a Map of Topic. Topic has-a List of Subscription. Subscription has-a Subscriber and MessageFilter. System built by composing fine-grained interfaces.',
-      alternative: 'Could make Topic extend BaseTopic. Composition is chosen because topics vary in delivery strategy and durability.'
+      description: 'Broker has-a Map of Topic; Topic has-a list of SubscriberWorker; SubscriberWorker has-a Subscriber and a queue. No inheritance chain anywhere in the dispatch path.',
+      alternative: 'A shared thread pool with per-subscriber routing was considered and rejected — see tradeoffs.'
     },
     {
-      name: 'Polymorphism — Subscriber Interface',
-      description: 'Broker calls onMessage() on Subscriber interface without knowing concrete type. LoggingSubscriber, EmailSubscriber, DatabaseSubscriber each implement differently.',
-      alternative: 'Could use callback functions. Interface-based polymorphism is chosen because subscribers often have state.'
+      name: 'Polymorphism — Subscriber interface',
+      description: 'SubscriberWorker.run() calls subscriber.consume(message) without a type check; PrintSubscriber, LoggingSubscriber and SlowSubscriber each do something different with that call.',
+      alternative: 'A callback/functional interface would work too, but a named interface reads better once implementations start carrying their own state (SlowSubscriber\'s delay, the received-messages history).'
     },
     {
-      name: 'Encapsulation — Delivery Guarantees',
-      description: 'Subscription encapsulates retry logic, ack tracking, and dead-letter handling. Other components have no visibility into another subscription\'s delivery state.',
-      alternative: 'Could expose delivery state for monitoring. Encapsulation keeps delivery guarantees as internal concerns.'
+      name: 'Encapsulation — queue and counters stay inside the worker',
+      description: 'Nothing outside SubscriberWorker can mutate its queue directly; delivered/rejected/error counts are read-only outside the class, exposed only through getters used for telemetry.',
+      alternative: 'Exposing the raw queue would let a caller peek or drain it out of band, breaking the FIFO-per-subscriber guarantee.'
     }
   ],
   extensibility: [
     {
-      area: 'New Delivery Semantics',
-      description: 'Implement a new DeliveryStrategy (e.g., ExactlyOnceStrategy with idempotency keys, OrderedStrategy with strict partitioning). Broker delegates without changing routing logic.',
+      area: 'Durable / replayable subscriptions',
+      description: 'A subscriber that reconnects after being offline currently just re-subscribes and misses everything published while it was gone. Adding a bounded per-topic replay log plus a "since messageId" parameter to subscribe() would give at-least-once redelivery without changing the live dispatch path.',
       difficulty: 'Medium'
     },
     {
-      area: 'Wildcard Topic Matching',
-      description: 'Add hierarchical topic support (e.g., "sports.*", "sports.cricket.#"). Subscription filter matches against wildcard patterns. Existing Topic model handles routing.',
+      area: 'Message filtering',
+      description: 'A Subscriber currently receives every message on a topic it joins. A predicate passed at subscribe time, checked before enqueue() in Topic#publish, would add selective delivery without touching SubscriberWorker.',
+      difficulty: 'Easy'
+    },
+    {
+      area: 'Wildcard / hierarchical topics',
+      description: '"sports.*" style topic patterns would need Broker#getAllTopics to be matched against a pattern instead of an exact name at publish time — Topic and SubscriberWorker are unaffected.',
       difficulty: 'Medium'
     },
     {
-      area: 'Message Persistence',
-      description: 'Add MessageStore interface with InMemoryStore and DatabaseStore implementations. Messages persisted before delivery, removed after ack. Survives broker restarts.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Backpressure / Flow Control',
-      description: 'Add rate limiting per subscription. If subscriber is too slow, broker slows publishing or buffers messages. Implemented via FlowControlStrategy monitoring queue depth.',
-      difficulty: 'Hard'
+      area: 'Dead-letter handling for the strict send path',
+      description: 'publishToSubscriber already tells the caller exactly why a send failed (QueueFullException vs DispatchFailedException); routing those failures into a DLQ topic instead of just propagating the exception is a small addition on top of an already-typed failure signal.',
+      difficulty: 'Easy'
     }
   ],
   tradeoffs: [
-    'Chose dedicated worker threads per subscriber over shared thread pool to guarantee strict FIFO ordering per subscriber.',
-    'Adopted drop-and-reject backpressure policy on full queue to protect broker throughput from slow consumers.',
-    'Used CopyOnWriteArrayList for subscriber lists because publish reads outnumber subscribe/unsubscribe writes 100:1.'
+    'Chose one dedicated thread per subscriber over a shared thread pool: guarantees strict FIFO per subscriber and total isolation (a stuck subscriber\'s thread can never starve another subscriber\'s queue-drain), at the cost of one live thread per active subscription — fine at demo scale, would need a pool + per-subscriber sequencing at very large subscriber counts.',
+    'Broadcast publish() reports a full queue as a rejected id instead of throwing, so one slow consumer never fails the whole publish; the strict publishToSubscriber() exists specifically for callers that need a hard yes/no for one target instead.',
+    'Duplicate subscription (same id, same topic) is rejected rather than silently replacing the existing worker — replacing used to drop that worker\'s in-flight queue and counters with no warning; callers who want to change capacity/delay must unsubscribe first.',
+    'PubSubRepository keys by (topicName, subscriberId) rather than subscriber id alone, trading one extra string concatenation per lookup for the ability to let the same subscriber id track independent message history per topic.'
   ],
   solid: [
-    {
-      principle: 'Single Responsibility',
-      details: 'Topic handles routing; SubscriberWorker manages queue & thread; Subscriber executes business logic.'
-    },
-    {
-      principle: 'Open/Closed',
-      details: 'Extensible with new Subscriber types (e.g. DatabaseSubscriber) without changing Broker.'
-    }
+    { principle: 'Single Responsibility', details: 'Topic handles routing and membership; SubscriberWorker manages the queue and its own thread; Subscriber implementations only know how to consume().' },
+    { principle: 'Open/Closed', details: 'New Subscriber types (e.g. a WebhookSubscriber) are pure additions — Broker/Topic/SubscriberWorker never change.' }
   ]
 };

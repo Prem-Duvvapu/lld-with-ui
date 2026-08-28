@@ -32,6 +32,15 @@ export function publish(topicName, payload, publisherId) {
   });
 }
 
+// Strict single-target send: throws (409 QueueFullException / 410 DispatchFailedException /
+// 404 SubscriberNotFoundException) instead of returning a rejected-id list.
+export function publishToSubscriber(topicName, subscriberId, payload, publisherId) {
+  return apiFetch('/pubsub/publish/direct', {
+    method: 'POST',
+    body: JSON.stringify({ topicName, subscriberId, payload, publisherId }),
+  });
+}
+
 export function getSubscriberMessages(topicName, subscriberId) {
   return apiFetch(`/pubsub/subscribers/${subscriberId}/messages?topicName=${encodeURIComponent(topicName)}`);
 }
@@ -66,6 +75,13 @@ export function simPublish(topicName, payload, publisherId) {
   return apiFetch('/pubsub/sim/publish', {
     method: 'POST',
     body: JSON.stringify({ topicName, payload, publisherId }),
+  });
+}
+
+export function simPublishToSubscriber(topicName, subscriberId, payload, publisherId) {
+  return apiFetch('/pubsub/sim/publish-direct', {
+    method: 'POST',
+    body: JSON.stringify({ topicName, subscriberId, payload, publisherId }),
   });
 }
 

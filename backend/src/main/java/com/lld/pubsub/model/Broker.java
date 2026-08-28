@@ -1,5 +1,6 @@
 package com.lld.pubsub.model;
 
+import com.lld.pubsub.exception.TopicNotFoundException;
 import com.lld.pubsub.worker.SubscriberWorker;
 
 import java.util.*;
@@ -24,28 +25,42 @@ public class Broker {
     }
 
     public void subscribe(String topicName, Subscriber subscriber, int queueCapacity) {
-        Topic topic = topics.get(topicName);
-        if (topic != null) {
-            topic.addSubscriber(subscriber, queueCapacity);
-        }
+        Topic topic = requireTopic(topicName);
+        topic.addSubscriber(subscriber, queueCapacity);
     }
 
     public void unsubscribe(String topicName, String subscriberId) {
-        Topic topic = topics.get(topicName);
-        if (topic != null) {
-            topic.removeSubscriber(subscriberId);
-        }
+        Topic topic = requireTopic(topicName);
+        topic.removeSubscriber(subscriberId);
     }
 
+    /** Broadcast fan-out: never throws. Returns the ids of subscribers whose queue was full. */
     public List<String> publish(String topicName, String payload, String publisherId, Map<String, String> headers) {
-        Topic topic = topics.get(topicName);
-        if (topic == null) {
-            return Collections.emptyList();
-        }
-
-        String msgId = "MSG-" + messageIdGen.getAndIncrement();
-        Message message = new Message(msgId, topicName, payload, publisherId, headers);
+        Topic topic = requireTopic(topicName);
+        Message message = Message.of(nextMessageId(), topicName, payload, publisherId, headers);
         return topic.publish(message);
+    }
+
+    /**
+     * Strict point-to-point send to exactly one subscriber. Throws {@code QueueFullException}
+     * or {@code DispatchFailedException} instead of the broadcast path's rejected-id list.
+     */
+    public void publishToSubscriber(String topicName, String subscriberId, String payload, String publisherId, Map<String, String> headers) {
+        Topic topic = requireTopic(topicName);
+        Message message = Message.of(nextMessageId(), topicName, payload, publisherId, headers);
+        topic.publishToOne(subscriberId, message);
+    }
+
+    private String nextMessageId() {
+        return "MSG-" + messageIdGen.getAndIncrement();
+    }
+
+    private Topic requireTopic(String name) {
+        Topic topic = topics.get(name);
+        if (topic == null) {
+            throw new TopicNotFoundException("Topic not found: " + name);
+        }
+        return topic;
     }
 
     public void shutdown() {

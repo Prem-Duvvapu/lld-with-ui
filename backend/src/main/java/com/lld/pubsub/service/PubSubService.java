@@ -1,7 +1,11 @@
 package com.lld.pubsub.service;
 
+import com.lld.pubsub.exception.DispatchFailedException;
+import com.lld.pubsub.exception.QueueFullException;
+import com.lld.pubsub.exception.SubscriberNotFoundException;
 import com.lld.pubsub.exception.TopicNotFoundException;
 import com.lld.pubsub.model.*;
+import com.lld.pubsub.repository.PubSubRepository;
 import com.lld.pubsub.worker.SubscriberWorker;
 import org.springframework.stereotype.Service;
 
@@ -15,15 +19,17 @@ import java.util.concurrent.atomic.AtomicLong;
 public class PubSubService {
 
     private final Broker broker = new Broker();
-    private final Map<String, Subscriber> activeSubscribers = new HashMap<>();
+    private final PubSubRepository repository;
 
-    // Isolated Simulation Engine State
+    // Isolated Simulation Engine State — its own Broker AND its own repository instance, so a
+    // replayed demo can never corrupt the live topic/subscriber directory.
     private final Broker simBroker = new Broker();
-    private final Map<String, Subscriber> simActiveSubscribers = new HashMap<>();
+    private final PubSubRepository simRepository = new PubSubRepository();
     private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
     private final AtomicLong simEventIdGen = new AtomicLong(1);
 
-    public PubSubService() {
+    public PubSubService(PubSubRepository repository) {
+        this.repository = repository;
         initSimState();
     }
 
@@ -44,18 +50,25 @@ public class PubSubService {
         return topic;
     }
 
+    /** Throws {@code DuplicateSubscriptionException} (via {@code Topic#addSubscriber}) if this
+     *  subscriber id is already active on the topic. */
     public void subscribe(String topicName, String subscriberId, String subscriberName, String subscriberType, int capacity, Long delayMs) {
-        Topic topic = getTopic(topicName);
+        getTopic(topicName);
         Subscriber subscriber = createSubscriberInstance(subscriberId, subscriberName, subscriberType, delayMs);
-        activeSubscribers.put(subscriberId, subscriber);
         broker.subscribe(topicName, subscriber, capacity <= 0 ? 50 : capacity);
+        repository.save(topicName, subscriber);
     }
 
+    /** Throws {@code SubscriberNotFoundException} (via {@code Topic#removeSubscriber}) if this
+     *  subscriber id is not currently active on the topic. */
     public void unsubscribe(String topicName, String subscriberId) {
-        getTopic(topicName); // Ensures topic exists
+        getTopic(topicName);
         broker.unsubscribe(topicName, subscriberId);
+        repository.remove(topicName, subscriberId);
     }
 
+    /** Broadcast fan-out. Never throws for a full subscriber queue — returns the rejected ids so
+     *  one slow consumer can't fail delivery to the rest of the topic. */
     public List<String> publish(String topicName, String payload, String publisherId) {
         getTopic(topicName);
         List<String> rejectedSubscribers = broker.publish(topicName, payload, publisherId, Collections.emptyMap());
@@ -65,8 +78,23 @@ public class PubSubService {
         return rejectedSubscribers;
     }
 
+    /**
+     * Strict point-to-point send: throws {@code QueueFullException} (409) if the target
+     * subscriber's queue is momentarily full, or {@code DispatchFailedException} (410) if its
+     * worker has already stopped — the two ways a direct/retried delivery can fail, distinct
+     * from broadcast {@code publish}'s reject-and-continue contract.
+     */
+    public void publishToSubscriber(String topicName, String subscriberId, String payload, String publisherId) {
+        getTopic(topicName);
+        broker.publishToSubscriber(topicName, subscriberId, payload, publisherId, Collections.emptyMap());
+    }
+
     public List<Message> getSubscriberMessages(String topicName, String subscriberId) {
-        Subscriber sub = activeSubscribers.get(subscriberId);
+        Topic topic = getTopic(topicName);
+        if (!topic.hasSubscriber(subscriberId)) {
+            throw new SubscriberNotFoundException("Subscriber " + subscriberId + " is not subscribed to topic " + topicName);
+        }
+        Subscriber sub = repository.find(topicName, subscriberId);
         if (sub instanceof PrintSubscriber) {
             return ((PrintSubscriber) sub).getReceivedMessages();
         } else if (sub instanceof SlowSubscriber) {
@@ -91,7 +119,7 @@ public class PubSubService {
 
     public synchronized void initSimState() {
         simBroker.shutdown();
-        simActiveSubscribers.clear();
+        simRepository.clear();
         simEventLog.clear();
 
         simBroker.createTopic("tech-news");
@@ -101,13 +129,13 @@ public class PubSubService {
         SlowSubscriber slowSub = new SlowSubscriber("sub-slow", "SlowAnalytics Engine", 200L);
         LoggingSubscriber auditSub = new LoggingSubscriber("sub-audit", "AuditLogger");
 
-        simActiveSubscribers.put(fastSub.getId(), fastSub);
-        simActiveSubscribers.put(slowSub.getId(), slowSub);
-        simActiveSubscribers.put(auditSub.getId(), auditSub);
-
         simBroker.subscribe("tech-news", fastSub, 10);
         simBroker.subscribe("tech-news", slowSub, 3); // Bounded queue capacity = 3 for slow subscriber
         simBroker.subscribe("sports-alerts", auditSub, 10);
+
+        simRepository.save("tech-news", fastSub);
+        simRepository.save("tech-news", slowSub);
+        simRepository.save("sports-alerts", auditSub);
 
         logSimEvent("SIM_RESET", "System", "Initialized 2 simulation topics (tech-news, sports-alerts) & 3 subscribers", null);
     }
@@ -120,8 +148,8 @@ public class PubSubService {
 
     public synchronized List<TopicSnapshot> simSubscribe(String topicName, String subscriberId, String subscriberName, String type, int capacity, Long delayMs) {
         Subscriber subscriber = createSubscriberInstance(subscriberId, subscriberName, type, delayMs);
-        simActiveSubscribers.put(subscriberId, subscriber);
         simBroker.subscribe(topicName, subscriber, capacity);
+        simRepository.save(topicName, subscriber);
 
         Map<String, Object> details = new HashMap<>();
         details.put("topicName", topicName);
@@ -134,6 +162,7 @@ public class PubSubService {
 
     public synchronized List<TopicSnapshot> simUnsubscribe(String topicName, String subscriberId) {
         simBroker.unsubscribe(topicName, subscriberId);
+        simRepository.remove(topicName, subscriberId);
         logSimEvent("UNSUBSCRIBE", subscriberId, "Unsubscribed from topic " + topicName, Map.of("topicName", topicName, "subscriberId", subscriberId));
         return captureSimSnapshots();
     }
@@ -156,6 +185,39 @@ public class PubSubService {
         return captureSimSnapshots();
     }
 
+    /**
+     * Strict single-target send against the sim sandbox, for the simulation tab's "direct send"
+     * step. Unlike the real {@code publishToSubscriber}, this never lets the exception escape to
+     * the HTTP layer — it catches each of the three ways a direct send can fail and logs a
+     * distinct, inspectable sim event instead, so the demo can show QueueFullException /
+     * DispatchFailedException / SubscriberNotFoundException actually firing without the frontend
+     * having to special-case an error response for what is otherwise a uniform snapshot-returning
+     * sim endpoint.
+     */
+    public synchronized List<TopicSnapshot> simPublishToSubscriber(String topicName, String subscriberId, String payload, String publisherId) {
+        Map<String, Object> details = new HashMap<>();
+        details.put("topicName", topicName);
+        details.put("subscriberId", subscriberId);
+        details.put("payload", payload);
+        details.put("publisherId", publisherId);
+
+        try {
+            simBroker.publishToSubscriber(topicName, subscriberId, payload, publisherId, Collections.emptyMap());
+            logSimEvent("DIRECT_SEND", publisherId, "Direct send '" + payload + "' to " + subscriberId + " on " + topicName + " — delivered", details);
+        } catch (QueueFullException e) {
+            details.put("reason", "QUEUE_FULL (409)");
+            logSimEvent("DIRECT_SEND_REJECTED", publisherId, "DIRECT SEND FAILED — " + e.getMessage(), details);
+        } catch (DispatchFailedException e) {
+            details.put("reason", "WORKER_STOPPED (410)");
+            logSimEvent("DIRECT_SEND_REJECTED", publisherId, "DIRECT SEND FAILED — " + e.getMessage(), details);
+        } catch (SubscriberNotFoundException e) {
+            details.put("reason", "NOT_FOUND (404)");
+            logSimEvent("DIRECT_SEND_REJECTED", publisherId, "DIRECT SEND FAILED — " + e.getMessage(), details);
+        }
+
+        return captureSimSnapshots();
+    }
+
     public List<SimEvent> getSimEvents() {
         return simEventLog;
     }
@@ -171,20 +233,36 @@ public class PubSubService {
             for (SubscriberWorker w : t.getWorkers()) {
                 Subscriber sub = w.getSubscriber();
                 String type = sub instanceof SlowSubscriber ? "SLOW" : (sub instanceof LoggingSubscriber ? "LOGGING" : "PRINT");
-                subSnapshots.add(new SubscriberSnapshot(
-                        sub.getId(), sub.getName(), type,
-                        w.getQueueSize(), w.getQueueCapacity(),
-                        w.getDeliveredCount(), w.getRejectedCount()
-                ));
+                subSnapshots.add(SubscriberSnapshot.builder()
+                        .id(sub.getId())
+                        .name(sub.getName())
+                        .type(type)
+                        .queueSize(w.getQueueSize())
+                        .queueCapacity(w.getQueueCapacity())
+                        .deliveredCount(w.getDeliveredCount())
+                        .rejectedCount(w.getRejectedCount())
+                        .build());
             }
-            topicSnapshots.add(new TopicSnapshot(t.getName(), t.getPublishedCount(), subSnapshots));
+            topicSnapshots.add(TopicSnapshot.builder()
+                    .name(t.getName())
+                    .publishedCount(t.getPublishedCount())
+                    .subscribers(subSnapshots)
+                    .build());
         }
         return topicSnapshots;
     }
 
     private void logSimEvent(String type, String actor, String desc, Map<String, Object> data) {
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"));
-        SimEvent event = new SimEvent(simEventIdGen.getAndIncrement(), ts, type, actor, desc, data, captureSimSnapshots());
+        SimEvent event = SimEvent.builder()
+                .id(simEventIdGen.getAndIncrement())
+                .timestamp(ts)
+                .type(type)
+                .actor(actor)
+                .description(desc)
+                .details(data)
+                .topicSnapshots(captureSimSnapshots())
+                .build();
         simEventLog.add(event);
     }
 }

@@ -35,6 +35,7 @@ class DomainExceptionContractTest {
             "LibraryException",
             "LinkedInException",
             "MusicStreamingException",
+            "PubSubException",
             "RestaurantException",
             "StackOverflowException",
             "StockBrokerException",

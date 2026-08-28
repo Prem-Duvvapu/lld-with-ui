@@ -1,27 +1,19 @@
 package com.lld.pubsub.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.List;
 
+/** Read-only telemetry projection of one {@code Topic} for the sim HUD. */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TopicSnapshot {
-    private final String name;
-    private final long publishedCount;
-    private final List<SubscriberSnapshot> subscribers;
-
-    public TopicSnapshot(String name, long publishedCount, List<SubscriberSnapshot> subscribers) {
-        this.name = name;
-        this.publishedCount = publishedCount;
-        this.subscribers = subscribers;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public long getPublishedCount() {
-        return publishedCount;
-    }
-
-    public List<SubscriberSnapshot> getSubscribers() {
-        return subscribers;
-    }
+    private String name;
+    private long publishedCount;
+    private List<SubscriberSnapshot> subscribers;
 }

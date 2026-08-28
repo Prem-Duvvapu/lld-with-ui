@@ -1,5 +1,7 @@
 package com.lld.pubsub.worker;
 
+import com.lld.pubsub.exception.DispatchFailedException;
+import com.lld.pubsub.exception.QueueFullException;
 import com.lld.pubsub.model.Message;
 import com.lld.pubsub.model.Subscriber;
 
@@ -32,6 +34,11 @@ public class SubscriberWorker implements Runnable {
         return subscriber;
     }
 
+    /**
+     * Broadcast enqueue used by {@code Topic#publish}: never throws. A full queue or a stopped
+     * worker both just return {@code false} so one slow/departed subscriber can never fail
+     * delivery to the rest of the topic's subscribers.
+     */
     public boolean enqueue(Message message) {
         if (!running) return false;
         boolean accepted = queue.offer(message);
@@ -39,6 +46,25 @@ public class SubscriberWorker implements Runnable {
             rejectedCount.incrementAndGet();
         }
         return accepted;
+    }
+
+    /**
+     * Strict, single-target enqueue used by {@code PubSubService#publishToSubscriber}: throws
+     * instead of swallowing the failure, so a direct/point-to-point send can distinguish "queue
+     * momentarily full" ({@link QueueFullException}, 409 — retry later) from "worker already
+     * stopped" ({@link DispatchFailedException}, 410 — the subscriber is gone for good).
+     */
+    public void enqueueOrThrow(Message message) {
+        if (!running) {
+            throw new DispatchFailedException(
+                    "Subscriber " + subscriber.getId() + " worker has already stopped; message " + message.getId() + " cannot be dispatched");
+        }
+        boolean accepted = queue.offer(message);
+        if (!accepted) {
+            rejectedCount.incrementAndGet();
+            throw new QueueFullException(
+                    "Subscriber " + subscriber.getId() + " queue is full (capacity=" + queueCapacity + "); message " + message.getId() + " rejected");
+        }
     }
 
     public int getQueueSize() {
