@@ -2371,3 +2371,109 @@ cd backend && mvn -o -q test -Dtest='ParkingLotConcurrencyTest#concurrentPayAndE
    parallel" but actually-unguarded operation (ticket exit), write the concurrency test for *both*
    before assuming either is safe — the working one confirms the pattern, the broken one won't show
    up without a `CountDownLatch`-forced race, never from reading the code alone.
+
+## RCA-028: Pub/Sub's Subscriber Message History Was Keyed by Id Alone, Leaking One Topic's Messages Into Another's Lookup
+
+**Severity:** Medium (silent data isolation bug, not a crash — `getSubscriberMessages` never threw
+or logged anything wrong; it just quietly returned the wrong topic's message history for any
+subscriber id that happened to be active on more than one topic, and a completely unrelated
+`PubSubException` never had a chance to fire against a 5xx status because nothing had ever
+exercised the module's second-worst exception mapping either)
+**Date:** 2026-08-28
+**Status:** Resolved
+**Affected:** `com.lld.pubsub.service.PubSubService#getSubscriberMessages` and its backing
+`activeSubscribers` map (before fix); `com.lld.pubsub.exception.DispatchFailedException` (before fix)
+
+### 1. Overview & Severity
+Auditing the pubsub module against the 17-criteria bar (it had never had an explicit `/audit-lld`
+pass — it was on HANDOFF.md's "unverified" list) surfaced two related but distinct problems while
+reading `PubSubService` line by line, not from any failing test — the module's only test file never
+exercised either path:
+
+1. `PubSubService#getSubscriberMessages(String topicName, String subscriberId)` accepted a
+   `topicName` parameter and never used it to validate anything. The subscriber lookup went
+   straight to `activeSubscribers.get(subscriberId)` — a `Map<String, Subscriber>` keyed by
+   subscriber id **alone**. If the same subscriber id was ever active on two different topics (the
+   API allows exactly this — nothing stopped `subscribe("topic-a", "sub-1", ...)` followed by
+   `subscribe("topic-b", "sub-1", ...)`), the second `subscribe()` call's `activeSubscribers.put(...)`
+   silently overwrote the first topic's entry. Calling `getSubscriberMessages("topic-a", "sub-1")`
+   after that would return **topic-b's** message history under topic-a's name, with no error,
+   because the `topicName` argument was accepted but never checked against anything.
+2. `activeSubscribers` was a bare `HashMap`, not a `ConcurrentHashMap` — mutated from
+   `subscribe`/`unsubscribe`, both callable concurrently from different HTTP request threads, with
+   no lock of its own. This had not yet produced a visible corruption or a `ConcurrentModificationException`
+   in the wild, but was a real, live thread-safety bug independent of the id-collision issue above.
+3. Separately, `DispatchFailedException` (one of the module's three original typed exceptions) was
+   annotated `@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)` — a 5xx status on a
+   `DomainException` subclass, which `config.DomainExceptionContractTest#noneMapToServerError` exists
+   specifically to catch. It had never fired that guard because nothing in the codebase ever threw
+   `DispatchFailedException` — it was dead code, declared but unreachable, so the 5xx mapping had
+   been sitting live and unguarded (`DomainExceptionContractTest` only scans exceptions that exist,
+   it cannot fail on one no code path throws) since the exception was first added.
+
+### 2. Symptoms & Error Logs
+None recorded — no test, manual QA pass, or production-shaped run had ever subscribed the same id
+to two different topics, so the overwrite and the resulting cross-topic leak had never been
+observed. This is exactly why it survived: `getSubscriberMessages` returns `200 OK` with a
+plausible-looking `List<Message>` body in both the correct and the leaked case — there is no
+distinguishing error shape to grep for after the fact.
+
+### 3. Root Cause
+`activeSubscribers` was designed as a simple "remember the `Subscriber` object I just constructed
+so I can read its `receivedMessages` list later" cache, and was keyed the same way the earlier,
+simpler version of the module modeled subscription — as if a subscriber id were globally unique
+across the whole broker, not scoped to the topic it subscribed to. The public API (`subscribe`
+takes both a `topicName` and a `subscriberId`) always allowed the same id on multiple topics; the
+internal cache's key shape just never caught up to that.
+
+### 4. Diagnostic Commands
+```bash
+# The lookup that never used its own topicName parameter (before fix):
+git show origin/main:backend/src/main/java/com/lld/pubsub/service/PubSubService.java \
+  | sed -n '/public List<Message> getSubscriberMessages/,/^    }/p'
+
+# The id-only cache backing it, and that it was a plain HashMap:
+git show origin/main:backend/src/main/java/com/lld/pubsub/service/PubSubService.java \
+  | grep -n "activeSubscribers"
+
+# The dead-code, mismapped exception:
+git show origin/main:backend/src/main/java/com/lld/pubsub/exception/DispatchFailedException.java
+grep -rn "new DispatchFailedException" backend/src/main/java  # zero hits before this fix
+```
+
+### 5. Step-by-Step Resolution
+1. Replaced the id-only `HashMap` with `PubSubRepository` (already present in the module but never
+   wired into the service at all — a second, separate finding) keyed by a composite
+   `topicName + "::" + subscriberId`, backed by `ConcurrentHashMap`. The same subscriber id on two
+   different topics now gets two independently tracked entries.
+2. `getSubscriberMessages` now validates via `Topic#hasSubscriber(subscriberId)` before doing any
+   lookup, throwing the new `SubscriberNotFoundException` (404) if that id isn't actually registered
+   on `topicName` — closing the "any topic name works as long as the id exists somewhere" hole
+   entirely, rather than just fixing the storage key.
+3. Gave the real service and the isolated `/sim/*` sandbox each their own separate
+   `PubSubRepository` instance, mirroring the existing separate-`Broker` isolation, so the fix could
+   not reintroduce a live/sim data leak while fixing the cross-topic one.
+4. Recast `DispatchFailedException` from `INTERNAL_SERVER_ERROR` to `GONE` (410) and gave it a real,
+   provokable call site: `SubscriberWorker#enqueueOrThrow` now throws it when a worker has already
+   stopped, reachable through a new strict `Broker#publishToSubscriber` point-to-point send path.
+5. Verified via `PubSubServiceTest#subscribe_sameIdOnTwoDifferentTopics_isAllowed_andHistoryIsKeptSeparate`
+   (asserts each topic's history stays distinct) and
+   `#getSubscriberMessages_subscriberOfADifferentTopic_throwsSubscriberNotFoundException` (asserts
+   the previously-silent leak now 404s instead), plus `PubSubRepositoryTest#sameSubscriberId_onTwoDifferentTopics_trackedIndependently`
+   and `config.DomainExceptionContractTest#noneMapToServerError` (now passes with
+   `DispatchFailedException` actually reachable, not just correctly annotated).
+
+### 6. Preventative Measures
+1. A repository or cache key must be as specific as the operations that read it — `getSubscriberMessages`
+   took a `topicName` argument that implied topic-scoped storage; the cache underneath it should have
+   been reviewed for the same scope the moment the method signature was written, not years later
+   during an unrelated audit.
+2. An unused `@Repository` bean sitting beside a service that duplicates its job by hand (here: a
+   local `HashMap` doing what `PubSubRepository` was built to do) is itself a signal worth
+   investigating — the duplication is exactly where the two were free to drift, and did.
+3. A typed exception with a correct-looking class name and an incorrect `@ResponseStatus` is
+   strictly worse than an untyped one: `DomainExceptionContractTest` can only catch a bad status on
+   an exception that some code path actually throws. A newly added exception that nothing throws
+   yet should be treated as a paper trail promising future work, not evidence the case is handled —
+   audit for "declared but unreachable" exceptions the same way you'd audit for dead code, because
+   that is exactly what they are.

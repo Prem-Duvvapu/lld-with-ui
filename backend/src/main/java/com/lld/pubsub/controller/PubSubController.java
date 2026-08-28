@@ -64,6 +64,21 @@ public class PubSubController {
         return pubSubService.publish(topicName, payload, publisherId);
     }
 
+    /**
+     * Strict point-to-point send to exactly one subscriber. Unlike {@code /publish}, this
+     * throws (409 QueueFullException / 410 DispatchFailedException) instead of returning a
+     * rejected-id list — for a direct retry/redelivery use case where the caller needs to know
+     * for certain whether that one subscriber actually received the message.
+     */
+    @PostMapping("/publish/direct")
+    public void publishToSubscriber(@RequestBody Map<String, String> body) {
+        String topicName = body.get("topicName");
+        String subscriberId = body.get("subscriberId");
+        String payload = body.get("payload");
+        String publisherId = body.getOrDefault("publisherId", "anonymous");
+        pubSubService.publishToSubscriber(topicName, subscriberId, payload, publisherId);
+    }
+
     @GetMapping("/subscribers/{subscriberId}/messages")
     public List<Message> getSubscriberMessages(@RequestParam String topicName, @PathVariable String subscriberId) {
         return pubSubService.getSubscriberMessages(topicName, subscriberId);
@@ -110,6 +125,21 @@ public class PubSubController {
         String payload = body.get("payload");
         String publisherId = body.getOrDefault("publisherId", "sim-publisher");
         return pubSubService.simPublish(topicName, payload, publisherId);
+    }
+
+    /**
+     * Sim-sandbox counterpart of {@code /publish/direct}: never returns an error response for
+     * QueueFullException/DispatchFailedException/SubscriberNotFoundException — those are caught
+     * server-side and surfaced as a DIRECT_SEND_REJECTED sim event instead, so the demo can show
+     * the strict send failing without the frontend needing special-case error handling.
+     */
+    @PostMapping("/sim/publish-direct")
+    public List<TopicSnapshot> simPublishToSubscriber(@RequestBody Map<String, String> body) {
+        String topicName = body.get("topicName");
+        String subscriberId = body.get("subscriberId");
+        String payload = body.get("payload");
+        String publisherId = body.getOrDefault("publisherId", "sim-publisher");
+        return pubSubService.simPublishToSubscriber(topicName, subscriberId, payload, publisherId);
     }
 
     @GetMapping("/sim/events")

@@ -1,49 +1,21 @@
 package com.lld.pubsub.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/** Read-only telemetry projection of one {@code SubscriberWorker} for the sim HUD. */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class SubscriberSnapshot {
-    private final String id;
-    private final String name;
-    private final String type;
-    private final int queueSize;
-    private final int queueCapacity;
-    private final long deliveredCount;
-    private final long rejectedCount;
-
-    public SubscriberSnapshot(String id, String name, String type, int queueSize, int queueCapacity, long deliveredCount, long rejectedCount) {
-        this.id = id;
-        this.name = name;
-        this.type = type;
-        this.queueSize = queueSize;
-        this.queueCapacity = queueCapacity;
-        this.deliveredCount = deliveredCount;
-        this.rejectedCount = rejectedCount;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public int getQueueSize() {
-        return queueSize;
-    }
-
-    public int getQueueCapacity() {
-        return queueCapacity;
-    }
-
-    public long getDeliveredCount() {
-        return deliveredCount;
-    }
-
-    public long getRejectedCount() {
-        return rejectedCount;
-    }
+    private String id;
+    private String name;
+    private String type;
+    private int queueSize;
+    private int queueCapacity;
+    private long deliveredCount;
+    private long rejectedCount;
 }
