@@ -1,29 +1,36 @@
 package com.lld.parkinglot.strategy;
 
+import com.lld.parkinglot.exception.InvalidParkingRequestException;
 import org.springframework.stereotype.Component;
 
+import java.util.EnumMap;
 import java.util.Map;
 
+/**
+ * Resolves {@link SpotAssignmentStrategyType} to its strategy via an EnumMap built once — the
+ * same shape as {@code inventory.strategy.ReorderStrategyFactory}. The service never branches on
+ * the policy itself; it only ever calls {@link #getStrategy}.
+ */
 @Component
 public class SpotAssignmentStrategyFactory {
 
-    private final Map<String, SpotAssignmentStrategy> strategies;
+    private final Map<SpotAssignmentStrategyType, SpotAssignmentStrategy> strategies = new EnumMap<>(SpotAssignmentStrategyType.class);
 
     public SpotAssignmentStrategyFactory(NearestSpotStrategy nearest, FarthestSpotStrategy farthest) {
-        this.strategies = Map.of(
-                "NEAREST", nearest,
-                "FARTHEST", farthest
-        );
+        strategies.put(SpotAssignmentStrategyType.NEAREST, nearest);
+        strategies.put(SpotAssignmentStrategyType.FARTHEST, farthest);
     }
 
     public SpotAssignmentStrategy getStrategy(String strategyName) {
         if (strategyName == null || strategyName.isBlank()) {
-            return strategies.get("NEAREST");
+            return strategies.get(SpotAssignmentStrategyType.NEAREST);
         }
-        SpotAssignmentStrategy strategy = strategies.get(strategyName.trim().toUpperCase());
-        if (strategy == null) {
-            throw new IllegalArgumentException("Unknown spot assignment strategy: " + strategyName);
+        SpotAssignmentStrategyType type;
+        try {
+            type = SpotAssignmentStrategyType.valueOf(strategyName.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidParkingRequestException("Unknown spot assignment strategy: " + strategyName);
         }
-        return strategy;
+        return strategies.get(type);
     }
 }

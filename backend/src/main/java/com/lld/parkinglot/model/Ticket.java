@@ -1,14 +1,14 @@
 package com.lld.parkinglot.model;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Builder;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Ticket {
@@ -22,6 +22,7 @@ public class Ticket {
 
     public enum PaymentStatus { UNPAID, PAID }
 
+    @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
     private String paymentMethod;
 
