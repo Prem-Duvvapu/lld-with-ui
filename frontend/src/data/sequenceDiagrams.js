@@ -15,6 +15,7 @@ import _socialNetwork from './sequences/social-network.js';
 import _ludo from './sequences/ludo.js';
 import _airline from './sequences/airline.js';
 import _elevator from './sequences/elevator.js';
+import _parking from './sequences/parking.js';
 
 const sequenceDiagrams = {
   uber: _uber,
@@ -27,6 +28,7 @@ const sequenceDiagrams = {
   ludo: _ludo,
   airline: _airline,
   elevator: _elevator,
+  parking: _parking,
 };
 
 export default sequenceDiagrams;

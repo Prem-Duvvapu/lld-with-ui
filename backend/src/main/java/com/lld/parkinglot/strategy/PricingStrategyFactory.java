@@ -1,30 +1,38 @@
 package com.lld.parkinglot.strategy;
 
+import com.lld.parkinglot.exception.InvalidParkingRequestException;
 import org.springframework.stereotype.Component;
 
+import java.util.EnumMap;
 import java.util.Map;
 
+/**
+ * Resolves {@link PricingStrategyType} to its strategy via an EnumMap built once — the same shape
+ * as {@code inventory.strategy.ReorderStrategyFactory}. The service never branches on the policy
+ * itself; it only ever calls {@link #getStrategy}. Adding a pricing model is one enum constant,
+ * one implementation, one put.
+ */
 @Component
 public class PricingStrategyFactory {
 
-    private final Map<String, PricingStrategy> strategies;
+    private final Map<PricingStrategyType, PricingStrategy> strategies = new EnumMap<>(PricingStrategyType.class);
 
     public PricingStrategyFactory(HourlyPricingStrategy hourly, FlatRatePricingStrategy flat, DynamicPricingStrategy dynamic) {
-        this.strategies = Map.of(
-                "HOURLY", hourly,
-                "FLAT", flat,
-                "DYNAMIC", dynamic
-        );
+        strategies.put(PricingStrategyType.HOURLY, hourly);
+        strategies.put(PricingStrategyType.FLAT, flat);
+        strategies.put(PricingStrategyType.DYNAMIC, dynamic);
     }
 
     public PricingStrategy getStrategy(String strategyName) {
         if (strategyName == null || strategyName.isBlank()) {
-            return strategies.get("HOURLY");
+            return strategies.get(PricingStrategyType.HOURLY);
         }
-        PricingStrategy strategy = strategies.get(strategyName.trim().toUpperCase());
-        if (strategy == null) {
-            throw new IllegalArgumentException("Unknown pricing strategy: " + strategyName);
+        PricingStrategyType type;
+        try {
+            type = PricingStrategyType.valueOf(strategyName.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidParkingRequestException("Unknown pricing strategy: " + strategyName);
         }
-        return strategy;
+        return strategies.get(type);
     }
 }

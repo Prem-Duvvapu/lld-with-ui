@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { vehicleEntry, getGates, scanVehicleExit, payVehicleExit, vehicleExit, getFloors, getActiveTickets, getParkingClassDiagram, getParkingDesignDetails } from './api';
+import { vehicleEntry, getGates, scanVehicleExit, payVehicleExit, getFloors, getActiveTickets, simReset, simEntry, simScan, simPay } from './api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -505,8 +505,6 @@ function AnimatedFlow() {
   const timerRef = useRef(null);
   const mountedRef = useRef(true);
   const sceneRef = useRef(null);
-  const entryGateRef = useRef('G1');
-  const exitGateRef = useRef('G3');
 
   // Simulation Controls & Input States
   const [simVehicleNumber, setSimVehicleNumber] = useState('KA-01-HH-1234');
@@ -515,15 +513,12 @@ function AnimatedFlow() {
   const [simPricingStrategy, setSimPricingStrategy] = useState('HOURLY');
   const [simPayMethod, setSimPayMethod] = useState('UPI');
   const [scanPreview, setScanPreview] = useState(null);
+  const [simEventLog, setSimEventLog] = useState([]);
 
   useEffect(() => {
-    getGates()
-      .then((all) => {
-        if (!Array.isArray(all)) return;
-        const eg = all.find((g) => g.type === 'ENTRY');
-        const xg = all.find((g) => g.type === 'EXIT');
-        if (eg) entryGateRef.current = eg.id;
-        if (xg) exitGateRef.current = xg.id;
+    simReset()
+      .then((state) => {
+        setSimEventLog(state.events || []);
         setSimError('');
       })
       .catch(() => {
@@ -547,8 +542,8 @@ function AnimatedFlow() {
   const PARK_RIGHT = 80;
   const PARK_PAD = 8;
   const PARK_GAP = 6;
-  const COLS = 4;
-  const ROWS = 3;
+  const COLS = 5;
+  const ROWS = 2;
   const CELL_MIN_W = (sceneWidth - PARK_LEFT - PARK_RIGHT - PARK_PAD * 2 - PARK_GAP * (COLS - 1)) / COLS;
   const CELL_H = 50;
 
@@ -568,6 +563,7 @@ function AnimatedFlow() {
     setActivity(null); setShowReceipt(false); setReceiptData(null);
     setGateBarUp(false); setExitGateBarUp(false); setEntryLoading(false);
     setSimError(''); setPersonVisible(false); setScanPreview(null);
+    simReset().then((state) => setSimEventLog(state.events || [])).catch(() => {});
   };
 
   const steps = [
@@ -582,9 +578,11 @@ function AnimatedFlow() {
     'Exit Complete'
   ];
 
+  const SIM_SPOT_COUNT = 10;
+
   const findEmptyCell = () => {
     const used = new Set(occupiedCells);
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < SIM_SPOT_COUNT; i++) {
       if (!used.has(i)) return i;
     }
     return -1;
@@ -599,19 +597,21 @@ function AnimatedFlow() {
     setTimeout(() => setGateBarUp(false), 1500);
   };
 
-  // Step 1 -> Step 2: Execute Real Backend Entry API
+  // Step 1 -> Step 2: Execute Isolated /sim/entry Sandbox API
   const issueTicketApi = async () => {
     setEntryLoading(true); setSimError('');
     try {
-      const data = await vehicleEntry(entryGateRef.current || 'G1', simVehicleNumber, simVehicleType, simSpotStrategy);
-      if (data.error) {
-        setSimError(data.error);
-        toast.show(data.error, 'error');
+      const state = await simEntry(simVehicleNumber, simVehicleType, simSpotStrategy);
+      if (state.error) {
+        setSimError(state.error);
+        toast.show(state.error, 'error');
       } else {
+        setSimEventLog(state.events || []);
+        const data = (state.activeTickets || [])[0];
         setTicketData(data);
         setShowTicket(true);
         setStep(2);
-        toast.show(`Ticket #${data.ticketNumber} issued via Spring Boot API! Spot: ${data.spotId}`, 'success');
+        toast.show(`Ticket #${data.ticketNumber} issued via sandbox API! Spot: ${data.spotId}`, 'success');
       }
     } catch (err) {
       setSimError(err.message || 'API call failed');
@@ -678,19 +678,20 @@ function AnimatedFlow() {
     setCarLeft(sceneWidth - 110); setCarBottom(40); setStep(6);
   };
 
-  // Step 5 -> Step 6: Execute Real Backend Scan Exit API
+  // Step 5 -> Step 6: Execute Isolated /sim/scan Sandbox API
   const scanTicketAtExit = async () => {
     if (!ticketData) return;
     setEntryLoading(true); setSimError('');
     try {
-      const res = await scanVehicleExit(exitGateRef.current || 'G3', ticketData.ticketNumber, simPricingStrategy);
-      if (res.error) {
-        setSimError(res.error);
-        toast.show(res.error, 'error');
+      const state = await simScan(ticketData.ticketNumber, simPricingStrategy);
+      if (state.error) {
+        setSimError(state.error);
+        toast.show(state.error, 'error');
       } else {
-        setScanPreview(res);
+        setSimEventLog(state.events || []);
+        setScanPreview({ amount: state.previewAmount });
         setStep(7);
-        toast.show(`Fee calculated via API: ₹${res.amount?.toFixed(2)} (${simPricingStrategy})`, 'info');
+        toast.show(`Fee calculated via sandbox API: ₹${state.previewAmount?.toFixed(2)} (${simPricingStrategy})`, 'info');
       }
     } catch (err) {
       setSimError(err.message || 'Scan failed');
@@ -700,21 +701,24 @@ function AnimatedFlow() {
     }
   };
 
-  // Step 6 -> Step 7: Execute Real Backend Pay Exit API
+  // Step 6 -> Step 7: Execute Isolated /sim/pay Sandbox API
   const payAndExitVehicle = async () => {
     if (!ticketData) return;
     setEntryLoading(true); setSimError('');
     try {
-      const res = await payVehicleExit(exitGateRef.current || 'G3', ticketData.ticketNumber, simPricingStrategy, simPayMethod);
-      if (res.error) {
-        setSimError(res.error);
-        toast.show(res.error, 'error');
+      const state = await simPay(ticketData.ticketNumber, simPricingStrategy, simPayMethod);
+      if (state.error) {
+        setSimError(state.error);
+        toast.show(state.error, 'error');
       } else {
-        setReceiptData(res);
+        setSimEventLog(state.events || []);
+        const paidEvent = (state.events || []).slice().reverse().find((e) => e.eventType === 'VEHICLE_EXITED');
+        const receipt = { amount: paidEvent?.data?.amount ?? scanPreview?.amount ?? 0, paymentMethod: paidEvent?.data?.paymentMethod ?? simPayMethod };
+        setReceiptData(receipt);
         setStep(8);
         setExitGateBarUp(true);
         setShowReceipt(true);
-        toast.show(`Paid ₹${res.amount?.toFixed(2)} via ${simPayMethod}! Spot ${ticketData.spotId} freed in backend.`, 'success');
+        toast.show(`Paid ₹${receipt.amount?.toFixed(2)} via ${simPayMethod}! Spot ${ticketData.spotId} freed in sandbox.`, 'success');
         setTimeout(() => { setCarLeft(sceneWidth + 60); }, 800);
         setTimeout(() => { setExitGateBarUp(false); }, 2500);
       }
@@ -737,12 +741,12 @@ function AnimatedFlow() {
         </div>
 
         <div className="exit-gate">
-          <span>G3</span>
+          <span>G2</span>
           <div className={`bar ${exitGateBarUp ? 'up' : ''}`} />
         </div>
 
         <div className="parking-area">
-          {Array.from({ length: 12 }).map((_, i) => (
+          {Array.from({ length: SIM_SPOT_COUNT }).map((_, i) => (
             <div key={i} className={`parking-cell ${occupiedCells.includes(i) ? 'occupied-sim' : ''}`}>
               <span>Spot {i + 1}</span>
               {occupiedCells.includes(i) && <span className="car-icon">🚗</span>}
@@ -773,13 +777,14 @@ function AnimatedFlow() {
         }}>
           <div style={{ fontWeight: 800, color: '#3b82f6', fontSize: 'var(--font-xs)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>🅿️ PARKING LIVE HUD</span>
-            <span style={{ fontSize: '9px', background: '#22c55e', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>REAL BACKEND</span>
+            <span style={{ fontSize: '9px', background: '#8b5cf6', color: '#fff', padding: '2px 6px', borderRadius: '4px' }}>ISOLATED SANDBOX</span>
           </div>
           <div>Ticket #: <strong style={{ color: '#facc15' }}>{ticketData?.ticketNumber || '---'}</strong></div>
           <div>Assigned Spot: <strong style={{ color: '#38bdf8' }}>{ticketData?.spotId || '---'}</strong></div>
           <div>Vehicle: <strong>{simVehicleNumber} ({simVehicleType})</strong></div>
           <div>Spot Strategy: <strong>{simSpotStrategy}</strong></div>
           <div>Pricing Model: <strong>{simPricingStrategy}</strong></div>
+          <div>Events Logged: <strong>{simEventLog.length}</strong></div>
           <div>Status: <strong style={{ color: receiptData ? '#22c55e' : scanPreview ? '#f59e0b' : ticketData ? '#3b82f6' : '#94a3b8' }}>
             {receiptData ? `PAID (₹${receiptData.amount?.toFixed(2)})` : scanPreview ? `FEE SCANNED (₹${scanPreview.amount?.toFixed(2)})` : ticketData ? 'PARKED (ACTIVE TICKET)' : 'IDLE'}
           </strong></div>
@@ -856,7 +861,7 @@ function AnimatedFlow() {
       {step === 1 && (
         <div style={{ textAlign: 'center', width: '100%' }}>
           <Button onClick={issueTicketApi} variant="primary" size="lg" loading={entryLoading}>
-            🎟️ Issue Ticket via Spring Boot API (POST /parking/entry) ➔
+            🎟️ Issue Ticket via Sandbox API (POST /parking/sim/entry) ➔
           </Button>
         </div>
       )}
@@ -887,14 +892,14 @@ function AnimatedFlow() {
         </div>
       )}
 
-      {/* STEP 5: DRIVE TO EXIT GATE G3 */}
+      {/* STEP 5: DRIVE TO EXIT GATE G2 */}
       {step === 5 && (
         <Button onClick={driveToExitGate} variant="danger">
-          🚗 Drive to Exit Gate G3 ➔
+          🚗 Drive to Exit Gate G2 ➔
         </Button>
       )}
 
-      {/* STEP 6: SCAN TICKET AT EXIT GATE G3 */}
+      {/* STEP 6: SCAN TICKET AT EXIT GATE G2 */}
       {step === 6 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', background: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: 16, borderRadius: 'var(--radius-lg)' }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -906,7 +911,7 @@ function AnimatedFlow() {
             </Select>
           </div>
           <Button onClick={scanTicketAtExit} variant="warning" loading={entryLoading}>
-            🎟️ Scan Ticket & Calculate Price via API (POST /parking/exit/scan) ➔
+            🎟️ Scan Ticket & Calculate Price via Sandbox API (POST /parking/sim/scan) ➔
           </Button>
         </div>
       )}
@@ -926,8 +931,26 @@ function AnimatedFlow() {
             </Select>
           </div>
           <Button onClick={payAndExitVehicle} variant="success" loading={entryLoading}>
-            💳 Pay ₹{scanPreview.amount?.toFixed(2)} & Free Spot via API (POST /parking/exit/pay) ➔
+            💳 Pay ₹{scanPreview.amount?.toFixed(2)} & Free Spot via Sandbox API (POST /parking/sim/pay) ➔
           </Button>
+        </div>
+      )}
+
+      {/* TELEMETRY: isolated sandbox event log */}
+      {simEventLog.length > 0 && (
+        <div style={{ width: '100%', marginTop: 20, background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 14 }}>
+          <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--info)' }}>
+            📊 Sandbox Event Log ({simEventLog.length})
+          </h4>
+          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {simEventLog.slice().reverse().slice(0, 20).map((ev) => (
+              <div key={ev.id} style={{ fontSize: 11, padding: '4px 8px', background: 'var(--bg-secondary, rgba(128,128,128,0.06))', borderRadius: 4, display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--text-secondary)', fontFamily: 'var(--code-font)', minWidth: 70 }}>{ev.timestamp}</span>
+                <span style={{ fontWeight: 700, color: 'var(--accent)' }}>{ev.eventType}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{ev.description}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -935,16 +958,12 @@ function AnimatedFlow() {
 }
 
 export default function ParkingLotPage() {
-  const [classDiagramData, setClassDiagramData] = useState(null);
-  const [designDetailsData, setDesignDetailsData] = useState(null);
-  const [loadingDoc, setLoadingDoc] = useState(false);
-
   return (
     <LldPage
       module="parking"
       title="Parking Lot System"
       icon="🅿️"
-      tabs={['entry', 'exit', 'spots', 'tickets', 'demo', 'diagram', 'design']}
+      tabs={['entry', 'exit', 'spots', 'tickets', 'simulation', 'diagram', 'sequence', 'design']}
     >
       {(activeTab) => (
         <div className="parking-container">
@@ -953,7 +972,7 @@ export default function ParkingLotPage() {
           {activeTab === 'exit' && <ExitForm />}
           {activeTab === 'spots' && <SpotGrid />}
           {activeTab === 'tickets' && <ActiveTickets />}
-          {activeTab === 'demo' && <AnimatedFlow />}
+          {activeTab === 'simulation' && <AnimatedFlow />}
         </div>
       )}
     </LldPage>

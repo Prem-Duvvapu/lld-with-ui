@@ -2271,3 +2271,103 @@ cd backend && mvn -o -q test -Dtest='ElevatorControllerServiceTest#tripCompletes
    a fixed-point "did the operation complete against the right target" check available (here:
    stepping the simulation to completion and asserting `COMPLETED` lands at the real requested
    floor) should have at least one test that asserts it end-to-end, not just the safety invariant.
+
+## RCA-027: Parking Lot's `payAndExit` Had an Unguarded Check-Then-Act That Let a Ticket Be Paid Twice
+
+**Severity:** Medium (a double-tap on the exit kiosk, or a retried request after a slow response,
+could charge a vehicle twice and attempt to release its spot twice)
+**Date:** 2026-08-28
+**Status:** Resolved
+**Affected:** `com.lld.parkinglot.service.ParkingLotService#payAndExit`,
+`com.lld.parkinglot.repository.ParkingLotRepository`
+
+### 1. Overview & Severity
+Raising the parking-lot module to the reference bar meant adding a concurrency test for the classic
+"two vehicles assigned the same spot" race first — and finding that race was already closed:
+`occupySpot` held one `ReentrantLock` across the entire search-then-claim, so two threads calling
+`entry()` concurrently for the last spot of a type already resolved to exactly one winner. Writing
+the equivalent test for the exit side (`payAndExit`) surfaced a real, still-open check-then-act race:
+the service read `ticket.getExitTime() == null` / `ticket.getPaymentStatus() != PAID` and, with no
+lock between the read and the writes, then called `ticket.setExitTime(...)`, computed a price, and
+called `repository.releaseSpot(...)`. Two threads racing `payAndExit` for the same ticket number
+could both pass the check before either had written anything, both compute a charge, both mark the
+ticket PAID, and both call `releaseSpot` on the same spot — the vehicle billed twice, and a second,
+unrelated vehicle assignable to that spot before the first one had physically left.
+
+### 2. Symptoms & Error Logs
+No exception under single-threaded use — the bug is invisible without genuine concurrent load. Under
+contention it would show as:
+- Two successful `200 OK` responses to `POST /api/parking/exit/pay` for the same `ticketNumber`,
+  each returning a receipt (the API contract implies exactly one payment per ticket).
+- `ticket.getAmount()` and `ticket.getPaymentMethod()` reflecting whichever thread's write happened
+  to land last, with no record that a second payment was ever attempted.
+- `releaseSpot(spotId)` called twice for one exit — harmless in isolation since `setOccupied(false)`
+  is idempotent, but paired with a concurrent `entry()` for the same spot type, a second vehicle
+  could be assigned that spot while the first was still physically parked in it.
+
+### 3. Root Cause
+```java
+// before — ParkingLotService#payAndExit, no lock between the check and the writes:
+Ticket ticket = repository.getTicket(ticketNumber);
+if (ticket == null) throw new IllegalArgumentException("Invalid ticket: " + ticketNumber);
+if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
+    throw new IllegalStateException("Ticket already used for exit");
+}
+ticket.setExitTime(LocalDateTime.now());               // WRITE — no lock held
+double amount = pricingStrategy.calculatePrice(ticket);
+ticket.setAmount(amount);
+ticket.setPaymentStatus(Ticket.PaymentStatus.PAID);     // WRITE — no lock held
+repository.updateTicket(ticket);
+repository.releaseSpot(ticket.getSpotId());
+```
+`ParkingLotRepository` already had a `ticketLock`, but it only guarded `generateTicketNumber()` — a
+completely different operation. The read-check-write sequence above ran with no lock at all, so
+nothing prevented two threads from interleaving between the `if` and the `ticket.setPaymentStatus`
+calls. This is the same bug shape as the elevator/ludo/inventory concurrency fixes made earlier in
+this build-out session: a service-layer check followed by an unguarded write, rather than the check
+and the write being one atomic operation under a single lock acquisition.
+
+### 4. Diagnostic Commands
+```bash
+# Prove exactly one of N concurrent exits for the same ticket succeeds:
+cd backend && mvn -o -q test -Dtest='ParkingLotConcurrencyTest#concurrentPayAndExit_forTheSameTicket_exactlyOneThreadWins'
+
+# Before the fix, this would show successes > 1 and rejections < threadCount - 1 —
+# both counted via AtomicInteger from CountDownLatch-released threads, not sleeps.
+```
+
+### 5. Step-by-Step Resolution
+1. Added `ParkingLotRepository#completeExit(ticketNumber, exitTime, pricingStrategy, paymentMethod)`,
+   which acquires `ticketLock`, re-reads the ticket, re-checks not-found / already-exited *inside*
+   the lock, and only then mutates `exitTime`/`amount`/`paymentStatus`/`paymentMethod` — the check
+   and the write are now one atomic operation, the same pattern `occupySpot` already used for spot
+   allocation.
+2. Pricing is computed **inside** the lock too, using the strategy passed in by the service — not
+   before acquiring it — so there is no window between "compute the charge" and "mark PAID" for a
+   second thread to interleave into.
+3. `ParkingLotService#payAndExit` now delegates the whole check-then-pay sequence to
+   `completeExit` and only calls `releaseSpot` after it returns successfully — a thread that loses
+   the race throws before ever reaching `releaseSpot`, so a spot is never released twice for one exit.
+4. The ad-hoc `IllegalArgumentException`/`IllegalStateException` throws this touched were replaced
+   with the new typed `TicketNotFoundException` (404) / `TicketAlreadyExitedException` (409) as part
+   of the same pass, so a losing thread now gets a status code that actually distinguishes "no such
+   ticket" from "already paid" instead of a flat 400 either way.
+5. Added `ParkingLotConcurrencyTest#concurrentPayAndExit_forTheSameTicket_exactlyOneThreadWins` (10
+   `CountDownLatch`-released threads, run 5x via `@RepeatedTest`, asserting exactly one success,
+   `threadCount - 1` `TicketAlreadyExitedException` rejections, and the spot released exactly once)
+   alongside the pre-existing-but-now-formalized spot-allocation race test
+   (`concurrentEntry_forTheLastSpot_exactlyOneVehicleWins`), which passes both before and after this
+   fix — confirming that race really was already closed and this change didn't need to touch it.
+
+### 6. Preventative Measures
+1. A `ReentrantLock` field sitting next to a method name that sounds related (`ticketLock` next to
+   ticket-mutating code) is not evidence that method is actually guarded by it — grep for
+   `.lock()`/`.unlock()` call sites specifically, don't infer locking discipline from field placement.
+2. Any check-then-act on shared mutable state (`if (record.isEligible()) { record.mutate(); }`)
+   needs the check re-performed *inside* the same lock acquisition as the write, not just a lock
+   somewhere nearby — the two halves must be one atomic operation, matching the fix already applied
+   to `occupySpot`'s search-then-claim.
+3. When a module's "obviously correct" locking (spot allocation, here) sits next to an "obviously
+   parallel" but actually-unguarded operation (ticket exit), write the concurrency test for *both*
+   before assuming either is safe — the working one confirms the pattern, the broken one won't show
+   up without a `CountDownLatch`-forced race, never from reading the code alone.

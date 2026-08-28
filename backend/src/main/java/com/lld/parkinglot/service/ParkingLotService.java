@@ -1,6 +1,13 @@
 package com.lld.parkinglot.service;
 
 import com.lld.parkinglot.dto.ParkingSpotRequestDto;
+import com.lld.parkinglot.exception.GateNotFoundException;
+import com.lld.parkinglot.exception.InvalidGateTypeException;
+import com.lld.parkinglot.exception.InvalidParkingRequestException;
+import com.lld.parkinglot.exception.SpotNotAvailableException;
+import com.lld.parkinglot.exception.TicketAlreadyExitedException;
+import com.lld.parkinglot.exception.TicketNotFoundException;
+import com.lld.parkinglot.exception.VehicleTypeNotSupportedException;
 import com.lld.parkinglot.model.*;
 import com.lld.parkinglot.repository.ParkingLotRepository;
 import com.lld.parkinglot.strategy.*;
@@ -32,7 +39,7 @@ public class ParkingLotService {
 
     public Ticket entry(ParkingSpotRequestDto dto) {
         if (dto == null) {
-            throw new IllegalArgumentException("Request body cannot be null");
+            throw new InvalidParkingRequestException("Request body cannot be null");
         }
         return entry(dto.getGateId(), dto.getVehicleNumber(), dto.getVehicleType(), dto.getStrategy());
     }
@@ -42,17 +49,13 @@ public class ParkingLotService {
     }
 
     public Ticket entry(String gateId, String vehicleNumber, String vehicleTypeStr, String strategyName) {
-        Gate gate = repository.getGate(gateId);
-        if (gate == null) throw new IllegalArgumentException("Invalid gate: " + gateId);
-        if (gate.getType() != Gate.GateType.ENTRY) throw new IllegalArgumentException("Not an entry gate");
-
-        if (vehicleTypeStr == null) throw new IllegalArgumentException("Vehicle type cannot be null");
-        VehicleType vehicleType = VehicleType.valueOf(vehicleTypeStr.toUpperCase());
+        Gate gate = requireGate(gateId, Gate.GateType.ENTRY);
+        VehicleType vehicleType = parseVehicleType(vehicleTypeStr);
 
         SpotAssignmentStrategy strategy = spotStrategyFactory.getStrategy(strategyName);
         ParkingSpot spot = repository.occupySpot(vehicleType, strategy);
         if (spot == null) {
-            throw new IllegalStateException("No available spot for vehicle type: " + vehicleType);
+            throw new SpotNotAvailableException(vehicleType);
         }
 
         String ticketNumber = repository.generateTicketNumber();
@@ -64,14 +67,12 @@ public class ParkingLotService {
 
     // Step 1: Scan Ticket at Exit Gate (Calculates & shows price preview, spot NOT released yet)
     public Ticket scanTicket(String gateId, String ticketNumber, String pricingStrategyName) {
-        Gate gate = repository.getGate(gateId);
-        if (gate == null) throw new IllegalArgumentException("Invalid gate: " + gateId);
-        if (gate.getType() != Gate.GateType.EXIT) throw new IllegalArgumentException("Not an exit gate");
+        requireGate(gateId, Gate.GateType.EXIT);
 
         Ticket ticket = repository.getTicket(ticketNumber);
-        if (ticket == null) throw new IllegalArgumentException("Invalid ticket: " + ticketNumber);
+        if (ticket == null) throw new TicketNotFoundException(ticketNumber);
         if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
-            throw new IllegalStateException("Ticket already used for exit / paid");
+            throw new TicketAlreadyExitedException(ticketNumber);
         }
 
         Ticket previewTicket = new Ticket(
@@ -91,28 +92,15 @@ public class ParkingLotService {
         return previewTicket;
     }
 
-    // Step 2: Pay Price and Complete Exit (Releases spot and marks paid)
+    // Step 2: Pay Price and Complete Exit (Releases spot and marks paid). The not-found /
+    // already-exited check and the PAID mutation happen atomically inside
+    // ParkingLotRepository#completeExit — see its javadoc for why that has to be one lock
+    // acquisition rather than "check here, then write".
     public Ticket payAndExit(String gateId, String ticketNumber, String pricingStrategyName, String paymentMethod) {
-        Gate gate = repository.getGate(gateId);
-        if (gate == null) throw new IllegalArgumentException("Invalid gate: " + gateId);
-        if (gate.getType() != Gate.GateType.EXIT) throw new IllegalArgumentException("Not an exit gate");
-
-        Ticket ticket = repository.getTicket(ticketNumber);
-        if (ticket == null) throw new IllegalArgumentException("Invalid ticket: " + ticketNumber);
-        if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
-            throw new IllegalStateException("Ticket already used for exit");
-        }
-
-        LocalDateTime exitTime = LocalDateTime.now();
-        ticket.setExitTime(exitTime);
+        requireGate(gateId, Gate.GateType.EXIT);
 
         PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
-        double amount = pricingStrategy.calculatePrice(ticket);
-        ticket.setAmount(amount);
-        ticket.setPaymentStatus(Ticket.PaymentStatus.PAID);
-        ticket.setPaymentMethod(paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "CASH");
-
-        repository.updateTicket(ticket);
+        Ticket ticket = repository.completeExit(ticketNumber, LocalDateTime.now(), pricingStrategy, paymentMethod);
         repository.releaseSpot(ticket.getSpotId());
 
         return ticket;
@@ -145,5 +133,23 @@ public class ParkingLotService {
 
     public List<Ticket> getActiveTickets() {
         return repository.getActiveTickets();
+    }
+
+    private Gate requireGate(String gateId, Gate.GateType expectedType) {
+        Gate gate = repository.getGate(gateId);
+        if (gate == null) throw new GateNotFoundException(gateId);
+        if (gate.getType() != expectedType) throw new InvalidGateTypeException(gateId, expectedType);
+        return gate;
+    }
+
+    private VehicleType parseVehicleType(String vehicleTypeStr) {
+        if (vehicleTypeStr == null || vehicleTypeStr.isBlank()) {
+            throw new InvalidParkingRequestException("Vehicle type cannot be null");
+        }
+        try {
+            return VehicleType.valueOf(vehicleTypeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new VehicleTypeNotSupportedException(vehicleTypeStr);
+        }
     }
 }

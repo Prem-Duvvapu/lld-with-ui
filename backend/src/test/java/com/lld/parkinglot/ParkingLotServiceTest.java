@@ -1,6 +1,12 @@
 package com.lld.parkinglot;
 
 import com.lld.parkinglot.config.ParkingLotInitializer;
+import com.lld.parkinglot.exception.GateNotFoundException;
+import com.lld.parkinglot.exception.InvalidGateTypeException;
+import com.lld.parkinglot.exception.SpotNotAvailableException;
+import com.lld.parkinglot.exception.TicketAlreadyExitedException;
+import com.lld.parkinglot.exception.TicketNotFoundException;
+import com.lld.parkinglot.exception.VehicleTypeNotSupportedException;
 import com.lld.parkinglot.model.*;
 import com.lld.parkinglot.repository.ParkingLotRepository;
 import com.lld.parkinglot.service.ParkingLotService;
@@ -47,21 +53,28 @@ class ParkingLotServiceTest {
 
     @Test
     void entry_shouldThrowForInvalidGate() {
-        Exception e = assertThrows(IllegalArgumentException.class, () -> service.entry("NONEXIST", "KA-01", "CAR"));
-        assertTrue(e.getMessage().contains("Invalid gate"));
+        GateNotFoundException e = assertThrows(GateNotFoundException.class, () -> service.entry("NONEXIST", "KA-01", "CAR"));
+        assertTrue(e.getMessage().contains("NONEXIST"));
     }
 
     @Test
     void entry_shouldThrowForExitGate() {
-        Exception e = assertThrows(IllegalArgumentException.class, () -> service.entry("G3", "KA-01", "CAR"));
-        assertTrue(e.getMessage().contains("Not an entry gate"));
+        InvalidGateTypeException e = assertThrows(InvalidGateTypeException.class, () -> service.entry("G3", "KA-01", "CAR"));
+        assertTrue(e.getMessage().contains("ENTRY"));
+    }
+
+    @Test
+    void entry_shouldThrowForUnknownVehicleType() {
+        VehicleTypeNotSupportedException e = assertThrows(VehicleTypeNotSupportedException.class,
+                () -> service.entry("G1", "KA-01", "SPACESHIP"));
+        assertTrue(e.getMessage().contains("SPACESHIP"));
     }
 
     @Test
     void entry_shouldThrowWhenNoSpotsAvailable() {
         fillAllSpots("CAR");
-        Exception e = assertThrows(IllegalStateException.class, () -> service.entry("G1", "KA-01", "CAR"));
-        assertTrue(e.getMessage().contains("No available spot"));
+        SpotNotAvailableException e = assertThrows(SpotNotAvailableException.class, () -> service.entry("G1", "KA-01", "CAR"));
+        assertTrue(e.getMessage().contains("CAR"));
     }
 
     @Test
@@ -92,23 +105,41 @@ class ParkingLotServiceTest {
 
     @Test
     void exit_shouldThrowForInvalidTicket() {
-        Exception e = assertThrows(IllegalArgumentException.class, () -> service.exit("G3", "INVALID"));
-        assertTrue(e.getMessage().contains("Invalid ticket"));
+        TicketNotFoundException e = assertThrows(TicketNotFoundException.class, () -> service.exit("G3", "INVALID"));
+        assertTrue(e.getMessage().contains("INVALID"));
     }
 
     @Test
     void exit_shouldThrowForEntryGate() {
         Ticket ticket = service.entry("G1", "KA-01", "CAR");
-        Exception e = assertThrows(IllegalArgumentException.class, () -> service.exit("G1", ticket.getTicketNumber()));
-        assertTrue(e.getMessage().contains("Not an exit gate"));
+        InvalidGateTypeException e = assertThrows(InvalidGateTypeException.class, () -> service.exit("G1", ticket.getTicketNumber()));
+        assertTrue(e.getMessage().contains("EXIT"));
     }
 
     @Test
     void exit_shouldThrowForDoubleExit() {
         Ticket ticket = service.entry("G1", "KA-01", "CAR");
         service.exit("G3", ticket.getTicketNumber());
-        Exception e = assertThrows(IllegalStateException.class, () -> service.exit("G3", ticket.getTicketNumber()));
-        assertTrue(e.getMessage().contains("already used"));
+        TicketAlreadyExitedException e = assertThrows(TicketAlreadyExitedException.class, () -> service.exit("G3", ticket.getTicketNumber()));
+        assertTrue(e.getMessage().contains(ticket.getTicketNumber()));
+    }
+
+    @Test
+    void scanTicket_shouldThrowForAlreadyPaidTicket() {
+        Ticket ticket = service.entry("G1", "KA-01", "CAR");
+        service.exit("G3", ticket.getTicketNumber());
+        assertThrows(TicketAlreadyExitedException.class, () -> service.scanTicket("G3", ticket.getTicketNumber(), "HOURLY"));
+    }
+
+    @Test
+    void scanTicket_shouldNotReleaseSpotOrMutateLiveTicket() {
+        Ticket ticket = service.entry("G1", "KA-01", "CAR");
+        Ticket preview = service.scanTicket("G3", ticket.getTicketNumber(), "HOURLY");
+
+        assertTrue(preview.getAmount() > 0);
+        assertEquals(Ticket.PaymentStatus.UNPAID, preview.getPaymentStatus());
+        assertTrue(repository.getSpot(ticket.getSpotId()).isOccupied(), "Spot must remain occupied after a scan preview");
+        assertNull(repository.getTicket(ticket.getTicketNumber()).getExitTime(), "Live ticket must be untouched by a scan preview");
     }
 
     @Test
@@ -170,7 +201,7 @@ class ParkingLotServiceTest {
         while (true) {
             try {
                 service.entry("G1", "FILL", type);
-            } catch (IllegalStateException e) {
+            } catch (SpotNotAvailableException e) {
                 break;
             }
         }

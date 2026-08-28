@@ -47,14 +47,14 @@ Verified against the tree on `main` (2026-08-26):
 | **1b — single-actor patterns** | ~~vendingmachine, coffeemachine, trafficsignal~~ | Done — PR #26, plus PR #27 hotfix for trafficsignal's log-spam bug (RCA-018). |
 | **2 — games** | ~~ludo~~ | Done — raised to the reference bar (state pattern for token lifecycle, seeded dice, exception hierarchy, isolated sim engine, tests; RCA-020/021/022/023). (chess, minesweeper, snakeladders, tictactoe done) |
 | **3 — concurrency primitives** | ~~concurrent-hashmap, bloom-filter, merge-sort~~ | Done — PR #35 (real Java backends: striped-lock map, `BitSet` Bloom filter, `ForkJoinPool` parallel merge sort). `PENDING_DESIGN_CONTENT` allowlist is now empty; all 45 modules have a backend. |
-| **4 — thin upgrades** | ~~elevator~~ | Done — raised to the reference bar (LOOK/SCAN + Nearest-Car dispatch strategies behind a factory, declared elevator state machine, exception hierarchy, real observer wiring, isolated sim engine, tests; RCA-026). (lru-cache done) |
-| **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | splitwise, uber, zomato, digitalwallet, taskmanagement, auction, socialnetwork have `data/sequences/<module>.js` so far |
+| **4 — thin upgrades** | ~~elevator~~, ~~parking~~ | elevator done — raised to the reference bar (LOOK/SCAN + Nearest-Car dispatch strategies behind a factory, declared elevator state machine, exception hierarchy, real observer wiring, isolated sim engine, tests; RCA-026). (lru-cache done) parking done — EnumMap-resolved pricing/spot factories, exception hierarchy, atomic spot-allocation and exit-race fixes with concurrency tests, isolated `/sim/*` engine, legacy `dto`/`ParkingLotDocumentationService` doc-duplication removed, sequence diagram. |
+| **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | splitwise, uber, zomato, digitalwallet, taskmanagement, auction, socialnetwork, ludo, airline, elevator, parking have `data/sequences/<module>.js` so far |
 
 **Unverified against the bar** (not tracked in any wave above, no recorded `/audit-lld` pass):
-airline, atm, library, parking, pubsub, shoppingcart, stock-brokerage. `linkedin` and `movieticket`
+airline, atm, library, pubsub, shoppingcart, stock-brokerage. `linkedin` and `movieticket`
 are referenced elsewhere in this doc as pattern exemplars (canonical pair locking, seat/hold
 concurrency respectively) and can be treated as reference-tier. Run `/audit-lld` on the other
-seven before assuming they're at the bar.
+six before assuming they're at the bar.
 
 ## How to use this file
 
