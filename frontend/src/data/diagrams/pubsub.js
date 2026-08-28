@@ -10,13 +10,17 @@ export default {
       stereotype: 'singleton',
       fields: [
         '- broker: Broker',
-        '- activeSubscribers: Map<String, Subscriber>'
+        '- repository: PubSubRepository',
+        '- simBroker: Broker',
+        '- simRepository: PubSubRepository'
       ],
       methods: [
         '+ createTopic(name): Topic',
         '+ subscribe(topic, subId, name, type, cap, delay): void',
         '+ unsubscribe(topic, subId): void',
         '+ publish(topic, payload, pubId): List<String>',
+        '+ publishToSubscriber(topic, subId, payload, pubId): void',
+        '+ getSubscriberMessages(topic, subId): List<Message>',
         '+ simPublish(topic, payload, pubId): List<TopicSnapshot>'
       ]
     },
@@ -32,7 +36,21 @@ export default {
         '+ subscribe(topic, sub, cap): void',
         '+ unsubscribe(topic, subId): void',
         '+ publish(topic, payload, pubId, headers): List<String>',
+        '+ publishToSubscriber(topic, subId, payload, pubId, headers): void',
         '+ shutdown(): void'
+      ]
+    },
+    {
+      name: 'PubSubRepository',
+      stereotype: 'repository',
+      fields: [
+        '- subscribersByKey: ConcurrentHashMap<String, Subscriber>'
+      ],
+      methods: [
+        '+ save(topicName, subscriber): void',
+        '+ find(topicName, subId): Subscriber',
+        '+ exists(topicName, subId): boolean',
+        '+ remove(topicName, subId): void'
       ]
     },
     {
@@ -45,7 +63,9 @@ export default {
       methods: [
         '+ addSubscriber(sub, cap): void',
         '+ removeSubscriber(subId): void',
-        '+ publish(message): List<String>'
+        '+ hasSubscriber(subId): boolean',
+        '+ publish(message): List<String>',
+        '+ publishToOne(subId, message): void'
       ]
     },
     {
@@ -61,6 +81,7 @@ export default {
       ],
       methods: [
         '+ enqueue(message): boolean',
+        '+ enqueueOrThrow(message): void',
         '+ run(): void',
         '+ stopGracefully(): void'
       ]
@@ -123,6 +144,11 @@ export default {
       from: 'PubSubService',
       to: 'Broker',
       label: 'wraps'
+    },
+    {
+      from: 'PubSubService',
+      to: 'PubSubRepository',
+      label: 'directs subscriber lookups to'
     },
     {
       from: 'Broker',

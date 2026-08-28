@@ -672,19 +672,31 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 27. Pub/Sub System (Message Broker)
 
 #### Key Features
-- **Dedicated Per-Subscriber Workers**: Independent `SubscriberWorker` threads with `ArrayBlockingQueue<Message>` guaranteeing strict FIFO delivery order per subscriber.
-- **Non-Blocking Dispatch**: `Broker.publish()` enqueues and returns immediately without stalling publishers.
-- **Backpressure Policy**: Drop-and-reject policy when a subscriber queue is full, emitting simulation alerts.
+- **Dedicated Per-Subscriber Workers**: Independent `SubscriberWorker` daemon threads, each draining its own bounded `ArrayBlockingQueue<Message>`, guaranteeing strict FIFO delivery order per subscriber and total isolation from every other subscriber on the same topic.
+- **Non-Blocking Broadcast Dispatch**: `Broker.publish()` enqueues to every subscriber and returns immediately; a full queue is reported back as a rejected-id list, never an exception — one slow subscriber can never stall delivery to the rest of the topic.
+- **Strict Point-to-Point Send**: `Broker.publishToSubscriber()` targets exactly one subscriber and throws instead — `QueueFullException` (409, queue momentarily full) or `DispatchFailedException` (410, worker already stopped) — for callers that need a hard guarantee for one delivery.
+- **Typed Exception Hierarchy**: `PubSubException` (abstract) with `TopicNotFoundException` (404), `SubscriberNotFoundException` (404), `DuplicateSubscriptionException` (409 — re-subscribing an already-active id is rejected, not silently replaced), `QueueFullException` (409), `DispatchFailedException` (410).
+- **Composite-Keyed Subscriber Directory**: `PubSubRepository` tracks subscribers by `(topicName, subscriberId)`, so the same subscriber id can be active on two different topics with independently tracked message history.
 - **Lock-Free Iteration**: `CopyOnWriteArrayList` for subscriber registration.
+- **Isolated Simulation Sandbox**: `/api/pubsub/sim/*` backed by its own `Broker` + `PubSubRepository` pair and `SimEvent` telemetry log, including a direct-send demo that surfaces the strict-send exceptions live.
 
 #### API Endpoints
 - `POST /api/pubsub/topics`
+- `GET /api/pubsub/topics`
+- `GET /api/pubsub/topics/{name}`
 - `POST /api/pubsub/subscribe`
 - `POST /api/pubsub/unsubscribe`
 - `POST /api/pubsub/publish`
+- `POST /api/pubsub/publish/direct`
 - `GET /api/pubsub/subscribers/{id}/messages`
 - `POST /api/pubsub/sim/reset`
+- `POST /api/pubsub/sim/create-topic`
+- `POST /api/pubsub/sim/subscribe`
+- `POST /api/pubsub/sim/unsubscribe`
 - `POST /api/pubsub/sim/publish`
+- `POST /api/pubsub/sim/publish-direct`
+- `GET /api/pubsub/sim/events`
+- `GET /api/pubsub/sim/snapshots`
 
 ---
 
