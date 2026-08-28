@@ -45,10 +45,37 @@ export function getAvailableSpots(vehicleType) {
   return apiFetch(`/parking/spots/available${params}`);
 }
 
-export function getParkingClassDiagram() {
-  return apiFetch('/parking/class-diagram');
+// ---------------------------------------------------------- isolated /sim/* sandbox
+
+export function simReset() {
+  return apiFetch('/parking/sim/reset', { method: 'POST' });
 }
 
-export function getParkingDesignDetails() {
-  return apiFetch('/parking/design-details');
+export function simEntry(vehicleNumber, vehicleType, strategy = 'NEAREST') {
+  return apiFetch('/parking/sim/entry', {
+    method: 'POST',
+    body: JSON.stringify({ vehicleNumber, vehicleType, strategy }),
+  });
+}
+
+export function simScan(ticketNumber, pricingStrategy = 'HOURLY') {
+  return apiFetch('/parking/sim/scan', {
+    method: 'POST',
+    body: JSON.stringify({ ticketNumber, pricingStrategy }),
+  });
+}
+
+export function simPay(ticketNumber, pricingStrategy = 'HOURLY', paymentMethod = 'UPI') {
+  return apiFetch('/parking/sim/pay', {
+    method: 'POST',
+    body: JSON.stringify({ ticketNumber, pricingStrategy, paymentMethod }),
+  });
+}
+
+export function simState() {
+  return apiFetch('/parking/sim/state');
+}
+
+export function simEvents() {
+  return apiFetch('/parking/sim/events');
 }

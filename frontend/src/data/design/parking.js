@@ -6,249 +6,119 @@ export default {
   title: 'Parking Lot — Design Details',
   tldr: [
     'Multi-floor parking lot supporting CAR, BIKE, TRUCK with entry/exit gate separation',
-    'Strategy Pattern for spot assignment (Nearest vs Farthest) & pricing calculation (Hourly, Flat, Dynamic Surge)',
-    'Thread safety via fine-grained ReentrantLocks (spotLock, ticketLock) in ConcurrentHashMap storage',
-    'Two-step exit flow: Scan (Preview Price) -> Pay & Exit (Release Spot & Issue Receipt)'
+    'Strategy + EnumMap-resolved Factory for spot assignment (Nearest vs Farthest) and pricing (Hourly, Flat, Dynamic surge)',
+    'Typed exception hierarchy (ParkingLotException) mapped to the right HTTP status by GlobalExceptionHandler — no bare IllegalArgumentException/IllegalStateException left in the service',
+    'Thread safety via a single ReentrantLock around the whole search-then-claim spot allocation, and an atomic check-then-mutate exit path that closes the double-payment race',
+    'Two-step exit flow: Scan (Preview Price) -> Pay & Exit (Release Spot & Issue Receipt)',
+    'Isolated /sim/* sandbox — its own 2-floor, 10-spot lot and event log — backs the interactive simulation tab so a demo run can never touch the live lot'
   ],
   requirements: [
     'Multi-floor parking lot with 3 types of spots: CAR (12), BIKE (12), TRUCK (6) — 30 spots total across 3 floors',
     'Multiple gates: G1/G2 (Entry), G3/G4 (Exit) — vehicles can only enter through entry gates and exit through exit gates',
     'Vehicle entry: driver enters through an entry gate → selects spot strategy (Nearest / Farthest) → system assigns spot and issues ticket',
-    'Multi-step Vehicle exit: Step 1: Scan ticket & calculate price preview (UNPAID, spot retained) → Step 2: Select payment method (UPI, CARD, CASH) & pay → ticket marked PAID & spot released',
-    'Extensible Pricing Strategies: HourlyPricingStrategy (CAR ₹20/hr, BIKE ₹10/hr, TRUCK ₹40/hr), FlatRatePricingStrategy (Flat rates), DynamicPricingStrategy (1.5x surge rate)',
-    'Extensible Spot Assignment Strategies: NearestSpotStrategy (lowest floor & spot ID) vs FarthestSpotStrategy (highest floor & spot ID)',
-    'Real-time spot availability tracking via concurrent-safe data structures',
-    'Thread-safe concurrent access — fine-grained ReentrantLock (spotLock and ticketLock) ensures zero race conditions or double bookings'
+    'Multi-step vehicle exit: Step 1 scans the ticket and shows a price preview (spot retained, UNPAID) → Step 2 picks a payment method and pays, which atomically marks the ticket PAID and releases the spot',
+    'Extensible pricing strategies: HourlyPricingStrategy (CAR ₹20/hr, BIKE ₹10/hr, TRUCK ₹40/hr, 1-hour minimum), FlatRatePricingStrategy (flat per-type rate), DynamicPricingStrategy (1.5x surge over the hourly base)',
+    'Extensible spot assignment strategies: NearestSpotStrategy (lowest floor, then lowest spot number) vs FarthestSpotStrategy (highest floor, then highest spot number)',
+    'Every failure mode (unknown gate, wrong gate type, unsupported vehicle type, no spot available, unknown ticket, already-exited ticket) is a typed exception with the correct HTTP status, not a generic 400',
+    'Two vehicles racing for the same last spot, or two concurrent exit requests for the same ticket, must resolve to exactly one winner — never a double-booking or a double payment'
   ],
   entities: [
     {
       name: 'ParkingLotService',
-      description: 'Core business logic layer. Handles entry (assign spot + create ticket) and multi-step exit (scan preview + process payment & release spot). Uses Strategy Factories for spot allocation & pricing.',
+      description: 'Core business logic layer. Handles entry (assign spot + create ticket) and multi-step exit (scan preview + process payment & release spot). Delegates every branch on policy to the two strategy factories, and every failure to a typed exception.',
       fields: [
-        {
-          name: 'repository',
-          type: 'ParkingLotRepository',
-          description: 'Data access layer injected via Spring @Autowired'
-        },
-        {
-          name: 'spotStrategyFactory',
-          type: 'SpotAssignmentStrategyFactory',
-          description: 'Factory resolving spot assignment strategy ("NEAREST", "FARTHEST")'
-        },
-        {
-          name: 'pricingStrategyFactory',
-          type: 'PricingStrategyFactory',
-          description: 'Factory resolving pricing strategy ("HOURLY", "FLAT", "DYNAMIC")'
-        }
+        { name: 'repository', type: 'ParkingLotRepository', description: 'Data access + locking layer injected via Spring constructor injection' },
+        { name: 'spotStrategyFactory', type: 'SpotAssignmentStrategyFactory', description: 'EnumMap-resolved factory for NEAREST / FARTHEST spot selection' },
+        { name: 'pricingStrategyFactory', type: 'PricingStrategyFactory', description: 'EnumMap-resolved factory for HOURLY / FLAT / DYNAMIC pricing' }
       ],
       methods: [
-        {
-          name: 'entry(dto)',
-          returns: 'Ticket',
-          description: 'Validates gate → finds spot via selected SpotAssignmentStrategy → generates ticket → saves'
-        },
-        {
-          name: 'scanTicket(gateId, ticketNumber, pricingStrategyName)',
-          returns: 'Ticket',
-          description: 'Validates exit gate & ticket → computes preview charge (UNPAID) without releasing spot'
-        },
-        {
-          name: 'payAndExit(gateId, ticketNumber, pricingStrategyName, paymentMethod)',
-          returns: 'Ticket',
-          description: 'Validates exit gate & ticket → calculates final charge → sets PAID & paymentMethod → releases spot'
-        },
-        {
-          name: 'getGates()',
-          returns: 'List<Gate>',
-          description: 'Returns all configured gates'
-        },
-        {
-          name: 'getFloors()',
-          returns: 'List<Floor>',
-          description: 'Returns all floors with their spots'
-        },
-        {
-          name: 'getActiveTickets()',
-          returns: 'List<Ticket>',
-          description: 'Returns all tickets with no exit time'
-        }
+        { name: 'entry(dto)', returns: 'Ticket', description: 'Validates the gate is ENTRY, parses the vehicle type, finds a spot via the selected strategy, generates a ticket number, saves — throws GateNotFoundException / InvalidGateTypeException / VehicleTypeNotSupportedException / SpotNotAvailableException' },
+        { name: 'scanTicket(gateId, ticketNumber, pricingStrategyName)', returns: 'Ticket', description: 'Validates the exit gate & ticket, computes a preview charge on a throwaway copy — spot and live ticket are untouched' },
+        { name: 'payAndExit(gateId, ticketNumber, pricingStrategyName, paymentMethod)', returns: 'Ticket', description: 'Validates the exit gate, then delegates the not-found / already-exited check and the PAID mutation to repository.completeExit() as one atomic operation, then releases the spot' },
+        { name: 'getGates()', returns: 'List<Gate>', description: 'Returns all configured gates' },
+        { name: 'getFloors()', returns: 'List<Floor>', description: 'Returns all floors with their spots' },
+        { name: 'getActiveTickets()', returns: 'List<Ticket>', description: 'Returns all tickets with no exit time, newest first' }
+      ]
+    },
+    {
+      name: 'ParkingLotSimService',
+      description: 'Isolated /sim/* sandbox: its own 2-floor, 10-spot lot, its own gates and tickets, and an in-memory event log — entirely separate state from the live repository, so a demo run driven from the simulation tab can never occupy a real spot or issue a real ticket. Reuses the same strategy factory beans as the live service.',
+      fields: [
+        { name: 'simSpots / simTickets', type: 'ConcurrentHashMap', description: 'Sandbox-only spot and ticket state' },
+        { name: 'simEventLog', type: 'CopyOnWriteArrayList<SimEvent>', description: 'Telemetry log rendered by the simulation tab\'s event panel' },
+        { name: 'simSpotLock / simTicketLock', type: 'ReentrantLock', description: 'Same locking discipline as the live repository, scoped to the sandbox' }
+      ],
+      methods: [
+        { name: 'reset()', returns: 'Map<String,Object>', description: 'Reseeds the sandbox lot and clears the event log' },
+        { name: 'entry(vehicleNumber, vehicleType, strategy)', returns: 'Map<String,Object>', description: 'Sandbox equivalent of ParkingLotService.entry()' },
+        { name: 'scan(ticketNumber, pricingStrategy)', returns: 'Map<String,Object>', description: 'Sandbox price preview' },
+        { name: 'pay(ticketNumber, pricingStrategy, paymentMethod)', returns: 'Map<String,Object>', description: 'Sandbox pay & release, logged as a VEHICLE_EXITED event' }
       ]
     },
     {
       name: 'SpotAssignmentStrategyFactory',
-      description: 'Factory registry for spot assignment strategies. Resolves strategy instances dynamically based on strategy name ("NEAREST" vs "FARTHEST").',
+      description: 'EnumMap<SpotAssignmentStrategyType, SpotAssignmentStrategy> built once in the constructor — the same shape as inventory.strategy.ReorderStrategyFactory. The service never branches on the policy itself.',
       fields: [
-        {
-          name: 'strategies',
-          type: 'Map<String, SpotAssignmentStrategy>',
-          description: 'Map of strategy implementations keyed by uppercase name'
-        }
+        { name: 'strategies', type: 'EnumMap<SpotAssignmentStrategyType, SpotAssignmentStrategy>', description: 'One entry per policy, wired at construction' }
       ],
       methods: [
-        {
-          name: 'getStrategy(strategyName)',
-          returns: 'SpotAssignmentStrategy',
-          description: 'Returns requested strategy implementation, defaulting to NEAREST if omitted'
-        }
+        { name: 'getStrategy(strategyName)', returns: 'SpotAssignmentStrategy', description: 'Parses the string to SpotAssignmentStrategyType, defaults to NEAREST when blank, throws InvalidParkingRequestException for an unknown name' }
       ]
     },
     {
       name: 'PricingStrategyFactory',
-      description: 'Factory registry for ticket pricing strategies. Resolves pricing strategy instances dynamically based on strategy name ("HOURLY", "FLAT", "DYNAMIC").',
+      description: 'EnumMap<PricingStrategyType, PricingStrategy> built once in the constructor.',
       fields: [
-        {
-          name: 'strategies',
-          type: 'Map<String, PricingStrategy>',
-          description: 'Map of pricing strategy implementations keyed by uppercase name'
-        }
+        { name: 'strategies', type: 'EnumMap<PricingStrategyType, PricingStrategy>', description: 'One entry per policy, wired at construction' }
       ],
       methods: [
-        {
-          name: 'getStrategy(strategyName)',
-          returns: 'PricingStrategy',
-          description: 'Returns requested pricing strategy implementation, defaulting to HOURLY if omitted'
-        }
+        { name: 'getStrategy(strategyName)', returns: 'PricingStrategy', description: 'Parses the string to PricingStrategyType, defaults to HOURLY when blank, throws InvalidParkingRequestException for an unknown name' }
       ]
     },
     {
       name: 'ParkingLotRepository',
-      description: 'In-memory data store using ConcurrentHashMap and fine-grained ReentrantLocks for thread safety. Single source of truth for all parking lot state.',
+      description: 'In-memory data store. Owns the two locks that make spot allocation and ticket exit correct under concurrency, and is the only place either critical section is allowed to live.',
       fields: [
-        {
-          name: 'floors',
-          type: 'Map<String, Floor>',
-          description: 'LinkedHashMap — preserves insertion order of floors'
-        },
-        {
-          name: 'spots',
-          type: 'ConcurrentHashMap<String, ParkingSpot>',
-          description: 'All spots indexed by ID for O(1) lookup'
-        },
-        {
-          name: 'tickets',
-          type: 'ConcurrentHashMap<String, Ticket>',
-          description: 'All tickets indexed by ticket number'
-        },
-        {
-          name: 'gates',
-          type: 'Map<String, Gate>',
-          description: 'All gates indexed by gate ID'
-        },
-        {
-          name: 'spotLock',
-          type: 'ReentrantLock',
-          description: 'Ensures atomic spot occupy/release operations without contention'
-        },
-        {
-          name: 'ticketLock',
-          type: 'ReentrantLock',
-          description: 'Ensures unique atomic ticket number generation'
-        }
+        { name: 'floors', type: 'Map<String, Floor>', description: 'LinkedHashMap — preserves insertion order of floors' },
+        { name: 'spots', type: 'ConcurrentHashMap<String, ParkingSpot>', description: 'All spots indexed by ID for O(1) lookup' },
+        { name: 'tickets', type: 'ConcurrentHashMap<String, Ticket>', description: 'All tickets indexed by ticket number' },
+        { name: 'gates', type: 'Map<String, Gate>', description: 'All gates indexed by gate ID' },
+        { name: 'spotLock', type: 'ReentrantLock', description: 'Guards the whole search-then-claim in occupySpot() — a per-spot lock cannot provide this, since the strategy must scan every spot to pick one' },
+        { name: 'ticketLock', type: 'ReentrantLock', description: 'Guards ticket-number generation and the exit check-then-act in completeExit()' }
       ],
       methods: [
-        {
-          name: 'occupySpot(vehicleType, strategy)',
-          returns: 'ParkingSpot',
-          description: 'Finds & marks available spot of given type using strategy — thread safe via spotLock'
-        },
-        {
-          name: 'releaseSpot(spotId)',
-          returns: 'void',
-          description: 'Marks spot as available — thread safe via spotLock'
-        },
-        {
-          name: 'generateTicketNumber()',
-          returns: 'String',
-          description: 'Atomic counter — produces "TKT-00001" format via ticketLock'
-        },
-        {
-          name: 'getActiveTickets()',
-          returns: 'List<Ticket>',
-          description: 'Filters tickets where exitTime == null, sorted newest first'
-        }
+        { name: 'occupySpot(vehicleType, strategy)', returns: 'ParkingSpot', description: 'Atomically searches and claims a spot under spotLock; returns null when none is free' },
+        { name: 'releaseSpot(spotId)', returns: 'void', description: 'Marks a spot free under spotLock; throws SpotNotFoundException for an unknown id' },
+        { name: 'completeExit(ticketNumber, exitTime, pricingStrategy, paymentMethod)', returns: 'Ticket', description: 'Validates not-found / already-exited and mutates to PAID in one ticketLock acquisition — the fix for the double-exit race' },
+        { name: 'generateTicketNumber()', returns: 'String', description: 'Atomic counter under ticketLock — produces "TKT-00001" format' },
+        { name: 'getActiveTickets()', returns: 'List<Ticket>', description: 'Filters tickets where exitTime == null, sorted newest first' }
       ]
     },
     {
       name: 'Ticket',
-      description: 'Value object representing a parking session. Created on entry, previewed on scan, finalized on payment & exit.',
+      description: 'Lombok @Data @Builder value object representing a parking session. Created on entry, previewed on scan, finalized on payment & exit.',
       fields: [
-        {
-          name: 'ticketNumber',
-          type: 'String',
-          description: 'Unique identifier (auto-generated), e.g. TKT-00001'
-        },
-        {
-          name: 'vehicleNumber',
-          type: 'String',
-          description: 'License plate of the vehicle, e.g. KA-01-AB-1234'
-        },
-        {
-          name: 'vehicleType',
-          type: 'VehicleType',
-          description: 'CAR, BIKE, or TRUCK — determines spot & base rate'
-        },
-        {
-          name: 'spotId',
-          type: 'String',
-          description: 'Assigned parking spot ID, e.g. F1-C2'
-        },
-        {
-          name: 'entryTime',
-          type: 'LocalDateTime',
-          description: 'Timestamp when vehicle entered'
-        },
-        {
-          name: 'exitTime',
-          type: 'LocalDateTime',
-          description: 'Timestamp when vehicle exited (null while active)'
-        },
-        {
-          name: 'amount',
-          type: 'double',
-          description: 'Calculated charge (0.0 while active, calculated via PricingStrategy)'
-        },
-        {
-          name: 'paymentStatus',
-          type: 'PaymentStatus',
-          description: 'UNPAID on scan preview, PAID on exit payment'
-        },
-        {
-          name: 'paymentMethod',
-          type: 'String',
-          description: 'UPI, CARD, or CASH — recorded on payment'
-        }
+        { name: 'ticketNumber', type: 'String', description: 'Unique identifier (auto-generated), e.g. TKT-00001' },
+        { name: 'vehicleNumber', type: 'String', description: 'License plate of the vehicle, e.g. KA-01-AB-1234' },
+        { name: 'vehicleType', type: 'VehicleType', description: 'CAR, BIKE, or TRUCK — determines spot & base rate' },
+        { name: 'spotId', type: 'String', description: 'Assigned parking spot ID, e.g. F1-C2' },
+        { name: 'entryTime', type: 'LocalDateTime', description: 'Timestamp when vehicle entered' },
+        { name: 'exitTime', type: 'LocalDateTime', description: 'Timestamp when vehicle exited (null while active)' },
+        { name: 'amount', type: 'double', description: 'Calculated charge (0.0 while active, set by PricingStrategy on exit)' },
+        { name: 'paymentStatus', type: 'PaymentStatus', description: 'UNPAID on scan preview, PAID once completeExit() succeeds' },
+        { name: 'paymentMethod', type: 'String', description: 'UPI, CARD, or CASH — recorded on payment' }
       ],
       methods: []
     },
     {
       name: 'ParkingSpot',
-      description: 'Represents a single parking spot with Lombok annotations (@Getter, @Setter).',
+      description: 'Lombok @Data @Builder value object for a single parking spot.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Format: F{floor}-{type}{number}, e.g. F1-C2'
-        },
-        {
-          name: 'floorNumber',
-          type: 'int',
-          description: 'Floor level (1-3)'
-        },
-        {
-          name: 'spotNumber',
-          type: 'int',
-          description: 'Sequential number within vehicle type on that floor'
-        },
-        {
-          name: 'vehicleType',
-          type: 'VehicleType',
-          description: 'Supported vehicle category (CAR/BIKE/TRUCK)'
-        },
-        {
-          name: 'occupied',
-          type: 'boolean',
-          description: 'Occupancy status'
-        }
+        { name: 'id', type: 'String', description: 'Format: F{floor}-{type}{number}, e.g. F1-C2' },
+        { name: 'floorNumber', type: 'int', description: 'Floor level (1-3)' },
+        { name: 'spotNumber', type: 'int', description: 'Sequential number within vehicle type on that floor' },
+        { name: 'vehicleType', type: 'VehicleType', description: 'Supported vehicle category (CAR/BIKE/TRUCK)' },
+        { name: 'occupied', type: 'boolean', description: 'Occupancy status' }
       ],
       methods: []
     }
@@ -257,118 +127,86 @@ export default {
     {
       name: 'Strategy Pattern',
       used: true,
-      explanation: 'Fully implemented Strategy pattern for both Parking Spot Assignment (NearestSpotStrategy, FarthestSpotStrategy) and Ticket Pricing (HourlyPricingStrategy, FlatRatePricingStrategy, DynamicPricingStrategy). Strategies are selected dynamically at runtime without modifying service code (Open/Closed Principle).'
+      explanation: 'Spot assignment (NearestSpotStrategy, FarthestSpotStrategy) and ticket pricing (HourlyPricingStrategy, FlatRatePricingStrategy, DynamicPricingStrategy) are both interchangeable strategies selected at runtime — the service never has an if/switch over the policy name.'
     },
     {
       name: 'Factory Pattern',
       used: true,
-      explanation: 'SpotAssignmentStrategyFactory and PricingStrategyFactory encapsulate creation and lookup of strategy implementations based on request parameters.'
+      explanation: 'SpotAssignmentStrategyFactory and PricingStrategyFactory each hold an EnumMap built once at construction and resolve a strategy in one lookup — the same shape as inventory.strategy.ReorderStrategyFactory.'
     },
     {
       name: 'Repository Pattern',
       used: true,
-      explanation: 'ParkingLotRepository abstracts data access and concurrency locking away from the service layer, keeping business logic clean and testable.'
+      explanation: 'ParkingLotRepository abstracts data access and concurrency locking away from the service layer. The two critical sections that need atomicity (spot search-then-claim, ticket check-then-pay) live entirely inside the repository, not split across service and repository.'
     },
     {
       name: 'Singleton Pattern',
       used: true,
-      explanation: 'Spring @Service, @Repository, and Strategy Factories operate as singletons to maintain a single consistent state across all requests.'
+      explanation: 'Spring @Service, @Repository, and both strategy factories are singletons, giving one consistent view of lot state across all requests.'
     },
     {
       name: 'Dependency Injection (IoC)',
       used: true,
-      explanation: 'Services receive repository and strategy factories via Spring @Autowired constructor injection, maximizing decoupling and testability.'
+      explanation: 'The service receives the repository and both strategy factories via constructor injection; ParkingLotSimService receives the same factory beans, so strategy math is never duplicated between the live service and the sandbox.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'Each class has exactly one reason to change. ParkingLotService handles business logic (entry/exit rules, pricing). ParkingLotRepository handles data storage and retrieval. ParkingLotController handles HTTP mapping. Changes to pricing don\'t affect data storage, and vice versa.'
+      description: 'ParkingLotService orchestrates the entry/exit workflow. ParkingLotRepository owns storage and locking. Pricing strategies compute fares. Spot strategies pick spots. ParkingLotSimService owns only the sandbox\'s isolated state. Each has exactly one reason to change.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'Adding a new vehicle type requires only adding an enum constant and updating the switch statement — no structural changes. The system is open for extension (new types, new pricing) but closed for modification of core entry/exit flow. The Repository Pattern also allows swapping storage without modifying the service.'
+      description: 'A new pricing model or spot-selection policy is a new enum constant, a new PricingStrategy/SpotAssignmentStrategy implementation, and one line in the factory constructor — the service and repository are never touched.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'High-level ParkingLotService depends on the ParkingLotRepository abstraction, not on concrete storage details. Spring injects the concrete repository at runtime. This allows switching from in-memory to database storage by implementing the same repository interface without changing business logic.'
+      description: 'ParkingLotService depends on the PricingStrategy/SpotAssignmentStrategy interfaces and the repository, not on concrete implementations — Spring injects the concrete beans at runtime.'
     },
     {
-      name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Gate validation logic is centralized in the service (getGate() + type check), not duplicated per endpoint. Spot occupancy logic is in repository.ocurrentSpot() and releaseSpot(), not scattered. Pricing rates are constants in one place, not magic numbers.'
+      name: 'Liskov Substitution (LSP)',
+      description: 'Any PricingStrategy can replace any other behind the PricingStrategyFactory without the caller knowing which one it got — same for SpotAssignmentStrategy.'
     },
     {
       name: 'Encapsulation',
-      description: 'All fields are private with getter/setter methods. The repository\'s internal maps are never exposed directly — only queried through controlled methods. The ticket\'s amount is only set by the service during exit, not mutable by external code.'
+      description: 'All fields are private with Lombok-generated accessors. The repository\'s internal maps are never exposed directly — only queried through controlled, lock-guarded methods. A ticket\'s amount and PAID status can only change inside completeExit().'
     }
   ],
   oopConcepts: [
     {
-      name: 'Polymorphism — Enum-based Type Dispatch',
-      description: 'VehicleType enum (CAR/BIKE/TRUCK) drives both spot selection (which spots to search) and pricing (which rate to apply). The same code path handles all types via the enum value, without if-else chains.',
-      alternative: 'Could use class hierarchy (Car extends Vehicle, Bike extends Vehicle) with getRate() method. Enum is chosen because vehicle types are fixed, finite, and don\'t have behavioral differences beyond rate/spot mapping. Enums are simpler, immutable, and switch-friendly.'
+      name: 'Polymorphism — Strategy dispatch',
+      description: 'PricingStrategy and SpotAssignmentStrategy implementations are polymorphically selected by their factories based on an enum parsed from the request string, then invoked through the interface — the service code is identical regardless of which concrete strategy runs.',
+      alternative: 'Could inline a switch on vehicle type or strategy name at each call site (the pre-upgrade state of the DynamicPricingStrategy in an earlier revision). Strategy + Factory is chosen so the switch exists exactly once, in the factory.'
     },
     {
-      name: 'Encapsulation — Data Hiding',
-      description: 'Every class hides its internal state. ParkingLotRepository wraps ConcurrentHashMap behind semantic methods. ParkingSpot encapsulates occupancy with a setter that can add validation. Ticket prevents direct amount mutation from outside the service.',
-      alternative: 'Could use public fields for simplicity (like a C struct). Encapsulation is chosen because it provides a controlled interface — the repository can add locks, validation, or logging without changing callers.'
+      name: 'Polymorphism — Enum-based vehicle dispatch',
+      description: 'VehicleType (CAR/BIKE/TRUCK) drives both spot filtering and the rate table inside each pricing strategy via a switch expression, without if-else chains scattered across the codebase.',
+      alternative: 'A class hierarchy (Car extends Vehicle) was considered, but vehicle types here are fixed, finite, and have no behavioral differences beyond rate/spot mapping — an enum is simpler and switch-friendly.'
+    },
+    {
+      name: 'Encapsulation & Data Hiding',
+      description: 'ParkingLotRepository wraps its ConcurrentHashMaps behind semantic, lock-guarded methods (occupySpot, releaseSpot, completeExit). No caller can mutate spot occupancy or ticket payment status by reaching around the repository.',
+      alternative: 'Public fields would be simpler but would make the double-booking and double-exit races effectively unfixable — any caller could flip occupied without going through the lock.'
     },
     {
       name: 'Composition over Inheritance',
-      description: 'Floor contains a List of ParkingSpot (composition), not extends SpotCollection. ParkingLotRepository doesn\'t extend a base repository — it composes maps. Services delegate to repositories rather than inheriting data access.',
-      alternative: 'Could use inheritance (Floor extends SpotCollection). Composition is chosen because it\'s more flexible — Floors can change their spot collection strategy (array, list, map) without changing the Floor class hierarchy.'
-    },
-    {
-      name: 'Immutable Objects (Value Objects)',
-      description: 'Ticket, Gate, Floor, and ParkingSpot are primarily value objects with most fields set at construction and only specific fields mutable (occupied, exitTime, amount). This reduces unexpected state changes.',
-      alternative: 'Could make all fields mutable with setters. Limited mutability is chosen because it makes the data flow explicit — you can trace exactly where state changes happen (service.entry, service.exit) rather than mutations being scattered across code.'
+      description: 'Floor composes a List<ParkingSpot>; ParkingLotRepository composes maps rather than extending a generic store; ParkingLotSimService composes its own state rather than subclassing ParkingLotService.',
+      alternative: 'Sharing state via inheritance (a SimParkingLotService extends ParkingLotService) was rejected — it would either corrupt the live repository or require overriding every method, which composition avoids entirely.'
     }
   ],
   extensibility: [
-    {
-      area: 'New Vehicle Types',
-      description: 'Add a new constant to VehicleType enum, define spot count in ParkingLotInitializer, add rate constant in ParkingLotService, and add a new field in the frontend EntryForm vehicle type selector.',
-      difficulty: 'Easy'
-    },
-    {
-      area: 'Dynamic Pricing',
-      description: 'Replace the switch statement with a PricingStrategy interface. Implementations: HourlyStrategy (current), DailyStrategy, WeekendStrategy, SurgeStrategy. The service delegates pricing to the strategy, making it trivial to add new pricing models.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Database Persistence',
-      description: 'Implement a JpaParkingLotRepository that implements the same interface as ParkingLotRepository. Swap via Spring @Profile or @Primary. No changes needed in the service layer due to Dependency Injection.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Reservation System',
-      description: 'Add Reservation entity with time slot, add reserve() method to service. On entry, check for reservation instead of assigning any spot. Extends the existing flow without breaking entry/exit.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Payment Gateway',
-      description: 'Add PaymentService interface (Razorpay, Stripe, etc.). Call payment.process(amount) during exit before releasing the spot. The existing amount calculation remains unchanged.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'VIP / Reserved Spots',
-      description: 'Add an isReserved flag to ParkingSpot. Modify occupySpot() to prefer unreserved spots first. Add reserveSpot() method. Frontend shows reserved spots differently.',
-      difficulty: 'Easy'
-    },
-    {
-      area: 'Analytics Dashboard',
-      description: 'Add ParkingLotAnalyticsService that uses the existing repository methods to compute: peak hours, revenue reports, occupancy trends, average stay duration. No changes to core entry/exit flow.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Multiple Parking Lots',
-      description: 'Add ParkingLot entity with its own floors/spots/gates. Modify service to take parkingLotId parameter. Repository becomes a multi-lot store. Frontend adds lot selector.',
-      difficulty: 'Hard'
-    }
+    { area: 'New vehicle types', description: 'Add a constant to VehicleType, a spot count in ParkingLotInitializer, a rate branch in each PricingStrategy\'s switch expression, and a frontend selector option.', difficulty: 'Easy' },
+    { area: 'New pricing strategy', description: 'Implement PricingStrategy, add one constant to PricingStrategyType, register it in PricingStrategyFactory\'s constructor. The service and controller need no changes.', difficulty: 'Easy' },
+    { area: 'New spot assignment strategy', description: 'Implement SpotAssignmentStrategy (e.g. a "closest to elevator" policy), add a SpotAssignmentStrategyType constant, register it in the factory.', difficulty: 'Easy' },
+    { area: 'Database persistence', description: 'Implement a JPA-backed ParkingLotRepository with the same method signatures (including completeExit\'s atomicity contract, likely via a DB row lock or optimistic version check) and swap via Spring @Profile.', difficulty: 'Medium' },
+    { area: 'Reservation system', description: 'Add a Reservation entity with a time slot; on entry, check for a matching reservation before falling back to the assignment strategy.', difficulty: 'Medium' },
+    { area: 'Payment gateway integration', description: 'Add a PaymentGateway interface (Razorpay, Stripe, …), call it inside completeExit\'s critical section before marking PAID, and roll back the ticket mutation on a gateway failure.', difficulty: 'Medium' },
+    { area: 'Multiple parking lots', description: 'Add a ParkingLot aggregate owning its own floors/spots/gates; every repository/service method takes a parkingLotId; the sim sandbox already demonstrates that per-lot isolation works.', difficulty: 'Hard' }
   ],
   tradeoffs: [
-    'Used Strategy Pattern + Factory over inline conditionals to adhere to Open-Closed Principle for future vehicle types and pricing rules.',
-    'Chosen fine-grained ReentrantLock over synchronized methods to reduce thread contention across different floors and spots.',
-    'In-memory ConcurrentHashMap eliminates DB overhead for lightning-fast sub-millisecond spot allocation.'
+    'A single spotLock guards the whole search-then-claim in occupySpot() rather than a per-spot lock — the assignment strategy has to scan every spot to pick one, so the thing needing mutual exclusion is the search itself, not any one spot\'s flag.',
+    'completeExit() folds the not-found/already-exited check and the PAID mutation into one repository method under one lock acquisition, rather than the service checking then writing — the latter is exactly the check-then-act race that let two concurrent payAndExit calls both succeed.',
+    'The isolated /sim/* sandbox duplicates a small amount of entry/scan/pay orchestration rather than parameterizing the live service with "which repository" — the sandbox reuses the strategy beans (so pricing/assignment math is never duplicated) but keeps its own state, matching elevator/trafficsignal\'s sim-engine shape.',
+    'In-memory ConcurrentHashMap storage eliminates DB overhead for lightning-fast sub-millisecond spot allocation, at the cost of losing all state on restart — acceptable for a design-demonstration repo with no persistence layer.'
   ]
 };
