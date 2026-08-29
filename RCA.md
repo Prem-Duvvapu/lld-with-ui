@@ -2786,3 +2786,229 @@ grep -n "reserveFunds\|reserveShares\|releaseReservedFunds\|releaseReservedShare
    implementation surfaces its own new correctness requirements. Treat `grep -rn "new
    <ExceptionName>"` returning nothing as a prompt to ask "should this be thrown, and if so, what
    does wiring it up actually require upstream?" before assuming the fix is to remove the class.
+
+## RCA-032: Shopping Cart's `UpdateQuantityCommand#undo()` Could Not Restore a Line Item After Its Quantity Was Dropped to Zero
+
+**Severity:** Medium (Undo silently no-oped instead of restoring the cart, in exactly the case a
+shopper is most likely to trigger — dropping a quantity to 0 and immediately regretting it)
+**Date:** 2026-08-29
+**Status:** Resolved
+**Affected:** `com.lld.shoppingcart.command.UpdateQuantityCommand`, `com.lld.shoppingcart.service.ShoppingCartService#updateCartQuantity`
+
+### 1. Overview & Severity
+Auditing the shopping-cart module's Command pattern against the reference bar (per this session's
+task to verify `undoLastCartCommand()` "actually reverses the last command's effect correctly,
+including for `UpdateQuantityCommand`") surfaced a real correctness bug rather than confirming the
+existing behavior. `UpdateQuantityCommand` originally captured only the previous **quantity** as a
+bare `int`. `Cart#updateQuantity(productId, quantity)` treats `quantity <= 0` as a removal — it
+calls `items.remove(productId)`. When a shopper dropped a line item's quantity to 0 (removing it)
+and then hit Undo, `undo()` replayed `cart.updateQuantity(productId, oldQuantity)` — but
+`Cart#updateQuantity`'s `quantity > 0` branch only ever mutates an **already-present** map entry
+(`if (item != null) { item.setQuantity(quantity); }`); it has no way to reconstruct a removed
+entry from a bare `productId` + `quantity`, since it never learns the product's name or price. The
+undo silently no-oped: no exception, no error, the item just stayed gone.
+
+### 2. Symptoms & Error Logs
+No test in the pre-audit suite (`ShoppingCartServiceTest`, the module's only test file at the time)
+exercised an update-to-zero-then-undo sequence — every existing undo test only ever undid an
+`AddItemCommand`. The bug was found by hand-tracing `UpdateQuantityCommand`/`Cart#updateQuantity`
+while writing new command unit tests, then confirmed with a failing test:
+```
+updateQuantityCommand_undoAfterQuantityDroppedToZeroRestoresOriginalLineItem():
+  expected: not <null>
+  but was:  <null>
+    at CartCommandTest.updateQuantityCommand_undoAfterQuantityDroppedToZeroRestoresOriginalLineItem
+```
+
+### 3. Root Cause
+```java
+// UpdateQuantityCommand, before the fix
+public class UpdateQuantityCommand implements CartCommand {
+    private final int oldQuantity;   // <-- only the number, not the item itself
+    ...
+    @Override
+    public void undo() {
+        cart.updateQuantity(productId, oldQuantity);   // no-ops if execute() removed the entry
+    }
+}
+```
+```java
+// Cart#updateQuantity -- unchanged, and correct for its own contract
+public void updateQuantity(String productId, int quantity) {
+    if (quantity <= 0) {
+        items.remove(productId);
+    } else {
+        CartItem item = items.get(productId);
+        if (item != null) {           // <-- silently does nothing if the entry is already gone
+            item.setQuantity(quantity);
+        }
+    }
+}
+```
+`Cart#updateQuantity` is correct for what it promises (update an existing item, or remove one) —
+the bug was entirely in `UpdateQuantityCommand` discarding information (the full previous line
+item) it needed to reverse its own effect, and in
+`ShoppingCartService#updateCartQuantity` only ever having fetched an `int` from the `CartItem` it
+already held a reference to.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly against the command, no service/HTTP layer needed:
+cd backend && mvn -o -q test -Dtest='com.lld.shoppingcart.command.CartCommandTest#updateQuantityCommand_undoAfterQuantityDroppedToZeroRestoresOriginalLineItem'
+
+# Confirm Cart#updateQuantity's own contract (never mutates a missing entry) is intentional,
+# not itself a bug, before "fixing" the wrong class:
+grep -n "quantity <= 0" backend/src/main/java/com/lld/shoppingcart/model/Cart.java
+```
+
+### 5. Step-by-Step Resolution
+1. Changed `UpdateQuantityCommand`'s constructor to take a `CartItem previousSnapshot` (the full
+   line item as it was immediately before this command's `execute()`, or `null` if the product
+   wasn't in the cart at all) instead of a bare `int oldQuantity`.
+2. Rewrote `undo()`: if the line item is still present (the common case — `execute()` only changed
+   its quantity), restore the quantity in place via `cart.updateQuantity`. If the entry is missing
+   (execute() dropped it to 0), reinsert a fresh `CartItem` built from `previousSnapshot` directly
+   into `cart.getItems()`, since `Cart#updateQuantity` cannot do that resurrection itself.
+3. Updated `ShoppingCartService#updateCartQuantity` to snapshot the full `CartItem` (not just its
+   quantity) before constructing the command, mirroring the object it already held a reference to.
+4. Added `CartCommandTest`, exercising all three commands directly (bypassing the service), with
+   explicit cases for: a normal quantity restore, restore after dropping to 0, and undo when the
+   product was never in the cart at all (`previousSnapshot == null`).
+5. Re-ran the full shopping-cart suite (`mvn -o -q test -Dtest='com.lld.shoppingcart.**'`) to
+   confirm the existing `ShoppingCartServiceTest` (which only exercised the non-zero-drop path)
+   still passed unchanged.
+
+### 6. Preventative Measures
+1. A Command whose `undo()` needs to reconstruct state that its paired mutator method
+   (`Cart#updateQuantity`) cannot itself resurrect must capture that state at construction time —
+   capturing only the minimum data needed for the *forward* operation (a bare `int` quantity) is
+   not enough data to guarantee the *reverse* one, even when the forward operation looks
+   symmetric. `AddItemCommand`/`RemoveItemCommand` were already correct on this point (they hold a
+   `Product`/`CartItem` reference, not just an id or count) — `UpdateQuantityCommand` was the one
+   command that took a shortcut.
+2. This is exactly the kind of gap a "confirm each command really reverses its effect" audit test
+   catches and a happy-path-only suite cannot: the pre-audit suite's only undo test undid an
+   `AddItemCommand`, so `UpdateQuantityCommand#undo()` had never actually been exercised at all,
+   let alone its edge case. Any `CartCommand`-style Undo implementation in this repo should carry a
+   direct unit test per command (not just one integration-style "undo works" test through the
+   service) covering both its normal path and whatever edge case makes its forward operation
+   destructive (here: quantity dropping to/through zero).
+
+## RCA-033: Shopping Cart's Idempotency-Key Cache Had an Unguarded Check-Then-Act That Let Concurrent Retries Double-Charge
+
+**Severity:** High (the entire point of an idempotency key is "never double-charge on retry," and
+under real concurrency it could — stock was decremented twice and payment was charged twice for
+what the client believed was a single logical order)
+**Date:** 2026-08-29
+**Status:** Resolved
+**Affected:** `com.lld.shoppingcart.service.ShoppingCartService#placeOrder`
+
+### 1. Overview & Severity
+While writing the concurrency test this session's audit explicitly asked for ("test the
+idempotency-key path... does not decrement stock or charge payment a second time"), a second,
+stronger test was added beyond the literal sequential-retry case: many threads calling
+`placeOrder` concurrently with the SAME idempotency key, simulating a client that fires a retry
+before the first request's response has come back (the actual scenario an idempotency key exists
+to protect against — RCA-032's own sequence diagram narrative describes exactly this: "the
+client's HTTP call times out and retries with the SAME key"). That test failed on the very first
+run, proving the cache was not safe under the concurrency it was designed for.
+
+### 2. Symptoms & Error Logs
+`ShoppingCartConcurrencyTest#concurrentRetriesWithSameIdempotencyKeyStillChargeExactlyOnce` (12
+threads, one `CountDownLatch`-released, all calling `placeOrder` with the identical idempotency key
+against the same 1-item cart):
+```
+org.opentest4j.AssertionFailedError: Every concurrent retry must resolve to the SAME cached order
+ ==> expected: <Order(orderId=ORD-100, ... totalAmount=10.0, paymentTransactionId=TX-1, ...)>
+     but was:  <Order(orderId=ORD-101, ... totalAmount=0.0, paymentTransactionId=TX-2, ...)>
+```
+Two distinct orders were created from a single logical checkout: `paymentTransactionId=TX-1` and
+`TX-2` prove the payment strategy was invoked twice, and `ORD-101`'s `totalAmount=0.0` (rather than
+the cart's real 10.0) shows the second thread's checkout raced `cart.clear()` from the first and
+computed its total against an already-emptied cart.
+
+### 3. Root Cause
+```java
+// placeOrder(), before the fix
+public Order placeOrder(String userId, PaymentMethod paymentMethod, String idempotencyKey) {
+    if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
+        Order cached = idempotencyCache.get(idempotencyKey);   // CHECK
+        if (cached != null) {
+            return cached;
+        }
+    }
+    // ... lock products, validate stock, decrement stock, charge payment ...
+    idempotencyCache.put(idempotencyKey, order);                // ACT (much later)
+    return order;
+}
+```
+The cache read and the cache write were two independent, unsynchronized `ConcurrentHashMap`
+operations separated by the entire checkout body (product locking, stock decrement, payment). Two
+threads racing with the same key could both read `null` from the cache before either had written
+to it, so both proceeded to do the full checkout independently — the per-product `ReentrantLock`
+correctly serialized their stock decrements against EACH OTHER (no negative stock, no lost
+update), but it does nothing to prevent the checkout from running *twice*. The last writer's
+`Order` silently overwrote the first's in `idempotencyCache`, so the client's original response and
+the cache's eventual content could even disagree about which `Order` "the" idempotent result was.
+This was a classic check-then-act race on a shared cache, structurally the same shape as RCA-027's
+(parking lot's `payAndExit` double-pay bug) and RCA-024's — a re-validation gap this repo has now
+hit three times in three different modules, always in the "read a cache/status, act on it much
+later" shape.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly:
+cd backend && mvn -o -q test -Dtest='com.lld.shoppingcart.ShoppingCartConcurrencyTest#concurrentRetriesWithSameIdempotencyKeyStillChargeExactlyOnce'
+
+# Find the same "read a cache, act on it later, write the cache" shape elsewhere in this repo:
+grep -rn "idempotencyCache.get\|idempotencyCache.put" backend/src/main/java/com/lld/*/service/*.java
+```
+
+### 5. Step-by-Step Resolution
+1. Added `idempotencyKeyLocks: ConcurrentHashMap<String, Object>`, lazily populated via
+   `computeIfAbsent` — one monitor object per idempotency key, never shared across keys, so
+   requests under different keys (the overwhelming common case: most checkouts don't collide on a
+   key at all) still run fully concurrently.
+2. Wrapped the entire "check cache -> do the checkout -> populate cache" sequence in
+   `synchronized (keyLock)` when a key is present, moving the cache write to immediately follow the
+   checkout inside the same critical section rather than as a late side effect deep inside the
+   (now-extracted) checkout body.
+3. Extracted the actual checkout logic (product locking, stock validation/decrement, payment, order
+   creation) into a private `doPlaceOrder(userId, paymentMethod)` with no idempotency awareness at
+   all, called once for the no-key path (unchanged, fully concurrent as before — this is what the
+   opposite-insertion-order deadlock-freedom test exercises) and once from inside the key-lock's
+   critical section for the with-key path.
+4. While in the same method, also fixed a related smell noticed alongside the race: `totalAmount`
+   was computed via a fresh `cart.getTotalAmount()` read positioned *after* the stock decrement but
+   *before* `cart.clear()` — itself vulnerable to reading a concurrently-mutated live `Cart` object
+   (exactly what produced the `totalAmount=0.0` in the failure above). Changed it to sum the
+   already-built `orderItems` snapshot instead, which cannot be affected by what any other thread
+   does to the shared `Cart` afterward.
+5. Re-ran `concurrentRetriesWithSameIdempotencyKeyStillChargeExactlyOnce` (now passing: exactly one
+   `paymentCalls` invocation and exactly one stock decrement across 12 racing threads), then the
+   full `com.lld.shoppingcart.**` suite to confirm the opposite-order deadlock-freedom test and
+   every other existing test still passed unchanged.
+
+### 6. Preventative Measures
+1. An idempotency cache is only as strong as the atomicity of its check-then-act sequence — a
+   `ConcurrentHashMap` being individually thread-safe per operation says nothing about two
+   operations against it separated by arbitrary work in between. The correct primitive is a
+   per-key lock (or `computeIfAbsent`-with-a-supplier-that-does-the-work, if the work can safely
+   run inside the map's own internal lock — it can't here, since `doPlaceOrder` itself acquires
+   other locks and calls out to a payment strategy, and doing that inside
+   `ConcurrentHashMap#computeIfAbsent`'s callback risks the same nested-locking hazards
+   `WalletRepository`'s known constraint against calling back into the map from inside
+   `compute`/`computeIfAbsent` already documents elsewhere in this repo).
+2. This is the third time this repo has hit a check-then-act race with the same shape (read
+   status/cache → act → write status/cache, with real work in between): RCA-024 (airline seat
+   status), RCA-027 (parking lot payment status), now this. Any method in this codebase that reads
+   a piece of mutable state, decides whether to proceed based on it, and only writes the "I already
+   did this" marker at the very end needs either (a) the read-decide-write to happen under one lock
+   held the whole time, or (b) an atomic map primitive (`computeIfAbsent`,
+   `compute`) that makes the decision and the write indivisible — never a plain `get()` followed by
+   a `put()` arbitrarily far down the method.
+3. A concurrency test that only exercises *sequential* retries (call, then call again) cannot catch
+   this class of bug — it always passes, because there is no window for two calls to race the same
+   check. Any idempotency-key or "retry-safe" claim in this repo's design docs should be backed by
+   a genuinely concurrent test (multiple threads, `CountDownLatch`-released, same key), not just a
+   sequential one, exactly as `ShoppingCartConcurrencyTest` now does.

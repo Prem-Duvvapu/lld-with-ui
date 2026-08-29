@@ -187,13 +187,97 @@ part of this pass (RCA-026).
 
 ## Shopping Cart Module
 ### Backend
-- `ShoppingCartInitializer`: Seed products across categories (Electronics, Fashion, Home, Books) and sample users.
-- `ShoppingCartService`: Catalog search, Command Pattern execution stack for cart actions (`AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand`), deadlock-free ascending `productId` lock ordering during checkout, atomic stock check-and-decrement, idempotency cache, guarded order lifecycle state transitions, and isolated `/sim/*` engine.
-- Strategy Pattern: `PaymentStrategy` interface with `CreditCardPaymentStrategy`, `DebitCardPaymentStrategy`, `UpiPaymentStrategy`, and `WalletPaymentStrategy`, routed via `ShoppingCartPaymentProcessor`.
+Audited from HANDOFF.md's "unverified" list rather than built from scratch — the module was already
+substantially real (Command pattern, Strategy pattern, a full exception set) but had only one test
+file and a stale/partly-fabricated design-data page. Raised to the reference bar in place, same
+audit-and-harden shape as pubsub/atm/parkinglot.
+- `ShoppingCartInitializer`: seeds 3 users and a 6-product catalog across Electronics, Fashion, Home
+  & Kitchen and Books, plus an initial cart for Alice.
+- **Command Pattern**: `com.lld.shoppingcart.command` — `AddItemCommand`, `RemoveItemCommand`,
+  `UpdateQuantityCommand` implement `CartCommand` (`execute()`/`undo()`).
+  `ShoppingCartService#executeCommand` pushes every executed command onto a per-user
+  `Stack<CartCommand>`; `undoLastCartCommand(userId)` pops and reverses it. **Real bug found and
+  fixed during this audit**: `UpdateQuantityCommand` originally captured only the previous `int`
+  quantity, so undoing an update that had dropped quantity to 0 (which removes the cart's line
+  item entirely) replayed `Cart#updateQuantity(productId, oldQty)` — but that method only mutates
+  an *existing* map entry, so it silently no-opped against the now-missing one and the item stayed
+  gone. Fixed by snapshotting the full previous `CartItem` (not just its quantity) at command
+  construction time; `undo()` now reinserts that snapshot directly whenever `Cart#updateQuantity`
+  can't resurrect the entry on its own. See RCA-032.
+- **Strategy Pattern**: `com.lld.shoppingcart.payment` — `PaymentStrategy` interface with
+  `CreditCardPaymentStrategy`, `DebitCardPaymentStrategy`, `UpiPaymentStrategy`,
+  `WalletPaymentStrategy`, resolved by `PaymentMethod` through `ShoppingCartPaymentProcessor`.
+  `PaymentFailedException` is a real, reachable branch (not dead code) whenever the strategy map
+  has no entry for the requested method — proven by `ShoppingCartPaymentProcessorTest` constructing
+  a processor with a deliberately partial strategy list.
+- **Ascending-Product-ID Lock Ordering (the concurrency centerpiece)**: `ShoppingCartService#placeOrder`
+  sorts every product touched by the order by `Product#getId()` ascending and acquires each
+  product's fair `ReentrantLock` in that order — never cart-insertion order — the same idiom
+  `digitalwallet.command.TransferCommand` uses for two-account transfers, generalized to N
+  products. `ShoppingCartConcurrencyTest` proves it empirically: two users' carts touch the same
+  two products in *opposite* insertion order, and concurrently checking both out (via
+  `CountDownLatch`-synchronized threads, not sleeps) completes every time rather than deadlocking,
+  across 50 repeated rounds. `Product#stockQuantity` is additionally an `AtomicInteger` with a CAS
+  `decrementStock`, so stock can never go negative even if the coarse lock discipline were ever
+  bypassed.
+- **Idempotency cache (real bug found and fixed here too)**: `idempotencyCache: Map<String, Order>`
+  is checked before any locking; a retried `placeOrder()` call with the same key returns the
+  identical cached `Order` with no re-validation, no second stock decrement and no second payment
+  call. This was true only for *sequential* retries before this pass — the check-then-act
+  (`idempotencyCache.get()` ... full checkout ... `idempotencyCache.put()`) was not atomic, so two
+  concurrent retries sharing the same key could both observe a cache miss and both run the
+  checkout, double-charging and double-decrementing stock, with the cache silently keeping only the
+  last writer's `Order`. `ShoppingCartConcurrencyTest#concurrentRetriesWithSameIdempotencyKeyStillChargeExactlyOnce`
+  (12 `CountDownLatch`-released threads racing the same key) caught this on its first run. Fixed by
+  a lazily-created per-key lock (`idempotencyKeyLocks: Map<String, Object>`) wrapping the whole
+  check→checkout→cache-put sequence, and by computing the order total from the just-decremented
+  `orderItems` snapshot rather than re-reading the live, unlocked `Cart` object. See RCA-033.
+- Exception hierarchy: `ShoppingCartException` (abstract, `extends com.lld.config.DomainException`,
+  new in this pass — the 5 concrete exceptions previously extended `RuntimeException` directly)
+  with `ProductNotFoundException` (404), `CartEmptyException`/`InvalidOrderStateException` (400),
+  `InsufficientStockException` (409), `PaymentFailedException` (422). Never maps to 5xx —
+  `DomainExceptionContractTest`/`GlobalExceptionHandlerTest` enforce it.
+- Lombok models: `CartItem`/`OrderItem`/`User` are `@Data @Builder @AllArgsConstructor` (the
+  generated constructor's signature already matched every existing call site, so no call sites
+  needed to change). `Order` is `@Data @Builder` with its defaulting 5-arg constructor kept
+  hand-written (status starts `PLACED`, `createdAtEpoch` stamped at construction) plus a separate
+  `@AllArgsConstructor` purely so `@Builder` has a full-fields constructor to call internally.
+  `Product` and `Cart` are `@Getter`-only (not `@Data`/`@Builder`) — matching
+  `com.lld.atm.model.Account`'s precedent — because `Product` holds a `ReentrantLock`
+  (`@Getter(AccessLevel.NONE)` + hand-written `@JsonIgnore getLock()`, and the same treatment for
+  the `AtomicInteger` stock field) and `Cart`'s single-arg constructor doubles as the `Cart::new`
+  method reference passed to `Map#computeIfAbsent`.
+- Isolated `/api/shoppingcart/sim/*` engine: a second, independent set of
+  `products`/`carts`/`orders` maps (`simProducts`/`simCarts`/`simOrders`) plus its own event log,
+  reset by `initSimState()` — proven never to leak into or read from live state by
+  `ShoppingCartSimEngineTest`. `simPlaceOrder` now also logs a `LOCK_ORDER` event (cart-insertion
+  order vs. the actual ascending lock-acquisition order) whenever a checkout touches more than one
+  product, so the simulation UI can visualize the exact mechanic `placeOrder()` uses.
+- Tests (5 classes): `ShoppingCartServiceTest` (existing — command/undo, successful order,
+  idempotent retry, guarded state transitions, 10-thread single-product oversell protection),
+  `ShoppingCartConcurrencyTest` (new — the opposite-insertion-order deadlock-freedom proof across
+  50 rounds, plus sequential and concurrent idempotency double-charge/double-decrement checks),
+  `command.CartCommandTest` (new — direct execute()/undo() unit tests for all three commands,
+  including the `UpdateQuantityCommand` drop-to-zero fix), `payment.ShoppingCartPaymentProcessorTest`
+  (new — all four strategies resolve correctly, `PaymentFailedException` is provoked via a partial
+  strategy list), `ShoppingCartSimEngineTest` (new — sandbox isolation, reset-to-seed, lock-order
+  event content). No dedicated repository test class: state lives directly in
+  `ShoppingCartService`'s own `ConcurrentHashMap`s rather than behind a separate repository class,
+  so there's no independent repository behavior to test beyond what the service tests already
+  cover.
 
 ### Frontend
-- 7 tabs: Shop Catalog, Cart & Checkout with Undo, Orders Timeline, Seller Dashboard, Interactive 2D Concurrency Simulation, Class Diagram, Design Details.
-- Real-time stock alerts, single-step Undo cart button, multi-method payment selector, and low-stock race condition interactive timeline visualizer.
+- 8 tabs: Shop Catalog, Cart & Checkout with Undo, Orders Timeline, Seller Dashboard, Interactive
+  Simulation, Class Diagram, Sequence Diagram, Design Details.
+- Simulation tab rebuilt as an 8-step, user-driven walkthrough (no autoplay timers) against the
+  isolated `/api/shoppingcart/sim/*` sandbox, using the shared `StepIndicator` component: reset the
+  sandbox, two shoppers contend for a 2-unit low-stock product, the second shopper's checkout is
+  rejected safely, a multi-product checkout visualizes cart-insertion order vs. the actual
+  ascending lock-acquisition order (chip-sequence diagram), an order is shipped, then a cancel
+  attempt on the now-shipped order is rejected by the guarded state machine. A live telemetry HUD
+  (tracked product stock, per-shopper cart item counts, orders placed, events logged, tracked
+  order status), per-shopper cart panels, a warehouse stock grid, and a reverse-chronological event
+  log all render straight from each step's real API response.
 
 ## Pub Sub System Module
 ### Backend

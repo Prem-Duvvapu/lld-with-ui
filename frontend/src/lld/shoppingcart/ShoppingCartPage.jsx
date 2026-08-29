@@ -3,6 +3,7 @@ import * as api from './api'
 import ClassDiagram from '../../components/ClassDiagram'
 import SequenceDiagram from '../../components/SequenceDiagram'
 import DesignDetails from '../../components/DesignDetails'
+import StepIndicator from '../../components/ui/StepIndicator'
 import '../../styles/theme.css'
 
 export default function ShoppingCartPage() {
@@ -18,10 +19,12 @@ export default function ShoppingCartPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [message, setMessage] = useState(null)
 
-  // Simulation state
-  const [simState, setSimState] = useState(null)
-  const [simStepIndex, setSimStepIndex] = useState(0)
-  const [isSimRunning, setIsSimRunning] = useState(false)
+  // Simulation state -- driven entirely by the isolated /api/shoppingcart/sim/* sandbox
+  const [simSnapshot, setSimSnapshot] = useState(null)
+  const [simStep, setSimStep] = useState(0)
+  const [simLoading, setSimLoading] = useState(false)
+  const [simError, setSimError] = useState('')
+  const [bobOrderId, setBobOrderId] = useState(null)
 
   useEffect(() => {
     fetchInitialData()
@@ -133,53 +136,107 @@ export default function ShoppingCartPage() {
     setTimeout(() => setMessage(null), 4000)
   }
 
-  // SIMULATION CONTROLS
-  const startSimulation = async () => {
-    setIsSimRunning(true)
-    const resetData = await api.simReset()
-    setSimState(resetData)
-    setSimStepIndex(0)
-
-    const steps = [
-      async () => {
+  // SIMULATION CONTROLS -- an 8-step, user-driven walkthrough against the isolated
+  // /api/shoppingcart/sim/* sandbox. Every step calls a real backend endpoint; nothing here is
+  // faked in React state. Each step only advances on the user's own click (no autoplay timers).
+  const SIM_STEPS = [
+    {
+      title: 'Reset Sandbox',
+      detail: 'Wipe and reseed the isolated sim sandbox — its own products/carts/orders, completely separate from the live catalog and orders shown in the other tabs.',
+      run: async () => {
+        const snap = await api.simReset()
+        setSimSnapshot(snap)
+        setBobOrderId(null)
+      },
+    },
+    {
+      title: 'Alice Adds Laptop',
+      detail: 'User_Alice adds 1× "Gaming Laptop RTX 4080" (P101) to her cart. P101 is seeded with only 2 units in stock — the low-stock contention this walkthrough is built around.',
+      run: async () => {
         const snap = await api.simAddToCart('User_Alice', 'P101', 1)
-        setSimState(snap)
-        setSimStepIndex(1)
+        setSimSnapshot(snap)
       },
-      async () => {
-        const snap = await api.simAddToCart('User_Bob', 'P101', 2) // P101 stock is 2 -> Bob requests 2
-        setSimState(snap)
-        setSimStepIndex(2)
+    },
+    {
+      title: 'Bob Adds Laptop ×2',
+      detail: 'User_Bob adds 2× P101 to his cart — now both shoppers want a slice of the same 2-unit stock. Whoever checks out first wins.',
+      run: async () => {
+        const snap = await api.simAddToCart('User_Bob', 'P101', 2)
+        setSimSnapshot(snap)
       },
-      async () => {
-        const snap = await api.simPlaceOrder('User_Bob', 'UPI') // Bob completes checkout -> consumes all 2 units
-        setSimState(snap)
-        setSimStepIndex(3)
+    },
+    {
+      title: 'Bob Checks Out First',
+      detail: 'Bob places his order via UPI. His single-product cart only needs P101\'s lock — stock is validated (2 available, 2 requested), decremented to 0, and the order is confirmed.',
+      run: async () => {
+        const snap = await api.simPlaceOrder('User_Bob', 'UPI')
+        setSimSnapshot(snap)
+        const bobOrder = (snap.orders || []).find(o => o.userId === 'User_Bob')
+        setBobOrderId(bobOrder ? bobOrder.orderId : null)
       },
-      async () => {
-        // Alice attempts checkout for P101, but stock is now 0 -> InsufficientStockException rejection
+    },
+    {
+      title: 'Alice Checkout Rejected',
+      detail: 'Alice attempts to check out for P101 — but stock is now 0. InsufficientStockException is raised and handled safely: no partial charge, no negative stock, Alice\'s cart is left untouched for her to retry.',
+      run: async () => {
         const snap = await api.simPlaceOrder('User_Alice', 'CREDIT_CARD')
-        setSimState(snap)
-        setSimStepIndex(4)
+        setSimSnapshot(snap)
       },
-      async () => {
-        const snap = await api.simUpdateStatus('SIM-ORD-101', 'SHIPPED')
-        setSimState(snap)
-        setSimStepIndex(5)
+    },
+    {
+      title: 'Alice Checks Out a Multi-Product Cart',
+      detail: 'Alice adds "Clean Code Book" (P104) then "Wireless Headphones" (P102) — inserted in that order — and checks out. placeOrder() locks products in ASCENDING product-id order (P102 before P104), the opposite of her cart\'s insertion order, which is exactly what makes concurrent checkouts across shared products deadlock-free.',
+      run: async () => {
+        await api.simAddToCart('User_Alice', 'P104', 1)
+        await api.simAddToCart('User_Alice', 'P102', 1)
+        const snap = await api.simPlaceOrder('User_Alice', 'UPI')
+        setSimSnapshot(snap)
       },
-      async () => {
-        const snap = await api.simUpdateStatus('SIM-ORD-101', 'DELIVERED')
-        setSimState(snap)
-        setSimStepIndex(6)
-      }
-    ]
+    },
+    {
+      title: 'Seller Ships Bob\'s Order',
+      detail: 'The seller marks Bob\'s order SHIPPED — a legal PLACED → SHIPPED transition in the guarded order-lifecycle state machine.',
+      run: async () => {
+        if (!bobOrderId) return
+        const snap = await api.simUpdateStatus(bobOrderId, 'SHIPPED')
+        setSimSnapshot(snap)
+      },
+    },
+    {
+      title: 'Cancel Attempt Rejected',
+      detail: 'Someone tries to cancel Bob\'s now-SHIPPED order. cancelOrder() rejects SHIPPED/DELIVERED/CANCELLED orders outright — the state machine refuses the transition and no inventory is restocked.',
+      run: async () => {
+        if (!bobOrderId) return
+        const snap = await api.simUpdateStatus(bobOrderId, 'CANCELLED')
+        setSimSnapshot(snap)
+      },
+    },
+  ]
 
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise(r => setTimeout(r, 2200))
-      await steps[i]()
+  const runSimStep = async () => {
+    setSimLoading(true)
+    setSimError('')
+    try {
+      if (simStep >= SIM_STEPS.length) {
+        // Walkthrough already finished -- "Run Again" restarts from step 0 (Reset Sandbox).
+        await SIM_STEPS[0].run()
+        setSimStep(1)
+      } else {
+        await SIM_STEPS[simStep].run()
+        setSimStep(s => s + 1)
+      }
+    } catch (err) {
+      setSimError(err.message || 'Simulation step failed')
+    } finally {
+      setSimLoading(false)
     }
-    setIsSimRunning(false)
   }
+
+  // Extract the most recent LOCK_ORDER event (logged only when a checkout touches >1 product) so
+  // the UI can visualize cart-insertion order vs. the actual ascending lock-acquisition order.
+  const lastLockOrderEvent = simSnapshot?.events
+    ? [...simSnapshot.events].reverse().find(e => e.type === 'LOCK_ORDER')
+    : null
 
   const cartTotal = cart ? Object.values(cart.items || {}).reduce((acc, item) => acc + item.totalPrice, 0) : 0
 
@@ -469,52 +526,16 @@ export default function ShoppingCartPage() {
 
       {/* TAB 5: INTERACTIVE 2D SIMULATION */}
       {activeTab === 'sim' && (
-        <div>
-          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '20px' }}>Low-Stock Concurrency Race Condition Simulation</h2>
-                <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                  Product P101 has 2 units in stock. User_Alice adds 1, User_Bob adds 2 and checks out first, consuming all stock. Alice's checkout fails safely with <code>InsufficientStockException</code>.
-                </p>
-              </div>
-              <button
-                onClick={startSimulation}
-                disabled={isSimRunning}
-                style={{ padding: '12px 24px', background: 'var(--accent-violet)', color: '#fff', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer' }}
-              >
-                {isSimRunning ? 'Running Concurrency Sim...' : '▶ Start Concurrency Demo'}
-              </button>
-            </div>
-
-            {/* SIMULATION TIMELINE & TELEMETRY */}
-            {simState && (
-              <div style={{ background: '#090d16', padding: '20px', borderRadius: '12px', border: '1px solid #1e293b' }}>
-                <h4 style={{ margin: '0 0 12px', color: '#38bdf8' }}>Live Warehouse Stock HUD</h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                  {simState.products.map(p => (
-                    <div key={p.id} style={{ background: '#1e293b', padding: '12px', borderRadius: '8px', border: '1px solid #334155' }}>
-                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>{p.id}</span>
-                      <h5 style={{ margin: '4px 0', color: '#f8fafc' }}>{p.name}</h5>
-                      <span style={{ fontSize: '14px', fontWeight: '700', color: p.stockQuantity <= 0 ? '#ef4444' : '#22c55e' }}>
-                        Stock: {p.stockQuantity} units
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <h4 style={{ margin: '0 0 12px', color: '#eab308' }}>Simulation Log Stream</h4>
-                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {simState.events.map(ev => (
-                    <div key={ev.id} style={{ fontSize: '13px', fontFamily: 'monospace', padding: '6px 10px', background: '#020617', borderRadius: '4px', borderLeft: `3px solid ${ev.type.includes('FAIL') || ev.type.includes('INSUFFICIENT') ? '#ef4444' : '#22c55e'}` }}>
-                      <span style={{ color: '#64748b' }}>[{ev.timestamp}]</span> <strong>{ev.actor}:</strong> {ev.description}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <ShoppingCartSimulationTab
+          simSnapshot={simSnapshot}
+          simStep={simStep}
+          simLoading={simLoading}
+          simError={simError}
+          bobOrderId={bobOrderId}
+          simSteps={SIM_STEPS}
+          lastLockOrderEvent={lastLockOrderEvent}
+          onRunStep={runSimStep}
+        />
       )}
 
       {/* TAB 6: CLASS DIAGRAM */}
@@ -525,6 +546,226 @@ export default function ShoppingCartPage() {
 
       {/* TAB 8: DESIGN DETAILS */}
       {activeTab === 'details' && <DesignDetails module="shoppingcart" />}
+    </div>
+  )
+}
+
+// =============================================================================
+// SIMULATION TAB -- 8-step, user-driven walkthrough against the isolated
+// /api/shoppingcart/sim/* sandbox. Every step below calls a real backend endpoint; nothing here
+// fakes state in React. Visualizes: per-shopper cart contents, the warehouse stock HUD, the
+// ascending product-id lock-acquisition order vs. cart-insertion order during a multi-product
+// checkout, order lifecycle transitions (including a guarded rejection), and a live event log.
+// =============================================================================
+function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError, bobOrderId, simSteps, lastLockOrderEvent, onRunStep }) {
+  const products = simSnapshot?.products || []
+  const carts = simSnapshot?.carts || {}
+  const orders = simSnapshot?.orders || []
+  const events = simSnapshot?.events || []
+  const isDone = simStep >= simSteps.length
+  const currentStepMeta = simSteps[Math.min(simStep, simSteps.length - 1)]
+
+  const aliceCart = carts['User_Alice']?.items || {}
+  const bobCart = carts['User_Bob']?.items || {}
+  const trackedP101 = products.find(p => p.id === 'P101')
+
+  const bobOrder = orders.find(o => o.orderId === bobOrderId)
+
+  return (
+    <div>
+      <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>🕹️ Interactive Checkout Concurrency Walkthrough</h2>
+        <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+          Two shoppers race for a 2-unit low-stock product, then a multi-product checkout demonstrates
+          ascending product-id lock ordering, then a guarded order-lifecycle rejection. Every step below
+          calls the real <code>/api/shoppingcart/sim/*</code> sandbox endpoints — a completely separate
+          set of products/carts/orders from the live tabs.
+        </p>
+
+        <StepIndicator steps={simSteps.map(s => s.title)} currentStep={Math.min(simStep, simSteps.length - 1)} />
+
+        <div style={{
+          marginTop: '20px', padding: '16px 20px', borderRadius: '10px',
+          background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap'
+        }}>
+          <div style={{ flex: 1, minWidth: '260px' }}>
+            <div style={{ fontSize: '11px', fontWeight: '700', color: 'var(--accent-violet)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {isDone ? 'Walkthrough Complete' : `Step ${simStep + 1} of ${simSteps.length}`}
+            </div>
+            <h4 style={{ margin: '4px 0' }}>{isDone ? 'All 8 steps executed' : currentStepMeta.title}</h4>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {isDone ? 'Reset the sandbox to run the walkthrough again.' : currentStepMeta.detail}
+            </p>
+          </div>
+          <button
+            onClick={onRunStep}
+            disabled={simLoading || (isDone && simSnapshot)}
+            style={{
+              padding: '12px 24px', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: simLoading ? 'default' : 'pointer',
+              background: isDone ? '#4b5563' : 'var(--accent-violet)', color: '#fff', whiteSpace: 'nowrap'
+            }}
+          >
+            {simLoading ? 'Running…' : isDone ? '✓ Done' : simStep === 0 ? '▶ Start Walkthrough' : `Next: ${currentStepMeta.title} →`}
+          </button>
+        </div>
+
+        {simError && (
+          <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', border: '1px solid #ef4444', fontSize: '13px', fontWeight: '600' }}>
+            ⚠ {simError}
+          </div>
+        )}
+      </div>
+
+      {simSnapshot && (
+        <>
+          {/* LIVE TELEMETRY HUD */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+            <HudTile label="P101 Stock" value={trackedP101 ? trackedP101.stockQuantity : '—'} tone={trackedP101 && trackedP101.stockQuantity <= 0 ? 'danger' : 'ok'} />
+            <HudTile label="Alice's Cart Items" value={Object.keys(aliceCart).length} tone="neutral" />
+            <HudTile label="Bob's Cart Items" value={Object.keys(bobCart).length} tone="neutral" />
+            <HudTile label="Orders Placed" value={orders.length} tone="neutral" />
+            <HudTile label="Events Logged" value={events.length} tone="neutral" />
+            <HudTile label="Bob's Order Status" value={bobOrder ? bobOrder.status : '—'} tone={bobOrder?.status === 'CANCELLED' ? 'danger' : bobOrder?.status === 'SHIPPED' ? 'ok' : 'neutral'} />
+          </div>
+
+          {/* SHOPPER CART PANELS */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+            <ShopperCartPanel name="User_Alice" emoji="👩" items={aliceCart} accent="#8b5cf6" />
+            <ShopperCartPanel name="User_Bob" emoji="👨" items={bobCart} accent="#38bdf8" />
+          </div>
+
+          {/* WAREHOUSE STOCK GRID */}
+          <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+            <h4 style={{ margin: '0 0 14px', fontSize: '15px' }}>📦 Warehouse Stock</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              {products.map(p => {
+                const pct = Math.max(0, Math.min(100, (p.stockQuantity / (p.id === 'P101' ? 2 : Math.max(p.stockQuantity, 15))) * 100))
+                return (
+                  <div key={p.id} style={{ background: 'var(--bg-primary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      <span>{p.id}</span>
+                      <span style={{ fontWeight: '700', color: p.stockQuantity <= 0 ? '#ef4444' : 'var(--text-primary)' }}>{p.stockQuantity} units</span>
+                    </div>
+                    <div style={{ fontWeight: '600', fontSize: '13px', margin: '4px 0 8px' }}>{p.name}</div>
+                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--border-color)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: p.stockQuantity <= 0 ? '#ef4444' : p.stockQuantity <= 2 ? '#eab308' : '#22c55e', transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* LOCK ACQUISITION ORDER VISUALIZER */}
+          {lastLockOrderEvent && (
+            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 6px', fontSize: '15px' }}>🔒 Checkout Lock Acquisition Order</h4>
+              <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                {lastLockOrderEvent.description}
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+                <ChipSequence label="Cart-insertion order" ids={lastLockOrderEvent.details?.cartInsertionOrder || []} tone="neutral" />
+                <ChipSequence label="Actual lock-acquisition order (ascending product-id)" ids={lastLockOrderEvent.details?.lockAcquisitionOrder || []} tone="accent" />
+              </div>
+            </div>
+          )}
+
+          {/* ORDERS PANEL */}
+          {orders.length > 0 && (
+            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 14px', fontSize: '15px' }}>🧾 Orders</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {orders.map(o => (
+                  <div key={o.orderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px' }}>
+                    <span><strong>{o.orderId}</strong> — {o.userId} — ₹{o.totalAmount.toLocaleString('en-IN')}</span>
+                    <span style={{
+                      padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700',
+                      background: o.status === 'CANCELLED' ? 'rgba(239, 68, 68, 0.2)' : o.status === 'SHIPPED' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                      color: o.status === 'CANCELLED' ? '#ef4444' : o.status === 'SHIPPED' ? '#22c55e' : '#eab308'
+                    }}>{o.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* EVENT LOG STREAM */}
+          <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <h4 style={{ margin: '0 0 12px', fontSize: '15px' }}>📜 Sandbox Event Log</h4>
+            <div style={{ maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column-reverse', gap: '6px' }}>
+              {events.map(ev => {
+                const isFailure = ev.type.includes('FAIL') || ev.type.includes('INSUFFICIENT')
+                const isLockNote = ev.type === 'LOCK_ORDER'
+                return (
+                  <div key={ev.id} style={{
+                    fontSize: '12px', fontFamily: 'monospace', padding: '8px 12px', borderRadius: '6px',
+                    background: 'var(--bg-primary)',
+                    borderLeft: `3px solid ${isFailure ? '#ef4444' : isLockNote ? '#38bdf8' : '#22c55e'}`
+                  }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>[{ev.timestamp}]</span> <strong>{ev.actor}:</strong> {ev.description}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function HudTile({ label, value, tone }) {
+  const color = tone === 'danger' ? '#ef4444' : tone === 'ok' ? '#22c55e' : 'var(--accent-violet)'
+  return (
+    <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+      <div style={{ fontSize: '20px', fontWeight: '800', color }}>{value}</div>
+      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{label}</div>
+    </div>
+  )
+}
+
+function ShopperCartPanel({ name, emoji, items, accent }) {
+  const entries = Object.values(items)
+  return (
+    <div style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: `1px solid ${accent}55` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+        <span style={{ fontSize: '20px' }}>{emoji}</span>
+        <strong>{name}</strong>
+      </div>
+      {entries.length === 0 ? (
+        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>Cart is empty.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {entries.map(item => (
+            <div key={item.productId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '6px 10px', background: 'var(--bg-primary)', borderRadius: '6px' }}>
+              <span>{item.productName} × {item.quantity}</span>
+              <span style={{ color: accent, fontWeight: '700' }}>₹{item.totalPrice.toLocaleString('en-IN')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChipSequence({ label, ids, tone }) {
+  return (
+    <div>
+      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: '600' }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        {ids.map((id, idx) => (
+          <React.Fragment key={id + idx}>
+            <span style={{
+              padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', fontFamily: 'monospace',
+              background: tone === 'accent' ? 'rgba(139, 92, 246, 0.18)' : 'var(--bg-primary)',
+              color: tone === 'accent' ? 'var(--accent-violet)' : 'var(--text-primary)',
+              border: `1px solid ${tone === 'accent' ? 'var(--accent-violet)' : 'var(--border-color)'}`
+            }}>{id}</span>
+            {idx < ids.length - 1 && <span style={{ color: 'var(--text-secondary)' }}>→</span>}
+          </React.Fragment>
+        ))}
+      </div>
     </div>
   )
 }
