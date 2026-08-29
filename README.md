@@ -328,12 +328,12 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 7. ATM
 
 #### Key Features
-- **Hardware Session State Machine**: Guarded state transitions (`IDLE` ➔ `CARD_INSERTED` ➔ `AUTHENTICATED` ➔ `TRANSACTION_IN_PROGRESS` ➔ `DISPENSING` ➔ `CARD_BLOCKED`).
-- **Denomination Dispensing Strategy**: Strategy Pattern using `GreedyDenominationDispenseStrategy` across ₹2000, ₹500, ₹200, and ₹100 notes.
-- **Fine-Grained Concurrency**: Per-account `ReentrantLock` preventing balance overselling under 10-thread withdrawal races.
-- **Compensating Refund Transaction**: Automatically credits account balance back if cash dispenser note combination fails after debiting.
-- **Card Security Lockout**: Tracks failed PIN attempts and blocks card (`CARD_BLOCKED`) after 3 consecutive failures.
-- **4-Tab React UI**: Keypad Terminal, Concurrency Simulation, Class Diagram, and Design Details.
+- **State Pattern Session Machine**: one `SessionState` class per `ATMState` (`IdleSessionState` ➔ `CardInsertedSessionState` ➔ `AuthenticatedSessionState` ➔ `TransactionInProgressSessionState` ➔ `DispensingSessionState` ➔ `SessionEndedSessionState` / `CardBlockedSessionState`), each declaring its own legal-next-states set, enforced by `AtmService#transitionTo` — the single place `currentState` is ever assigned.
+- **Denomination Dispensing Strategy + Factory**: `DenominationDispenseStrategyFactory` resolves `MINIMIZE_NOTES` (`GreedyDenominationDispenseStrategy`) or `CONSERVE_LARGE_NOTES` (`ConserveLargeNotesDispenseStrategy`) via an `EnumMap` — `CashDispenser` never branches on the mode itself.
+- **Fine-Grained Concurrency**: fair per-account `ReentrantLock`, re-checked balance inside the lock (not just acquired), preventing overselling under concurrent withdrawal races — proven with 10 real threads in `AtmConcurrencyTest`, including a cassette-level test proving concurrent dispenses never exceed the note inventory.
+- **Compensating Refund Transaction**: automatically credits account balance back if cash dispenser note combination fails after debiting.
+- **Card Security Lockout**: tracks failed PIN attempts and blocks card (`CARD_BLOCKED`) after 3 consecutive failures.
+- **Isolated Simulation Sandbox**: `/api/atm/sim/*` runs against a second `BankingRepository`/`CashDispenser` pair, driving the real state machine and dispense strategies so the demo can never touch live accounts.
 
 #### API Endpoints
 - `POST /api/atm/insert-card`
@@ -345,8 +345,10 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/atm/{accountNumber}/transactions`
 - `GET /api/atm/dispenser`
 - `POST /api/atm/sim/reset`
+- `POST /api/atm/sim/insert-card`
 - `POST /api/atm/sim/authenticate`
 - `POST /api/atm/sim/withdraw`
+- `POST /api/atm/sim/eject`
 - `GET /api/atm/sim/events`
 - `GET /api/atm/sim/snapshots`
 

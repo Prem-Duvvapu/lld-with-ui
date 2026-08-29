@@ -217,14 +217,56 @@ service. Hardened to the reference bar without changing the dispatch model.
 
 ## ATM Module
 ### Backend
-- `AtmInitializer`: Seed sample accounts, card credentials ( John Doe = 1234, Jane Smith = 4321, Alice Johnson = 0000 ), and initial cash dispenser note inventory.
-- `AtmService`: Singleton facade managing session state machine (`IDLE`, `CARD_INSERTED`, `AUTHENTICATED`, `TRANSACTION_IN_PROGRESS`, `DISPENSING`, `CARD_BLOCKED`), fine-grained per-account `ReentrantLock` concurrency, hardware `CashDispenser` note calculation, compensating transaction balance revert on dispense failure, 3-attempt PIN lockout, and isolated `/api/atm/sim/*` engine.
-- Strategy Pattern: `DenominationDispenseStrategy` interface with `GreedyDenominationDispenseStrategy` for note calculation across ₹2000, ₹500, ₹200, and ₹100 notes.
-- Template Method Pattern: `Transaction` abstract base class with `WithdrawalTransaction` and `DepositTransaction`.
+Raised from a partially-real module (real dispenser strategy and exceptions, but a bare `ATMState`
+enum with no transition enforcement, a monolithic `BankingService`, and only one test file) to the
+reference bar — same audit-and-harden shape as pubsub/parkinglot.
+- `AtmInitializer`: seeds sample accounts, card credentials (John Doe = 1234, Jane Smith = 4321,
+  Alice Johnson = 0000), and initial cash dispenser note inventory.
+- **State Pattern (hardened)**: `com.lld.atm.state` — one class per `ATMState`
+  (`IdleSessionState`, `CardInsertedSessionState`, `AuthenticatedSessionState`,
+  `TransactionInProgressSessionState`, `DispensingSessionState`, `SessionEndedSessionState`,
+  `CardBlockedSessionState`), each declaring a `Set<ATMState> allowedNext()` — the same
+  declared-set-of-legal-next-states shape as `taskmanagement.state.TaskState` (a session can fan
+  out, e.g. `AUTHENTICATED` may move to `TRANSACTION_IN_PROGRESS` or straight to `SESSION_ENDED`
+  on eject-without-transacting). `AtmService#transitionTo(ATMState)` is the single enforcement
+  point; every session-mutating method routes through it, and it throws
+  `InvalidSessionStateException` (409) for anything not in `allowedNext()`.
+- **Per-Account Lock (the concurrency centerpiece)**: a fair `ReentrantLock` per `Account`
+  (`accountLock`, `@Getter(AccessLevel.NONE)` + `@JsonIgnore getLock()` so it never leaks into
+  `equals`/`hashCode`/JSON responses — the same hand-rolled-lock-field precedent as
+  `library.model.Member`/`stockbroker.model.Account`), guarding withdraw/deposit end to end so two
+  concurrent withdrawals against the same account can never both succeed past the balance.
+  `AtmConcurrencyTest` proves it: 10 concurrent withdrawals on one account — exactly one succeeds,
+  no overdraw, and the transaction log records exactly one success entry; a separate cassette-level
+  test proves concurrent dispense requests never dispense more notes than the cassette holds.
+- **Strategy + Factory (Denomination Dispensing)**: `DenominationDispenseStrategy` —
+  `GreedyDenominationDispenseStrategy` (`MINIMIZE_NOTES` — fewest notes possible) and
+  `ConserveLargeNotesDispenseStrategy` (`CONSERVE_LARGE_NOTES` — prefers smaller denominations,
+  preserving the cassette's large-note supply for later withdrawals) — resolved by
+  `DenominationDispenseStrategyFactory` via an `EnumMap`, the same shape as
+  `inventory.strategy.ReorderStrategyFactory`. `CashDispenser` never branches on the mode itself.
+- **`BankingRepository` (new)**: replaces the old monolithic `BankingService` — a
+  `ConcurrentHashMap`-backed store for accounts/cards, the single source of truth both the live
+  session flow and the isolated sim sandbox read/write.
+- Exception hierarchy: `AtmException` (abstract) `extends com.lld.config.DomainException` with
+  `AccountNotFoundException`/`CardBlockedException` (404/403), `AuthenticationFailedException`
+  (401 — wired to a real 3-attempt PIN lockout that flips the card to `CardBlockedSessionState`),
+  `InsufficientBalanceException`/`InsufficientCashException` (409), `InvalidSessionStateException`
+  (409, the state machine's own rejection). Never maps to 5xx —
+  `DomainExceptionContractTest`/`GlobalExceptionHandlerTest` enforce it.
+- Isolated `/api/atm/sim/*` engine: a second `BankingRepository` + `CashDispenser` pair, rebuilt on
+  every `simReset()`, driving the same state machine and dispense strategies as the live terminal.
+- Tests (4 classes): `AtmServiceTest` (session lifecycle, PIN lockout, deposit/withdraw, sim
+  isolation), `AtmConcurrencyTest` (the load-bearing suite above), plus dispenser-strategy and
+  repository test classes. `BankingRepository` is exercised directly (not merged into the service
+  test) since it owns real independent behavior (id generation, card/account lookups) beyond a bare
+  id/save/get wrapper.
 
 ### Frontend
-- 4 tabs: 🏧 ATM Terminal, 🔒 Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
-- Hardware keypad terminal with PIN entry, cash slot animation, note breakdown badges, printable receipt modal, and interactive simulation timeline for 10-thread balance races, denomination mismatch compensation, and PIN lockout.
+- Rebuilt onto the shared `LldPage` shell with a live terminal (PIN entry, cash-slot animation,
+  note-breakdown badges) plus an 8-step interactive simulation tab against the isolated
+  `/api/atm/sim/*` sandbox with a live telemetry HUD, driving the real state machine, dispense
+  strategies and account-lock race instead of a client-only animation.
 
 ## LinkedIn Module
 ### Backend

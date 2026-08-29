@@ -2477,3 +2477,93 @@ grep -rn "new DispatchFailedException" backend/src/main/java  # zero hits before
    yet should be treated as a paper trail promising future work, not evidence the case is handled —
    audit for "declared but unreachable" exceptions the same way you'd audit for dead code, because
    that is exactly what they are.
+
+## RCA-029: ATM's Session-State Check and Transition Ran Outside the Account Lock, Producing an Intermittent Spurious `InvalidSessionStateException` Under Concurrent Withdrawals
+
+**Severity:** Medium (no data corruption — the account balance itself was always correctly
+protected by the per-account lock — but a genuine, non-deterministic race that could make a
+legitimate concurrent withdrawal fail with a misleading "not authenticated" error, and that a
+`@RepeatedTest` concurrency suite could pass or fail by luck depending on scheduling)
+**Date:** 2026-08-29
+**Status:** Resolved
+**Affected:** `com.lld.atm.service.AtmService#withdraw`, `#deposit`, `#getBalance`
+
+### 1. Overview & Severity
+Found while doing final verification on the `atm` module's 17-criteria upgrade, after the
+build-out agent had already written `AtmConcurrencyTest` and moved on to unrelated polish. Running
+the full backend suite twice in the same session produced two different outcomes for the identical
+test class: one full run reported it green, the very next full run reported 4–5 errors in it, all
+with the same message. Re-running just `AtmConcurrencyTest` in isolation reproduced the failure
+deterministically enough to investigate (2 of 3 isolated runs failed), then — after the fix below —
+5 consecutive isolated runs all passed clean. That inconsistency (not "always fails," not "always
+passes," but "fails often enough to matter and passes often enough to slip through CI by luck") is
+the signature of a genuine data race, not a flaky test needing a longer timeout.
+
+### 2. Symptoms & Error Logs
+```
+com.lld.atm.service.AtmConcurrencyTest.tenConcurrentWithdrawalsOnSameAccount_exactlyOneSucceedsNoOverdraw
+  -- ERROR!
+java.util.concurrent.ExecutionException: org.opentest4j.AssertionFailedError:
+  Unexpected exception racing withdraw(): com.lld.atm.exception.InvalidSessionStateException:
+  This operation requires an authenticated session. Current state: DISPENSING
+```
+Ten threads call `withdraw()` on the same already-authenticated account; several of them see the
+terminal's session state as `DISPENSING` — a state some OTHER thread's in-flight withdrawal put it
+in — and are rejected outright, instead of either succeeding or failing with the intended
+`InsufficientBalanceException`.
+
+### 3. Root Cause
+`AtmService` models one physical terminal's session as a handful of plain instance fields
+(`currentState`, `activeCard`, `activeAccount`), with a dedicated `sessionLock` that the terminal's
+front-facing lifecycle methods (`insertCard`/`authenticate`/`ejectCard`) correctly acquire around
+every read and write via `transitionTo()`. `withdraw()` and `deposit()`, however, called
+`requireAuthenticatedSessionFor(accountNumber)` — an **unsynchronized read** of `currentState` and
+`activeAccount` — and `setState(ATMState.TRANSACTION_IN_PROGRESS)` — an **unsynchronized write** to
+`currentState`, by design (its own javadoc explains why it must skip the `transitionTo` table
+check) — both **before** acquiring `Account#getLock()`. Only the later `DISPENSING`/back-to-
+`AUTHENTICATED` transitions happened while holding that account lock.
+
+That left a window: Thread A takes the account lock and sets the shared `currentState` to
+`DISPENSING` mid-transaction; Thread B, not yet blocked on the account lock (or targeting a
+different code path that reads state first), reads `currentState` in that exact window, sees
+`DISPENSING` — not in `requireAuthenticatedSessionFor`'s allowed set of
+`{AUTHENTICATED, TRANSACTION_IN_PROGRESS}` — and throws, even though the session genuinely is still
+authenticated; it just happens to be mid-transaction on a *different* thread's call.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce: run the concurrency suite in isolation, repeatedly — a single run can pass by luck.
+cd backend && for i in 1 2 3; do mvn -q -o test -Dtest='com.lld.atm.service.AtmConcurrencyTest'; echo "run $i exit: $?"; done
+
+# Confirm the unsynchronized read/write shape before the fix:
+grep -n "requireAuthenticatedSessionFor\|setState(ATMState.TRANSACTION_IN_PROGRESS)\|acc.getLock().lock()" \
+  backend/src/main/java/com/lld/atm/service/AtmService.java
+```
+
+### 5. Step-by-Step Resolution
+1. Moved the `requireAuthenticatedSessionFor(accountNumber)` call and the initial
+   `setState(ATMState.TRANSACTION_IN_PROGRESS)` transition to run **inside** `acc.getLock()`'s
+   critical section in both `withdraw()` and `deposit()`, immediately after acquiring the lock —
+   not before it.
+2. Applied the same fix to `getBalance()`, a narrower but real instance of the identical shape (a
+   read-only balance query racing a concurrent withdrawal's `DISPENSING` window could spuriously
+   reject a legitimately-authenticated caller).
+3. Re-ran `AtmConcurrencyTest` in isolation 5 consecutive times post-fix — all green — then the full
+   backend suite once more to confirm no other test depends on the old ordering.
+
+### 6. Preventative Measures
+1. General rule this module now demonstrates directly: when a method both (a) checks/mutates
+   session-scoped state shared across concurrent callers and (b) acquires a narrower per-entity
+   lock for the actual mutation, the session check must happen **inside** the narrower lock, not
+   before it — "acquire the lock, then check" is the only order safe from concurrent interleaving,
+   even when the check feels like it "obviously" belongs first as a fast-fail guard.
+2. A concurrency test that passes on one run is not evidence of correctness by itself — this bug
+   was found precisely because the *same* test class gave two different verdicts across two
+   back-to-back full-suite runs. Any concurrency-proving test in this repo should be treated with
+   the same suspicion this repo's own `AtmConcurrencyTest` earned: re-run it several times in
+   isolation, not just once, before trusting a green result — especially right after writing it or
+   changing the code it exercises.
+3. This exact bug shape (a lock guards the *mutation* but not the *precondition check* that gates
+   entry to it) is worth grepping for across other modules that combine a session/state check with
+   a per-entity lock — it will not show up as a compile error or even a single-run test failure,
+   only as an intermittent one.
