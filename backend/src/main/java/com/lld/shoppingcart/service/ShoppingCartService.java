@@ -24,6 +24,12 @@ public class ShoppingCartService {
     private final ConcurrentHashMap<String, Order> orders = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Stack<CartCommand>> userCommandHistory = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Order> idempotencyCache = new ConcurrentHashMap<>();
+    // One lock object per idempotency key, lazily created -- makes the "check cache, do the work,
+    // populate cache" sequence in placeOrder() atomic per key, so two concurrent retries sharing
+    // the SAME key can never both slip past the cache-miss check (see RCA-031's companion fix:
+    // without this, both would decrement stock and charge payment separately, and the cache would
+    // silently keep only the last writer's Order). Different keys never contend with each other.
+    private final ConcurrentHashMap<String, Object> idempotencyKeyLocks = new ConcurrentHashMap<>();
 
     private final ShoppingCartPaymentProcessor paymentProcessor;
     private final AtomicLong orderIdGen = new AtomicLong(100);
@@ -99,9 +105,12 @@ public class ShoppingCartService {
 
     public void updateCartQuantity(String userId, String productId, int quantity) {
         Cart cart = getCart(userId);
-        CartItem item = cart.getItems().get(productId);
-        int oldQty = item != null ? item.getQuantity() : 0;
-        CartCommand cmd = new UpdateQuantityCommand(cart, productId, oldQty, quantity);
+        CartItem existing = cart.getItems().get(productId);
+        // Snapshot the full previous line item (not just its quantity) so undo() can fully
+        // reconstruct it even if this update drops the quantity to <= 0 and removes the entry.
+        CartItem previousSnapshot = existing == null ? null
+                : new CartItem(existing.getProductId(), existing.getProductName(), existing.getUnitPrice(), existing.getQuantity());
+        CartCommand cmd = new UpdateQuantityCommand(cart, productId, previousSnapshot, quantity);
         executeCommand(userId, cmd);
     }
 
@@ -121,13 +130,28 @@ public class ShoppingCartService {
     }
 
     public Order placeOrder(String userId, PaymentMethod paymentMethod, String idempotencyKey) {
-        if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
+        boolean hasIdempotencyKey = idempotencyKey != null && !idempotencyKey.trim().isEmpty();
+        if (!hasIdempotencyKey) {
+            return doPlaceOrder(userId, paymentMethod);
+        }
+
+        // Serialize the whole "check cache -> do the work -> populate cache" sequence per
+        // idempotency key so two concurrent retries sharing the SAME key can never both observe a
+        // cache miss and both perform the checkout. A lazily-created lock object per key means
+        // calls under DIFFERENT keys (the common case) never contend with each other at all.
+        Object keyLock = idempotencyKeyLocks.computeIfAbsent(idempotencyKey, k -> new Object());
+        synchronized (keyLock) {
             Order cached = idempotencyCache.get(idempotencyKey);
             if (cached != null) {
                 return cached;
             }
+            Order order = doPlaceOrder(userId, paymentMethod);
+            idempotencyCache.put(idempotencyKey, order);
+            return order;
         }
+    }
 
+    private Order doPlaceOrder(String userId, PaymentMethod paymentMethod) {
         Cart cart = getCart(userId);
         if (cart.getItems().isEmpty()) {
             throw new CartEmptyException("Cart is empty for user: " + userId);
@@ -165,7 +189,11 @@ public class ShoppingCartService {
                 orderItems.add(new OrderItem(p.getId(), p.getName(), p.getPrice(), item.getQuantity()));
             }
 
-            double totalAmount = cart.getTotalAmount();
+            // Computed from the just-built orderItems snapshot, not a fresh cart.getTotalAmount()
+            // read -- the cart is a live, shared, unlocked object, so re-reading it here could
+            // observe a concurrent mutation (e.g. another thread's cart.clear()) between the
+            // decrement above and this point.
+            double totalAmount = orderItems.stream().mapToDouble(OrderItem::getTotalPrice).sum();
             String orderId = "ORD-" + orderIdGen.getAndIncrement();
 
             String txId = paymentProcessor.executePayment(orderId, totalAmount, paymentMethod);
@@ -174,10 +202,6 @@ public class ShoppingCartService {
 
             orders.put(orderId, order);
             cart.clear();
-
-            if (idempotencyKey != null && !idempotencyKey.trim().isEmpty()) {
-                idempotencyCache.put(idempotencyKey, order);
-            }
 
             return order;
 
@@ -283,19 +307,36 @@ public class ShoppingCartService {
         }
 
         List<CartItem> cartItems = new ArrayList<>(cart.getItems().values());
+        // Cart-insertion order, exactly as the user clicked "Add to Cart" -- kept separate from
+        // the lock order below so the UI can show the two side by side.
+        List<String> cartInsertionOrder = cartItems.stream().map(CartItem::getProductId).collect(Collectors.toList());
+
         List<Product> lockProducts = cartItems.stream()
                 .map(item -> simProducts.get(item.getProductId()))
                 .sorted(Comparator.comparing(Product::getId))
                 .collect(Collectors.toList());
+        List<String> lockAcquisitionOrder = lockProducts.stream().map(Product::getId).collect(Collectors.toList());
 
-        // Validate stock
-        for (CartItem item : cartItems) {
-            Product p = simProducts.get(item.getProductId());
+        if (lockProducts.size() > 1) {
+            Map<String, Object> lockDetails = new HashMap<>();
+            lockDetails.put("cartInsertionOrder", cartInsertionOrder);
+            lockDetails.put("lockAcquisitionOrder", lockAcquisitionOrder);
+            logSimEvent("LOCK_ORDER", userId, String.format("Checkout touches %d products -- locks will be acquired in ascending product-id order %s, NOT cart-insertion order %s",
+                    lockProducts.size(), lockAcquisitionOrder, cartInsertionOrder), lockDetails);
+        }
+
+        // Validate stock, walking products in the SAME ascending lock order placeOrder() would
+        // acquire them in -- the sandbox is single-threaded (this whole method is `synchronized`)
+        // so there is no real contention to demonstrate here, but the order of inspection mirrors
+        // the live deadlock-free path exactly.
+        for (Product p : lockProducts) {
+            CartItem item = cart.getItems().get(p.getId());
             if (p.getStockQuantity() < item.getQuantity()) {
                 Map<String, Object> details = new HashMap<>();
                 details.put("productId", p.getId());
                 details.put("requested", item.getQuantity());
                 details.put("available", p.getStockQuantity());
+                details.put("lockAcquisitionOrder", lockAcquisitionOrder);
 
                 logSimEvent("INSUFFICIENT_STOCK", userId, String.format("OUT OF STOCK! Checkout failed for '%s'. Requested: %d, Available: %d",
                         p.getName(), item.getQuantity(), p.getStockQuantity()), details);
@@ -303,10 +344,10 @@ public class ShoppingCartService {
             }
         }
 
-        // Decrement stock & create order
+        // Decrement stock & create order, in the same ascending lock order.
         List<OrderItem> orderItems = new ArrayList<>();
-        for (CartItem item : cartItems) {
-            Product p = simProducts.get(item.getProductId());
+        for (Product p : lockProducts) {
+            CartItem item = cart.getItems().get(p.getId());
             p.decrementStock(item.getQuantity());
             orderItems.add(new OrderItem(p.getId(), p.getName(), p.getPrice(), item.getQuantity()));
         }
@@ -317,7 +358,10 @@ public class ShoppingCartService {
         simOrders.put(orderId, order);
         cart.clear();
 
-        logSimEvent("ORDER_PLACED", userId, String.format("Order %s PLACED successfully for ₹%.2f via %s", orderId, order.getTotalAmount(), method), null);
+        Map<String, Object> orderDetails = new HashMap<>();
+        orderDetails.put("orderId", orderId);
+        orderDetails.put("lockAcquisitionOrder", lockAcquisitionOrder);
+        logSimEvent("ORDER_PLACED", userId, String.format("Order %s PLACED successfully for ₹%.2f via %s", orderId, order.getTotalAmount(), method), orderDetails);
         return getSimSnapshots();
     }
 

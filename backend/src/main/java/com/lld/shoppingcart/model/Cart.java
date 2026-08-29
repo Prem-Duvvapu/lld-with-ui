@@ -1,22 +1,25 @@
 package com.lld.shoppingcart.model;
 
+import lombok.Getter;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * A user's live shopping cart. Lombok {@code @Getter} only (not {@code @Data}): {@code items} must
+ * never get a generated setter (all mutation goes through {@link #addItem}/{@link #removeItem}/
+ * {@link #updateQuantity} so {@link com.lld.shoppingcart.command.CartCommand} implementations stay
+ * the single path for cart mutation), and the single-arg constructor is kept hand-written because
+ * it doubles as the {@code Function<String, Cart>} passed to {@code Map#computeIfAbsent} in
+ * {@code ShoppingCartService#getCart} (i.e. {@code Cart::new}).
+ */
+@Getter
 public class Cart {
     private final String userId;
     private final Map<String, CartItem> items = new ConcurrentHashMap<>();
 
     public Cart(String userId) {
         this.userId = userId;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public Map<String, CartItem> getItems() {
-        return items;
     }
 
     public void addItem(Product product, int quantity) {

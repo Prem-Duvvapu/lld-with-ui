@@ -51,7 +51,7 @@ Verified against the tree on `main` (2026-08-26):
 | **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | All 45 modules now have `data/sequences/<module>.js`, added in one un-reviewed direct push to `main` (`2f1d52e`, no branch/PR/CI — a real process violation, see RCA-030). A ~22-module spot-check found `atm`, `library`, `shoppingcart` **severely fabricated** (invented architectures/classes that don't exist — all three now fixed) and 7 more with smaller real naming errors (also fixed: `hotel`, `cricinfo`, `course-registration`, `music-streaming`, `car-rental`, `stackoverflow`, `blocking-queue`). **~10 of the 32 newly-added files were never sampled** (`bloom-filter`, `concurrent-hashmap`, `fizz-buzz`, `foo-bar`, `h2o`, `merge-sort`, `zero-even-odd`, `ttl-cache`, and a few others) — run RCA-030's diagnostic grep against each before trusting them. |
 
 **Unverified against the bar** (not tracked in any wave above, no recorded `/audit-lld` pass):
-library, shoppingcart. `airline`, `pubsub`, `atm` and `stock-brokerage` were all raised to the
+library. `airline`, `pubsub`, `atm`, `stock-brokerage` and `shoppingcart` were all raised to the
 reference bar in this pass:
 - `airline` — PR #38 (concurrent seat-hold/booking locking, State + Strategy/Factory, typed
   exceptions, isolated sim engine, tests; RCA-024).
@@ -73,6 +73,17 @@ reference bar in this pass:
   hand-rolled its own dark-only-palette page) and replaced the RCA-030-era fabricated sequence
   diagram with one grounded in the real matching code — see `## Stock Brokerage Module` in
   `AGENTS.md`.
+- `shoppingcart` — already substantially real (Command + Strategy patterns, a full exception set)
+  but only one test file; two genuine concurrency/correctness bugs were found and fixed while
+  writing the tests this audit asked for: `UpdateQuantityCommand`'s undo couldn't restore a line
+  item after its quantity dropped to 0 (RCA-032), and — more seriously — the idempotency-key cache's
+  check-then-act was not atomic, so concurrent retries sharing the same key could double-charge and
+  double-decrement stock (RCA-033, caught by a genuinely concurrent test, not just a sequential
+  retry test). A `ShoppingCartException` base was added, models moved to Lombok (`Product`/`Cart`
+  `@Getter`-only matching `atm.model.Account`'s lock-field precedent), the ascending-product-id lock
+  ordering was proven deadlock-free under real concurrent threads, and the simulation tab was
+  rebuilt as an 8-step user-driven walkthrough with a lock-order visualization — see
+  `## Shopping Cart Module` in `AGENTS.md`.
 `library` was paused mid-audit (its worktree/branch still hold partial investigation notes — resume
 by re-running the same audit-and-harden pass rather than starting over) to keep only one agent
 running at a time. `linkedin` and `movieticket` are referenced elsewhere in this doc as pattern

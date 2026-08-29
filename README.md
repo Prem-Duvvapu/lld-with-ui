@@ -561,20 +561,27 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 19. Online Shopping System (Shopping Cart)
 
 #### Key Features
-- **Command Pattern with Undo**: Cart commands (`AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand`) with single-step atomic Undo.
-- **Multi-Strategy Payment**: Process checkout via UPI, Credit Card, Debit Card, or Wallet strategies.
-- **Deadlock-Free Checkout**: Ascending `productId` lock ordering on fine-grained per-product `ReentrantLock`s.
-- **Atomic Stock Protection**: CAS check-and-decrement preventing negative stock under high-concurrency race conditions.
+- **Command Pattern with Undo**: Cart commands (`AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand`) with single-step atomic Undo — `UpdateQuantityCommand` snapshots the full previous `CartItem` (not just its quantity) so undo correctly restores the item even if the update had dropped its quantity to 0.
+- **Multi-Strategy Payment**: Process checkout via UPI, Credit Card, Debit Card, or Wallet strategies, resolved by `ShoppingCartPaymentProcessor`; an unsupported/unregistered method throws `PaymentFailedException`.
+- **Deadlock-Free Checkout**: `placeOrder()` sorts every product touched by an order by id ascending and locks them in that order — never cart-insertion order — so two carts sharing products in opposite orders can never deadlock each other. Proven under real concurrent threads across 50 repeated rounds.
+- **Atomic Stock Protection**: CAS check-and-decrement (`AtomicInteger`) preventing negative stock under high-concurrency race conditions, backed by a per-product `ReentrantLock` during checkout.
+- **Idempotent Checkout**: a client-supplied idempotency key makes a retried `placeOrder()` call return the identical cached `Order` with no second stock decrement or payment charge — proven under concurrent retries, not just sequential ones.
+- **Typed Exception Hierarchy**: `ShoppingCartException` (abstract) with `ProductNotFoundException` (404), `CartEmptyException`/`InvalidOrderStateException` (400), `InsufficientStockException` (409), `PaymentFailedException` (422).
+- **Isolated Simulation**: an 8-step interactive walkthrough against a completely separate `/sim/*` sandbox — two shoppers contend for low stock, a multi-product checkout visualizes lock-acquisition order vs. cart-insertion order, and a guarded cancel-after-ship rejection.
 
 #### API Endpoints
 - `GET /api/shoppingcart/products`
 - `GET /api/shoppingcart/cart/{userId}`
 - `POST /api/shoppingcart/cart/{userId}/add`
+- `POST /api/shoppingcart/cart/{userId}/update`
 - `POST /api/shoppingcart/cart/{userId}/undo`
 - `POST /api/shoppingcart/checkout`
+- `POST /api/shoppingcart/orders/{id}/status`
 - `POST /api/shoppingcart/orders/{id}/cancel`
 - `POST /api/shoppingcart/sim/reset`
+- `POST /api/shoppingcart/sim/add-to-cart`
 - `POST /api/shoppingcart/sim/place-order`
+- `POST /api/shoppingcart/sim/update-status`
 
 ---
 
