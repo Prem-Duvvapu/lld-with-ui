@@ -4,7 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
 @ResponseStatus(HttpStatus.FORBIDDEN)
-public class CardBlockedException extends RuntimeException {
+public class CardBlockedException extends AtmException {
     public CardBlockedException(String message) {
         super(message);
     }

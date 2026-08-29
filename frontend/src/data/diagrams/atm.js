@@ -9,7 +9,7 @@ export default {
       name: 'AtmService',
       stereotype: 'singleton',
       fields: [
-        '- bankingService: BankingService',
+        '- bankingRepository: BankingRepository',
         '- cashDispenser: CashDispenser',
         '- currentState: ATMState',
         '- activeCard: Card',
@@ -59,8 +59,8 @@ export default {
       ]
     },
     {
-      name: 'BankingService',
-      stereotype: 'service',
+      name: 'BankingRepository',
+      stereotype: 'repository',
       fields: [
         '- accounts: ConcurrentHashMap<String, Account>',
         '- cards: ConcurrentHashMap<String, Card>'
@@ -171,7 +171,7 @@ export default {
     },
     {
       from: 'AtmService',
-      to: 'BankingService',
+      to: 'BankingRepository',
       label: 'delegates account lookups'
     },
     {

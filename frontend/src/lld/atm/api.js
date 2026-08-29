@@ -18,10 +18,10 @@ export function getBalance(accountNumber) {
   return apiFetch(`/atm/${accountNumber}/balance`);
 }
 
-export function withdraw(accountNumber, amount) {
+export function withdraw(accountNumber, amount, mode) {
   return apiFetch(`/atm/${accountNumber}/withdraw`, {
     method: 'POST',
-    body: JSON.stringify({ amount: Number(amount) }),
+    body: JSON.stringify({ amount: Number(amount), mode }),
   });
 }
 
@@ -49,6 +49,13 @@ export function simReset() {
   return apiFetch('/atm/sim/reset', { method: 'POST' });
 }
 
+export function simInsertCard(cardNumber) {
+  return apiFetch('/atm/sim/insert-card', {
+    method: 'POST',
+    body: JSON.stringify({ cardNumber }),
+  });
+}
+
 export function simAuthenticate(cardNumber, pin) {
   return apiFetch('/atm/sim/authenticate', {
     method: 'POST',
@@ -56,11 +63,15 @@ export function simAuthenticate(cardNumber, pin) {
   });
 }
 
-export function simWithdraw(accountNumber, amount) {
+export function simWithdraw(accountNumber, amount, mode) {
   return apiFetch('/atm/sim/withdraw', {
     method: 'POST',
-    body: JSON.stringify({ accountNumber, amount: Number(amount) }),
+    body: JSON.stringify({ accountNumber, amount: Number(amount), mode }),
   });
+}
+
+export function simEject() {
+  return apiFetch('/atm/sim/eject', { method: 'POST' });
 }
 
 export function simGetEvents() {

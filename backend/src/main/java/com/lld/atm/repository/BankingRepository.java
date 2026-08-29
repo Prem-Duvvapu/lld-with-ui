@@ -1,17 +1,24 @@
-package com.lld.atm.service;
+package com.lld.atm.repository;
 
 import com.lld.atm.exception.AccountNotFoundException;
 import com.lld.atm.model.Account;
 import com.lld.atm.model.Card;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Service
-public class BankingService {
+/**
+ * In-memory store for live ATM state — {@code ConcurrentHashMap} throughout, the same shape as
+ * {@code AirlineRepository}/{@code ConcertTicketRepository}. Pure CRUD: no session, locking or
+ * business-rule logic lives here — that all belongs to {@code AtmService}, which owns a second,
+ * independently constructed instance of this class for its isolated {@code /sim/*} sandbox so a
+ * demo run can never mutate a real seeded account or card.
+ */
+@Repository
+public class BankingRepository {
 
     private final Map<String, Account> accounts = new ConcurrentHashMap<>();
     private final Map<String, Card> cards = new ConcurrentHashMap<>();

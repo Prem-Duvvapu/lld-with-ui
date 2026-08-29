@@ -2,21 +2,38 @@ package com.lld.atm.dispenser;
 
 import com.lld.atm.exception.InsufficientCashException;
 import com.lld.atm.model.NoteDenomination;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * The physical note hardware. All inventory reads/writes go through {@link #dispenserLock} — a
+ * single fair {@code ReentrantLock} for the whole cash cassette, not per-denomination, because a
+ * dispense has to check-and-deduct across several denominations atomically (a request that reads
+ * "enough ₹500s" and then a concurrent thread empties them between the read and the deduction would
+ * double-dispense). {@link com.lld.atm.service.AtmService#withdraw} takes the per-account lock
+ * first and this lock second, always in that order, so there is one fixed lock-acquisition
+ * ordering and no risk of the classic two-lock deadlock.
+ */
 @Component
 public class CashDispenser {
 
     private final Map<NoteDenomination, Integer> noteInventory = new ConcurrentHashMap<>();
     private final ReentrantLock dispenserLock = new ReentrantLock(true);
-    private final DenominationDispenseStrategy dispenseStrategy;
+    private final DenominationDispenseStrategyFactory strategyFactory;
+    private final DispenseMode defaultMode;
 
-    public CashDispenser(DenominationDispenseStrategy dispenseStrategy) {
-        this.dispenseStrategy = dispenseStrategy;
+    @Autowired
+    public CashDispenser(DenominationDispenseStrategyFactory strategyFactory) {
+        this(strategyFactory, DispenseMode.MINIMIZE_NOTES);
+    }
+
+    public CashDispenser(DenominationDispenseStrategyFactory strategyFactory, DispenseMode defaultMode) {
+        this.strategyFactory = strategyFactory;
+        this.defaultMode = defaultMode;
         initDefaultInventory();
     }
 
@@ -74,7 +91,17 @@ public class CashDispenser {
         }
     }
 
+    /** Dispenses using this cassette's default {@link DispenseMode}. */
     public Map<NoteDenomination, Integer> dispenseCash(int amount) {
+        return dispenseCash(amount, defaultMode);
+    }
+
+    /**
+     * Computes the note breakdown for {@code amount} under {@code mode} and deducts it from
+     * inventory atomically. Both the availability check and the deduction happen under the same
+     * lock acquisition, so two concurrent dispense calls can never both "see" the same last note.
+     */
+    public Map<NoteDenomination, Integer> dispenseCash(int amount, DispenseMode mode) {
         dispenserLock.lock();
         try {
             if (amount > getTotalCashAvailable()) {
@@ -82,7 +109,8 @@ public class CashDispenser {
                         amount, getTotalCashAvailable()));
             }
 
-            Map<NoteDenomination, Integer> notesToDispense = dispenseStrategy.calculateNotes(amount, noteInventory);
+            DenominationDispenseStrategy strategy = strategyFactory.forMode(mode);
+            Map<NoteDenomination, Integer> notesToDispense = strategy.calculateNotes(amount, noteInventory);
 
             // Deduct notes from inventory under lock
             for (Map.Entry<NoteDenomination, Integer> entry : notesToDispense.entrySet()) {

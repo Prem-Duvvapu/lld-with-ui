@@ -51,13 +51,23 @@ Verified against the tree on `main` (2026-08-26):
 | **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | splitwise, uber, zomato, digitalwallet, taskmanagement, auction, socialnetwork, ludo, airline, elevator, parking, pubsub have `data/sequences/<module>.js` so far |
 
 **Unverified against the bar** (not tracked in any wave above, no recorded `/audit-lld` pass):
-airline, atm, library, shoppingcart, stock-brokerage. `pubsub` was raised to the reference
-bar in this pass (typed exception hierarchy completed, `PubSubRepository` wired in for real with a
-composite-key fix, `SubscriberWorker`/backpressure/fan-out proven with real threads and latches,
-8-step sim, sequence diagram — see `## Pub Sub System Module` in `AGENTS.md`). `linkedin` and `movieticket`
-are referenced elsewhere in this doc as pattern exemplars (canonical pair locking, seat/hold
-concurrency respectively) and can be treated as reference-tier. Run `/audit-lld` on the other
-five before assuming they're at the bar.
+library, shoppingcart, stock-brokerage. `airline`, `pubsub` and `atm` were all raised to the
+reference bar in this pass:
+- `airline` — PR #38 (concurrent seat-hold/booking locking, State + Strategy/Factory, typed
+  exceptions, isolated sim engine, tests; RCA-024).
+- `pubsub` — typed exception hierarchy completed, `PubSubRepository` wired in for real with a
+  composite-key fix, `SubscriberWorker`/backpressure/fan-out proven with real threads and latches,
+  8-step sim, sequence diagram (RCA-028) — see `## Pub Sub System Module` in `AGENTS.md`.
+- `atm` — hardened from a bare `ATMState` enum + monolithic `BankingService` to a real class-per-state
+  session machine (`com.lld.atm.state`), a `BankingRepository`, a second interchangeable dispense
+  strategy behind a factory, a completed `AtmException` hierarchy, and a real per-account-lock
+  concurrency test proving no overdraw under 10 concurrent withdrawals — see `## ATM Module` in
+  `AGENTS.md`.
+`library` was paused mid-audit (its worktree/branch still hold partial investigation notes — resume
+by re-running the same audit-and-harden pass rather than starting over) to keep only one agent
+running at a time. `linkedin` and `movieticket` are referenced elsewhere in this doc as pattern
+exemplars (canonical pair locking, seat/hold concurrency respectively) and can be treated as
+reference-tier. Run `/audit-lld` on the remaining three before assuming they're at the bar.
 
 ## How to use this file
 
