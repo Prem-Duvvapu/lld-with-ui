@@ -1,91 +1,67 @@
-const BASE_URL = '/api/stockbroker';
+import { apiFetch } from '../../utils/api';
 
-async function handleResponse(res) {
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || 'API request failed');
-  }
-  return res.json();
-}
+const BASE = '/stockbroker';
 
 // Stocks, Accounts & Depth
-export async function getStocks() {
-  const res = await fetch(`${BASE_URL}/stocks`);
-  return handleResponse(res);
+export function getStocks() {
+  return apiFetch(`${BASE}/stocks`);
 }
 
-export async function getStock(symbol) {
-  const res = await fetch(`${BASE_URL}/stocks/${symbol}`);
-  return handleResponse(res);
+export function getStock(symbol) {
+  return apiFetch(`${BASE}/stocks/${symbol}`);
 }
 
-export async function getOrderBookDepth(symbol) {
-  const res = await fetch(`${BASE_URL}/orderbook/${symbol}`);
-  return handleResponse(res);
+export function getOrderBookDepth(symbol) {
+  return apiFetch(`${BASE}/orderbook/${symbol}`);
 }
 
-export async function getAccount(accountId) {
-  const res = await fetch(`${BASE_URL}/accounts/${accountId}`);
-  return handleResponse(res);
+export function getAccount(accountId) {
+  return apiFetch(`${BASE}/accounts/${accountId}`);
 }
 
-export async function getAccountOrders(accountId) {
-  const res = await fetch(`${BASE_URL}/accounts/${accountId}/orders`);
-  return handleResponse(res);
+export function getAccountOrders(accountId) {
+  return apiFetch(`${BASE}/accounts/${accountId}/orders`);
 }
 
-export async function getRecentQuotes() {
-  const res = await fetch(`${BASE_URL}/quotes`);
-  return handleResponse(res);
+export function getRecentQuotes() {
+  return apiFetch(`${BASE}/quotes`);
 }
 
 // Order Management
-export async function placeOrder(orderData) {
-  const res = await fetch(`${BASE_URL}/orders`, {
+export function placeOrder(orderData) {
+  return apiFetch(`${BASE}/orders`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),
   });
-  return handleResponse(res);
 }
 
-export async function cancelOrder(orderId) {
-  const res = await fetch(`${BASE_URL}/orders/${orderId}/cancel`, {
+export function cancelOrder(orderId) {
+  return apiFetch(`${BASE}/orders/${orderId}/cancel`, { method: 'POST' });
+}
+
+// Isolated Simulation Endpoints
+export function simReset() {
+  return apiFetch(`${BASE}/sim/reset`, { method: 'POST' });
+}
+
+export function simPlaceOrder(orderData) {
+  return apiFetch(`${BASE}/sim/order`, {
     method: 'POST',
-  });
-  return handleResponse(res);
-}
-
-// Simulation Endpoints
-export async function simReset() {
-  const res = await fetch(`${BASE_URL}/sim/reset`, { method: 'POST' });
-  return handleResponse(res);
-}
-
-export async function simPlaceOrder(orderData) {
-  const res = await fetch(`${BASE_URL}/sim/order`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),
   });
-  return handleResponse(res);
 }
 
-export async function simCancelOrder(orderId) {
-  const res = await fetch(`${BASE_URL}/sim/cancel`, {
+export function simCancelOrder(orderId) {
+  return apiFetch(`${BASE}/sim/cancel`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ orderId }),
   });
-  return handleResponse(res);
 }
 
-export async function simGetSnapshots() {
-  const res = await fetch(`${BASE_URL}/sim/snapshots`);
-  return handleResponse(res);
+export function simGetSnapshots() {
+  return apiFetch(`${BASE}/sim/snapshots`);
 }
 
-export async function simGetEvents() {
-  const res = await fetch(`${BASE_URL}/sim/events`);
-  return handleResponse(res);
+export function simGetEvents() {
+  return apiFetch(`${BASE}/sim/events`);
 }

@@ -42,7 +42,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 32 | [Concert Ticket Booking](#32-concert-ticket-booking) | Event seats & reservation | Per-Seat ReentrantLock, Hold TTL, Strategy (refund policy) |
 | 33 | [CricInfo](#33-cricinfo) | Live cricket scorecard | Observer Pattern (ball-by-ball fan-out), Live Scorecard Projection, Per-Match Lock |
 | 34 | [Course Registration System](#34-course-registration-system) | Student enrollment | Facade, Repository, Per-Section ReentrantLock + FIFO Waitlist, Prerequisite & Schedule-Conflict Checks |
-| 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy (Market/Limit), Observer Quotes |
+| 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy+Factory (Market/Limit), Self-Trade Prevention, Observer Quotes |
 | 36 | [Music Streaming Service](#36-music-streaming-service) | Audio catalog & playlists | Strategy (subscription tiers), Factory, Observer, Per-User ReentrantLock |
 | 37 | FooBar Alternately | Multithreading concurrency | Two-Semaphore Strict Alternation, real backend trace replay |
 | 38 | Zero Even Odd | Multithreading concurrency | Three-Semaphore Coordinated Handoff, real backend trace replay |
@@ -863,10 +863,11 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 #### Key Features
 - **In-Memory Limit Order Book**: Price-Time Priority matching engine with dual `TreeMap` price levels (`bids` descending, `asks` ascending) and FIFO queues.
-- **Strategy Pattern for Order Execution**: `MarketExecutionStrategy` (immediate liquidity sweep across multiple depth levels) and `LimitExecutionStrategy` (immediate match + resting in book).
-- **Atomic Pre-Trade Balance Reservation**: Mutex-guarded cash reservation for Buy orders and share reservation for Sell orders, preventing over-commitment and race conditions.
+- **Strategy + Factory for Order Execution**: `MarketExecutionStrategy` (immediate liquidity sweep across multiple depth levels) and `LimitExecutionStrategy` (immediate match + resting in book), resolved via an `EnumMap`-backed `OrderExecutionStrategyFactory`; `OrderFactory` separately produces the typed `BuyOrder`/`SellOrder`.
+- **Self-Trade Prevention**: a top-of-book guard rejects (`OrderExecutionException`, Cancel-Newest policy) an order that would match against the placing account's own best resting counter-order.
+- **Atomic Pre-Trade Balance Reservation**: Mutex-guarded cash reservation for Buy orders and share reservation for Sell orders, preventing over-commitment and race conditions — proven with real concurrent-thread tests, not just single-threaded assertions.
 - **Observer Pattern for Live Quotes**: Registered `StockPriceObserver` instances receive push updates on last-traded price and executed volume.
-- **Per-Symbol Concurrency Serialization**: Dedicated per-symbol `ReentrantLock` ensuring atomic matching while allowing independent stock tickers to trade in parallel.
+- **Per-Symbol Concurrency Serialization**: Dedicated per-symbol `ReentrantLock` ensuring atomic matching while allowing independent stock tickers to trade in parallel — never held nested with the per-account lock, so lock-ordering deadlock is structurally impossible.
 
 #### API Endpoints
 - `GET /api/stockbroker/stocks`

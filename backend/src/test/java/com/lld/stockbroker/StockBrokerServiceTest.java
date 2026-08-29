@@ -5,6 +5,7 @@ import com.lld.stockbroker.enums.OrderStatus;
 import com.lld.stockbroker.enums.OrderType;
 import com.lld.stockbroker.exception.InsufficientFundsException;
 import com.lld.stockbroker.exception.InsufficientStockException;
+import com.lld.stockbroker.exception.OrderExecutionException;
 import com.lld.stockbroker.model.Account;
 import com.lld.stockbroker.model.Order;
 import com.lld.stockbroker.model.OrderBook;
@@ -15,6 +16,7 @@ import com.lld.stockbroker.service.StockBrokerService;
 import com.lld.stockbroker.strategy.LimitExecutionStrategy;
 import com.lld.stockbroker.strategy.MarketExecutionStrategy;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -131,6 +133,31 @@ public class StockBrokerServiceTest {
         Order cancelled = service.cancelOrder(buy.getOrderId());
         assertEquals(OrderStatus.CANCELLED, cancelled.getStatus());
         assertEquals(initialAvail, alice.getAvailableBalance());
+    }
+
+    @Test
+    @DisplayName("self-trade prevention rejects the order at the service level and releases the reservation")
+    void testSelfTradePreventionReleasesReservation() {
+        // Alice rests a sell at 1490, then tries to buy across the spread against her own order.
+        service.placeOrder("ACC-user-alice", "INFY", OrderSide.SELL, OrderType.LIMIT, 1490.0, 10);
+        Account alice = service.getAccount("ACC-user-alice");
+        double availableBeforeSelfBuy = alice.getAvailableBalance();
+
+        assertThrows(OrderExecutionException.class, () ->
+                service.placeOrder("ACC-user-alice", "INFY", OrderSide.BUY, OrderType.LIMIT, 1495.0, 10));
+
+        // The rejected order's own fund reservation must not leak.
+        assertEquals(availableBeforeSelfBuy, alice.getAvailableBalance(), 0.001);
+    }
+
+    @Test
+    @DisplayName("a different account can still trade at the price a same-account order would have been blocked at")
+    void testDifferentAccountsStillMatchNormally() {
+        Order sell = service.placeOrder("ACC-user-alice", "INFY", OrderSide.SELL, OrderType.LIMIT, 1490.0, 10);
+        Order buy = service.placeOrder("ACC-user-bob", "INFY", OrderSide.BUY, OrderType.LIMIT, 1495.0, 10);
+
+        assertEquals(OrderStatus.EXECUTED, sell.getStatus());
+        assertEquals(OrderStatus.EXECUTED, buy.getStatus());
     }
 
     @Test

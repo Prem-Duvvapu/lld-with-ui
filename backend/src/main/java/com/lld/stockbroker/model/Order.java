@@ -3,10 +3,22 @@ package com.lld.stockbroker.model;
 import com.lld.stockbroker.enums.OrderSide;
 import com.lld.stockbroker.enums.OrderStatus;
 import com.lld.stockbroker.enums.OrderType;
+import lombok.AccessLevel;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Base order type — {@link BuyOrder} and {@link SellOrder} are the two concrete subclasses
+ * {@link com.lld.stockbroker.factory.OrderFactory} produces. {@code filledQuantity} stays an
+ * {@link AtomicInteger} (rather than a plain int under Lombok's generated getter) because
+ * {@code fill()} is called from inside the per-symbol matching lock in
+ * {@link com.lld.stockbroker.strategy.LimitExecutionStrategy}/{@link com.lld.stockbroker.strategy.MarketExecutionStrategy}
+ * — the field itself doesn't need atomicity there, but keeping it atomic costs nothing and guards
+ * against a future caller reading it without the lock.
+ */
+@Getter
 public abstract class Order {
     private final String orderId;
     private final String accountId;
@@ -15,13 +27,14 @@ public abstract class Order {
     private final OrderType type;
     private final double limitPrice;
     private final int totalQuantity;
+    @Getter(AccessLevel.NONE)
     private final AtomicInteger filledQuantity;
     private volatile OrderStatus status;
-    private final Instant createdAt;
     private volatile Instant updatedAt;
+    private final Instant createdAt;
 
-    public Order(String orderId, String accountId, String symbol, OrderSide side,
-                 OrderType type, double limitPrice, int totalQuantity) {
+    protected Order(String orderId, String accountId, String symbol, OrderSide side,
+                    OrderType type, double limitPrice, int totalQuantity) {
         this.orderId = orderId;
         this.accountId = accountId;
         this.symbol = symbol != null ? symbol.toUpperCase().trim() : "STOCK";
@@ -35,44 +48,12 @@ public abstract class Order {
         this.updatedAt = this.createdAt;
     }
 
-    public String getOrderId() {
-        return orderId;
-    }
-
-    public String getAccountId() {
-        return accountId;
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public OrderSide getSide() {
-        return side;
-    }
-
-    public OrderType getType() {
-        return type;
-    }
-
-    public double getLimitPrice() {
-        return limitPrice;
-    }
-
-    public int getTotalQuantity() {
-        return totalQuantity;
-    }
-
     public int getFilledQuantity() {
         return filledQuantity.get();
     }
 
     public int getRemainingQuantity() {
         return Math.max(0, totalQuantity - filledQuantity.get());
-    }
-
-    public OrderStatus getStatus() {
-        return status;
     }
 
     public void setStatus(OrderStatus status) {
@@ -88,13 +69,5 @@ public abstract class Order {
             this.status = OrderStatus.PARTIALLY_FILLED;
         }
         this.updatedAt = Instant.now();
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
     }
 }

@@ -2680,3 +2680,109 @@ find backend/src/main/java -name "<ClassName>.java"   # empty result = likely fa
    exactly as fabrication-prone as generating code, and deserves the same grounding discipline: read
    the actual class before naming it, and prefer generic textbook-shaped naming ("a Notifier", "a
    Repository") as an honest placeholder over a specific invented class name that reads as real.
+
+## RCA-031: Stock Brokerage's `OrderExecutionException` Was Dead Code, and Wiring It Up for Self-Trade Prevention Would Have Leaked the Order's Fund/Share Reservation on Every Rejection
+
+**Severity:** Medium (no live-code impact yet — `OrderExecutionException` was never thrown before
+this pass, so no user-facing bug existed on `main`; but the reservation-leak this RCA describes
+would have shipped as a real, permanent-money-stuck bug in the very same commit that added the
+feature meant to fix a different gap, had it not been caught before merge)
+**Date:** 2026-08-29
+**Status:** Resolved
+**Affected:** `com.lld.stockbroker.strategy.OrderExecutionStrategy#guardSelfTrade` (new),
+`com.lld.stockbroker.service.StockBrokerService#placeOrder`, `#simPlaceOrder`
+
+### 1. Overview & Severity
+Auditing `stock-brokerage` against the repo's 17-criteria bar (it had never had a recorded
+`/audit-lld` pass) found six concrete subclasses of `StockBrokerException`, one of which —
+`OrderExecutionException`, `@ResponseStatus(UNPROCESSABLE_ENTITY)` — was never constructed
+anywhere in the codebase. `DomainExceptionContractTest`/`GlobalExceptionHandlerTest` only check
+that every *declared* exception maps to a non-5xx status; neither test (nor any other guard-rail
+suite) can detect that a declared exception is never actually thrown, so this had shipped silently
+since the module was first built. The fix — real, provokable self-trade prevention (a top-of-book
+check rejecting an order that would match the placing account's own resting counter-order) — is
+what surfaced the second, more serious issue below while still in the same working session, before
+any commit landed.
+
+### 2. Symptoms & Error Logs
+No test failure triggered this — it was caught by manually tracing what happens to
+`StockBrokerService#placeOrder`'s pre-check reservation (step 1: `account.reserveFunds(...)` for a
+BUY, or `account.getPortfolio().reserveShares(...)` for a SELL) if the strategy's `execute()` call
+in step 3 throws *after* that reservation has already succeeded. Before this pass, nothing in
+`OrderExecutionStrategy#execute()` could ever throw past that point — the method only returned a
+(possibly empty) `List<Trade>`. Adding `guardSelfTrade()` as the first statement inside `execute()`
+made that assumption false: an `OrderExecutionException` now legitimately fires *after* the caller
+has already committed the reservation, and the original `placeOrder`/`simPlaceOrder` code had no
+`catch` block that would ever release it.
+
+### 3. Root Cause
+`placeOrder`'s reservation step and its matching-under-lock step were written as two sequential,
+un-linked blocks:
+```java
+if (side == OrderSide.BUY) {
+    account.reserveFunds(requiredFunds);          // (1) commits the reservation
+} else {
+    account.getPortfolio().reserveShares(sym, quantity);
+}
+...
+lock.lock();
+try {
+    strategy.execute(order, book, accounts, stock); // (2) previously could not throw past here
+} finally {
+    lock.unlock();
+}
+```
+The only exceptions either statement was ever documented (or observed) to throw were
+`InsufficientFundsException`/`InsufficientStockException` from step (1) itself — thrown *before*
+any reservation is committed, so there was never anything to release. Once step (2) gained a real
+failure mode of its own, that reservation became orphaned on every rejection: `reservedBalance`
+(or a `Holding`'s `reservedQuantity`) would be permanently incremented with no corresponding
+release, silently shrinking the account's `getAvailableBalance()`/`getAvailableQuantity()` forever
+— indistinguishable from real money/shares that had simply vanished, for every self-trade attempt
+a user made. `simPlaceOrder` had the identical shape one level down (its own `try`/`catch
+(Exception e)` around the whole order lifecycle logs `ORDER_FAILED` but never released anything
+either).
+
+### 4. Diagnostic Commands
+```bash
+# Confirm OrderExecutionException was never thrown before this pass (only declared):
+grep -rn "new OrderExecutionException" backend/src/main/java/com/lld/stockbroker/
+
+# Trace every path that can call Account#reserveFunds / Portfolio#reserveShares without a
+# corresponding release*/settle* on every exit, including exceptional ones:
+grep -n "reserveFunds\|reserveShares\|releaseReservedFunds\|releaseReservedShares" \
+  backend/src/main/java/com/lld/stockbroker/service/StockBrokerService.java
+```
+
+### 5. Step-by-Step Resolution
+1. Implemented `guardSelfTrade(order, book)` as a `default` method on `OrderExecutionStrategy`
+   (shared by both `MarketExecutionStrategy`/`LimitExecutionStrategy`, called as the first
+   statement in each `execute()`), throwing `OrderExecutionException` when the best available
+   counter-price on the opposite side of the book belongs to the placing account.
+2. Wrapped the matching call in both `placeOrder` and `simPlaceOrder` in a `catch
+   (OrderExecutionException ex)` block that releases exactly the reservation step (1) committed
+   (`releaseReservedFunds(requiredFunds)` for a BUY, `releaseReservedShares(sym, quantity)` for a
+   SELL) and sets the order's status to `REJECTED` before rethrowing (`placeOrder`) or letting the
+   outer catch log it (`simPlaceOrder`) — mirroring the release logic `cancelOrder` already used
+   for an unexecuted remainder.
+3. Added `StockBrokerServiceTest#testSelfTradePreventionReleasesReservation`, which places a
+   self-crossing order and asserts the account's `getAvailableBalance()` is back to its pre-attempt
+   value after the exception — this is the regression test that would have caught the leak had it
+   shipped.
+
+### 6. Preventative Measures
+1. **A method that has never thrown past a given point is not guaranteed to keep that property**
+   — every future strategy/matching change in this file must re-audit whether the reservation
+   release still covers every new exceptional exit, not just the ones that existed when the
+   original reserve/release pairing was written.
+2. Whenever a "reserve, then do the risky thing, then settle" shape gains a new failure mode
+   between reserve and settle, grep for every `reserve*` call in the surrounding service and
+   confirm each has a `release*`/`settle*` on **every** exit path, exceptional included — the same
+   discipline this repo's other modules apply to lock acquisition (`try`/`finally` unlock) applies
+   equally to reservation accounting, and the failure mode (a silently shrinking available balance)
+   is just as hard to notice in production as a stuck lock is.
+3. A declared-but-never-thrown exception in this codebase is not necessarily harmless dead code to
+   simply delete — it can be a genuine missing feature (self-trade prevention, here) whose real
+   implementation surfaces its own new correctness requirements. Treat `grep -rn "new
+   <ExceptionName>"` returning nothing as a prompt to ask "should this be thrown, and if so, what
+   does wiring it up actually require upstream?" before assuming the fix is to remove the class.

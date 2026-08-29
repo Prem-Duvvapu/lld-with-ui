@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import LldPage from '../../components/LldPage';
 import {
   getStocks,
   getOrderBookDepth,
@@ -10,727 +11,465 @@ import {
   simReset,
   simPlaceOrder,
   simCancelOrder,
-  simGetSnapshots,
-  simGetEvents,
 } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import DesignDetails from '../../components/DesignDetails';
-import ThemeToggle from '../../components/ThemeToggle';
+import './StockBrokeragePage.css';
 
-export default function StockBrokeragePage() {
-  const [activeTab, setActiveTab] = useState('trade');
+const ACCOUNTS = [
+  { id: 'ACC-user-alice', label: 'Alice Vance' },
+  { id: 'ACC-user-bob', label: 'Bob Smith' },
+];
 
-  // Real Market & Account State
+/* ============================= TAB 1: LIVE TRADING CONSOLE ============================= */
+
+function AppTab() {
   const [stocks, setStocks] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState('INFY');
-  const [currentAccountId, setCurrentAccountId] = useState('ACC-user-alice');
+  const [accountId, setAccountId] = useState('ACC-user-alice');
   const [account, setAccount] = useState(null);
-  const [accountOrders, setAccountOrders] = useState([]);
-  const [orderBookDepth, setOrderBookDepth] = useState({ bids: [], asks: [], spread: 0 });
-  const [recentQuotes, setRecentQuotes] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [depth, setDepth] = useState({ bids: [], asks: [], spread: 0 });
+  const [quotes, setQuotes] = useState([]);
+  const [banner, setBanner] = useState(null);
 
-  // Order Placement Form
-  const [orderSide, setOrderSide] = useState('BUY');
-  const [orderType, setOrderType] = useState('LIMIT');
-  const [orderPrice, setOrderPrice] = useState('1500');
-  const [orderQty, setOrderQty] = useState('10');
+  const [side, setSide] = useState('BUY');
+  const [type, setType] = useState('LIMIT');
+  const [price, setPrice] = useState('1500');
+  const [qty, setQty] = useState('10');
 
-  // Simulation State
-  const [simSnapshots, setSimSnapshots] = useState(null);
-  const [simEvents, setSimEvents] = useState([]);
-  const [simAccountId, setSimAccountId] = useState('SIM-ACC-ALPHA');
-  const [simSymbol, setSimSymbol] = useState('INFY');
-  const [simSide, setSimSide] = useState('BUY');
-  const [simType, setSimType] = useState('MARKET');
-  const [simPrice, setSimPrice] = useState('1500');
-  const [simQty, setSimQty] = useState('15');
-  const [simLoading, setSimLoading] = useState(false);
+  const showBanner = (text, kind = 'info') => {
+    setBanner({ text, kind });
+    setTimeout(() => setBanner(null), 4000);
+  };
 
-  // Status Banner
-  const [statusMsg, setStatusMsg] = useState({ text: '', type: 'info' });
+  const refresh = async () => {
+    try {
+      const [d, acc, ord, q] = await Promise.all([
+        getOrderBookDepth(selectedSymbol),
+        getAccount(accountId),
+        getAccountOrders(accountId),
+        getRecentQuotes(),
+      ]);
+      setDepth(d || { bids: [], asks: [], spread: 0 });
+      setAccount(acc);
+      setOrders(ord || []);
+      setQuotes(q || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   useEffect(() => {
-    loadInitialData();
-    const interval = setInterval(() => {
-      refreshMarketData();
-    }, 4000);
+    getStocks().then((list) => {
+      setStocks(list || []);
+      if (list && list.length && !list.find((s) => s.symbol === selectedSymbol)) {
+        setSelectedSymbol(list[0].symbol);
+      }
+    }).catch((err) => showBanner(`Failed to reach backend on port 9090: ${err.message}`, 'error'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const interval = setInterval(refresh, 4000);
     return () => clearInterval(interval);
-  }, [selectedSymbol, currentAccountId]);
-
-  const showBanner = (text, type = 'info') => {
-    setStatusMsg({ text, type });
-    setTimeout(() => setStatusMsg({ text: '', type: 'info' }), 4000);
-  };
-
-  const loadInitialData = async () => {
-    try {
-      const stockList = await getStocks();
-      if (Array.isArray(stockList) && stockList.length > 0) {
-        setStocks(stockList);
-        setSelectedSymbol(stockList[0].symbol);
-        setOrderPrice(stockList[0].currentPrice.toString());
-      }
-      refreshMarketData();
-    } catch (err) {
-      console.error(err);
-      showBanner('Failed to connect to backend on port 9090.', 'error');
-    }
-  };
-
-  const refreshMarketData = async () => {
-    try {
-      if (selectedSymbol) {
-        const depth = await getOrderBookDepth(selectedSymbol);
-        setOrderBookDepth(depth || { bids: [], asks: [], spread: 0 });
-      }
-      if (currentAccountId) {
-        const acc = await getAccount(currentAccountId);
-        setAccount(acc);
-        const orders = await getAccountOrders(currentAccountId);
-        setAccountOrders(orders || []);
-      }
-      const quotes = await getRecentQuotes();
-      setRecentQuotes(quotes || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSymbol, accountId]);
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
+    const q = parseInt(qty, 10);
+    const p = parseFloat(price);
+    if (!Number.isInteger(q) || q <= 0) return showBanner('Quantity must be a positive integer', 'error');
+    if (type === 'LIMIT' && (!(p > 0))) return showBanner('Limit price must be positive', 'error');
+
     try {
-      const p = parseFloat(orderPrice);
-      const q = parseInt(orderQty, 10);
-      if (isNaN(q) || q <= 0) {
-        showBanner('Quantity must be a positive integer', 'error');
-        return;
-      }
-      if (orderType === 'LIMIT' && (isNaN(p) || p <= 0)) {
-        showBanner('Price must be positive for Limit orders', 'error');
-        return;
-      }
-
       const order = await placeOrder({
-        accountId: currentAccountId,
-        symbol: selectedSymbol,
-        side: orderSide,
-        type: orderType,
-        price: orderType === 'LIMIT' ? p : 0.0,
-        quantity: q,
+        accountId, symbol: selectedSymbol, side, type,
+        price: type === 'LIMIT' ? p : 0.0, quantity: q,
       });
-
-      showBanner(`Order ${order.orderId} submitted! Status: ${order.status}`, 'success');
-      refreshMarketData();
-      const updatedStocks = await getStocks();
-      setStocks(updatedStocks || []);
+      showBanner(`Order ${order.orderId} — ${order.status} (${order.filledQuantity}/${order.totalQuantity} filled)`, 'success');
+      refresh();
+      getStocks().then(setStocks);
     } catch (err) {
       showBanner(err.message, 'error');
     }
   };
 
-  const handleCancelOrder = async (orderId) => {
+  const handleCancel = async (orderId) => {
     try {
       await cancelOrder(orderId);
-      showBanner(`Order ${orderId} cancelled. Unfilled funds/shares released.`, 'info');
-      refreshMarketData();
+      showBanner(`Order ${orderId} cancelled — reservation released.`, 'info');
+      refresh();
     } catch (err) {
       showBanner(err.message, 'error');
-    }
-  };
-
-  // Simulation Handlers
-  const handleSimReset = async () => {
-    setSimLoading(true);
-    try {
-      const snap = await simReset();
-      setSimSnapshots(snap);
-      const events = await simGetEvents();
-      setSimEvents(events || []);
-      showBanner('Simulation sandbox reset with 4-level INFY Order Book.', 'info');
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSimLoading(false);
-    }
-  };
-
-  const handleSimPlaceOrder = async (overrideSide, overrideType, overridePrice, overrideQty) => {
-    try {
-      const sSide = overrideSide || simSide;
-      const sType = overrideType || simType;
-      const sPrice = overridePrice ? parseFloat(overridePrice) : parseFloat(simPrice);
-      const sQty = overrideQty ? parseInt(overrideQty, 10) : parseInt(simQty, 10);
-
-      const snap = await simPlaceOrder({
-        accountId: simAccountId,
-        symbol: simSymbol,
-        side: sSide,
-        type: sType,
-        price: sType === 'LIMIT' ? sPrice : 0.0,
-        quantity: sQty,
-      });
-      setSimSnapshots(snap);
-      const events = await simGetEvents();
-      setSimEvents(events || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleSimCancel = async (orderId) => {
-    try {
-      const snap = await simCancelOrder(orderId);
-      setSimSnapshots(snap);
-      const events = await simGetEvents();
-      setSimEvents(events || []);
-    } catch (err) {
-      console.error(err);
     }
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Top Header Bar */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'var(--bg-secondary, #1e293b)', borderBottom: '1px solid var(--border-primary, #334155)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 8, background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, boxShadow: '0 4px 12px rgba(16,185,129,0.35)' }}>
-            📈
+    <div className="sb-page">
+      <div className="sb-ticker">
+        <span className="sb-ticker-label">Live Quotes</span>
+        {stocks.map((s) => (
+          <div
+            key={s.symbol}
+            className={`sb-ticker-chip ${selectedSymbol === s.symbol ? 'active' : ''}`}
+            onClick={() => { setSelectedSymbol(s.symbol); setPrice(String(s.currentPrice)); }}
+          >
+            <span>{s.symbol}</span>
+            <span className="price">₹{s.currentPrice?.toFixed(2)}</span>
           </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>Online Stock Brokerage Platform</h1>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>LLD Portfolio Module #35 · Price-Time Order Book, Execution Strategies & Observer Quotes</span>
-          </div>
-        </div>
-
-        {/* Account Switcher & Theme */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f172a', padding: '6px 12px', borderRadius: 8, border: '1px solid #334155' }}>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>Active Trader:</span>
-            <select
-              value={currentAccountId}
-              onChange={(e) => setCurrentAccountId(e.target.value)}
-              style={{ background: 'transparent', color: '#f8fafc', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none' }}
-            >
-              <option value="ACC-user-alice" style={{ background: '#1e293b' }}>Alice Vance (ACC-user-alice)</option>
-              <option value="ACC-user-bob" style={{ background: '#1e293b' }}>Bob Smith (ACC-user-bob)</option>
-            </select>
-          </div>
-          <ThemeToggle />
-        </div>
-      </header>
-
-      {/* Real-Time Stock Ticker Tape */}
-      <div style={{ display: 'flex', gap: 20, padding: '10px 24px', background: '#0f172a', borderBottom: '1px solid #334155', overflowX: 'auto', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Live Quotes:</span>
-        {stocks.map(s => {
-          const isSelected = selectedSymbol === s.symbol;
-          return (
-            <div
-              key={s.symbol}
-              onClick={() => {
-                setSelectedSymbol(s.symbol);
-                setOrderPrice(s.currentPrice.toString());
-              }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '4px 10px',
-                borderRadius: 6,
-                background: isSelected ? 'rgba(16,185,129,0.15)' : '#1e293b',
-                border: `1px solid ${isSelected ? '#10b981' : '#334155'}`,
-                cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              <span>{s.symbol}</span>
-              <span style={{ color: '#38bdf8' }}>₹{s.currentPrice.toFixed(2)}</span>
-            </div>
-          );
-        })}
+        ))}
+        <select className="sb-account-select" value={accountId} onChange={(e) => setAccountId(e.target.value)}
+          style={{ marginLeft: 'auto', background: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
+          {ACCOUNTS.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
+        </select>
       </div>
 
-      {/* Status Banner */}
-      {statusMsg.text && (
-        <div style={{ padding: '10px 24px', background: statusMsg.type === 'error' ? '#ef4444' : '#10b981', color: '#fff', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
-          {statusMsg.text}
+      {banner && <div className={`sb-banner ${banner.kind}`}>{banner.text}</div>}
+
+      <div className="sb-grid">
+        {/* Order Placement */}
+        <div className="sb-card">
+          <h3>Place Order — {selectedSymbol}</h3>
+          <form onSubmit={handlePlaceOrder}>
+            <div className="sb-toggle-row">
+              <button type="button" className={`sb-toggle-btn buy ${side === 'BUY' ? 'active' : ''}`} onClick={() => setSide('BUY')}>BUY</button>
+              <button type="button" className={`sb-toggle-btn sell ${side === 'SELL' ? 'active' : ''}`} onClick={() => setSide('SELL')}>SELL</button>
+            </div>
+            <div className="sb-toggle-row">
+              <button type="button" className={`sb-toggle-btn type ${type === 'LIMIT' ? 'active' : ''}`} onClick={() => setType('LIMIT')}>LIMIT</button>
+              <button type="button" className={`sb-toggle-btn type ${type === 'MARKET' ? 'active' : ''}`} onClick={() => setType('MARKET')}>MARKET</button>
+            </div>
+            {type === 'LIMIT' && (
+              <div className="sb-field">
+                <label>Limit Price (₹)</label>
+                <input type="number" step="0.5" value={price} onChange={(e) => setPrice(e.target.value)} required />
+              </div>
+            )}
+            <div className="sb-field">
+              <label>Quantity</label>
+              <input type="number" value={qty} onChange={(e) => setQty(e.target.value)} required />
+            </div>
+            <div className="sb-estimate">
+              <span>Estimated Total</span>
+              <strong>₹{((type === 'LIMIT' ? parseFloat(price || 0) : (stocks.find(s => s.symbol === selectedSymbol)?.currentPrice || 0)) * parseInt(qty || 0, 10)).toFixed(2)}</strong>
+            </div>
+            <button type="submit" className={`sb-submit-btn ${side.toLowerCase()}`}>Submit {side} {type}</button>
+          </form>
         </div>
-      )}
 
-      {/* Navigation Tabs */}
-      <nav style={{ display: 'flex', gap: 8, padding: '12px 24px', background: '#1e293b', borderBottom: '1px solid #334155' }}>
-        {[
-          { id: 'trade', label: '📈 Trade & Portfolio' },
-          { id: 'orderbook', label: `📊 Live Order Book (${selectedSymbol})` },
-          { id: 'simulation', label: '🕹️ Concurrency & Matching Simulation' },
-          { id: 'diagram', label: '📐 Class Diagram' },
-          { id: 'sequence', label: '🔄 Sequence Diagram' },
-          { id: 'details', label: '📋 Design Details' },
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => {
-              setActiveTab(t.id);
-              if (t.id === 'simulation') handleSimReset();
-            }}
-            style={{
-              padding: '10px 18px',
-              borderRadius: 8,
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: 13,
-              background: activeTab === t.id ? '#10b981' : 'transparent',
-              color: activeTab === t.id ? '#fff' : '#94a3b8',
-              transition: 'all 0.2s',
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* Main Content */}
-      <main style={{ padding: 24, maxWidth: 1300, margin: '0 auto' }}>
-        {/* =================================================================== */}
-        {/* TAB 1: TRADE & PORTFOLIO */}
-        {/* =================================================================== */}
-        {activeTab === 'trade' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: 24 }}>
-            {/* Order Placement Console */}
-            <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
-              <h2 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 800 }}>
-                Place Order — {selectedSymbol}
-              </h2>
-
-              <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {/* Buy / Sell Toggle */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setOrderSide('BUY')}
-                    style={{
-                      padding: 10,
-                      borderRadius: 8,
-                      border: 'none',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      background: orderSide === 'BUY' ? '#10b981' : '#0f172a',
-                      color: orderSide === 'BUY' ? '#fff' : '#94a3b8',
-                    }}
-                  >
-                    BUY
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOrderSide('SELL')}
-                    style={{
-                      padding: 10,
-                      borderRadius: 8,
-                      border: 'none',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      background: orderSide === 'SELL' ? '#ef4444' : '#0f172a',
-                      color: orderSide === 'SELL' ? '#fff' : '#94a3b8',
-                    }}
-                  >
-                    SELL
-                  </button>
-                </div>
-
-                {/* Market / Limit Selector */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setOrderType('LIMIT')}
-                    style={{
-                      padding: 8,
-                      borderRadius: 6,
-                      border: `1px solid ${orderType === 'LIMIT' ? '#38bdf8' : '#334155'}`,
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      background: orderType === 'LIMIT' ? 'rgba(56,189,248,0.15)' : '#0f172a',
-                      color: orderType === 'LIMIT' ? '#38bdf8' : '#94a3b8',
-                    }}
-                  >
-                    LIMIT ORDER
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOrderType('MARKET')}
-                    style={{
-                      padding: 8,
-                      borderRadius: 6,
-                      border: `1px solid ${orderType === 'MARKET' ? '#38bdf8' : '#334155'}`,
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      background: orderType === 'MARKET' ? 'rgba(56,189,248,0.15)' : '#0f172a',
-                      color: orderType === 'MARKET' ? '#38bdf8' : '#94a3b8',
-                    }}
-                  >
-                    MARKET ORDER
-                  </button>
-                </div>
-
-                {/* Limit Price Input */}
-                {orderType === 'LIMIT' && (
-                  <div>
-                    <label style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
-                      Limit Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={orderPrice}
-                      onChange={e => setOrderPrice(e.target.value)}
-                      required
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 14 }}
-                    />
-                  </div>
-                )}
-
-                {/* Quantity Input */}
-                <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
-                    Quantity (Shares)
-                  </label>
-                  <input
-                    type="number"
-                    value={orderQty}
-                    onChange={e => setOrderQty(e.target.value)}
-                    required
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 14 }}
-                  />
-                </div>
-
-                {/* Cost Estimation */}
-                <div style={{ background: '#0f172a', padding: 12, borderRadius: 8, fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Estimated Total:</span>
-                  <span style={{ fontWeight: 800, color: '#f8fafc' }}>
-                    ₹{(parseFloat(orderPrice || 0) * parseInt(orderQty || 0)).toFixed(2)}
-                  </span>
-                </div>
-
-                <button
-                  type="submit"
-                  style={{
-                    padding: 12,
-                    borderRadius: 8,
-                    background: orderSide === 'BUY' ? '#10b981' : '#ef4444',
-                    color: '#fff',
-                    border: 'none',
-                    fontWeight: 800,
-                    fontSize: 14,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Submit {orderSide} {orderType} Order
-                </button>
-              </form>
-            </div>
-
-            {/* Account Portfolio & Order History */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Balances Card */}
-              <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: 15, fontWeight: 800 }}>
-                  Account Balances ({account?.accountId})
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-                  <div style={{ background: '#0f172a', padding: 12, borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Total Cash</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#38bdf8' }}>₹{account?.cashBalance?.toFixed(2)}</div>
-                  </div>
-                  <div style={{ background: '#0f172a', padding: 12, borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Reserved Funds</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#eab308' }}>₹{account?.reservedBalance?.toFixed(2)}</div>
-                  </div>
-                  <div style={{ background: '#0f172a', padding: 12, borderRadius: 8 }}>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Available to Trade</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#10b981' }}>₹{account?.availableBalance?.toFixed(2)}</div>
-                  </div>
-                </div>
-
-                {/* Holdings Table */}
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', marginBottom: 8 }}>Portfolio Holdings</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8', textAlign: 'left' }}>
-                        <th style={{ padding: 6 }}>Symbol</th>
-                        <th style={{ padding: 6 }}>Total Qty</th>
-                        <th style={{ padding: 6 }}>Reserved</th>
-                        <th style={{ padding: 6 }}>Avail</th>
-                        <th style={{ padding: 6 }}>Avg Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {account?.portfolio?.allHoldings?.map(h => (
-                        <tr key={h.symbol} style={{ borderBottom: '1px solid #334155' }}>
-                          <td style={{ padding: 6, fontWeight: 700 }}>{h.symbol}</td>
-                          <td style={{ padding: 6 }}>{h.quantity}</td>
-                          <td style={{ padding: 6, color: '#eab308' }}>{h.reservedQuantity}</td>
-                          <td style={{ padding: 6, color: '#10b981', fontWeight: 700 }}>{h.availableQuantity}</td>
-                          <td style={{ padding: 6 }}>₹{h.avgBuyPrice?.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Order History */}
-              <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
-                <h3 style={{ margin: '0 0 12px 0', fontSize: 15, fontWeight: 800 }}>Recent Orders</h3>
-                <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {accountOrders.map(o => (
-                    <div key={o.orderId} style={{ background: '#0f172a', padding: 10, borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
-                      <div>
-                        <span style={{ fontWeight: 800, color: o.side === 'BUY' ? '#10b981' : '#ef4444', marginRight: 8 }}>
-                          {o.side} {o.type}
-                        </span>
-                        <span>{o.symbol} · {o.filledQuantity}/{o.totalQuantity} @ ₹{o.limitPrice || 'MKT'}</span>
-                        <div style={{ fontSize: 10, color: '#94a3b8' }}>Status: {o.status} · Ref: {o.orderId}</div>
-                      </div>
-                      {(o.status === 'PENDING' || o.status === 'PARTIALLY_FILLED') && (
-                        <button
-                          onClick={() => handleCancelOrder(o.orderId)}
-                          style={{ padding: '4px 8px', borderRadius: 4, background: '#ef4444', color: '#fff', border: 'none', fontSize: 11, cursor: 'pointer' }}
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+        {/* Order Book Depth */}
+        <div className="sb-card">
+          <div className="sb-depth-header">
+            <h3 style={{ margin: 0 }}>Order Book — {selectedSymbol}</h3>
+            <span>Spread: <span className="sb-spread">₹{depth.spread?.toFixed(2)}</span></span>
           </div>
-        )}
-
-        {/* =================================================================== */}
-        {/* TAB 2: LIVE ORDER BOOK & DEPTH LADDER */}
-        {/* =================================================================== */}
-        {activeTab === 'orderbook' && (
-          <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 24, maxWidth: 900, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
-                  Order Book Depth — {selectedSymbol}
-                </h2>
-                <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                  Price-Time Priority Matching Ladder · Bid/Ask Spread: <strong style={{ color: '#38bdf8' }}>₹{orderBookDepth.spread?.toFixed(2)}</strong>
-                </div>
-              </div>
-
-              {/* Symbol Selector */}
-              <div style={{ display: 'flex', gap: 6 }}>
-                {stocks.map(s => (
-                  <button
-                    key={s.symbol}
-                    onClick={() => setSelectedSymbol(s.symbol)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 6,
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontWeight: 700,
-                      fontSize: 12,
-                      background: selectedSymbol === s.symbol ? '#10b981' : '#0f172a',
-                      color: selectedSymbol === s.symbol ? '#fff' : '#94a3b8',
-                    }}
-                  >
-                    {s.symbol}
-                  </button>
+          <div className="sb-depth-cols">
+            <div>
+              <div className="sb-depth-col-header bid"><span>Qty (cum)</span><span>Bid</span></div>
+              {(!depth.bids || depth.bids.length === 0) ? <div className="sb-depth-empty">No bids</div> :
+                depth.bids.map((b, i) => (
+                  <div key={i} className="sb-depth-row bid"><span>{b.quantity} ({b.cumulative})</span><span>₹{b.price?.toFixed(2)}</span></div>
                 ))}
-              </div>
             </div>
-
-            {/* Depth Ladder Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {/* BIDS LADDER */}
-              <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#10b981', borderBottom: '1px solid #334155', paddingBottom: 8, marginBottom: 8 }}>
-                  <span>QTY (CUMULATIVE)</span>
-                  <span>BID PRICE (₹)</span>
-                </div>
-                {orderBookDepth.bids?.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 20, color: '#64748b', fontSize: 12 }}>No resting Bids in book</div>
-                ) : (
-                  orderBookDepth.bids?.map((b, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, borderBottom: '1px dashed #1e293b' }}>
-                      <span style={{ color: '#cbd5e1' }}>{b.quantity} ({b.cumulative})</span>
-                      <span style={{ color: '#10b981', fontWeight: 800 }}>₹{b.price?.toFixed(2)}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {/* ASKS LADDER */}
-              <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 800, color: '#ef4444', borderBottom: '1px solid #334155', paddingBottom: 8, marginBottom: 8 }}>
-                  <span>ASK PRICE (₹)</span>
-                  <span>QTY (CUMULATIVE)</span>
-                </div>
-                {orderBookDepth.asks?.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 20, color: '#64748b', fontSize: 12 }}>No resting Asks in book</div>
-                ) : (
-                  orderBookDepth.asks?.map((a, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 12, borderBottom: '1px dashed #1e293b' }}>
-                      <span style={{ color: '#ef4444', fontWeight: 800 }}>₹{a.price?.toFixed(2)}</span>
-                      <span style={{ color: '#cbd5e1' }}>{a.quantity} ({a.cumulative})</span>
-                    </div>
-                  ))
-                )}
-              </div>
+            <div>
+              <div className="sb-depth-col-header ask"><span>Ask</span><span>Qty (cum)</span></div>
+              {(!depth.asks || depth.asks.length === 0) ? <div className="sb-depth-empty">No asks</div> :
+                depth.asks.map((a, i) => (
+                  <div key={i} className="sb-depth-row ask"><span>₹{a.price?.toFixed(2)}</span><span>{a.quantity} ({a.cumulative})</span></div>
+                ))}
             </div>
           </div>
-        )}
+          <h3 style={{ marginTop: 18 }}>Recent Quotes</h3>
+          <div className="sb-scroll" style={{ maxHeight: 140 }}>
+            {quotes.slice(0, 8).map((q, i) => (
+              <div key={i} className="sb-order-row">
+                <span>{q.symbol}</span>
+                <span style={{ color: q.changePercent >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                  ₹{q.newPrice?.toFixed(2)} ({q.changePercent >= 0 ? '+' : ''}{q.changePercent?.toFixed(2)}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-        {/* =================================================================== */}
-        {/* TAB 3: CONCURRENCY & MATCHING SIMULATION */}
-        {/* =================================================================== */}
-        {activeTab === 'simulation' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        {/* Portfolio & Orders */}
+        <div className="sb-card">
+          <h3>Account — {account?.accountId}</h3>
+          <div className="sb-balance-grid">
+            <div className="sb-balance-tile"><div className="l">Cash</div><div className="v cash">₹{account?.cashBalance?.toFixed(0)}</div></div>
+            <div className="sb-balance-tile"><div className="l">Reserved</div><div className="v reserved">₹{account?.reservedBalance?.toFixed(0)}</div></div>
+            <div className="sb-balance-tile"><div className="l">Available</div><div className="v available">₹{account?.availableBalance?.toFixed(0)}</div></div>
+          </div>
+          <table className="sb-table">
+            <thead><tr><th>Sym</th><th>Qty</th><th>Resvd</th><th>Avail</th><th>Avg ₹</th></tr></thead>
+            <tbody>
+              {account?.portfolio?.allHoldings?.map((h) => (
+                <tr key={h.symbol}>
+                  <td>{h.symbol}</td><td>{h.quantity}</td><td>{h.reservedQuantity}</td>
+                  <td style={{ color: 'var(--success)', fontWeight: 700 }}>{h.availableQuantity}</td>
+                  <td>{h.avgBuyPrice?.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <h3 style={{ marginTop: 18 }}>Recent Orders</h3>
+          <div className="sb-scroll">
+            {orders.map((o) => (
+              <div key={o.orderId} className="sb-order-row">
                 <div>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#38bdf8' }}>
-                    🕹️ Concurrency & Order Matching Simulation
-                  </h2>
-                  <div style={{ fontSize: 12, color: '#94a3b8' }}>
-                    Simulate price-time matching, market sweeps across depth levels, and fund reservation race conditions.
-                  </div>
+                  <span className={`sb-order-side ${o.side}`}>{o.side} {o.type}</span>
+                  <div>{o.symbol} · {o.filledQuantity}/{o.totalQuantity} @ {o.limitPrice ? `₹${o.limitPrice}` : 'MKT'}</div>
+                  <div className="sb-order-meta">Status: {o.status} · {o.orderId}</div>
                 </div>
-                <button
-                  onClick={handleSimReset}
-                  disabled={simLoading}
-                  style={{ padding: '8px 16px', borderRadius: 8, background: '#334155', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
-                >
-                  🔄 Reset Sandbox
-                </button>
+                {(o.status === 'PENDING' || o.status === 'PARTIALLY_FILLED') && (
+                  <button className="sb-cancel-btn" onClick={() => handleCancel(o.orderId)}>Cancel</button>
+                )}
               </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-              {/* Simulation Action Triggers */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, background: '#0f172a', padding: 16, borderRadius: 10, marginBottom: 20 }}>
-                {/* 1. Market Buy Sweep */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981' }}>1. Walk the Book (Market Buy)</div>
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-                    Alpha submits Market Buy for 25 INFY, sweeping through asks @ ₹1505 and @ ₹1510.
-                  </p>
-                  <button
-                    onClick={() => handleSimPlaceOrder('BUY', 'MARKET', 0, 25)}
-                    style={{ padding: 8, borderRadius: 6, background: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', marginTop: 4 }}
-                  >
-                    Trigger Market Buy Sweep (25 Shares)
-                  </button>
-                </div>
+/* ============================= TAB 2: 8-STEP SIMULATION ============================= */
 
-                {/* 2. Limit Order Resting */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#38bdf8' }}>2. Rest Limit Order in Ladder</div>
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-                    Beta places Buy Limit @ ₹1498 for 15 INFY, nesting at top of Bids.
-                  </p>
-                  <button
-                    onClick={() => handleSimPlaceOrder('BUY', 'LIMIT', 1498.0, 15)}
-                    style={{ padding: 8, borderRadius: 6, background: '#0284c7', color: '#fff', border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', marginTop: 4 }}
-                  >
-                    Place Resting Buy Limit (15 @ ₹1498)
-                  </button>
-                </div>
+const SIM_STEPS = [
+  'Reset sandbox',
+  'View seeded accounts & INFY order book ladder',
+  'Rest a LIMIT order in the book',
+  'Sweep the book with a MARKET order',
+  'Self-trade prevention (blocked)',
+  'Fund-reservation race (blocked)',
+  'Cancel a resting order',
+  'Review telemetry & event log',
+];
 
-                {/* 3. Fund Reservation Race */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444' }}>3. Test Balance Reservation Race</div>
-                  <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-                    Attempts to submit Buy order exceeding available cash balance (rejected).
-                  </p>
-                  <button
-                    onClick={() => handleSimPlaceOrder('BUY', 'LIMIT', 2000.0, 500)}
-                    style={{ padding: 8, borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 700, fontSize: 11, cursor: 'pointer', marginTop: 4 }}
-                  >
-                    Submit Over-Budget Order (500 @ ₹2000)
-                  </button>
-                </div>
-              </div>
+function SimulationTab() {
+  const [snapshot, setSnapshot] = useState(null);
+  const [step, setStep] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [restSide, setRestSide] = useState('BUY');
+  const [restPrice, setRestPrice] = useState('1498');
+  const [restQty, setRestQty] = useState('15');
+  const [restAccount, setRestAccount] = useState('SIM-ACC-BETA');
+  const [cancelOrderId, setCancelOrderId] = useState('');
+  const mountedRef = useRef(true);
 
-              {/* 2D Order Book Ladder & Live Stream */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                {/* Visual Ladder */}
-                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
-                    📊 Simulated INFY Order Book Depth
-                  </div>
-                  {simSnapshots?.orderBooks?.INFY && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
-                      {simSnapshots.orderBooks.INFY.asks?.map((a, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: 4 }}>
-                          <span>ASK: ₹{a.price?.toFixed(2)}</span>
-                          <span>{a.quantity} shares</span>
-                        </div>
-                      ))}
-                      <div style={{ textAlign: 'center', padding: '4px 0', color: '#38bdf8', fontWeight: 800, fontSize: 10 }}>
-                        --- LAST TRADED SPREAD: ₹{simSnapshots.orderBooks.INFY.spread?.toFixed(2)} ---
-                      </div>
-                      {simSnapshots.orderBooks.INFY.bids?.map((b, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', background: 'rgba(16,185,129,0.1)', color: '#10b981', borderRadius: 4 }}>
-                          <span>BID: ₹{b.price?.toFixed(2)}</span>
-                          <span>{b.quantity} shares</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-                {/* Event Stream */}
-                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
-                    Matching Engine Telemetry Stream ({simEvents.length})
-                  </div>
-                  <div style={{ flex: 1, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {simEvents.slice().reverse().map(ev => (
-                      <div key={ev.id} style={{
-                        background: '#1e293b',
-                        padding: '8px 10px',
-                        borderRadius: 6,
-                        borderLeft: `3px solid ${ev.type.includes('REJECTED') || ev.type.includes('FAILED') ? '#ef4444' : '#10b981'}`,
-                        fontSize: 11
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: 10 }}>
-                          <span style={{ fontWeight: 700, color: '#f8fafc' }}>{ev.type}</span>
-                          <span>{ev.timestamp}</span>
-                        </div>
-                        <div style={{ marginTop: 2, color: '#cbd5e1' }}>{ev.description}</div>
-                      </div>
-                    ))}
-                  </div>
+  const events = snapshot?.events || [];
+  const accounts = snapshot?.accounts || [];
+  const infyBook = snapshot?.orderBooks?.INFY || { bids: [], asks: [], spread: 0 };
+  const stocks = snapshot?.stocks || [];
+  const infyStock = stocks.find((s) => s.symbol === 'INFY');
+  const pendingOrders = (snapshot?.orders || []).filter((o) => o.status === 'PENDING' || o.status === 'PARTIALLY_FILLED');
+  const selfTradeBlocks = events.filter((e) => (e.description || '').includes('Self-trade')).length;
+
+  const applyResult = (result, advanceHint) => {
+    if (!mountedRef.current) return;
+    setSnapshot(result);
+    if (advanceHint != null) setStep((s) => Math.min(SIM_STEPS.length - 1, Math.max(s, advanceHint)));
+  };
+
+  const withBusy = async (fn) => {
+    setBusy(true); setError('');
+    try { await fn(); } catch (err) { setError(err.message || 'Simulation step failed'); }
+    finally { if (mountedRef.current) setBusy(false); }
+  };
+
+  const doReset = () => withBusy(async () => {
+    const result = await simReset();
+    applyResult(result, 1);
+  });
+
+  const doContinueToRest = () => setStep(2);
+
+  const doRestOrder = () => withBusy(async () => {
+    const result = await simPlaceOrder({
+      accountId: restAccount, symbol: 'INFY', side: restSide, type: 'LIMIT',
+      price: parseFloat(restPrice), quantity: parseInt(restQty, 10),
+    });
+    applyResult(result, 3);
+  });
+
+  const doMarketSweep = () => withBusy(async () => {
+    const result = await simPlaceOrder({ accountId: 'SIM-ACC-BETA', symbol: 'INFY', side: 'SELL', type: 'MARKET', price: 0, quantity: 15 });
+    applyResult(result, 4);
+  });
+
+  const doSelfTrade = () => withBusy(async () => {
+    // Alpha rests a fresh SELL, then Alpha immediately tries to BUY across her own spread —
+    // the top-of-book self-trade guard in OrderExecutionStrategy rejects the second order.
+    await simPlaceOrder({ accountId: 'SIM-ACC-ALPHA', symbol: 'INFY', side: 'SELL', type: 'LIMIT', price: 1550, quantity: 10 });
+    const result = await simPlaceOrder({ accountId: 'SIM-ACC-ALPHA', symbol: 'INFY', side: 'BUY', type: 'LIMIT', price: 1550, quantity: 10 });
+    applyResult(result, 5);
+  });
+
+  const doOverBudget = () => withBusy(async () => {
+    const result = await simPlaceOrder({ accountId: 'SIM-ACC-BETA', symbol: 'INFY', side: 'BUY', type: 'LIMIT', price: 2000, quantity: 5000 });
+    applyResult(result, 6);
+  });
+
+  const doCancel = () => withBusy(async () => {
+    if (!cancelOrderId) { setError('Pick a resting order to cancel first.'); return; }
+    const result = await simCancelOrder(cancelOrderId);
+    applyResult(result, 7);
+  });
+
+  const reset = () => { setSnapshot(null); setStep(0); setError(''); };
+  const finalStep = () => setStep(7);
+
+  return (
+    <div>
+      <div className="sb-step-indicator">
+        {SIM_STEPS.map((s, i) => (
+          <div key={s} className={`sb-step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
+        ))}
+        <span className="sb-step-label">{SIM_STEPS[step]}</span>
+      </div>
+
+      {error && <div className="sb-banner error" style={{ maxWidth: 600, margin: '0 auto 12px' }}>{error}</div>}
+
+      {!snapshot ? (
+        <div className="sb-sim-intro">
+          <p>
+            Runs entirely against the isolated <code>/api/stockbroker/sim/*</code> sandbox — its own
+            stocks, accounts and order books, seeded with a 4-level INFY bid/ask ladder — so nothing
+            here can ever touch the live trading console's data.
+          </p>
+          <div className="sb-sim-actions">
+            <button className="sb-btn-trigger" onClick={doReset} disabled={busy}>▶ Reset Sandbox</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="sb-hud">
+            <div className="sb-hud-tile"><div className="v">₹{infyStock?.currentPrice?.toFixed(2) ?? '—'}</div><div className="l">INFY Price</div></div>
+            <div className="sb-hud-tile"><div className="v">₹{infyBook.spread?.toFixed(2) ?? '—'}</div><div className="l">Bid/Ask Spread</div></div>
+            <div className="sb-hud-tile"><div className="v">{pendingOrders.length}</div><div className="l">Resting Orders</div></div>
+            <div className="sb-hud-tile"><div className="v">{selfTradeBlocks}</div><div className="l">Self-Trade Blocks</div></div>
+            <div className="sb-hud-tile"><div className="v">{events.length}</div><div className="l">Events Logged</div></div>
+          </div>
+
+          <div className="sb-sim-grid">
+            <div className="sb-card">
+              <h3>Seeded Accounts</h3>
+              {accounts.map((a) => (
+                <div key={a.accountId} className="sb-account-row">
+                  <span>{a.accountId}</span>
+                  <strong>Avail ₹{a.availableBalance?.toFixed(0)}</strong>
                 </div>
-              </div>
+              ))}
+            </div>
+            <div className="sb-card">
+              <h3>INFY Order Book Ladder</h3>
+              {infyBook.asks?.slice().reverse().map((a, i) => (
+                <div key={`a${i}`} className="sb-ladder-row ask"><span>ASK ₹{a.price?.toFixed(2)}</span><span>{a.quantity} sh</span></div>
+              ))}
+              <div className="sb-ladder-mid">— LAST ₹{infyStock?.currentPrice?.toFixed(2) ?? '—'} —</div>
+              {infyBook.bids?.map((b, i) => (
+                <div key={`b${i}`} className="sb-ladder-row bid"><span>BID ₹{b.price?.toFixed(2)}</span><span>{b.quantity} sh</span></div>
+              ))}
             </div>
           </div>
-        )}
 
-        {/* =================================================================== */}
-        {/* TAB 4: CLASS DIAGRAM */}
-        {/* =================================================================== */}
-        {activeTab === 'diagram' && <ClassDiagram module="stockbroker" />}
+          {step === 1 && (
+            <div className="sb-sim-actions">
+              <span className="sb-sim-hint">2 traders (Alpha, Beta) and a 4-level INFY ladder are seeded above — resting bids from Beta, resting asks from Alpha.</span>
+              <button className="sb-btn-trigger" onClick={doContinueToRest} disabled={busy}>Continue →</button>
+            </div>
+          )}
 
-        {/* =================================================================== */}
-        {/* TAB 5: SEQUENCE DIAGRAM */}
-        {/* =================================================================== */}
-        {activeTab === 'sequence' && <SequenceDiagram module="stockbroker" />}
+          {step === 2 && (
+            <div className="sb-sim-actions">
+              <select value={restAccount} onChange={(e) => setRestAccount(e.target.value)}>
+                <option value="SIM-ACC-ALPHA">Alpha</option>
+                <option value="SIM-ACC-BETA">Beta</option>
+              </select>
+              <select value={restSide} onChange={(e) => setRestSide(e.target.value)}>
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+              </select>
+              <input type="number" value={restPrice} onChange={(e) => setRestPrice(e.target.value)} placeholder="Limit price" />
+              <input type="number" value={restQty} onChange={(e) => setRestQty(e.target.value)} placeholder="Qty" />
+              <button className="sb-btn-trigger" onClick={doRestOrder} disabled={busy}>Place Resting Order</button>
+            </div>
+          )}
 
-        {/* =================================================================== */}
-        {/* TAB 6: DESIGN DETAILS */}
-        {/* =================================================================== */}
-        {activeTab === 'details' && <DesignDetails module="stockbroker" />}
-      </main>
+          {step === 3 && (
+            <div className="sb-sim-actions">
+              <span className="sb-sim-hint">Beta submits a MARKET SELL for 15 shares — walks the resting bid levels immediately instead of resting.</span>
+              <button className="sb-btn-trigger" onClick={doMarketSweep} disabled={busy}>Trigger Market Sweep</button>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="sb-sim-actions">
+              <span className="sb-sim-hint">Alpha rests a SELL at ₹1550, then Alpha tries to BUY across her own spread at ₹1550 — the top-of-book self-trade guard must reject it.</span>
+              <button className="sb-btn-trigger" onClick={doSelfTrade} disabled={busy}>Attempt Self-Trade</button>
+            </div>
+          )}
+
+          {step === 5 && (
+            <div className="sb-sim-actions">
+              <span className="sb-sim-hint">Beta tries to BUY 5,000 shares @ ₹2,000 — far beyond her available cash.</span>
+              <button className="sb-btn-trigger danger" onClick={doOverBudget} disabled={busy}>Attempt Over-Budget Order</button>
+            </div>
+          )}
+
+          {step === 6 && (
+            <div className="sb-sim-actions">
+              <select value={cancelOrderId} onChange={(e) => setCancelOrderId(e.target.value)}>
+                <option value="">— pick a resting order —</option>
+                {pendingOrders.map((o) => (
+                  <option key={o.orderId} value={o.orderId}>{o.orderId} · {o.accountId} · {o.side} {o.remainingQuantity}@₹{o.limitPrice}</option>
+                ))}
+              </select>
+              <button className="sb-btn-trigger" onClick={doCancel} disabled={busy}>Cancel Order</button>
+            </div>
+          )}
+
+          {step === 7 && (
+            <div className="sb-final-note">✓ Walkthrough complete — inspect the full event log below.</div>
+          )}
+
+          <div className="sb-card">
+            <h3>Event Log</h3>
+            <div className="sb-timeline sb-scroll">
+              {events.slice().reverse().slice(0, 30).map((ev) => (
+                <div key={ev.id} className={`sb-timeline-item ${(ev.type || '').toLowerCase().includes('reject') || (ev.type || '').toLowerCase().includes('fail') ? 'rejected' : ''}`}>
+                  <div className="row1"><span className="type">{ev.type}</span><span>{ev.timestamp}</span></div>
+                  <div className="desc">{ev.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="sb-sim-actions">
+            {step >= 6 && step < 7 && <button className="sb-btn-trigger" onClick={finalStep} disabled={busy}>Review Telemetry →</button>}
+            <button className="sb-btn-trigger ghost" onClick={doReset} disabled={busy}>↺ Reset</button>
+            <button className="sb-btn-trigger danger" onClick={reset} disabled={busy}>Exit Sandbox</button>
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+export default function StockBrokeragePage() {
+  return (
+    <LldPage module="stockbroker" title="Stock Brokerage Platform" icon="📈" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
+      {(activeTab) => (
+        <>
+          {activeTab === 'app' && <AppTab />}
+          {activeTab === 'simulation' && <SimulationTab />}
+        </>
+      )}
+    </LldPage>
   );
 }
