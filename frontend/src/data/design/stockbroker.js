@@ -1,412 +1,149 @@
 // designDetails — stockbroker
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+// Grounded directly in backend/src/main/java/com/lld/stockbroker/** — every class, field and
+// method named below exists in the real code, not an invented architecture.
 
 export default {
   title: 'Online Stock Brokerage Platform — Design Details',
   tldr: [
-    'In-memory Order Book matching engine with Price-Time Priority and partial fill execution',
-    'Strategy Pattern for Market Orders (immediate liquidity sweep) and Limit Orders (resting in book depth)',
-    'Observer Pattern for real-time stock price ticker updates upon matched trade execution',
-    'Atomic fund and share reservation preventing double-commitment across concurrent resting limit orders',
-    'Per-stock symbol ReentrantLock serialization guaranteeing sequential order book mutation while allowing concurrent trading across distinct tickers'
+    'In-memory price-time-priority Order Book (dual TreeMap: bids descending, asks ascending) with FIFO queues per price level and immediate partial-fill execution',
+    'Strategy Pattern for order execution — MarketExecutionStrategy (walks the book for immediate liquidity) and LimitExecutionStrategy (matches at-or-better than the limit, rests the remainder) — resolved by an EnumMap-based OrderExecutionStrategyFactory',
+    'Observer Pattern: Stock is the subject, InAppPriceObserver and LoggingPriceObserver both fan out from the same notifyPriceUpdate() call after a trade settles',
+    'Top-of-book self-trade prevention (Cancel-Newest policy): an order that would cross against the placing account\'s own best resting counter-order is rejected with OrderExecutionException before any trade settles',
+    'Atomic fund/share pre-reservation under a fair per-Account ReentrantLock, plus a fair per-symbol ReentrantLock serializing order-book matching — the two locks are never held nested, so no lock-ordering deadlock is possible',
   ],
   requirements: [
-    'Account management — users can open trading accounts with balance, portfolio, and transaction history',
-    'Market data ingestion — real-time stock prices, bid/ask spreads, and market indices from exchange feed',
-    'Order placement — users can place BUY/SELL orders with order types: MARKET, LIMIT, STOP_LOSS',
-    'Order matching engine — matches buy and sell orders by price-time priority, executes trades when orders cross',
-    'Order states: PENDING, VALIDATED, PLACED, PARTIALLY_FILLED, FILLED, CANCELLED, REJECTED',
-    'Portfolio tracking — user portfolio shows holdings with current P&L, average buy price, and allocation',
-    'Portfolio and watchlist management — users can create watchlists, view portfolio performance charts',
-    'Transaction history — complete audit trail of all trades, deposits, withdrawals with timestamps'
+    'Stock & account management — register tradeable symbols with a live price; open trading accounts with a cash balance and an empty portfolio',
+    'Order placement — BUY/SELL, MARKET or LIMIT, with atomic pre-check-and-reserve of funds (BUY) or shares (SELL) before the order is even created',
+    'Order matching engine — price-time priority: a marketable order walks the opposite side\'s price levels lowest-ask-first / highest-bid-first, FIFO within a level, executing at the resting (maker) order\'s price',
+    'Order lifecycle — PENDING → PARTIALLY_FILLED/EXECUTED, or CANCELLED (releases any unexecuted reservation) / REJECTED (self-trade guard, or a market order that found zero liquidity)',
+    'Order cancellation — removes a still-open order from the book and releases whatever portion of its fund/share reservation was never executed',
+    'Portfolio tracking — per-symbol Holding with quantity, reservedQuantity, availableQuantity and a running weighted-average buy price updated on every executed buy',
+    'Real-time price ticker — every matched trade updates the Stock\'s currentPrice and fans out to both price observers',
+    'Self-trade prevention — an account can never be matched against its own resting order at the top of book',
   ],
   entities: [
     {
-      name: 'BrokerageService',
-      description: 'Core orchestrator managing accounts, order placement, portfolio queries, and transaction recording.',
+      name: 'StockBrokerService',
+      description: 'Spring-managed facade: stock/account repositories, order books, order matching orchestration and the isolated /sim/* sandbox all live here.',
       fields: [
-        {
-          name: 'accountRepo',
-          type: 'Repository<Account>',
-          description: 'Data store for user accounts'
-        },
-        {
-          name: 'orderRepo',
-          type: 'Repository<Order>',
-          description: 'Data store for all orders'
-        },
-        {
-          name: 'matchingEngine',
-          type: 'MatchingEngine',
-          description: 'Executes order matching and trade execution'
-        },
-        {
-          name: 'marketDataProvider',
-          type: 'MarketDataProvider',
-          description: 'Source of real-time stock prices'
-        }
+        { name: 'stocks / accounts / orderBooks / ordersById', type: 'Map<String, ...>', description: 'ConcurrentHashMap-backed in-memory stores, keyed by symbol/accountId/orderId' },
+        { name: 'symbolLocks', type: 'Map<String, ReentrantLock>', description: 'One fair lock per symbol, lazily created via computeIfAbsent, serializing that symbol\'s order-book matching' },
+        { name: 'strategyFactory', type: 'OrderExecutionStrategyFactory', description: 'Resolves OrderType → OrderExecutionStrategy' },
+        { name: 'inAppPriceObserver / loggingPriceObserver', type: 'InAppPriceObserver / LoggingPriceObserver', description: 'Registered on every Stock at registerStock() time' },
       ],
       methods: [
-        {
-          name: 'placeOrder(accountId, stock, quantity, type, price)',
-          returns: 'Order',
-          description: 'Validates and places a trade order'
-        },
-        {
-          name: 'cancelOrder(orderId)',
-          returns: 'void',
-          description: 'Cancels an open order if not yet filled'
-        },
-        {
-          name: 'getPortfolio(accountId)',
-          returns: 'Portfolio',
-          description: 'Returns current holdings with P&L'
-        },
-        {
-          name: 'getOrderHistory(accountId)',
-          returns: 'List<Order>',
-          description: 'Returns all past orders for the account'
-        }
-      ]
+        { name: 'placeOrder(accountId, symbol, side, type, price, quantity)', returns: 'Order', description: 'Reserves funds/shares, creates the order via OrderFactory, then matches it under the symbol lock; releases the reservation and marks REJECTED if the strategy throws OrderExecutionException' },
+        { name: 'cancelOrder(orderId)', returns: 'Order', description: 'Removes a still-open order from its OrderBook and releases the unexecuted portion of its reservation, under the same symbol lock' },
+        { name: 'registerStock(symbol, name, initialPrice)', returns: 'Stock', description: 'Creates the Stock, registers both price observers, and creates its OrderBook' },
+      ],
     },
     {
       name: 'Account',
-      description: 'User trading account with cash balance, portfolio holdings, and transaction log.',
+      description: 'A trading account. cashBalance/reservedBalance are guarded end to end by a fair, per-account ReentrantLock (accountLock) — Lombok @Getter only, never @Data, so the lock field itself can\'t leak into equals/hashCode/toString, and @JsonIgnore keeps it out of API responses.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique account identifier'
-        },
-        {
-          name: 'user',
-          type: 'User',
-          description: 'Account owner'
-        },
-        {
-          name: 'balance',
-          type: 'double',
-          description: 'Available cash balance'
-        },
-        {
-          name: 'holdings',
-          type: 'Map<Stock, Integer>',
-          description: 'Current stock holdings (stock to shares)'
-        },
-        {
-          name: 'transactions',
-          type: 'List<Transaction>',
-          description: 'All deposits, withdrawals, and trades'
-        }
+        { name: 'accountId / userId', type: 'String', description: 'Identity — accountId is "ACC-" + userId' },
+        { name: 'portfolio', type: 'Portfolio', description: 'This account\'s stock holdings' },
+        { name: 'cashBalance', type: 'double', description: 'Total cash, mutated only inside accountLock' },
+        { name: 'reservedBalance', type: 'double', description: 'Cash pre-committed to open BUY orders' },
+        { name: 'accountLock', type: 'ReentrantLock (fair)', description: '@Getter(AccessLevel.NONE) — exposed only via a @JsonIgnore getLock()' },
       ],
       methods: [
-        {
-          name: 'deposit(amount)',
-          returns: 'void',
-          description: 'Adds cash to account balance'
-        },
-        {
-          name: 'withdraw(amount)',
-          returns: 'boolean',
-          description: 'Withdraws cash if sufficient balance'
-        },
-        {
-          name: 'getPortfolioValue()',
-          returns: 'double',
-          description: 'Calculates total value (cash + holdings market value)'
-        }
-      ]
+        { name: 'reserveFunds(amount)', returns: 'void', description: 'Throws InsufficientFundsException if amount exceeds getAvailableBalance(); otherwise atomically increments reservedBalance' },
+        { name: 'releaseReservedFunds(amount)', returns: 'void', description: 'Releases min(amount, reservedBalance) — used on cancel and on order rejection' },
+        { name: 'settleBuy(executedCost, reservedCostToRelease)', returns: 'void', description: 'Debits cashBalance and releases the matching reservation, atomically' },
+        { name: 'settleSell(proceeds)', returns: 'void', description: 'Credits cashBalance' },
+        { name: 'getAvailableBalance()', returns: 'double', description: 'max(0, cashBalance - reservedBalance)' },
+      ],
     },
     {
-      name: 'Order',
-      description: 'Trade order to buy or sell a stock. Has type, status, price, quantity, and execution details.',
+      name: 'Holding',
+      description: 'One symbol\'s position within a Portfolio. Every mutator is synchronized on the Holding instance itself — a lock scoped one level finer than Account\'s, so two orders on two different symbols in the same portfolio never contend.',
       fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique order identifier'
-        },
-        {
-          name: 'account',
-          type: 'Account',
-          description: 'Account placing the order'
-        },
-        {
-          name: 'stock',
-          type: 'Stock',
-          description: 'Stock symbol and company'
-        },
-        {
-          name: 'side',
-          type: 'OrderSide',
-          description: 'BUY or SELL'
-        },
-        {
-          name: 'type',
-          type: 'OrderType',
-          description: 'MARKET, LIMIT, STOP_LOSS'
-        },
-        {
-          name: 'quantity',
-          type: 'int',
-          description: 'Number of shares'
-        },
-        {
-          name: 'filledQuantity',
-          type: 'int',
-          description: 'Shares executed so far'
-        },
-        {
-          name: 'price',
-          type: 'double',
-          description: 'Limit price (for LIMIT/STOP orders)'
-        },
-        {
-          name: 'status',
-          type: 'OrderStatus',
-          description: 'PENDING, VALIDATED, PLACED, FILLED, PARTIALLY_FILLED, CANCELLED, REJECTED'
-        },
-        {
-          name: 'timestamp',
-          type: 'LocalDateTime',
-          description: 'When the order was placed'
-        }
+        { name: 'symbol', type: 'String', description: 'Ticker this holding tracks' },
+        { name: 'quantity / reservedQuantity', type: 'int', description: 'Total shares held vs. pre-committed to open SELL orders' },
+        { name: 'avgBuyPrice', type: 'double', description: 'Running weighted average, recomputed on every addShares()' },
       ],
       methods: [
-        {
-          name: 'fill(quantity, price)',
-          returns: 'void',
-          description: 'Executes a partial/full fill of the order'
-        },
-        {
-          name: 'cancel()',
-          returns: 'void',
-          description: 'Cancels the order if not fully filled'
-        },
-        {
-          name: 'isFilled()',
-          returns: 'boolean',
-          description: 'Returns true if all shares are executed'
-        }
-      ]
+        { name: 'reserveShares(qty)', returns: 'void', description: 'Throws InsufficientStockException if qty exceeds getAvailableQuantity()' },
+        { name: 'deductShares(qty)', returns: 'void', description: 'Applied on an executed SELL — decrements quantity and releases the matching reservation' },
+        { name: 'addShares(qty, executionPrice)', returns: 'void', description: 'Applied on an executed BUY — recomputes avgBuyPrice as a running weighted average' },
+      ],
     },
     {
-      name: 'MatchingEngine',
-      description: 'Matches buy and sell orders by price-time priority. Maintains order books (bid/ask) per stock.',
+      name: 'Order (abstract) / BuyOrder / SellOrder',
+      description: 'BuyOrder and SellOrder are the two concrete subclasses OrderFactory produces. filledQuantity is an AtomicInteger; fill() is synchronized and flips status to PARTIALLY_FILLED or EXECUTED based on how much of totalQuantity has filled.',
       fields: [
-        {
-          name: 'orderBooks',
-          type: 'Map<String, OrderBook>',
-          description: 'Order book per stock symbol'
-        }
+        { name: 'orderId / accountId / symbol', type: 'String', description: 'Identity' },
+        { name: 'side / type', type: 'OrderSide / OrderType', description: 'BUY|SELL, MARKET|LIMIT' },
+        { name: 'limitPrice / totalQuantity', type: 'double / int', description: '0.0 for MARKET orders' },
+        { name: 'status', type: 'OrderStatus (volatile)', description: 'PENDING → PARTIALLY_FILLED/EXECUTED, or CANCELLED/REJECTED' },
       ],
       methods: [
-        {
-          name: 'placeOrder(order)',
-          returns: 'Trade',
-          description: 'Adds order to book and attempts matching. Returns trade if executed.'
-        },
-        {
-          name: 'cancelOrder(orderId)',
-          returns: 'void',
-          description: 'Removes order from book'
-        },
-        {
-          name: 'getOrderBook(stock)',
-          returns: 'OrderBook',
-          description: 'Returns current bid/ask levels for a stock'
-        }
-      ]
+        { name: 'fill(qty)', returns: 'void', description: 'synchronized — advances filledQuantity and derives status' },
+        { name: 'getRemainingQuantity()', returns: 'int', description: 'max(0, totalQuantity - filledQuantity)' },
+      ],
     },
     {
       name: 'OrderBook',
-      description: 'Price-time prioritized list of buy and sell orders for a single stock. Buy orders sorted by price descending, sells by price ascending.',
+      description: 'Price-time priority ladder for one symbol: bids in a TreeMap sorted descending, asks ascending, each price level a FIFO Queue<Order>. The concurrency-relevant methods are synchronized on the OrderBook instance, but the real serialization for a whole match happens one level up via StockBrokerService\'s per-symbol lock.',
       fields: [
-        {
-          name: 'stock',
-          type: 'Stock',
-          description: 'Stock this order book belongs to'
-        },
-        {
-          name: 'bids',
-          type: 'PriorityQueue<Order>',
-          description: 'Buy orders (highest price first)'
-        },
-        {
-          name: 'asks',
-          type: 'PriorityQueue<Order>',
-          description: 'Sell orders (lowest price first)'
-        }
+        { name: 'bids', type: 'NavigableMap<Double, Queue<Order>>', description: 'TreeMap(Collections.reverseOrder()) — highest price first' },
+        { name: 'asks', type: 'NavigableMap<Double, Queue<Order>>', description: 'TreeMap — lowest price first' },
+        { name: 'tradeHistory', type: 'List<Trade>', description: 'CopyOnWriteArrayList, most recent trade first' },
       ],
       methods: [
-        {
-          name: 'addOrder(order)',
-          returns: 'void',
-          description: 'Adds order to appropriate queue and attempts matching'
-        },
-        {
-          name: 'match()',
-          returns: 'List<Trade>',
-          description: 'Matches bids and asks where bid price >= ask price'
-        },
-        {
-          name: 'getBestBid()',
-          returns: 'Order',
-          description: 'Returns highest buy order'
-        },
-        {
-          name: 'getBestAsk()',
-          returns: 'Order',
-          description: 'Returns lowest sell order'
-        }
-      ]
+        { name: 'addRestingOrder(order)', returns: 'void', description: 'Enqueues an unfilled order onto the correct side/price level' },
+        { name: 'removeOrder(order)', returns: 'boolean', description: 'Removes an order; drops the whole price level once its queue empties' },
+        { name: 'getDepthSnapshot(maxLevels)', returns: 'Map<String,Object>', description: 'Aggregates quantity/orderCount/cumulative per level for the API and the UI depth ladder' },
+        { name: 'calculateSpread()', returns: 'double', description: 'best ask − best bid, 0.0 if either side is empty' },
+      ],
     },
     {
       name: 'Stock',
-      description: 'Stock instrument with symbol, company name, current market price, and other metadata.',
+      description: 'A tradeable instrument and the Observer-pattern subject. notifyPriceUpdate() is the one place a matched trade fans out to every registered StockPriceObserver.',
       fields: [
-        {
-          name: 'symbol',
-          type: 'String',
-          description: 'Ticker symbol (e.g., AAPL, GOOGL)'
-        },
-        {
-          name: 'companyName',
-          type: 'String',
-          description: 'Full company name'
-        },
-        {
-          name: 'currentPrice',
-          type: 'double',
-          description: 'Last traded price'
-        },
-        {
-          name: 'openPrice',
-          type: 'double',
-          description: 'Today\'s opening price'
-        },
-        {
-          name: 'dayHigh',
-          type: 'double',
-          description: 'Today\'s highest price'
-        },
-        {
-          name: 'dayLow',
-          type: 'double',
-          description: 'Today\'s lowest price'
-        }
+        { name: 'symbol / name', type: 'String', description: 'Identity' },
+        { name: 'currentPrice', type: 'double (volatile)', description: 'Last executed trade price' },
+        { name: 'observers', type: 'List<StockPriceObserver>', description: 'CopyOnWriteArrayList — safe to iterate while another thread registers/removes' },
       ],
       methods: [
-        {
-          name: 'updatePrice(newPrice)',
-          returns: 'void',
-          description: 'Updates market price and triggers observers'
-        },
-        {
-          name: 'getDayChange()',
-          returns: 'double',
-          description: 'Returns percentage change from open'
-        }
-      ]
-    }
+        { name: 'notifyPriceUpdate(oldPrice, newPrice, volume)', returns: 'void', description: 'Updates currentPrice, then calls onPriceUpdate() on every observer, swallowing any single observer\'s exception so one bad listener can\'t break the trade' },
+      ],
+    },
   ],
   designPatterns: [
-    {
-      name: 'Order Book Pattern',
-      usage: 'Price-Time Priority matching engine maintaining sorted bid/ask levels.'
-    },
-    {
-      name: 'Strategy Pattern',
-      usage: 'OrderExecutionStrategy with MarketExecutionStrategy and LimitExecutionStrategy.'
-    },
-    {
-      name: 'Observer Pattern',
-      usage: 'StockPriceObserver for real-time stock quote feeds upon trade settlement.'
-    },
-    {
-      name: 'Factory Pattern',
-      usage: 'OrderFactory creating typed BuyOrder and SellOrder instances.'
-    },
-    {
-      name: 'Singleton Pattern',
-      usage: 'StockBrokerService managed as a Spring Singleton.'
-    }
+    { name: 'Strategy Pattern', usage: 'OrderExecutionStrategy interface — MarketExecutionStrategy (immediate depth sweep) and LimitExecutionStrategy (match-then-rest), resolved via OrderExecutionStrategyFactory\'s EnumMap<OrderType, OrderExecutionStrategy> rather than an if/type branch in the service.' },
+    { name: 'Factory Method', usage: 'OrderFactory.createOrder(...) validates the request (blank ids, non-positive quantity, non-positive LIMIT price) and returns a concrete BuyOrder or SellOrder — the caller never new()s a subclass directly.' },
+    { name: 'Observer Pattern', usage: 'Stock (subject) + StockPriceObserver interface — InAppPriceObserver keeps the last 50 quotes for the UI ticker, LoggingPriceObserver writes a market-ticker log line. Both fire from the same notifyPriceUpdate() call, independently.' },
+    { name: 'Facade Pattern', usage: 'StockBrokerService is the single entry point the controller delegates to — it owns repositories, locking discipline and the isolated /sim/* sandbox behind one API.' },
   ],
   principles: [
-    {
-      name: 'Single Responsibility (SRP)',
-      description: 'Account manages balance and holdings. Order tracks trade request. MatchingEngine executes matching. OrderBook maintains bid/ask queues. Stock holds market data. Each has one job.'
-    },
-    {
-      name: 'Open/Closed (OCP)',
-      description: 'New order types implement Order interface with validation. New matching strategies implement MatchingStrategy. New market data sources implement MarketDataProvider. Core services unchanged.'
-    },
-    {
-      name: 'Dependency Inversion (DIP)',
-      description: 'BrokerageService depends on MatchingEngine and MarketDataProvider abstractions. MatchingEngine depends on OrderBook. OrderBook depends on Order. High-level logic doesn\'t depend on low-level implementations.'
-    },
-    {
-      name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Order validation (sufficient balance for BUY, sufficient holdings for SELL) is centralized in BrokerageService. Order book maintenance (add, remove, match) is in OrderBook.'
-    },
-    {
-      name: 'KISS (Keep It Simple)',
-      description: 'Price-time priority matching is the simplest fair matching algorithm. Order book is two priority queues (bids max-heap, asks min-heap). No complex auction or dark pool logic.'
-    }
+    { name: 'Single Responsibility (SRP)', description: 'Account owns balance/reservation; Holding owns one symbol\'s position; OrderBook owns the matching ladder; a Strategy owns one order type\'s matching rules. StockBrokerService only orchestrates them.' },
+    { name: 'Open/Closed (OCP)', description: 'A new order type (e.g. STOP_LOSS) is one new OrderExecutionStrategy plus one OrderExecutionStrategyFactory.put — StockBrokerService\'s placeOrder() never branches on order type itself.' },
+    { name: 'Dependency Inversion (DIP)', description: 'StockBrokerService depends on the OrderExecutionStrategy interface (via the factory) and the StockPriceObserver interface, not on MarketExecutionStrategy/LimitExecutionStrategy or InAppPriceObserver/LoggingPriceObserver concretely.' },
+    { name: 'DRY', description: 'Self-trade prevention lives once, as a default method on OrderExecutionStrategy, so both concrete strategies get it for free instead of duplicating the top-of-book check.' },
+    { name: 'KISS', description: 'Price-time priority with maker-price execution is the simplest fair matching rule — no auction phases, no dark-pool logic, no order-type-specific matching engines.' },
   ],
   oopConcepts: [
-    {
-      name: 'Polymorphism — Order Types',
-      description: 'Order interface with MarketOrder (executes at current price), LimitOrder (executes only at or better than limit), StopLossOrder (triggers market order when price hits stop). Each validates and executes differently.',
-      alternative: 'Could use single Order class with type field and switch. Polymorphism encapsulates type-specific behavior cleanly.'
-    },
-    {
-      name: 'Encapsulation — Order Book',
-      description: 'OrderBook encapsulates bid/ask queues and matching logic. External code cannot directly add/remove from internal queues — must go through addOrder() and cancelOrder().',
-      alternative: 'Could expose queues directly. Encapsulation ensures matching invariants (price-time priority) are maintained.'
-    },
-    {
-      name: 'Composition over Inheritance',
-      description: 'Account has-a Map of holdings, List of transactions. Order has-a Account and Stock. OrderBook has-a PriorityQueue of Orders. System built by composing entities.',
-      alternative: 'Could create hierarchy of account types (BasicAccount extends Account). Composition is chosen because accounts differ in features, not behavior.'
-    }
+    { name: 'Polymorphism — OrderExecutionStrategy', description: 'MarketExecutionStrategy and LimitExecutionStrategy implement the same execute(order, book, accounts, stock) contract with genuinely different matching rules (a LIMIT order stops walking the book once the price no longer crosses; a MARKET order keeps walking until filled or the book is empty).', alternative: 'A single matching method with an if (type == LIMIT) branch would work but couples both algorithms into one method and makes adding STOP_LOSS a service-level change instead of a new class.' },
+    { name: 'Inheritance — Order / BuyOrder / SellOrder', description: 'BuyOrder and SellOrder add no fields of their own — they only fix OrderSide at construction — so all shared state (filledQuantity, status, timestamps) and behaviour (fill()) live once on the abstract Order.', alternative: 'A single Order class with a mutable side field would work too, but the two-subclass split makes OrderFactory\'s branch explicit and gives each side room to diverge later (e.g. a short-sale margin check only SellOrder needs).' },
+    { name: 'Encapsulation — Holding/Account reservation', description: 'reservedQuantity/reservedBalance are private and only ever move through reserveShares/reserveFunds/release*/settle* — no caller can set them directly, so the "reserved ≤ total" invariant can\'t be violated from outside.', alternative: 'Exposing plain setters would be simpler but would let a caller reserve past availability by mistake; the current API makes that a compile-time impossibility.' },
   ],
   extensibility: [
-    {
-      area: 'New Order Type',
-      description: 'Implement Order interface (e.g., StopLimitOrder, TrailingStopOrder, IcebergOrder). Add to OrderFactory. MatchingEngine handles new types without modification.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Real-time Market Data WebSocket',
-      description: 'Connect to exchange WebSocket feed. MarketDataProvider pushes price updates to observers (portfolio, watchlists). Replaces polling with push-based updates.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Margin Trading',
-      description: 'Add margin account type with leverage, margin requirements, and interest calculation. Extends Account with borrowing capability. Collateral monitoring prevents margin call violations.',
-      difficulty: 'Hard'
-    },
-    {
-      area: 'Automated Trading / Alerts',
-      description: 'Add Alert entity with conditions (price above/below, volume spike). AlertService monitors market data and triggers actions (email, SMS, auto-order). Existing order placement reused.',
-      difficulty: 'Medium'
-    }
+    { area: 'New order type (STOP_LOSS, IOC, FOK)', description: 'Implement OrderExecutionStrategy, add one OrderType enum constant, one factory .put() in OrderExecutionStrategyFactory. StockBrokerService and OrderBook need no changes.', difficulty: 'Medium' },
+    { area: 'Configurable self-trade prevention policy', description: 'The current guard always rejects (Cancel-Newest). A STP-policy enum (Cancel-Newest / Cancel-Oldest / Decrement-and-Cancel) resolved the same EnumMap way as OrderExecutionStrategyFactory would let each account or order opt into a different policy.', difficulty: 'Medium' },
+    { area: 'Persisted order book / trade ledger', description: 'Swap the ConcurrentHashMap-backed repositories for a real datastore behind the same method signatures — StockBrokerService\'s public API doesn\'t change.', difficulty: 'Hard' },
+    { area: 'WebSocket price push', description: 'Add a WebSocketPriceObserver implementing StockPriceObserver alongside InAppPriceObserver/LoggingPriceObserver — Stock.notifyPriceUpdate() already fans out to every registered observer.', difficulty: 'Easy' },
   ],
   tradeoffs: [
-    'Serialized matching engine per stock symbol using dedicated ReentrantLocks, achieving high throughput without multithreaded tree race conditions.',
-    'Implemented atomic check-and-reserve for funds and shares under account mutexes, eliminating negative balances or short-sell oversubscription.',
-    'Adopted Maker price priority (resting order price) for matched limit and market executions.'
+    'Reservation happens under the Account\'s own lock BEFORE the per-symbol matching lock is acquired, and is always released before the next lock is taken — no two locks are ever held nested, so lock-ordering deadlock is structurally impossible rather than merely avoided by convention.',
+    'Self-trade prevention is a top-of-book check only (it does not walk every price level) — a self-order resting deeper in the book is still reachable and will match normally. This mirrors a real exchange\'s inside-market fast path rather than a full order-by-order scan, trading perfect coverage for O(1) overhead on every order.',
+    'Maker price priority: a matched trade always executes at the RESTING order\'s price, never the aggressor\'s — this is the same rule most real order-driven exchanges use, and it means a limit order can never get a worse fill than its own limit.',
   ],
   solid: [
-    {
-      principle: 'Single Responsibility Principle',
-      details: 'OrderBook handles matching; Account manages balance reservations; Strategies encapsulate order type behaviors.'
-    },
-    {
-      principle: 'Open/Closed Principle',
-      details: 'New order types (e.g. Stop-Loss, IOC, FOK) can be added by implementing OrderExecutionStrategy without modifying StockBrokerService.'
-    }
-  ]
+    { principle: 'Single Responsibility Principle', details: 'OrderBook handles matching-ladder storage only; Account/Holding handle balance and position reservation; StockBrokerService handles orchestration and locking order.' },
+    { principle: 'Open/Closed Principle', details: 'New order types extend via OrderExecutionStrategy + OrderExecutionStrategyFactory without modifying StockBrokerService, OrderBook, or any exception class.' },
+  ],
 };
