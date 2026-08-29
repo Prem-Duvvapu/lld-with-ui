@@ -2567,3 +2567,116 @@ grep -n "requireAuthenticatedSessionFor\|setState(ATMState.TRANSACTION_IN_PROGRE
    entry to it) is worth grepping for across other modules that combine a session/state check with
    a per-entity lock — it will not show up as a compile error or even a single-run test failure,
    only as an intermittent one.
+
+## RCA-030: A 45-Module Sequence-Diagram Commit Was Pushed Directly to `main`, Bypassing PR Review, and Several of Its Diagrams Described Code That Doesn't Exist
+
+**Severity:** Medium (no runtime impact — this is documentation content, not application code, and
+`designDataCoverage.test.js` still passed because it only checks structural registration, never
+content accuracy — but this repo's sequence diagrams exist specifically to show *how the real code
+actually behaves*; fabricated ones actively mislead a reader instead of just being incomplete)
+**Date:** 2026-08-29
+**Status:** Partially resolved — the modules verified in this pass are fixed; a full audit of the
+remaining sequence diagrams from the same commit has not been done (see Preventative Measures)
+**Affected:** `frontend/src/data/sequences/{atm,library,shoppingcart,hotel,cricinfo,course-registration,music-streaming,car-rental,blocking-queue,stackoverflow}.js`; the commit itself touched 32 sequence files across the whole portfolio
+
+### 1. Overview & Severity
+A commit titled `feat(sequences): complete 45-module sequence diagram coverage across entire
+portfolio` landed on `main` as commit `2f1d52e` with **no branch, no PR, and no CI run** —
+confirmed via `git log --format="%P"` showing it as a single-parent commit directly on `main`, and
+`gh pr list --search "sequences"` returning no matching PR. That alone is a process violation of
+this repo's own `CLAUDE.md` ("Never commit to `main`."). The bigger problem surfaced when this
+session's own `atm` work — done independently, in an isolated worktree, grounded directly in the
+real `AtmService` source — was rebased onto this commit and its `frontend/src/data/sequences/atm.js`
+came into direct conflict with the one the bulk commit had generated: the bulk commit's version
+described a "Chain of Responsibility" cash-dispenser architecture (`TwoThousandHandler`,
+`FiveHundredHandler`, `OneHundredHandler`, a `CashVault` class) that **never existed at any point in
+this module's history** — the real pattern is Strategy + Factory
+(`DenominationDispenseStrategyFactory`), and neither `CashVault` nor any per-denomination handler
+class exists anywhere in `com.lld.atm`.
+
+### 2. Symptoms & Error Logs
+No test failure — this is the core danger. `mvn test`, `npx vitest run`, and
+`designDataCoverage.test.js`'s 291 structural checks (every id resolves, no duplicate barrel keys,
+no diagram edge pointing at an undeclared class) all passed against the fabricated content, because
+none of them read the Java source and compare it to the diagram's prose/class names. The only way
+this surfaced was a human-directed spot-check request ("go through all the sequence diagrams and
+verify them if they are correct") followed by manually cross-referencing each diagram's referenced
+class names against `find backend/src/main/java -name "<ClassName>.java"`.
+
+### 3. Root Cause
+Two independent failures compounded:
+1. **Process**: pushing directly to `main` skipped the one mechanism (PR review, even automated)
+   that could have caught this before it became "the truth on `main`" for every subsequent branch
+   to rebase onto.
+2. **Content generation**: sequence diagrams for this session's actively-verified modules (pubsub,
+   parking, ludo, taskmanagement, auction, digitalwallet, socialnetwork, airline, elevator) were all
+   written by an agent that had just spent an entire task reading and hardening that module's real
+   source — grounded by construction. This bulk commit instead generated 32 diagrams in one pass for
+   modules the same session hadn't just been reading, and the failure rate tracked that: a spot
+   check across 22 of the 32 touched modules found **3 severely fabricated** (invented an entire
+   architecture that doesn't exist: `atm`'s Chain of Responsibility, `library`'s reservation queue +
+   `FineCalculationStrategy`, `shoppingcart`'s `DiscountStrategy`/`DiscountStrategyFactory`) and
+   **7 with smaller but real naming errors** (`hotel`'s invented `SeasonalTariffStrategy`,
+   `cricinfo`'s `CricInfoService` casing + fabricated `ScorecardNotifier`, `course-registration`'s
+   `CourseRepository` shorthand, `music-streaming`'s `MusicRepository` shorthand, `car-rental`'s
+   `CarUnavailableException`, `stackoverflow`'s `UserRepository`, `blocking-queue`'s
+   `ConcurrencyRunService`) — a **~45% inaccuracy rate** in the sample checked. The other 11 sampled
+   modules (`movieticket`, `chess`, `concert-ticket`, `inventory`, `linkedin`, `restaurant`,
+   `vendingmachine`, `coffee`, `logging-framework`, `lru-cache`, `minesweeper`, `snakeladders`,
+   `stock-brokerage`, `tictactoe`, `traffic-signal`) checked out clean, so this was not a uniform
+   failure — it tracked specifically with whichever modules had NOT just had their real service code
+   read in the same working session.
+
+### 4. Diagnostic Commands
+```bash
+# Confirm a commit is a direct push, not a squash-merged PR: single parent, no matching PR.
+git log -1 <sha> --format="%H %P"
+gh pr list --state merged --search "<keyword from the commit title>"
+
+# Batch-check a sequence file's referenced class names against the real codebase — the fast,
+# scalable way to catch fabrication without fully reading each diagram:
+grep -oE "\b[A-Z][a-zA-Z]{3,}(Service|Strategy|Factory|Repository|Exception|Controller|Observer|Notifier|Handler|Manager)\b" \
+  frontend/src/data/sequences/<module>.js | sort -u
+# then, for each name found:
+find backend/src/main/java -name "<ClassName>.java"   # empty result = likely fabricated
+```
+
+### 5. Step-by-Step Resolution
+1. Ran the batch class-name-existence check above across a 22-module sample of the 32 files the
+   bulk commit touched.
+2. For `atm`: no separate fix needed — this session's own from-scratch, code-grounded
+   `sequences/atm.js` (written in an isolated worktree, from `AtmConcurrencyTest`) simply won the
+   merge conflict when rebased onto `main`.
+3. For `library` and `shoppingcart` (the two other severely fabricated files): read the real service
+   methods (`LibraryService#borrowBook`/`#returnBook`, `ShoppingCartService#placeOrder`) end to end
+   and rewrote both diagrams from scratch around the *actual* locking/exception/pattern shape —
+   `library`'s real two-lock (member-then-book) last-copy-contention race and
+   `StandardFineStrategy`'s real ₹5/day math; `shoppingcart`'s real ascending-product-ID lock
+   ordering (the same idiom `digitalwallet` uses) plus its idempotency-key retry cache, neither of
+   which the fabricated version mentioned at all despite being the module's actual interesting
+   concurrency story.
+4. For the 7 smaller-inaccuracy files: mechanical name corrections only (e.g.
+   `CricInfoService`→`CricinfoService`, `ScorecardNotifier`→`MatchPublisher`,
+   `CarUnavailableException`→`VehicleNotAvailableException`) — the surrounding flow structure in
+   those was already accurate.
+5. Ran `npx vitest run` (304/304) and `npm run build` (entry chunk unchanged) after every edit.
+
+### 6. Preventative Measures
+1. **Never push directly to `main`, including for "just documentation" changes** — the branch/PR/CI
+   path is what would have caught this, even without a human reviewer, simply by forcing someone
+   (or some future rebase) to look at the diff before it became load-bearing truth for every other
+   branch. This applies exactly as much to `frontend/src/data/**` content files as to backend code.
+2. A sequence diagram's own file-header comment claiming "Grounded directly in `X`, `Y`, `Z`" is not
+   evidence that it is — the fabricated `atm.js` and `library.js` both opened with exactly that
+   phrasing. Trust the class-name-existence grep, not the comment.
+3. **The remaining ~10 of the 32 modules this bulk commit touched have not been individually
+   verified** (only sampled — `bloom-filter`, `concurrent-hashmap`, `fizz-buzz`, `foo-bar`, `h2o`,
+   `merge-sort`, `zero-even-odd`, `ttl-cache` were skipped because they referenced no class-name-like
+   identifiers to check mechanically, and a few others may not have been sampled at all). Run the
+   diagnostic-command batch check above across the full list before trusting them, or re-generate
+   each one the same way this session's per-module upgrade passes did: written by whoever most
+   recently read that module's real service code, not in a single detached bulk pass.
+4. Generating any content (diagrams, design docs, API examples) about a module's real patterns is
+   exactly as fabrication-prone as generating code, and deserves the same grounding discipline: read
+   the actual class before naming it, and prefer generic textbook-shaped naming ("a Notifier", "a
+   Repository") as an honest placeholder over a specific invented class name that reads as real.

@@ -1,6 +1,6 @@
 // Sequence diagram content for blocking-queue.
 // Grounded directly in BlockingQueue primitive (ReentrantLock + notFull/notEmpty Conditions),
-// and ConcurrencyRunService trace recording.
+// and BlockingQueueService trace recording.
 export default {
   title: 'Blocking Queue — Producer/Consumer Synchronization & Condition Variables',
   description:

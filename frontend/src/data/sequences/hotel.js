@@ -30,7 +30,7 @@ export default {
         { from: 'service', to: 'repo', text: '[Alice] getRoom("RM-101") ; getBookingsForRoom("RM-101")' },
         { from: 'repo', to: 'service', text: '[Alice] Room {status: AVAILABLE, existingBookings: []}', type: 'return' },
         { from: 'service', to: 'factory', text: '[Alice] getTariffStrategy(room.getType())', activate: 'factory' },
-        { from: 'factory', to: 'service', text: '[Alice] return SeasonalTariffStrategy', type: 'return', deactivate: 'factory' },
+        { from: 'factory', to: 'service', text: '[Alice] return WeekendTariffStrategy', type: 'return', deactivate: 'factory' },
         { from: 'service', to: 'service', text: '[Alice] totalPrice = strategy.calculatePrice(room, 5 nights)' },
         { from: 'service', to: 'repo', text: '[Alice] saveBooking(Booking {id: "BK-001", guest: "Alice", CONFIRMED})' },
         { from: 'service', to: 'lock', text: '[Alice] lock.unlock()', deactivate: 'lock' },

@@ -18,7 +18,7 @@ export default {
         { id: 'playService', name: 'PlaybackService', kind: 'component' },
         { id: 'userLock', name: 'userLock("alice")', kind: 'lock', stereotype: 'ReentrantLock' },
         { id: 'webApp', name: 'Web Browser\n(Alice: device-1)', kind: 'actor' },
-        { id: 'repo', name: 'MusicRepository', kind: 'store' },
+        { id: 'repo', name: 'MusicStreamingRepository', kind: 'store' },
       ],
       steps: [
         { from: 'mobileApp', to: 'controller', text: 'POST /api/music/play {userId: "alice", trackId: "TRK-901", deviceId: "device-2"}' },

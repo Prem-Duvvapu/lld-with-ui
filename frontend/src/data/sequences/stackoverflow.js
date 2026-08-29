@@ -18,7 +18,7 @@ export default {
         { id: 'voteService', name: 'VotingService', kind: 'component' },
         { id: 'postLock', name: 'postLock("ANS-42")', kind: 'lock', stereotype: 'ReentrantLock' },
         { id: 'repo', name: 'StackOverflow\nRepository', kind: 'store' },
-        { id: 'userRepo', name: 'UserRepository', kind: 'store' },
+        { id: 'userRepo', name: 'StackOverflowRepository', kind: 'store' },
       ],
       steps: [
         { from: 'voter', to: 'controller', text: 'POST /api/stackoverflow/answers/ANS-42/vote {userId: "alice", type: "UPVOTE"}' },
