@@ -891,6 +891,59 @@ fourth, repo-wide bug during the upgrade itself (RCA-023).
 - 8-step Interactive Simulation against the isolated `/api/ludo/sim/*` engine: reset the sandbox, view the seeded board, roll and leave home, roll and advance, trigger a capture, approach home under the exact-count rule, an extra turn off a 6, and a live telemetry HUD (current turn, last roll, finished-token counts per color, capture count, status) plus a reverse-chronological event log — the previous "simulation" tab called the real `createGame`/`rollDice`/`moveToken` endpoints directly instead of an isolated sandbox.
 - New sequence diagram (`data/sequences/ludo.js`) walks two concurrent `moveToken` calls racing the same pending roll on the same token through the per-game lock, showing why exactly one can ever spend it.
 
+## Hotel Management Module
+### Backend
+- `HotelInitializer`: Sample hotels with multiple room types (SINGLE, DOUBLE, SUITE, DELUXE), pre-populated with a mix of available rooms.
+- `HotelService`: Facade over `getAllHotels`, `getHotel`, `getRoomsByHotel`, `getAvailableRooms` (date-range filtered), `bookRoom`, `checkIn`, `checkOut`, `cancelBooking`, `markNoShow`, `getActiveBookings`.
+- `ReservationStatus`: `CONFIRMED` → `CHECKED_IN` → `CHECKED_OUT` | `CANCELLED` | `NO_SHOW` — every lifecycle transition is guarded against illegal jumps.
+- **Strategy + Factory for Tariff Pricing**: `TariffStrategy` — `StandardTariffStrategy` (flat per-night rate by room type with `StandardTariffRounding`) and `WeekendTariffStrategy` (premium uplift for weekend nights), resolved by `TariffStrategyFactory`.
+- **Strategy + Factory for Cancellation Refunds**: `CancellationRefundStrategy` — `FullRefundStrategy` (100%), `PartialRefundStrategy` (50%), `NoRefundStrategy` (0%), resolved by `CancellationRefundStrategyFactory` based on cancellation timing. `RefundResult` carries the refund amount and applied strategy name.
+- **Exception hierarchy**: `HotelException` (abstract) `extends com.lld.config.DomainException` with `HotelNotFoundException` (404), `RoomNotFoundException` (404), `RoomUnavailableException` (409), `BookingNotFoundException` (404), `InvalidDateRangeException` (400), `InvalidReservationTransitionException` (400).
+- Models: `Hotel`, `Room` (with `RoomType`, `RoomStatus`), `Booking` (with `ReservationStatus`).
+- Tests: `HotelServiceTest` (booking lifecycle, availability filtering, cancellation/refund, exception paths), `HotelConcurrencyTest` (concurrent room bookings).
+
+### Frontend
+- 5 tabs: Hotels (browse & book), Simulation, Class Diagram, Sequence Diagram, Design Details.
+- Hotels tab shows room availability with date-range filtering and booking management.
+
+## Traffic Signal Module
+### Backend
+Raised from a bare state enum and manual `switch` chain to a real class-per-state machine with
+injectable timing and observer-based notifications.
+- `TrafficSignalInitializer`: Seeds a main intersection with 4 lights in the initial GREEN→YELLOW→RED→GREEN rotation.
+- `TrafficSignalService`: Facade over `listIntersections`, `getIntersection`, `getMainIntersection`, `requestEmergencyOverride`, `resumeNormalOperation`, `manualTransition`, plus isolated sim methods (`simReset`, `simTick`, `simEmergencyOverride`, `simResume`, `simManualTransition`, `simGetEvents`, `getSimSnapshot`).
+- **State Pattern**: `com.lld.trafficsignal.state` — one singleton class per phase (`GreenState`, `YellowState`, `RedState`), each declaring its own `next()` successor and default duration in seconds. The intersection's `tick()` method delegates to the current state's `next()`, making the phase progression declarative rather than a `switch` chain.
+- **Observer Pattern**: `SignalObserver` — `InAppSignalObserver` (pushes `SignalChangeEvent`s for UI consumption) and `LoggingSignalObserver` (structured log output). `SignalChangeNotifier` publishes every transition to all registered observers.
+- **Injectable Clock**: `SignalTicker` interface with a `ManualSignalTicker` for deterministic testing (no `Thread.sleep()` in tests). The manual ticker drives time-based state transitions in test suites without real wall-clock waits.
+- **Emergency Override**: `requestEmergencyOverride(intersectionId, lightId)` forces a specific light to GREEN and all others to RED, bypassing the normal phase rotation. `resumeNormalOperation()` returns to the regular cycle.
+- **Multi-Intersection Support**: multiple `Intersection` instances, each with independent light sets and phase state.
+- **Exception hierarchy**: `TrafficSignalException` (abstract) `extends com.lld.config.DomainException` with `IntersectionNotFoundException` (404), `SignalNotFoundException` (404), `IllegalSignalTransitionException` (400), `InvalidOverrideException` (400).
+- **Isolated `/api/traffic/sim/*` engine**: sim endpoints with tick (advancing time by N seconds), emergency override, manual transition, resume, events, and snapshot — all backed by a sandboxed intersection instance.
+- Tests: `SignalStateTest` (state transitions, next() correctness), `TrafficSignalServiceTest` (lifecycle, emergency override, resume), `IntersectionTest` (tick-based phase advancement), `SignalTickerTest` (manual ticker behavior), `TrafficRepositoryTest` (intersection storage), `TrafficSignalConcurrencyTest` (concurrent emergency overrides on one intersection).
+
+### Frontend
+- 5 tabs: App (live intersection view), Simulation (8-step interactive demo), Class Diagram, Sequence Diagram, Design Details.
+- Live intersection view shows traffic light states with real-time visual indicators.
+- 8-step simulation drives the isolated `/api/traffic/sim/*` sandbox with tick, emergency override, manual transition, and resume steps.
+
+## Restaurant Management Module
+### Backend
+- `RestaurantInitializer`: Sample tables (6, with varying capacities), menu items across categories (appetizers, mains, desserts, drinks), and staff.
+- `RestaurantService`: Facade over table management (`seatGuests`, `releaseTable`, `getAvailableTables`), ordering (`placeOrder`, `cancelOrder`), billing (`generateBill`, `payBill`), plus isolated sim methods (`simReset`, `simState`, `simSeat`, `simOrder`, `simPrepare`, `simReady`, `simServe`, `simBill`, `simPay`, `simCancel`, `simRace`, `simEvents`).
+- `KitchenService`: Separate service managing the preparation pipeline — `pendingOrders()`, `startPreparation()`, `markReady()`, `markServed()` — decoupling kitchen operations from front-of-house ordering.
+- `OrderStatus`: `PLACED` → `PREPARING` → `READY` → `SERVED` → `BILLED` with `CANCELLED` reachable only from `PLACED`/`PREPARING` — the kitchen workflow enforces that a served order cannot be cancelled.
+- **Strategy + Factory for Billing**: `BillingStrategy` — `StandardBillingStrategy` (item price × quantity) and `HappyHourBillingStrategy` (discounted rates), resolved by `BillingStrategyFactory`. `BillBreakdown` carries per-line pricing detail.
+- **Table Management**: `RestaurantTable` with `TableStatus` (`AVAILABLE`/`OCCUPIED`/`RESERVED`), seating (with party size validation), and automatic release on bill payment.
+- **Exception hierarchy**: `RestaurantException` (abstract) `extends com.lld.config.DomainException` with `OrderNotFoundException` (404), `TableNotFoundException` (404), `MenuItemNotFoundException` (404), `TableUnavailableException` (409), `MenuItemUnavailableException` (409), `InvalidOrderTransitionException` (400), `BillNotFoundException` (404), `BillAlreadyPaidException` (409).
+- Models: `RestaurantTable` (`TableStatus`), `MenuItem` (`MenuCategory`), `Order` (`OrderStatus`, `OrderItem`), `Bill` (`BillLine`), `Payment` (`PaymentMethod`, `PaymentStatus`), `Staff` (`StaffRole`), `RestaurantEvent` (telemetry).
+- **Isolated `/api/restaurant/sim/*` engine**: sim endpoints for seat, order, prepare, ready, serve, bill, pay, cancel, race (N waiters contending for one table), events, and state snapshot — all backed by sandboxed repositories.
+- Tests: `RestaurantServiceTest` (order lifecycle, billing, exception paths), `BillingStrategyTest` (strategy math), `OrderStatusTest` (transition table), `RestaurantConcurrencyTest` (concurrent table seating race).
+
+### Frontend
+- 5 tabs: App (table & order management), Simulation (8-step interactive demo), Class Diagram, Sequence Diagram, Design Details.
+- App tab shows table status grid, menu, order placement with kitchen workflow pipeline, and bill/payment flow.
+- 8-step Interactive Simulation against `/api/restaurant/sim/*`: reset, race (5 waiters contending for one table), place order, prepare, ready, serve, attempt-cancel-after-served (rejected by state machine), and bill+pay with table release. Live telemetry HUD and event log.
+
 ## Concurrency Primitives
 
 Classic multithreaded-ordering interview problems, each `com.lld.concurrency.<primitive>/` sibling
