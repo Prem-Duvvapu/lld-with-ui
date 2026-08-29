@@ -5,7 +5,7 @@ global.fetch = mockFetch;
 
 beforeEach(() => { mockFetch.mockReset(); });
 
-const BASE = 'http://localhost:9090/api/parking';
+const BASE = 'http://localhost:9190/api/parking';
 
 async function getGates() {
   const res = await fetch(`${BASE}/gates`);

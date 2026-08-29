@@ -522,7 +522,7 @@ function AnimatedFlow() {
         setSimError('');
       })
       .catch(() => {
-        setSimError('⚠️ Backend server not reachable on port 9090');
+        setSimError('⚠️ Backend server not reachable on port 9190');
       });
   }, []);
 

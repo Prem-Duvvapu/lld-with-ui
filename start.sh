@@ -10,7 +10,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM EXIT
 
 echo "========================================="
-echo " Starting Backend (Spring Boot: 9090)   "
+echo " Starting Backend (Spring Boot: 9190)   "
 echo " Starting Frontend (Vite: 3000)         "
 echo " Press Ctrl+C to stop both              "
 echo "========================================="

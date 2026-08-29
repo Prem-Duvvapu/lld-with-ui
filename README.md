@@ -60,7 +60,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 
 ```
 lld-with-ui/
-├── backend/                     ← Spring Boot app, single JAR (Port 9090)
+├── backend/                     ← Spring Boot app, single JAR (Port 9190)
 │   └── src/main/java/com/lld/
 │       ├── config/              ← CORS, OpenAPI, and the shared error contract
 │       │   ├── DomainException      ← base class for every module's exceptions
@@ -101,7 +101,7 @@ lld-with-ui/
 ## Quick Start
 
 ```bash
-# Terminal 1 — Start Java Spring Boot Backend (Port 9090)
+# Terminal 1 — Start Java Spring Boot Backend (Port 9190)
 cd backend && mvn spring-boot:run
 
 # Terminal 2 — Start React + Vite Frontend (Port 3000)
@@ -112,8 +112,8 @@ Open **http://localhost:3000** to access the portfolio dashboard.
 (`vite.config.js` pins port 3000; `start.sh` and `docker-compose.yml` both agree.)
 
 ### ⚡ Interactive Swagger API Documentation
-- **Swagger UI Console**: [http://localhost:9090/swagger-ui.html](http://localhost:9090/swagger-ui.html) *(or `/swagger-ui/index.html`)*
-- **OpenAPI 3.0 JSON Specification**: [http://localhost:9090/v3/api-docs](http://localhost:9090/v3/api-docs)
+- **Swagger UI Console**: [http://localhost:9190/swagger-ui.html](http://localhost:9190/swagger-ui.html) *(or `/swagger-ui/index.html`)*
+- **OpenAPI 3.0 JSON Specification**: [http://localhost:9190/v3/api-docs](http://localhost:9190/v3/api-docs)
 - The in-app **⚡ Swagger API** button resolves on whatever origin you are on: the Vite dev
   server and the Docker nginx both proxy `/swagger-ui` and `/v3/api-docs` to the backend.
   Override with `VITE_SWAGGER_URL` if the backend lives elsewhere.
@@ -1027,5 +1027,5 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 ## Tech Stack
 
-- **Backend**: Java 17, Spring Boot 3.2, Maven (Single Spring Boot JAR, Port 9090)
+- **Backend**: Java 17, Spring Boot 3.2, Maven (Single Spring Boot JAR, Port 9190)
 - **Frontend**: React 19, Vite 6, React Router 7 (Single SPA, Port 3000, route-level code splitting)

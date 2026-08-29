@@ -122,7 +122,7 @@ function HotelsTab() {
     <div>
       {error && (
         <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', marginBottom: 16, fontSize: 14 }}>
-          ⚠️ {error}. Ensure the Java Spring Boot backend is running on port 9090 (<code>cd backend && mvn spring-boot:run</code>).
+          ⚠️ {error}. Ensure the Java Spring Boot backend is running on port 9190 (<code>cd backend && mvn spring-boot:run</code>).
         </div>
       )}
       {!selectedHotel ? (

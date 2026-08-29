@@ -109,7 +109,7 @@ modules, each with a Java backend, a React UI, a class diagram, a design write-u
 
 ## Stack and layout
 
-- Backend: Java 17 + Spring Boot 3.2, single JAR, port 9090. All code under
+- Backend: Java 17 + Spring Boot 3.2, single JAR, port 9190. All code under
   `backend/src/main/java/com/lld/<module>/`. In-memory only (ConcurrentHashMap +
   ReentrantLock) — no database, state resets on restart.
 - Frontend: React 19 + Vite + React Router 7, port 3000 (pinned in vite.config.js).

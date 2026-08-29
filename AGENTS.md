@@ -1,8 +1,8 @@
 # LLD-with-UI — Context
 
 ## Architecture
-- **Backend**: Java 17 + Spring Boot 3.2 (port 9090). Single JAR, all modules under `com.lld.*`
-- **Swagger / OpenAPI**: SpringDoc UI at `http://localhost:9090/swagger-ui.html` and JSON at `/v3/api-docs`
+- **Backend**: Java 17 + Spring Boot 3.2 (port 9190). Single JAR, all modules under `com.lld.*`
+- **Swagger / OpenAPI**: SpringDoc UI at `http://localhost:9190/swagger-ui.html` and JSON at `/v3/api-docs`
 - **Frontend**: React 19 + Vite + React Router 7. Single SPA, dynamically loads LLD pages
 - **Data**: In-memory only (no DB). State resets on restart.
 
@@ -1013,7 +1013,7 @@ the real trace instead of driving it from client-side `setTimeout` state.
 
 ## Running
 ```bash
-cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9090
+cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9190
 cd frontend && npm run dev                                                 # port 3000
 ```
 The Vite dev proxy and the Docker nginx config both forward `/api`, `/swagger-ui`, `/swagger-ui.html`

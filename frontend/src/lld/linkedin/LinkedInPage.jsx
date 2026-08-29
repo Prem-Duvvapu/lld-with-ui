@@ -106,7 +106,7 @@ export default function LinkedInPage() {
       if (Array.isArray(jobList)) setJobs(jobList);
     } catch (err) {
       console.error(err);
-      showBanner('Failed to connect to backend on port 9090. Make sure Spring Boot is running.', 'error');
+      showBanner('Failed to connect to backend on port 9190. Make sure Spring Boot is running.', 'error');
     }
   };
 

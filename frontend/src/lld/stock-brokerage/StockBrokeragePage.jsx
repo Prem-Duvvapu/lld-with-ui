@@ -64,7 +64,7 @@ function AppTab() {
       if (list && list.length && !list.find((s) => s.symbol === selectedSymbol)) {
         setSelectedSymbol(list[0].symbol);
       }
-    }).catch((err) => showBanner(`Failed to reach backend on port 9090: ${err.message}`, 'error'));
+    }).catch((err) => showBanner(`Failed to reach backend on port 9190: ${err.message}`, 'error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

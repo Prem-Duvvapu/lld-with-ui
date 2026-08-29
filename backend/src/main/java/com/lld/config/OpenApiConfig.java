@@ -27,7 +27,7 @@ public class OpenApiConfig {
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))
                 .servers(List.of(
-                        new Server().url("http://localhost:9090").description("Local Spring Boot Server")
+                        new Server().url("http://localhost:9190").description("Local Spring Boot Server")
                 ));
     }
 }

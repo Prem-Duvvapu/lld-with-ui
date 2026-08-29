@@ -13,7 +13,7 @@ export default defineConfig({
         ['/api', '/swagger-ui', '/swagger-ui.html', '/v3/api-docs'].map((route) => [
           route,
           {
-            target: process.env.VITE_BACKEND_URL || 'http://localhost:9090',
+            target: process.env.VITE_BACKEND_URL || 'http://localhost:9190',
             changeOrigin: true,
           },
         ]),

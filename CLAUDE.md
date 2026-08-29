@@ -29,9 +29,9 @@ npm run build                             # entry chunk must stay under 500 kB (
 
 **Never start the servers.** The user runs `mvn spring-boot:run` / `npm run dev` (or `./start.sh`)
 manually and controls their lifecycle. Building, packaging and testing are fine; starting a process
-that binds port 9090 or 3000 is not.
+that binds port 9190 or 3000 is not.
 
-Backend on 9090, frontend on 3000. Swagger at `http://localhost:9090/swagger-ui.html`.
+Backend on 9190, frontend on 3000. Swagger at `http://localhost:9190/swagger-ui.html`.
 
 ## Architecture
 

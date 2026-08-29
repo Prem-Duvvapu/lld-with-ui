@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: lld-backend
     ports:
-      - "9090:9090"
+      - "9190:9190"
     restart: unless-stopped
 
   frontend:

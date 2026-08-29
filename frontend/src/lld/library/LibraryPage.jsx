@@ -93,7 +93,7 @@ export default function LibraryPage() {
       }
     } catch (err) {
       console.error(err);
-      showBanner('Failed to connect to backend on port 9090.', 'error');
+      showBanner('Failed to connect to backend on port 9190.', 'error');
     }
   };
 
