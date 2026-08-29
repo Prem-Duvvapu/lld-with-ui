@@ -5,13 +5,13 @@
 export default {
   title: 'ATM System — Design Details',
   requirements: [
-    'State Machine Session Lifecycle: Explicit session states (IDLE → CARD_INSERTED → AUTHENTICATED → TRANSACTION_IN_PROGRESS → DISPENSING → CARD_BLOCKED) with strict guard validation.',
+    'State Machine Session Lifecycle: one class per ATMState (IdleSessionState → CardInsertedSessionState → AuthenticatedSessionState → TransactionInProgressSessionState → DispensingSessionState → SessionEndedSessionState / CardBlockedSessionState), each declaring its own legal-next-states set, enforced by AtmService#transitionTo — the single place currentState is ever assigned.',
     'Fine-Grained Per-Account Concurrency: Fair ReentrantLock per Account preventing account overselling under simultaneous multi-thread withdrawal races.',
     'Hardware Cash Dispenser Locking: CashDispenser owns a dedicated ReentrantLock for note calculation and inventory updates.',
-    'Denomination-Based Cash Dispensing: Strategy Pattern using GreedyDenominationDispenseStrategy for note calculation across ₹2000, ₹500, ₹200, and ₹100 notes.',
+    'Denomination-Based Cash Dispensing: Strategy + Factory — DenominationDispenseStrategyFactory resolves MINIMIZE_NOTES (GreedyDenominationDispenseStrategy) or CONSERVE_LARGE_NOTES (ConserveLargeNotesDispenseStrategy) via an EnumMap, the same shape as inventory.strategy.ReorderStrategyFactory.',
     'Compensating Transaction & Atomicity: Automatically credit account balance back if cash dispenser hardware fails due to denomination mismatch after debiting.',
     'Card Security & PIN Lockout: Track failed PIN attempts and automatically block card (CARD_BLOCKED) after 3 consecutive failures.',
-    'Isolated Concurrency Simulation: Step-by-step interactive timeline demonstrating balance races, denomination failures, and PIN lockouts.'
+    'Isolated Concurrency Simulation: an isolated /api/atm/sim/* sandbox (separate BankingRepository + CashDispenser) driving the real state machine and dispense strategies, so the demo can never touch live accounts.'
   ],
   entities: [
     {
@@ -19,9 +19,9 @@ export default {
       description: 'Spring @Service facade managing session state machine, PIN verification, withdrawal, deposit, and simulation engine.',
       fields: [
         {
-          name: 'bankingService',
-          type: 'BankingService',
-          description: 'Core banking service managing accounts, cards, and balances'
+          name: 'bankingRepository',
+          type: 'BankingRepository',
+          description: 'ConcurrentHashMap-backed store for accounts and cards, shared by the live session flow and the isolated sim sandbox'
         },
         {
           name: 'cashDispenser',
@@ -251,12 +251,12 @@ export default {
     {
       name: 'State Pattern',
       used: true,
-      explanation: 'ATMState enum enforces valid ATM hardware session transitions.'
+      explanation: 'One SessionState implementation per ATMState, each declaring its own Set<ATMState> allowedNext(); AtmService#transitionTo is the single enforcement point, throwing InvalidSessionStateException for anything not in that set.'
     },
     {
-      name: 'Strategy Pattern',
+      name: 'Strategy + Factory Pattern',
       used: true,
-      explanation: 'GreedyDenominationDispenseStrategy calculates note counts per denomination.'
+      explanation: 'DenominationDispenseStrategyFactory resolves DispenseMode to GreedyDenominationDispenseStrategy or ConserveLargeNotesDispenseStrategy via an EnumMap; CashDispenser never branches on the mode itself.'
     },
     {
       name: 'Template Method Pattern',
@@ -272,7 +272,7 @@ export default {
   principles: [
     {
       name: 'Single Responsibility Principle (SRP)',
-      description: 'BankingService manages accounts; CashDispenser manages note inventory; AtmService coordinates session lifecycle.'
+      description: 'BankingRepository stores accounts and cards; CashDispenser manages note inventory; AtmService coordinates session lifecycle.'
     },
     {
       name: 'Open/Closed Principle (OCP)',

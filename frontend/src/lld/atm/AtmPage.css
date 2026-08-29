@@ -336,3 +336,86 @@
 .timeline-item .time { font-size: 0.75rem; color: var(--text-secondary); margin-right: 8px; }
 .timeline-item .actor { font-weight: bold; margin-right: 8px; }
 .timeline-item .type-tag { font-size: 0.75rem; background: rgba(59, 130, 246, 0.15); padding: 2px 6px; border-radius: 4px; }
+
+/* MODE SELECTOR (dispense strategy) */
+.mode-label { display: block; font-size: 0.85rem; color: #94a3b8; margin-top: 8px; }
+.mode-select {
+  width: 100%;
+  padding: 8px;
+  background: #020617;
+  border: 1px solid #334155;
+  color: #38bdf8;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+/* RECENT TRANSACTIONS */
+.txn-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.txn-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+.txn-row.failed { border-color: #ef4444; }
+.txn-status { font-weight: 600; }
+
+/* SESSION STATE STRIP (state machine visualization) */
+.atm-state-strip {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.atm-state-node {
+  flex: 1;
+  min-width: 100px;
+  text-align: center;
+  padding: 8px 6px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.atm-state-node.passed { background: rgba(76, 175, 80, 0.12); border-color: #4caf50; color: #4caf50; }
+.atm-state-node.active { background: #7c3aed; border-color: #7c3aed; color: #fff; box-shadow: 0 0 10px rgba(124, 58, 237, 0.5); }
+.atm-state-node.blocked { background: #991b1b; border-color: #991b1b; color: #fff; }
+
+/* SIMULATION STEP INDICATOR + HUD (matches elevator's simulation tab shape) */
+.atm-step-indicator { display: flex; gap: 4px; justify-content: center; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.atm-step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-color); transition: all 0.3s; }
+.atm-step-dot.active { background: #7c3aed; box-shadow: 0 0 8px rgba(124, 58, 237, 0.6); }
+.atm-step-dot.done { background: #3fb950; }
+.atm-step-label { font-size: 12px; color: var(--text-secondary); margin-left: 8px; }
+
+.atm-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 12px 0; }
+.atm-hud-tile { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; text-align: center; }
+.atm-hud-tile .v { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.atm-hud-tile .l { font-size: 9.5px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+.atm-sim-intro { text-align: center; padding: 32px 16px; color: var(--text-secondary); font-size: 13px; }
+.atm-sim-intro code { background: var(--bg-secondary); padding: 1px 6px; border-radius: 4px; }
+.atm-sim-error { max-width: 600px; margin: 0 auto 12px; }
+
+.atm-sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+.sim-account-row { display: flex; justify-content: space-between; padding: 6px 8px; border-radius: 6px; font-size: 0.85rem; }
+.sim-account-row.active { background: rgba(124, 58, 237, 0.12); border: 1px solid #7c3aed; }
+.sim-account-row.blocked { color: #f87171; }
+
+.atm-sim-actions { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 14px 0; flex-wrap: wrap; }
+.atm-sim-actions select, .atm-sim-actions input { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem; }
+.atm-sim-hint { font-size: 0.8rem; color: var(--text-secondary); max-width: 500px; text-align: center; }
+
+@media (max-width: 900px) {
+  .atm-terminal-layout { grid-template-columns: 1fr; }
+  .atm-sim-grid { grid-template-columns: 1fr; }
+}
