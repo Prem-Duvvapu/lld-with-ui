@@ -1,5 +1,8 @@
 package com.lld.atm.model;
 
+import lombok.Getter;
+
+@Getter
 public enum NoteDenomination {
     TWO_THOUSAND(2000),
     FIVE_HUNDRED(500),
@@ -10,9 +13,5 @@ public enum NoteDenomination {
 
     NoteDenomination(int value) {
         this.value = value;
-    }
-
-    public int getValue() {
-        return value;
     }
 }

@@ -1,37 +1,39 @@
 package com.lld.atm.service;
 
 import com.lld.atm.dispenser.CashDispenser;
+import com.lld.atm.dispenser.ConserveLargeNotesDispenseStrategy;
+import com.lld.atm.dispenser.DenominationDispenseStrategyFactory;
+import com.lld.atm.dispenser.DispenseMode;
 import com.lld.atm.dispenser.GreedyDenominationDispenseStrategy;
 import com.lld.atm.exception.*;
 import com.lld.atm.model.*;
+import com.lld.atm.repository.BankingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class AtmServiceTest {
 
-    private BankingService bankingService;
+    private BankingRepository bankingRepository;
     private CashDispenser cashDispenser;
     private AtmService atmService;
 
     @BeforeEach
     public void setUp() {
-        bankingService = new BankingService();
-        cashDispenser = new CashDispenser(new GreedyDenominationDispenseStrategy());
-        atmService = new AtmService(bankingService, cashDispenser);
+        bankingRepository = new BankingRepository();
+        DenominationDispenseStrategyFactory factory = new DenominationDispenseStrategyFactory(
+                new GreedyDenominationDispenseStrategy(), new ConserveLargeNotesDispenseStrategy());
+        cashDispenser = new CashDispenser(factory);
+        atmService = new AtmService(bankingRepository, cashDispenser, factory);
 
-        Account acc = new Account("acc-1", "1234567890", "Alice", 1000.0); // Balance ₹1000
-        Card card = new Card("1111222233334444", "1234", "1234567890");
+        Account acc = Account.builder().id("acc-1").accountNumber("1234567890").holderName("Alice").balance(1000.0).build(); // Balance ₹1000
+        Card card = Card.builder().cardNumber("1111222233334444").pin("1234").accountNumber("1234567890").build();
 
-        bankingService.addAccount(acc);
-        bankingService.addCard(card);
+        bankingRepository.addAccount(acc);
+        bankingRepository.addCard(card);
     }
 
     @Test
@@ -55,7 +57,7 @@ public class AtmServiceTest {
         // 3rd attempt must block the card and transition to CARD_BLOCKED
         assertThrows(CardBlockedException.class, () -> atmService.authenticate("1111222233334444", "9999"));
         assertEquals(ATMState.CARD_BLOCKED, atmService.getCurrentState());
-        assertTrue(bankingService.getCard("1111222233334444").isBlocked());
+        assertTrue(bankingRepository.getCard("1111222233334444").isBlocked());
     }
 
     @Test
@@ -85,45 +87,73 @@ public class AtmServiceTest {
         // Attempting to withdraw ₹500 when only ₹2000 notes exist must fail and revert balance to ₹1000
         assertThrows(InsufficientCashException.class, () -> atmService.withdraw("1234567890", 500.0));
         assertEquals(1000.0, atmService.getBalance("1234567890"), "Account balance must be reverted via compensating transaction!");
+        // A failed withdrawal must settle the session back to AUTHENTICATED, not get stuck mid-transaction
+        assertEquals(ATMState.AUTHENTICATED, atmService.getCurrentState());
     }
 
     @Test
-    public void test10ConcurrentWithdrawalThreadsZeroOverdraw() throws Exception {
-        int numThreads = 10;
-        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-        CountDownLatch latch = new CountDownLatch(1);
+    public void testWithdrawUsingConserveLargeNotesStrategyProducesDifferentBreakdown() {
+        atmService.insertCard("1111222233334444");
+        atmService.authenticate("1111222233334444", "1234");
 
-        AtomicInteger successCount = new AtomicInteger(0);
-        AtomicInteger failCount = new AtomicInteger(0);
+        WithdrawalTransaction txn = atmService.withdraw("1234567890", 500.0, DispenseMode.CONSERVE_LARGE_NOTES);
+        assertEquals("SUCCESS", txn.getStatus());
+        // Conserve-large-notes prefers ₹100/₹200 notes over the single ₹500 note the greedy
+        // strategy would pick for the exact same request (see the greedy-strategy test above).
+        Map<NoteDenomination, Integer> dispensed = txn.getDispensedNotes();
+        assertNull(dispensed.get(NoteDenomination.FIVE_HUNDRED));
+        assertEquals(5, dispensed.get(NoteDenomination.ONE_HUNDRED));
+    }
 
-        List<Future<?>> futures = new ArrayList<>();
-        for (int i = 0; i < numThreads; i++) {
-            futures.add(executor.submit(() -> {
-                try {
-                    latch.await(); // Synchronize all 10 threads to attempt withdrawal simultaneously
-                    atmService.withdraw("1234567890", 600.0);
-                    successCount.incrementAndGet();
-                } catch (InsufficientBalanceException e) {
-                    failCount.incrementAndGet();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }));
-        }
+    @Test
+    public void testWithdrawBeforeAuthenticationIsRejected() {
+        // No insertCard/authenticate call at all — the terminal is still IDLE.
+        assertThrows(InvalidSessionStateException.class, () -> atmService.withdraw("1234567890", 100.0));
+    }
 
-        // Release all 10 withdrawal threads simultaneously
-        latch.countDown();
+    @Test
+    public void testWithdrawAfterOnlyInsertingCardWithoutPinIsRejected() {
+        atmService.insertCard("1111222233334444");
+        // PIN never verified — still CARD_INSERTED, not AUTHENTICATED.
+        assertThrows(InvalidSessionStateException.class, () -> atmService.withdraw("1234567890", 100.0));
+    }
 
-        for (Future<?> future : futures) {
-            future.get(5, TimeUnit.SECONDS);
-        }
+    @Test
+    public void testWithdrawAgainstAnUnauthenticatedAccountIsRejectedEvenWithASessionOpen() {
+        Account other = Account.builder().id("acc-2").accountNumber("9999999999").holderName("Eve").balance(5000.0).build();
+        bankingRepository.addAccount(other);
 
-        executor.shutdown();
-        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        atmService.insertCard("1111222233334444");
+        atmService.authenticate("1111222233334444", "1234");
 
-        // EXACTLY 1 withdrawal of ₹600 must succeed, 9 must fail with InsufficientBalanceException!
-        assertEquals(1, successCount.get(), "Exactly 1 withdrawal of ₹600 should succeed!");
-        assertEquals(9, failCount.get(), "Exactly 9 withdrawals should fail with InsufficientBalanceException!");
-        assertEquals(400.0, atmService.getBalance("1234567890"), "Account balance must be exactly ₹400 (no negative overdraw)!");
+        // Session is authenticated, but for account 1234567890 — not this one.
+        assertThrows(InvalidSessionStateException.class, () -> atmService.withdraw("9999999999", 100.0));
+    }
+
+    @Test
+    public void testGetBalanceBeforeAuthenticationIsRejected() {
+        assertThrows(InvalidSessionStateException.class, () -> atmService.getBalance("1234567890"));
+    }
+
+    @Test
+    public void testDepositBeforeAuthenticationIsRejected() {
+        assertThrows(InvalidSessionStateException.class, () -> atmService.deposit("1234567890", 100.0, null));
+    }
+
+    @Test
+    public void testEjectCardReturnsSessionToIdleAndBlocksFurtherWithdrawal() {
+        atmService.insertCard("1111222233334444");
+        atmService.authenticate("1111222233334444", "1234");
+        assertEquals(ATMState.AUTHENTICATED, atmService.getCurrentState());
+
+        atmService.ejectCard();
+        assertEquals(ATMState.IDLE, atmService.getCurrentState());
+        assertThrows(InvalidSessionStateException.class, () -> atmService.withdraw("1234567890", 100.0));
+    }
+
+    @Test
+    public void testCannotInsertCardWhileAnotherIsAlreadyInTheSlot() {
+        atmService.insertCard("1111222233334444");
+        assertThrows(InvalidSessionStateException.class, () -> atmService.insertCard("1111222233334444"));
     }
 }

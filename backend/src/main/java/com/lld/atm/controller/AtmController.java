@@ -1,5 +1,6 @@
 package com.lld.atm.controller;
 
+import com.lld.atm.dispenser.DispenseMode;
 import com.lld.atm.model.*;
 import com.lld.atm.service.AtmService;
 import org.springframework.http.ResponseEntity;
@@ -50,9 +51,12 @@ public class AtmController {
 
     @PostMapping("/{accountNumber}/withdraw")
     public ResponseEntity<WithdrawalTransaction> withdraw(@PathVariable String accountNumber,
-                                                          @RequestBody Map<String, Double> request) {
-        double amount = request.get("amount");
-        WithdrawalTransaction transaction = atmService.withdraw(accountNumber, amount);
+                                                          @RequestBody Map<String, Object> request) {
+        double amount = Double.parseDouble(request.get("amount").toString());
+        DispenseMode mode = request.get("mode") != null
+                ? DispenseMode.valueOf(request.get("mode").toString())
+                : DispenseMode.MINIMIZE_NOTES;
+        WithdrawalTransaction transaction = atmService.withdraw(accountNumber, amount, mode);
         return ResponseEntity.ok(transaction);
     }
 
@@ -94,6 +98,12 @@ public class AtmController {
         return ResponseEntity.ok(atmService.getSimSnapshots());
     }
 
+    @PostMapping("/sim/insert-card")
+    public ResponseEntity<Map<String, Object>> simInsertCard(@RequestBody Map<String, String> request) {
+        Map<String, Object> res = atmService.simInsertCard(request.get("cardNumber"));
+        return ResponseEntity.ok(res);
+    }
+
     @PostMapping("/sim/authenticate")
     public ResponseEntity<Map<String, Object>> simAuthenticate(@RequestBody Map<String, String> request) {
         String cardNumber = request.get("cardNumber");
@@ -106,8 +116,16 @@ public class AtmController {
     public ResponseEntity<Map<String, Object>> simWithdraw(@RequestBody Map<String, Object> request) {
         String accountNumber = request.get("accountNumber").toString();
         double amount = Double.parseDouble(request.get("amount").toString());
-        Map<String, Object> res = atmService.simWithdraw(accountNumber, amount);
+        DispenseMode mode = request.get("mode") != null
+                ? DispenseMode.valueOf(request.get("mode").toString())
+                : DispenseMode.MINIMIZE_NOTES;
+        Map<String, Object> res = atmService.simWithdraw(accountNumber, amount, mode);
         return ResponseEntity.ok(res);
+    }
+
+    @PostMapping("/sim/eject")
+    public ResponseEntity<Map<String, Object>> simEject() {
+        return ResponseEntity.ok(atmService.simEject());
     }
 
     @GetMapping("/sim/events")
