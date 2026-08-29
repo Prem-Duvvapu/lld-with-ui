@@ -201,7 +201,7 @@ function RealTraceReplay() {
 
 export default function FizzBuzzPage() {
   return (
-    <LldPage module="fizz-buzz" title="Fizz Buzz Multithreaded" icon="⚡" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="fizz-buzz" title="Fizz Buzz Multithreaded" icon="⚡" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <RealTraceReplay />}

@@ -360,7 +360,7 @@ export default function TicTacToePage() {
       module="tictactoe"
       title="Tic Tac Toe Game Engine"
       icon="❌"
-      tabs={['board', 'history', 'simulation', 'diagram', 'details']}
+      tabs={['board', 'history', 'simulation', 'diagram', 'sequence', 'details']}
     >
       {(tab) => (
         <>

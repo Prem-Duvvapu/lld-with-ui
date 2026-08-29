@@ -721,6 +721,7 @@ export default function StackOverflowPage() {
         { id: 'users', label: '🏆 Leaderboard' },
         'simulation',
         'diagram',
+        'sequence',
         'design',
       ]}
     >

@@ -20,6 +20,7 @@ import {
   simGetSnapshot,
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -88,6 +89,7 @@ export default function VendingMachinePage() {
           { id: 'admin', label: '🔧 Admin & Inventory', desc: 'Stock & Cashbox Management' },
           { id: 'simulation', label: '🕹️ 2D Interactive Simulation', desc: '8-Step State & CoR Sandbox' },
           { id: 'diagram', label: '📐 Class Diagram', desc: 'UML Architecture' },
+          { id: 'sequence', label: '🔄 Sequence Diagram', desc: 'State Machine & Change Flow' },
           { id: 'design', label: '📋 Design Details', desc: 'Deep Dive Specs' },
         ].map((tab) => (
           <button
@@ -122,6 +124,7 @@ export default function VendingMachinePage() {
         {activeTab === 'admin' && <AdminDashboardTab />}
         {activeTab === 'simulation' && <SimulationTab />}
         {activeTab === 'diagram' && <ClassDiagram module="vendingmachine" />}
+        {activeTab === 'sequence' && <SequenceDiagram module="vendingmachine" />}
         {activeTab === 'design' && <DesignDetails module="vendingmachine" />}
       </div>
     </div>

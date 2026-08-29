@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { createGame, getGame, revealCell, flagCell, simReset, simReveal } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
@@ -355,8 +356,8 @@ export default function MinesweeperPage() {
     expert: { rows: 16, cols: 16, mines: 50 },
   };
 
-  const tabs = ['game', 'simulation', 'diagram', 'design'];
-  const tabLabels = { game: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', design: 'Design Details' };
+  const tabs = ['game', 'simulation', 'diagram', 'sequence', 'design'];
+  const tabLabels = { game: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', sequence: 'Sequence Diagram', design: 'Design Details' };
 
   return (
     <div className="ms-page">
@@ -398,6 +399,7 @@ export default function MinesweeperPage() {
         )}
         {tab === 'simulation' && <AnimatedFlow />}
         {tab === 'diagram' && <ClassDiagram module="minesweeper" />}
+        {tab === 'sequence' && <SequenceDiagram module="minesweeper" />}
         {tab === 'design' && <DesignDetails module="minesweeper" />}
       </div>
     </div>

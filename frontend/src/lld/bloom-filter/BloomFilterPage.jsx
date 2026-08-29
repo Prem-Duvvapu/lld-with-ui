@@ -316,7 +316,7 @@ function RealTraceReplay() {
 
 export default function BloomFilterPage() {
   return (
-    <LldPage module="bloom-filter" title="Concurrent Bloom Filter" icon="🌸" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="bloom-filter" title="Concurrent Bloom Filter" icon="🌸" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <RealTraceReplay />}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { createGame, getGame, makeMove, getValidMoves, simReset, simMove, simGetEventLog } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
 const s = `
@@ -287,6 +288,7 @@ export default function ChessPage() {
         <button className={page === 'game' ? 'active' : ''} onClick={() => setPage('game')}>Game</button>
         <button className={page === 'simulation' ? 'active' : ''} onClick={() => setPage('simulation')}>Simulation</button>
         <button className={page === 'diagram' ? 'active' : ''} onClick={() => setPage('diagram')}>Class Diagram</button>
+        <button className={page === 'sequence' ? 'active' : ''} onClick={() => setPage('sequence')}>Sequence Diagram</button>
         <button className={page === 'design' ? 'active' : ''} onClick={() => setPage('design')}>Design Details</button>
       </nav>
       <main>
@@ -313,6 +315,7 @@ export default function ChessPage() {
         )}
         {page === 'simulation' && <AnimatedFlow />}
         {page === 'diagram' && <ClassDiagram module="chess" />}
+        {page === 'sequence' && <SequenceDiagram module="chess" />}
         {page === 'design' && <DesignDetails module="chess" />}
       </main>
     </div>

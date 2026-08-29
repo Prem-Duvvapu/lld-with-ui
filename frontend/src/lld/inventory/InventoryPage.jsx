@@ -351,6 +351,7 @@ export default function InventoryPage() {
       { id: 'products', label: '📋 Products & Alerts' },
       { id: 'simulation', label: '🕹️ Interactive Simulation' },
       { id: 'diagram', label: 'Class Diagram' },
+      { id: 'sequence', label: 'Sequence Diagram' },
       { id: 'design', label: 'Design Details' }
     ]}>
       <style>{styles}</style>

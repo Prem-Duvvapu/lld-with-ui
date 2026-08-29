@@ -543,7 +543,7 @@ function SimulationTab() {
 
 export default function MusicStreamingPage() {
   return (
-    <LldPage module="music-streaming" title="Music Streaming System" icon="🎵" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="music-streaming" title="Music Streaming System" icon="🎵" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'app' && <AppTab />}

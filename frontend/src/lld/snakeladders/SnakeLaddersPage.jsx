@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { createGame, getGame, rollDice, simReset, simRoll } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
 const styles = `
@@ -452,8 +453,8 @@ export default function SnakeLaddersPage() {
   const [players, setPlayers] = useState(['Player 1', 'Player 2']);
   const [tab, setTab] = useState('setup');
 
-  const tabs = ['setup', 'simulation', 'diagram', 'design'];
-  const tabLabels = { setup: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', design: 'Design Details' };
+  const tabs = ['setup', 'simulation', 'diagram', 'sequence', 'design'];
+  const tabLabels = { setup: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', sequence: 'Sequence Diagram', design: 'Design Details' };
 
   return (
     <div className="app">
@@ -489,6 +490,7 @@ export default function SnakeLaddersPage() {
         )}
         {tab === 'simulation' && <AnimatedFlow />}
         {tab === 'diagram' && <ClassDiagram module="snakeladders" />}
+        {tab === 'sequence' && <SequenceDiagram module="snakeladders" />}
         {tab === 'design' && <DesignDetails module="snakeladders" />}
       </main>
     </div>

@@ -347,7 +347,7 @@ export default function LoggingFrameworkPage() {
   });
 
   return (
-    <LldPage module="logging-framework" title="Logging Framework" icon="📝" tabs={['app', 'appenders', 'hierarchy', 'simulation', 'diagram', 'design']}>
+    <LldPage module="logging-framework" title="Logging Framework" icon="📝" tabs={['app', 'appenders', 'hierarchy', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <InteractivePipelineSimulation />}

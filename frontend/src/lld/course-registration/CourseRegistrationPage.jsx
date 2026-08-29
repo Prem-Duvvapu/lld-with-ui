@@ -486,7 +486,7 @@ function SimulationTab() {
 
 export default function CourseRegistrationPage() {
   return (
-    <LldPage module="course-registration" title="Course Registration" icon="📚" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="course-registration" title="Course Registration" icon="📚" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'app' && <AppTab />}

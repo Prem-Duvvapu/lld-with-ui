@@ -202,7 +202,7 @@ function RealTraceReplay() {
 
 export default function ZeroEvenOddPage() {
   return (
-    <LldPage module="zero-even-odd" title="Print Zero Even Odd" icon="0️⃣" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="zero-even-odd" title="Print Zero Even Odd" icon="0️⃣" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <RealTraceReplay />}

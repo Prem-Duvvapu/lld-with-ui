@@ -20,6 +20,7 @@ import {
   simGetEvents,
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -301,6 +302,7 @@ export default function LibraryPage() {
           { id: 'notifications', label: '🔔 Notifications & Alerts', badge: notifications.length },
           { id: 'simulation', label: '🕹️ Concurrency & Loan Simulation' },
           { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'sequence', label: '🔄 Sequence Diagram' },
           { id: 'details', label: '📋 Design Details' },
         ].map(t => (
           <button
@@ -933,7 +935,12 @@ export default function LibraryPage() {
         {activeTab === 'diagram' && <ClassDiagram module="library" />}
 
         {/* =================================================================== */}
-        {/* TAB 6: DESIGN DETAILS */}
+        {/* TAB 6: SEQUENCE DIAGRAM */}
+        {/* =================================================================== */}
+        {activeTab === 'sequence' && <SequenceDiagram module="library" />}
+
+        {/* =================================================================== */}
+        {/* TAB 7: DESIGN DETAILS */}
         {/* =================================================================== */}
         {activeTab === 'details' && <DesignDetails module="library" />}
       </main>

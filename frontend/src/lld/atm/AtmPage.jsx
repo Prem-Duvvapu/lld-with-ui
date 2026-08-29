@@ -15,6 +15,7 @@ import {
   simGetSnapshots,
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import './AtmPage.css';
 
@@ -233,6 +234,12 @@ export default function AtmPage() {
             onClick={() => setActiveTab('diagram')}
           >
             📐 Class Diagram
+          </button>
+          <button
+            className={`atm-tab ${activeTab === 'sequence' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sequence')}
+          >
+            🔄 Sequence Diagram
           </button>
           <button
             className={`atm-tab ${activeTab === 'details' ? 'active' : ''}`}
@@ -500,7 +507,12 @@ export default function AtmPage() {
         <ClassDiagram module="atm" />
       )}
 
-      {/* TAB 4: DESIGN DETAILS */}
+      {/* TAB 4: SEQUENCE DIAGRAM */}
+      {activeTab === 'sequence' && (
+        <SequenceDiagram module="atm" />
+      )}
+
+      {/* TAB 5: DESIGN DETAILS */}
       {activeTab === 'details' && (
         <DesignDetails module="atm" />
       )}

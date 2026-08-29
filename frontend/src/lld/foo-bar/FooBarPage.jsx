@@ -203,7 +203,7 @@ function RealTraceReplay() {
 
 export default function FooBarPage() {
   return (
-    <LldPage module="foo-bar" title="Print FooBar Alternately" icon="🏓" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="foo-bar" title="Print FooBar Alternately" icon="🏓" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <RealTraceReplay />}

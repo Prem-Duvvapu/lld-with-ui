@@ -201,7 +201,7 @@ function RealTraceReplay() {
 
 export default function H2OPage() {
   return (
-    <LldPage module="h2o" title="Building H2O Molecule" icon="💧" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="h2o" title="Building H2O Molecule" icon="💧" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <RealTraceReplay />}

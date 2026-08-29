@@ -202,7 +202,7 @@ export default function TrafficSignalPage() {
   };
 
   return (
-    <LldPage module="traffic-signal" title="Traffic Signal System" icon="🚦" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="traffic-signal" title="Traffic Signal System" icon="🚦" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <AnimatedFlow />}

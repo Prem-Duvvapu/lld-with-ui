@@ -266,7 +266,7 @@ function RealTraceReplay() {
 
 export default function ConcurrentHashMapPage() {
   return (
-    <LldPage module="concurrent-hashmap" title="Concurrent HashMap System" icon="🗺️" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="concurrent-hashmap" title="Concurrent HashMap System" icon="🗺️" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <RealTraceReplay />}

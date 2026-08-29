@@ -353,7 +353,7 @@ function RealTraceReplay() {
 
 export default function MergeSortPage() {
   return (
-    <LldPage module="merge-sort" title="Multi-threaded Merge Sort" icon="🔀" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="merge-sort" title="Multi-threaded Merge Sort" icon="🔀" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'simulation' && <RealTraceReplay />}

@@ -681,7 +681,7 @@ function SimulationTab() {
 
 export default function RestaurantPage() {
   return (
-    <LldPage module="restaurant" title="Restaurant Management" icon="🍽️" tabs={['app', 'simulation', 'diagram', 'design']}>
+    <LldPage module="restaurant" title="Restaurant Management" icon="🍽️" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
         <>
           {activeTab === 'app' && <AppTab />}

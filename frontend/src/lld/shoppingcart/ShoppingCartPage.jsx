@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import * as api from './api'
 import ClassDiagram from '../../components/ClassDiagram'
+import SequenceDiagram from '../../components/SequenceDiagram'
 import DesignDetails from '../../components/DesignDetails'
 import '../../styles/theme.css'
 
@@ -235,6 +236,7 @@ export default function ShoppingCartPage() {
           { id: 'seller', label: '🏪 Seller Dashboard' },
           { id: 'sim', label: '🕹️ Concurrency Sim' },
           { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'sequence', label: '🔄 Sequence Diagram' },
           { id: 'details', label: '📋 Design Details' },
         ].map(tab => (
           <button
@@ -518,7 +520,10 @@ export default function ShoppingCartPage() {
       {/* TAB 6: CLASS DIAGRAM */}
       {activeTab === 'diagram' && <ClassDiagram module="shoppingcart" />}
 
-      {/* TAB 7: DESIGN DETAILS */}
+      {/* TAB 7: SEQUENCE DIAGRAM */}
+      {activeTab === 'sequence' && <SequenceDiagram module="shoppingcart" />}
+
+      {/* TAB 8: DESIGN DETAILS */}
       {activeTab === 'details' && <DesignDetails module="shoppingcart" />}
     </div>
   )

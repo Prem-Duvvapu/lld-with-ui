@@ -14,6 +14,7 @@ import {
   simGetEvents,
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -265,6 +266,7 @@ export default function StockBrokeragePage() {
           { id: 'orderbook', label: `📊 Live Order Book (${selectedSymbol})` },
           { id: 'simulation', label: '🕹️ Concurrency & Matching Simulation' },
           { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'sequence', label: '🔄 Sequence Diagram' },
           { id: 'details', label: '📋 Design Details' },
         ].map(t => (
           <button
@@ -720,7 +722,12 @@ export default function StockBrokeragePage() {
         {activeTab === 'diagram' && <ClassDiagram module="stockbroker" />}
 
         {/* =================================================================== */}
-        {/* TAB 5: DESIGN DETAILS */}
+        {/* TAB 5: SEQUENCE DIAGRAM */}
+        {/* =================================================================== */}
+        {activeTab === 'sequence' && <SequenceDiagram module="stockbroker" />}
+
+        {/* =================================================================== */}
+        {/* TAB 6: DESIGN DETAILS */}
         {/* =================================================================== */}
         {activeTab === 'details' && <DesignDetails module="stockbroker" />}
       </main>

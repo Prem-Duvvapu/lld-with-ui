@@ -436,6 +436,7 @@ export default function CarRentalPage() {
     { id: 'fleet', label: '🏢 Fleet Dashboard' },
     { id: 'simulation', label: 'Interactive 2D Simulation' },
     { id: 'diagram', label: 'Class Diagram' },
+    { id: 'sequence', label: 'Sequence Diagram' },
     { id: 'design', label: 'Design Details' },
   ]), []);
 

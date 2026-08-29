@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getHotels, getRooms, bookRoom, checkInBooking, checkOutBooking, cancelBooking } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 
 const CSS = `
@@ -344,6 +345,7 @@ export default function HotelPage() {
     { key: 'hotels', label: 'Hotels' },
     { key: 'simulation', label: 'Simulation' },
     { key: 'diagram', label: 'Class Diagram' },
+    { key: 'sequence', label: 'Sequence Diagram' },
     { key: 'design', label: 'Design Details' },
   ];
 
@@ -366,6 +368,7 @@ export default function HotelPage() {
         {activeTab === 'hotels' && <HotelsTab />}
         {activeTab === 'simulation' && <AnimatedFlow />}
         {activeTab === 'diagram' && <ClassDiagram module="hotel" />}
+        {activeTab === 'sequence' && <SequenceDiagram module="hotel" />}
         {activeTab === 'design' && <DesignDetails module="hotel" />}
       </main>
     </div>

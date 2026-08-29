@@ -25,6 +25,7 @@ import {
   simGetSnapshot,
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -90,6 +91,7 @@ export default function CoffeeMachinePage() {
           { id: 'admin', label: '🎛️ Inventory & Refill', desc: 'Ingredient Hoppers & Admin' },
           { id: 'concurrency', label: '🔒 Concurrency Simulation', desc: 'Deadlock-Free Multi-Locking' },
           { id: 'diagram', label: '📐 Class Diagram', desc: 'UML Architecture' },
+          { id: 'sequence', label: '🔄 Sequence Diagram', desc: 'State Machine & Order Flow' },
           { id: 'design', label: '📋 Design Details', desc: 'Design Specs & Patterns' },
         ].map((tab) => (
           <button
@@ -124,6 +126,7 @@ export default function CoffeeMachinePage() {
         {activeTab === 'admin' && <AdminInventoryTab />}
         {activeTab === 'concurrency' && <ConcurrencySimulationTab />}
         {activeTab === 'diagram' && <ClassDiagram module="coffeemachine" />}
+        {activeTab === 'sequence' && <SequenceDiagram module="coffeemachine" />}
         {activeTab === 'design' && <DesignDetails module="coffeemachine" />}
       </div>
     </div>

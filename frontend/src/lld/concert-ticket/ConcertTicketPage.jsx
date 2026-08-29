@@ -572,6 +572,7 @@ export default function ConcertTicketPage() {
         { id: 'bookings', label: '📜 My Bookings' },
         { id: 'simulation', label: '🕹️ Interactive 2D Simulation' },
         'diagram',
+        'sequence',
         'design',
       ]}
     >

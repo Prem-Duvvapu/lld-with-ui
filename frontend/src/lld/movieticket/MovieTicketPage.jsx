@@ -5,6 +5,7 @@ import {
   simReset, simGetSeats, simGetEvents, simHold, simBook, simExpire, simCancel
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -314,6 +315,7 @@ export default function MovieTicketPage() {
           { id: 'history', label: '📊 Booking History' },
           { id: 'simulation', label: '🕹️ Concurrency Simulation' },
           { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'sequence', label: '🔄 Sequence Diagram' },
           { id: 'design', label: '📋 Design Details' },
         ].map(tab => (
           <button
@@ -725,7 +727,12 @@ export default function MovieTicketPage() {
         {activeTab === 'diagram' && <ClassDiagram module="movieticket" />}
 
         {/* ========================================================================= */}
-        {/* TAB 5: DESIGN DETAILS */}
+        {/* TAB 5: SEQUENCE DIAGRAM */}
+        {/* ========================================================================= */}
+        {activeTab === 'sequence' && <SequenceDiagram module="movieticket" />}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: DESIGN DETAILS */}
         {/* ========================================================================= */}
         {activeTab === 'design' && <DesignDetails module="movieticket" />}
       </div>

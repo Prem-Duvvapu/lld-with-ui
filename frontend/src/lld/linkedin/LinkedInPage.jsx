@@ -25,6 +25,7 @@ import {
   simGetEvents,
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
+import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -354,6 +355,7 @@ export default function LinkedInPage() {
           { id: 'messages', label: '💬 Messaging & Inboxes' },
           { id: 'simulation', label: '🕹️ Interactive 2D Simulation' },
           { id: 'diagram', label: '📐 Class Diagram' },
+          { id: 'sequence', label: '🔄 Sequence Diagram' },
           { id: 'details', label: '📋 Design Details' },
         ].map(t => (
           <button
@@ -1008,7 +1010,12 @@ export default function LinkedInPage() {
         {activeTab === 'diagram' && <ClassDiagram module="linkedin" />}
 
         {/* =================================================================== */}
-        {/* TAB 6: DESIGN DETAILS */}
+        {/* TAB 6: SEQUENCE DIAGRAM */}
+        {/* =================================================================== */}
+        {activeTab === 'sequence' && <SequenceDiagram module="linkedin" />}
+
+        {/* =================================================================== */}
+        {/* TAB 7: DESIGN DETAILS */}
         {/* =================================================================== */}
         {activeTab === 'details' && <DesignDetails module="linkedin" />}
       </main>
