@@ -10,7 +10,7 @@ export default {
       id: 'car-rental-race',
       label: 'Two drivers race to book the same vehicle for overlapping dates',
       description:
-        'Driver A (Alice) and Driver B (Bob) simultaneously attempt to book Tesla Model 3 (CAR-101) for June 10–15. ReservationLockService acquires vehicleLock("CAR-101"). Alice acquires the lock first, confirms the booking, and creates Reservation RES-001. Bob acquires the lock next, detects the overlapping date interval, and receives CarUnavailableException (409).',
+        'Driver A (Alice) and Driver B (Bob) simultaneously attempt to book Tesla Model 3 (CAR-101) for June 10–15. ReservationLockService acquires vehicleLock("CAR-101"). Alice acquires the lock first, confirms the booking, and creates Reservation RES-001. Bob acquires the lock next, detects the overlapping date interval, and receives VehicleNotAvailableException (409).',
       participants: [
         { id: 'driverA', name: 'Driver A\n(Alice)', kind: 'actor' },
         { id: 'driverB', name: 'Driver B\n(Bob)', kind: 'actor' },
@@ -41,9 +41,9 @@ export default {
         { from: 'lockService', to: 'repo', text: '[Bob] getReservationsForVehicle("CAR-101")' },
         { from: 'repo', to: 'lockService', text: '[Bob] returns [RES-001 (Jun 10–15)]', type: 'return' },
         { from: 'lockService', to: 'lockService', text: '[Bob] overlapCheck(Jun 12–18 vs Jun 10–15) → OVERLAP DETECTED' },
-        { from: 'lockService', to: 'lockService', text: '[Bob] throw CarUnavailableException("CAR-101 is already booked")' },
+        { from: 'lockService', to: 'lockService', text: '[Bob] throw VehicleNotAvailableException("CAR-101 is already booked")' },
         { from: 'lockService', to: 'vehLock', text: '[Bob] lock.unlock()', deactivate: 'vehLock' },
-        { from: 'lockService', to: 'service', text: '[Bob] propagate CarUnavailableException', type: 'return' },
+        { from: 'lockService', to: 'service', text: '[Bob] propagate VehicleNotAvailableException', type: 'return' },
         { from: 'service', to: 'controller', text: '[Bob] propagate exception', type: 'return' },
         { from: 'controller', to: 'driverB', text: '409 Conflict — Vehicle unavailable for chosen dates', type: 'return' },
       ],

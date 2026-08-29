@@ -1,23 +1,23 @@
 // Sequence diagram content for cricinfo (ESPNCricinfo / Live Cricket Scorecard).
-// Grounded directly in CricInfoService, Match engine ball-by-ball updates,
+// Grounded directly in CricinfoService, Match engine ball-by-ball updates,
 // and Live Scorecard Observer notifications.
 export default {
   title: 'CricInfo — Ball-by-Ball Event Processing & Live Scorecard Broadcast',
   description:
-    'How CricInfoService processes live cricket deliveries. When a ball outcome (runs, wicket, extra) is recorded, the match engine updates batsman and bowler figures atomically, checks innings completion, and broadcasts scorecard snapshots to subscribed UI clients.',
+    'How CricinfoService processes live cricket deliveries. When a ball outcome (runs, wicket, extra) is recorded, the match engine updates batsman and bowler figures atomically, checks innings completion, and broadcasts scorecard snapshots to subscribed UI clients.',
   flows: [
     {
       id: 'ball-update-broadcast-flow',
       label: 'Ball delivery recorded → Stats updated → Live Scorecard broadcast',
       description:
-        'Umpire records a 6-run hit off bowler B1 by batsman A1. CricInfoService validates current over state, increments team runs and batsman boundary counts, updates bowler economy, and notifies live observers.',
+        'Umpire records a 6-run hit off bowler B1 by batsman A1. CricinfoService validates current over state, increments team runs and batsman boundary counts, updates bowler economy, and notifies live observers.',
       participants: [
         { id: 'scorer', name: 'Official Scorer', kind: 'actor' },
         { id: 'controller', name: 'CricInfo\nController', kind: 'component', stereotype: 'controller' },
         { id: 'service', name: 'CricInfo\nService', kind: 'component', stereotype: 'facade' },
         { id: 'engine', name: 'MatchEngine', kind: 'component' },
         { id: 'match', name: 'Match / Scorecard\n(IND vs AUS)', kind: 'store' },
-        { id: 'notifier', name: 'ScorecardNotifier', kind: 'component', stereotype: 'observer' },
+        { id: 'notifier', name: 'MatchPublisher', kind: 'component', stereotype: 'observer' },
       ],
       steps: [
         { from: 'scorer', to: 'controller', text: 'POST /api/cricinfo/matches/101/ball {batsmanId: "A1", bowlerId: "B1", runs: 6, isWicket: false}' },

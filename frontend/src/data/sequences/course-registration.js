@@ -18,7 +18,7 @@ export default {
         { id: 'service', name: 'CourseRegistration\nService', kind: 'component', stereotype: 'facade' },
         { id: 'capMgr', name: 'SectionCapacity\nManager', kind: 'component' },
         { id: 'secLock', name: 'sectionLock\n("CS-101-A")', kind: 'lock', stereotype: 'ReentrantLock' },
-        { id: 'repo', name: 'CourseRepository', kind: 'store' },
+        { id: 'repo', name: 'CourseRegistrationRepository', kind: 'store' },
       ],
       steps: [
         { from: 'studentA', to: 'controller', text: 'POST /api/course-registration/enroll {studentId: "alice", sectionId: "CS-101-A"}' },
