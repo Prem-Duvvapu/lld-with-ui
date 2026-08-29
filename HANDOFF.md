@@ -51,7 +51,7 @@ Verified against the tree on `main` (2026-08-26):
 | **5 — sequence diagrams** | every module touched above (+ sweep of the solid tier) | All 45 modules now have `data/sequences/<module>.js`, added in one un-reviewed direct push to `main` (`2f1d52e`, no branch/PR/CI — a real process violation, see RCA-030). A ~22-module spot-check found `atm`, `library`, `shoppingcart` **severely fabricated** (invented architectures/classes that don't exist — all three now fixed) and 7 more with smaller real naming errors (also fixed: `hotel`, `cricinfo`, `course-registration`, `music-streaming`, `car-rental`, `stackoverflow`, `blocking-queue`). **~10 of the 32 newly-added files were never sampled** (`bloom-filter`, `concurrent-hashmap`, `fizz-buzz`, `foo-bar`, `h2o`, `merge-sort`, `zero-even-odd`, `ttl-cache`, and a few others) — run RCA-030's diagnostic grep against each before trusting them. |
 
 **Unverified against the bar** (not tracked in any wave above, no recorded `/audit-lld` pass):
-library, shoppingcart, stock-brokerage. `airline`, `pubsub` and `atm` were all raised to the
+library, shoppingcart. `airline`, `pubsub`, `atm` and `stock-brokerage` were all raised to the
 reference bar in this pass:
 - `airline` — PR #38 (concurrent seat-hold/booking locking, State + Strategy/Factory, typed
   exceptions, isolated sim engine, tests; RCA-024).
@@ -62,6 +62,16 @@ reference bar in this pass:
   session machine (`com.lld.atm.state`), a `BankingRepository`, a second interchangeable dispense
   strategy behind a factory, a completed `AtmException` hierarchy, and a real per-account-lock
   concurrency test proving no overdraw under 10 concurrent withdrawals — see `## ATM Module` in
+  `AGENTS.md`.
+- `stock-brokerage` — was already the most mature "unverified" module going in (real Strategy/
+  Factory/Observer patterns, a typed exception hierarchy, a genuinely isolated `/sim/*` sandbox).
+  Closed the remaining gaps: an `OrderExecutionStrategyFactory` (EnumMap-resolved, matching
+  `inventory.strategy.ReorderStrategyFactory`), self-trade prevention wired to the previously-dead
+  `OrderExecutionException` (plus a real reservation-leak bug that fix uncovered and fixed), Lombok
+  across the model package, and a concurrency test suite proving no double-spend/oversell/double-
+  fill with real threads. Also rebuilt the frontend onto the shared `LldPage` shell (it previously
+  hand-rolled its own dark-only-palette page) and replaced the RCA-030-era fabricated sequence
+  diagram with one grounded in the real matching code — see `## Stock Brokerage Module` in
   `AGENTS.md`.
 `library` was paused mid-audit (its worktree/branch still hold partial investigation notes — resume
 by re-running the same audit-and-harden pass rather than starting over) to keep only one agent

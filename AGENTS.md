@@ -325,16 +325,101 @@ reference bar — same audit-and-harden shape as pubsub/parkinglot.
 
 ## Stock Brokerage Module
 ### Backend
-- `StockBrokerService`: Singleton facade managing stocks, accounts, order books, and real-time observer dispatching.
-- Order Book Pattern: Dual `TreeMap` price-time priority ladder (`bids` descending, `asks` ascending) with FIFO order queues per price level.
-- Strategy Pattern: `OrderExecutionStrategy` interface with `MarketExecutionStrategy` (immediate depth sweep) and `LimitExecutionStrategy` (immediate match + resting remainder).
-- Concurrency & Fund Reservation: Atomic balance and share pre-reservation under account mutexes (`account.getLock()`) plus per-symbol `ReentrantLock` for sequential matching engine mutation.
-- Observer Pattern: `StockPriceObserver` interface with `InAppPriceObserver` and `LoggingPriceObserver` for live price updates.
-- Custom Exceptions: `InsufficientFundsException` (400), `InsufficientStockException` (400), `InvalidOrderException` (400), `StockNotFoundException` (404), `AccountNotFoundException` (404), `OrderExecutionException` (422).
+Audited against the 17-criteria bar (it was already the most mature "unverified" module — real
+Strategy/Factory/Observer patterns and a typed exception hierarchy existed going in) and raised the
+remaining gaps: one dead exception, no `OrderExecutionStrategyFactory`, hand-written getters
+throughout the model package, a vestigial static-singleton `getInstance()` nobody called, and only
+one test file.
+- `StockBrokerService`: Spring-managed facade over stocks, accounts, order books and order
+  matching. The vestigial `getInstance()` double-checked-locking singleton (dead code — Spring
+  already manages it as a bean, and nothing called the static accessor) was removed.
+- **Order Book Pattern**: `OrderBook` — dual `TreeMap` price-time priority ladder (`bids`
+  descending, `asks` ascending) with a FIFO `Queue<Order>` per price level. `OrderBookTest` covers
+  it directly (price ordering, empty-level cleanup on `removeOrder`, depth-snapshot aggregation,
+  spread calculation) since it owns real independent behaviour, not bare wrapper plumbing.
+- **Strategy + Factory (new)**: `OrderExecutionStrategy` — `MarketExecutionStrategy` (walks the
+  book immediately) and `LimitExecutionStrategy` (matches at-or-better than the limit, rests the
+  remainder) — now resolved via `OrderExecutionStrategyFactory`'s `EnumMap<OrderType,
+  OrderExecutionStrategy>`, the same shape as `inventory.strategy.ReorderStrategyFactory`, instead
+  of `StockBrokerService#placeOrder` branching on `OrderType` itself. `OrderFactory` is the
+  separate, genuine Factory Method for `BuyOrder`/`SellOrder` — it always existed and was already
+  correct, just previously undocumented as distinct from the execution-strategy resolution.
+- **Self-trade prevention (new, the exception hierarchy's missing piece)**: a `default
+  guardSelfTrade(order, book)` method on `OrderExecutionStrategy` — called at the top of both
+  strategies' `execute()` — rejects an order with `OrderExecutionException` (422) if the best
+  available counter-price on the opposite side of the book belongs to the SAME account (Cancel-
+  Newest policy). This was `OrderExecutionException`'s real gap: it existed in the hierarchy but
+  was never thrown anywhere. It's a top-of-book check only (real matching-engine "inside market"
+  fast path), so a self-order resting deeper in the book still matches normally.
+  `StockBrokerService#placeOrder`/`#simPlaceOrder` catch it, release the pre-check reservation
+  (which would otherwise leak — a real bug this pass found and fixed, since nothing previously
+  released a BUY's reserved funds or a SELL's reserved shares if execution rejected the order after
+  the reservation had already succeeded) and mark the order `REJECTED` before rethrowing/logging.
+- **Concurrency (the module's real interesting story, now proven with real threads)**: order
+  placement pre-reserves funds/shares under `Account`'s own fair `ReentrantLock`
+  (`reserveFunds`/`Portfolio#reserveShares`, which delegates to a `Holding`-level lock one notch
+  finer) BEFORE the per-symbol `ReentrantLock` (`symbolLocks`, lazily created via
+  `computeIfAbsent`) serializes the actual order-book matching — the two locks are never held
+  nested (each is acquired, used, and released before the next is taken), so lock-ordering deadlock
+  is structurally impossible rather than merely avoided by convention.
+  `StockBrokerConcurrencyTest` proves it with real threads/latches (not sleeps): (a) N concurrent
+  BUY orders against one account never reserve more cash than its balance affords; (b) N concurrent
+  SELL orders never reserve more shares than the account holds; (c) many buyers racing one large
+  resting SELL order never double-execute the same shares — the matched quantity always sums to
+  exactly the resting order's size.
+- Exception hierarchy: `StockBrokerException` (abstract) `extends com.lld.config.DomainException`,
+  with `InsufficientFundsException`/`InsufficientStockException`/`InvalidOrderException` (400),
+  `AccountNotFoundException`/`StockNotFoundException` (404), `OrderExecutionException` (422 — see
+  self-trade prevention above). All six are genuinely provokable now; none maps to 5xx.
+- Lombok models (new): `Account`, `Holding`, `Order`(abstract)/`BuyOrder`/`SellOrder`, `Portfolio`,
+  `Stock`, `Trade`, `User`, `SimEvent` all use `@Getter`/`@Builder` (not `@Data` on anything holding
+  a lock or atomic-composed business logic). `Account` gets the exact `atm.model.Account` /
+  `library.model.Member` treatment — `@Getter` only, `@Getter(AccessLevel.NONE)` +
+  `@Builder.Default` on `accountLock`, a hand-written `@JsonIgnore getLock()` — because this was
+  the ORIGINAL hand-rolled precedent those two modules' docstrings cite as having copied.
+  `Holding` dropped its redundant `AtomicInteger` fields for plain `int`s, since its own
+  `synchronized` mutators already serialize every read-modify-write. Static factories
+  (`Account.open(...)`, `Portfolio.empty(...)`, `Holding.of(...)`, `User.of(...)`) layer
+  construction-time normalization (clamped initial deposit, trimmed name/email) on top of the
+  generated builder, the same pattern `Flight.create(...)`/`Aircraft.of(...)` use in `airline`.
+- Isolated `/api/stockbroker/sim/*` engine: already existed and was genuinely isolated (separate
+  `simStocks`/`simAccounts`/`simOrderBooks`/`simOrdersById` maps, rebuilt from scratch on
+  `simReset()`, seeded with 2 demo traders and a 4-level INFY bid/ask ladder) — audited and
+  confirmed real, no changes needed beyond wiring the new strategy factory and the self-trade
+  reservation-release fix through `simPlaceOrder` too.
+- Tests (grew from 1 file to 7): `StockBrokerServiceTest` (existing coverage plus self-trade
+  rejection + reservation release, cross-account matching still works normally),
+  `OrderBookTest` (the repository-equivalent test — ladder ordering, level cleanup, depth/spread),
+  `OrderFactoryTest`, `OrderExecutionStrategyFactoryTest`, `LimitExecutionStrategyTest` /
+  `MarketExecutionStrategyTest` (maker-price priority, partial fills, self-trade guard, in
+  isolation from the service's locking), `StockBrokerConcurrencyTest` (the load-bearing suite
+  above).
 
 ### Frontend
-- 5 tabs: 📈 Trade & Portfolio, 📊 Live Order Book & Depth Ladder, 🕹️ Concurrency & Matching Simulation, 📐 Class Diagram, 📋 Design Details.
-- Real-time stock ticker tape, order placement console with Market/Limit toggle, portfolio P&L breakdown, visual Bid/Ask depth chart with cumulative volume bars, and matching engine sandbox.
+Rebuilt onto the shared `LldPage` shell — the previous page rendered `ClassDiagram`/
+`SequenceDiagram`/`DesignDetails` directly instead of using it, and hardcoded a dark-only palette
+(`#0f172a`/`#1e293b`/`#334155`) that ignored the theme toggle entirely. `api.js` now wraps the
+shared `apiFetch` (it previously hand-rolled its own `fetch`/error handling).
+- Tabs: 📈 App (live trading console), 🕹️ Interactive Simulation, Class Diagram, Sequence Diagram,
+  Design Details.
+- App tab: live quote ticker, order placement console (BUY/SELL × MARKET/LIMIT), account switcher
+  (Alice/Bob), live order-book depth ladder with cumulative volume, portfolio holdings table, and
+  cancellable recent-orders list — every value comes from a real `/api/stockbroker/*` call, nothing
+  mocked.
+- 8-step Interactive Simulation against the isolated `/api/stockbroker/sim/*` sandbox with a live
+  telemetry HUD (INFY price, bid/ask spread, resting-order count, self-trade blocks, events
+  logged): reset → view the seeded traders and 4-level ladder → rest a LIMIT order → sweep the book
+  with a MARKET order → attempt a self-trade (genuinely rejected by the real guard) → attempt an
+  over-budget order (genuinely rejected by `InsufficientFundsException`) → cancel a resting order
+  → review the full event log.
+- New sequence diagram (`data/sequences/stock-brokerage.js`) walks two buyers racing to match the
+  SAME resting sell order under the per-symbol lock, step by step, through
+  `StockBrokerConcurrencyTest#concurrentMatchingNeverDoubleFillsSameRestingOrder` — the previous
+  sequence file (added in the RCA-030 bulk push) invented an entire architecture
+  (`BrokerageService`, `MatchingEngine`, `checkAndBlockFunds`, `TradeResult`, a `/api/stock-broker/`
+  path) that doesn't exist in the real code; it read as "checked out clean" against RCA-030's own
+  diagnostic grep only because its participant labels embedded `\n` mid-name, splitting matched
+  class-name patterns across lines and evading the regex.
 
 ## Vending Machine Module
 ### Backend
