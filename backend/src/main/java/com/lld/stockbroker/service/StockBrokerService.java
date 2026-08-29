@@ -5,6 +5,7 @@ import com.lld.stockbroker.enums.OrderStatus;
 import com.lld.stockbroker.enums.OrderType;
 import com.lld.stockbroker.exception.AccountNotFoundException;
 import com.lld.stockbroker.exception.InvalidOrderException;
+import com.lld.stockbroker.exception.OrderExecutionException;
 import com.lld.stockbroker.exception.StockNotFoundException;
 import com.lld.stockbroker.factory.OrderFactory;
 import com.lld.stockbroker.model.*;
@@ -12,6 +13,8 @@ import com.lld.stockbroker.observer.InAppPriceObserver;
 import com.lld.stockbroker.observer.LoggingPriceObserver;
 import com.lld.stockbroker.strategy.LimitExecutionStrategy;
 import com.lld.stockbroker.strategy.MarketExecutionStrategy;
+import com.lld.stockbroker.strategy.OrderExecutionStrategy;
+import com.lld.stockbroker.strategy.OrderExecutionStrategyFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalTime;
@@ -25,8 +28,6 @@ import java.util.concurrent.locks.ReentrantLock;
 @Service
 public class StockBrokerService {
 
-    private static volatile StockBrokerService instance;
-
     // Repositories
     private final Map<String, Stock> stocks = new ConcurrentHashMap<>();
     private final Map<String, Account> accounts = new ConcurrentHashMap<>();
@@ -38,6 +39,7 @@ public class StockBrokerService {
 
     private final MarketExecutionStrategy marketStrategy;
     private final LimitExecutionStrategy limitStrategy;
+    private final OrderExecutionStrategyFactory strategyFactory;
     private final InAppPriceObserver inAppPriceObserver;
     private final LoggingPriceObserver loggingPriceObserver;
 
@@ -56,23 +58,12 @@ public class StockBrokerService {
                               LoggingPriceObserver loggingPriceObserver) {
         this.marketStrategy = marketStrategy != null ? marketStrategy : new MarketExecutionStrategy();
         this.limitStrategy = limitStrategy != null ? limitStrategy : new LimitExecutionStrategy();
+        this.strategyFactory = new OrderExecutionStrategyFactory(this.marketStrategy, this.limitStrategy);
         this.inAppPriceObserver = inAppPriceObserver != null ? inAppPriceObserver : new InAppPriceObserver();
         this.loggingPriceObserver = loggingPriceObserver != null ? loggingPriceObserver : new LoggingPriceObserver();
 
         initDefaultData();
         simReset();
-    }
-
-    public static StockBrokerService getInstance() {
-        if (instance == null) {
-            synchronized (StockBrokerService.class) {
-                if (instance == null) {
-                    instance = new StockBrokerService(new MarketExecutionStrategy(), new LimitExecutionStrategy(),
-                            new InAppPriceObserver(), new LoggingPriceObserver());
-                }
-            }
-        }
-        return instance;
     }
 
     private ReentrantLock getLockForSymbol(String symbol) {
@@ -96,8 +87,8 @@ public class StockBrokerService {
 
     public Account createAccount(String userId, String name, String email, double initialDeposit) {
         String accountId = "ACC-" + userId;
-        Account account = new Account(accountId, userId, initialDeposit);
-        User user = new User(userId, name, email, accountId);
+        Account account = Account.open(accountId, userId, initialDeposit);
+        User user = User.of(userId, name, email, accountId);
 
         accounts.put(accountId, account);
         users.put(userId, user);
@@ -151,8 +142,8 @@ public class StockBrokerService {
 
         // 1. Determine Reservation Amount & Perform Atomic Pre-Check
         double effectivePrice = (type == OrderType.LIMIT) ? price : stock.getCurrentPrice();
+        double requiredFunds = effectivePrice * quantity;
         if (side == OrderSide.BUY) {
-            double requiredFunds = effectivePrice * quantity;
             account.reserveFunds(requiredFunds);
         } else {
             account.getPortfolio().reserveShares(sym, quantity);
@@ -167,11 +158,19 @@ public class StockBrokerService {
         ReentrantLock lock = getLockForSymbol(sym);
         lock.lock();
         try {
-            if (type == OrderType.LIMIT) {
-                limitStrategy.execute(order, book, accounts, stock);
+            OrderExecutionStrategy strategy = strategyFactory.forType(type);
+            strategy.execute(order, book, accounts, stock);
+        } catch (OrderExecutionException ex) {
+            // Self-trade prevention (or any other execution-time rejection) fired before any
+            // trade settled — release the pre-check reservation so it doesn't leak, and mark the
+            // order REJECTED rather than leaving it PENDING forever.
+            if (side == OrderSide.BUY) {
+                account.releaseReservedFunds(requiredFunds);
             } else {
-                marketStrategy.execute(order, book, accounts, stock);
+                account.getPortfolio().releaseReservedShares(sym, quantity);
             }
+            order.setStatus(OrderStatus.REJECTED);
+            throw ex;
         } finally {
             lock.unlock();
         }
@@ -245,11 +244,11 @@ public class StockBrokerService {
         simOrderBooks.put("TCS", new OrderBook("TCS"));
 
         // 2. Register Demo Accounts
-        Account alpha = new Account("SIM-ACC-ALPHA", "trader-alpha", 500000.0);
+        Account alpha = Account.open("SIM-ACC-ALPHA", "trader-alpha", 500000.0);
         alpha.getPortfolio().addInitialHolding("INFY", 100, 1480.0);
         alpha.getPortfolio().addInitialHolding("RELIANCE", 50, 2450.0);
 
-        Account beta = new Account("SIM-ACC-BETA", "trader-beta", 500000.0);
+        Account beta = Account.open("SIM-ACC-BETA", "trader-beta", 500000.0);
         beta.getPortfolio().addInitialHolding("INFY", 50, 1490.0);
         beta.getPortfolio().addInitialHolding("RELIANCE", 100, 2460.0);
 
@@ -295,8 +294,9 @@ public class StockBrokerService {
 
         try {
             double effPrice = (type == OrderType.LIMIT) ? price : stock.getCurrentPrice();
+            double requiredFunds = effPrice * quantity;
             if (side == OrderSide.BUY) {
-                account.reserveFunds(effPrice * quantity);
+                account.reserveFunds(requiredFunds);
             } else {
                 account.getPortfolio().reserveShares(sym, quantity);
             }
@@ -306,10 +306,17 @@ public class StockBrokerService {
             simOrdersById.put(orderId, order);
 
             List<Trade> trades;
-            if (type == OrderType.LIMIT) {
-                trades = limitStrategy.execute(order, book, simAccounts, stock);
-            } else {
-                trades = marketStrategy.execute(order, book, simAccounts, stock);
+            try {
+                OrderExecutionStrategy strategy = strategyFactory.forType(type);
+                trades = strategy.execute(order, book, simAccounts, stock);
+            } catch (OrderExecutionException ex) {
+                if (side == OrderSide.BUY) {
+                    account.releaseReservedFunds(requiredFunds);
+                } else {
+                    account.getPortfolio().releaseReservedShares(sym, quantity);
+                }
+                order.setStatus(OrderStatus.REJECTED);
+                throw ex;
             }
 
             if (!trades.isEmpty()) {
@@ -381,7 +388,14 @@ public class StockBrokerService {
 
     private void logSimEvent(String type, String actor, String desc, Map<String, Object> data) {
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"));
-        SimEvent event = new SimEvent(simEventIdGen.getAndIncrement(), ts, type, actor, desc, data);
+        SimEvent event = SimEvent.builder()
+                .id(simEventIdGen.getAndIncrement())
+                .timestamp(ts)
+                .type(type)
+                .actor(actor)
+                .description(desc)
+                .data(data)
+                .build();
         simEventLog.add(event);
     }
 

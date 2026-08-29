@@ -1,7 +1,13 @@
 package com.lld.stockbroker.model;
 
+import lombok.Builder;
+import lombok.Getter;
+
 import java.time.Instant;
 
+/** An immutable record of one executed fill between a buy order and a sell order. */
+@Getter
+@Builder
 public class Trade {
     private final String tradeId;
     private final String symbol;
@@ -11,54 +17,6 @@ public class Trade {
     private final String sellerAccountId;
     private final double price;
     private final int quantity;
-    private final Instant executedAt;
-
-    public Trade(String tradeId, String symbol, String buyOrderId, String sellOrderId,
-                 String buyerAccountId, String sellerAccountId, double price, int quantity) {
-        this.tradeId = tradeId;
-        this.symbol = symbol;
-        this.buyOrderId = buyOrderId;
-        this.sellOrderId = sellOrderId;
-        this.buyerAccountId = buyerAccountId;
-        this.sellerAccountId = sellerAccountId;
-        this.price = price;
-        this.quantity = quantity;
-        this.executedAt = Instant.now();
-    }
-
-    public String getTradeId() {
-        return tradeId;
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public String getBuyOrderId() {
-        return buyOrderId;
-    }
-
-    public String getSellOrderId() {
-        return sellOrderId;
-    }
-
-    public String getBuyerAccountId() {
-        return buyerAccountId;
-    }
-
-    public String getSellerAccountId() {
-        return sellerAccountId;
-    }
-
-    public double getPrice() {
-        return price;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
-    public Instant getExecutedAt() {
-        return executedAt;
-    }
+    @Builder.Default
+    private final Instant executedAt = Instant.now();
 }

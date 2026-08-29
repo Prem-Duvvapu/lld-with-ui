@@ -18,6 +18,7 @@ public class LimitExecutionStrategy implements OrderExecutionStrategy {
         if (order == null || book == null || order.getRemainingQuantity() <= 0) {
             return trades;
         }
+        guardSelfTrade(order, book);
 
         double oldStockPrice = stock != null ? stock.getCurrentPrice() : order.getLimitPrice();
         double lastExecPrice = oldStockPrice;
@@ -50,10 +51,16 @@ public class LimitExecutionStrategy implements OrderExecutionStrategy {
                     order.fill(matchQty);
                     restingSell.fill(matchQty);
 
-                    Trade trade = new Trade("TRD-" + tradeIdGen.getAndIncrement(), order.getSymbol(),
-                            order.getOrderId(), restingSell.getOrderId(),
-                            order.getAccountId(), restingSell.getAccountId(),
-                            execPrice, matchQty);
+                    Trade trade = Trade.builder()
+                            .tradeId("TRD-" + tradeIdGen.getAndIncrement())
+                            .symbol(order.getSymbol())
+                            .buyOrderId(order.getOrderId())
+                            .sellOrderId(restingSell.getOrderId())
+                            .buyerAccountId(order.getAccountId())
+                            .sellerAccountId(restingSell.getAccountId())
+                            .price(execPrice)
+                            .quantity(matchQty)
+                            .build();
                     trades.add(trade);
                     book.recordTrade(trade);
 
@@ -101,10 +108,16 @@ public class LimitExecutionStrategy implements OrderExecutionStrategy {
                     order.fill(matchQty);
                     restingBuy.fill(matchQty);
 
-                    Trade trade = new Trade("TRD-" + tradeIdGen.getAndIncrement(), order.getSymbol(),
-                            restingBuy.getOrderId(), order.getOrderId(),
-                            restingBuy.getAccountId(), order.getAccountId(),
-                            execPrice, matchQty);
+                    Trade trade = Trade.builder()
+                            .tradeId("TRD-" + tradeIdGen.getAndIncrement())
+                            .symbol(order.getSymbol())
+                            .buyOrderId(restingBuy.getOrderId())
+                            .sellOrderId(order.getOrderId())
+                            .buyerAccountId(restingBuy.getAccountId())
+                            .sellerAccountId(order.getAccountId())
+                            .price(execPrice)
+                            .quantity(matchQty)
+                            .build();
                     trades.add(trade);
                     book.recordTrade(trade);
 

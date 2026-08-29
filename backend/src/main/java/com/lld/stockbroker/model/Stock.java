@@ -1,11 +1,18 @@
 package com.lld.stockbroker.model;
 
 import com.lld.stockbroker.observer.StockPriceObserver;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/**
+ * A tradeable instrument. {@code observers} is the Observer-pattern subject list —
+ * {@link #notifyPriceUpdate} is the one place a matched trade fans out to every registered
+ * {@link StockPriceObserver} (in-app quote feed, logging ticker) after the price actually moves.
+ */
+@Getter
 public class Stock {
     private final String symbol;
     private final String name;
@@ -16,18 +23,6 @@ public class Stock {
         this.symbol = symbol != null ? symbol.toUpperCase().trim() : "STOCK";
         this.name = name != null ? name.trim() : this.symbol;
         this.currentPrice = initialPrice;
-    }
-
-    public String getSymbol() {
-        return symbol;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public double getCurrentPrice() {
-        return currentPrice;
     }
 
     public void setCurrentPrice(double newPrice) {
