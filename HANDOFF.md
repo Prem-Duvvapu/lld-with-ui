@@ -84,11 +84,26 @@ reference bar in this pass:
   ordering was proven deadlock-free under real concurrent threads, and the simulation tab was
   rebuilt as an 8-step user-driven walkthrough with a lock-order visualization — see
   `## Shopping Cart Module` in `AGENTS.md`.
-`library` was paused mid-audit (its worktree/branch still hold partial investigation notes — resume
-by re-running the same audit-and-harden pass rather than starting over) to keep only one agent
-running at a time. `linkedin` and `movieticket` are referenced elsewhere in this doc as pattern
-exemplars (canonical pair locking, seat/hold concurrency respectively) and can be treated as
-reference-tier. Run `/audit-lld` on the remaining three before assuming they're at the bar.
+`library` is being upgraded (2026-08-30) — real gaps confirmed pre-audit: no `repository/`
+package (12 maps sit directly on `LibraryService`), a dead legacy `getInstance()` singleton
+alongside proper Spring DI, hand-written (non-Lombok) models, only one test file.
+
+`linkedin` and `movieticket` are referenced elsewhere in this doc as pattern exemplars (canonical
+pair locking, seat/hold concurrency respectively) but were **not** actually reference-tier — a
+real `/audit-lld` pass (2026-08-30) found: `linkedin` has no `repository/` package, no Lombok,
+`api.js` uses raw `fetch()` instead of the shared `apiFetch` wrapper (24 calls — its errors never
+get `ApiError`-normalized), 0 live-polling, 117 hardcoded colors; `movieticket` is structurally
+closer to the bar (has `repository/`, a real concurrency test) but shares the polling/color gaps.
+
+**Scope decision (2026-08-30, user-confirmed):** hardcoded-color cleanup, `usePolling` adoption,
+and raw-`fetch()`→`apiFetch` conversion are **out of scope for "full completion"** of the
+module-upgrade effort — they are a separate, portfolio-wide future pass. A repo-wide check found
+this isn't a linkedin/movieticket-specific gap: only 13/45 pages use `usePolling`, 43/45 pages have
+hardcoded hex colors (**including all three reference modules** `splitwise`/`logging`/`uber`), and
+5 modules (`airline`, `coffeemachine`, `library`, `linkedin`, `vendingmachine`) use raw `fetch()`.
+"Full completion" for now means: `library`, `linkedin`, `movieticket` reach backend/pattern/test/
+docs parity with the other 42 modules — their frontend polish gaps (color/polling/fetch) are noted
+but deferred, same as every other module's.
 
 ## How to use this file
 
