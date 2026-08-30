@@ -1187,8 +1187,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 881 tests, 91 classes
-cd frontend && npx vitest run # 286 tests, 3 files
+cd backend && mvn test        # 1657 tests, 180 classes
+cd frontend && npx vitest run # 304 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green
