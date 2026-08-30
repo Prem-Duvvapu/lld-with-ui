@@ -1,7 +1,12 @@
 package com.lld.movieticket.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Map;
 
+@Getter
+@Setter
 public class SimEvent {
     private long id;
     private String timestamp;
@@ -22,25 +27,4 @@ public class SimEvent {
         this.data = data;
         this.seatMapSnapshot = seatMapSnapshot;
     }
-
-    public long getId() { return id; }
-    public void setId(long id) { this.id = id; }
-
-    public String getTimestamp() { return timestamp; }
-    public void setTimestamp(String timestamp) { this.timestamp = timestamp; }
-
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
-
-    public String getActorName() { return actorName; }
-    public void setActorName(String actorName) { this.actorName = actorName; }
-
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
-
-    public Map<String, Object> getData() { return data; }
-    public void setData(Map<String, Object> data) { this.data = data; }
-
-    public Map<Long, String> getSeatMapSnapshot() { return seatMapSnapshot; }
-    public void setSeatMapSnapshot(Map<Long, String> seatMapSnapshot) { this.seatMapSnapshot = seatMapSnapshot; }
 }

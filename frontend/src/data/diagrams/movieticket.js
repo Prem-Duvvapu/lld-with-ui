@@ -11,9 +11,10 @@ export default {
       fields: [
         '- repository: MovieTicketRepository',
         '- seatLockManager: SeatLockManager',
-        '- paymentProcessor: PaymentProcessor',
+        '- paymentProcessor: MovieTicketPaymentProcessor',
         '- seatMapNotifier: SeatMapNotifier',
-        '- pricingStrategy: PricingStrategy'
+        '- pricingStrategyFactory: PricingStrategyFactory',
+        '- bookingLocks: ConcurrentHashMap<Long, ReentrantLock>'
       ],
       methods: [
         '+ getMovies(): List<Movie>',
@@ -132,11 +133,32 @@ export default {
     {
       name: 'SurgePricingStrategy',
       fields: [
-        'implements PricingStrategy'
+        'implements PricingStrategy',
+        '- multiplier: double'
       ],
       methods: [
         '+ calculatePrice(show, seat): double'
       ]
+    },
+    {
+      name: 'PricingStrategyFactory',
+      fields: [
+        '- strategies: EnumMap<PricingTier, PricingStrategy>'
+      ],
+      methods: [
+        '+ resolve(show): PricingStrategy',
+        '+ forTier(tier): PricingStrategy',
+        '+ classify(show): PricingTier'
+      ]
+    },
+    {
+      name: 'PricingTier',
+      stereotype: 'enum',
+      fields: [
+        'STANDARD',
+        'PEAK'
+      ],
+      methods: []
     },
     {
       name: 'SeatFactory',
@@ -163,7 +185,7 @@ export default {
       ]
     },
     {
-      name: 'PaymentProcessor',
+      name: 'MovieTicketPaymentProcessor',
       fields: [
         '- shouldFail: boolean'
       ],
@@ -185,18 +207,28 @@ export default {
     },
     {
       from: 'MovieTicketService',
-      to: 'PaymentProcessor',
+      to: 'MovieTicketPaymentProcessor',
       label: 'uses'
     },
     {
       from: 'MovieTicketService',
-      to: 'PricingStrategy',
-      label: 'uses'
+      to: 'PricingStrategyFactory',
+      label: 'resolves pricing via'
     },
     {
       from: 'MovieTicketService',
       to: 'SeatMapNotifier',
       label: 'notifies'
+    },
+    {
+      from: 'PricingStrategyFactory',
+      to: 'PricingStrategy',
+      label: 'resolves to'
+    },
+    {
+      from: 'PricingStrategyFactory',
+      to: 'PricingTier',
+      label: 'classifies show as'
     },
     {
       from: 'BasePricingStrategy',
@@ -214,6 +246,11 @@ export default {
       from: 'SeatLockManager',
       to: 'Seat',
       label: 'locks & mutates'
+    },
+    {
+      from: 'MovieTicketRepository',
+      to: 'SeatFactory',
+      label: 'creates seats via'
     },
     {
       from: 'MovieTicketRepository',

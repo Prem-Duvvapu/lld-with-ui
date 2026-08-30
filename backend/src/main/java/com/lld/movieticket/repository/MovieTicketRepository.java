@@ -1,5 +1,6 @@
 package com.lld.movieticket.repository;
 
+import com.lld.movieticket.factory.SeatFactory;
 import com.lld.movieticket.model.*;
 import org.springframework.stereotype.Repository;
 
@@ -104,8 +105,7 @@ public class MovieTicketRepository {
             for (int c = 1; c <= 6; c++) {
                 long seatId = seatIdGen.getAndIncrement();
                 SeatType type = (r <= 2) ? SeatType.GOLD : SeatType.SILVER;
-                double price = (r <= 2) ? 350.0 : 200.0;
-                Seat seat = new Seat(seatId, showId, r, c, type, price, SeatStatus.AVAILABLE);
+                Seat seat = SeatFactory.createSeat(seatId, showId, r, c, type);
                 seatMap.put(seatId, seat);
             }
         }

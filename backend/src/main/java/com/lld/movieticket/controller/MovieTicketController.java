@@ -1,9 +1,7 @@
 package com.lld.movieticket.controller;
 
-import com.lld.movieticket.exception.*;
 import com.lld.movieticket.model.*;
 import com.lld.movieticket.service.MovieTicketService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -167,56 +165,11 @@ public class MovieTicketController {
         return ResponseEntity.ok(movieTicketService.simCancelBooking(bookingId, actorName));
     }
 
-    // =========================================================================
-    // EXCEPTION HANDLERS
-    // =========================================================================
-
-    @ExceptionHandler(SeatNotAvailableException.class)
-    public ResponseEntity<Map<String, Object>> handleSeatNotAvailable(SeatNotAvailableException e) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("error", e.getErrorCode());
-        body.put("message", e.getMessage());
-        if (e.getSeatId() != null) body.put("seatId", e.getSeatId());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
-    }
-
-    @ExceptionHandler(HoldExpiredException.class)
-    public ResponseEntity<Map<String, Object>> handleHoldExpired(HoldExpiredException e) {
-        return ResponseEntity.status(HttpStatus.GONE).body(Map.of(
-            "error", e.getErrorCode(),
-            "message", e.getMessage()
-        ));
-    }
-
-    @ExceptionHandler(BookingFailedException.class)
-    public ResponseEntity<Map<String, Object>> handleBookingFailed(BookingFailedException e) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of(
-            "error", e.getErrorCode(),
-            "message", e.getMessage()
-        ));
-    }
-
-    @ExceptionHandler(CancellationFailedException.class)
-    public ResponseEntity<Map<String, Object>> handleCancellationFailed(CancellationFailedException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-            "error", e.getErrorCode(),
-            "message", e.getMessage()
-        ));
-    }
-
-    @ExceptionHandler(InvalidShowException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidShow(InvalidShowException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-            "error", e.getErrorCode(),
-            "message", e.getMessage()
-        ));
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-            "error", "BAD_REQUEST",
-            "message", e.getMessage()
-        ));
-    }
+    // Exception handling is deliberately absent here: every failure this controller can throw is
+    // either a MovieTicketException subclass (each carries its own @ResponseStatus, so
+    // com.lld.config.GlobalExceptionHandler's DomainException handler maps it to the right status
+    // in the shared ErrorResponse shape) or an IllegalArgumentException (also handled centrally).
+    // This module used to hand-roll five local @ExceptionHandler methods building
+    // Map.of("error", e.getErrorCode(), "message", e.getMessage()) bodies — exactly the
+    // duplicated, per-module error-shape pattern the shared handler exists to replace.
 }

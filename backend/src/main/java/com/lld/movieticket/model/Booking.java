@@ -1,8 +1,13 @@
 package com.lld.movieticket.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Getter
+@Setter
 public class Booking {
     private long id;
     private long showId;
@@ -37,21 +42,7 @@ public class Booking {
         this.bookingTime = bookingTime;
     }
 
-    public long getId() { return id; }
-    public void setId(long id) { this.id = id; }
-
-    public long getShowId() { return showId; }
-    public void setShowId(long showId) { this.showId = showId; }
-
-    public List<Long> getSeatIds() { return seatIds; }
-    public void setSeatIds(List<Long> seatIds) { this.seatIds = seatIds; }
-
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
-
-    public BookingStatus getBookingStatus() { return bookingStatus; }
-    public void setBookingStatus(BookingStatus bookingStatus) { this.bookingStatus = bookingStatus; }
-
+    /** String mirror of {@link #bookingStatus} for callers/serializers that prefer a plain string. */
     public String getStatus() { return bookingStatus != null ? bookingStatus.name() : "PENDING"; }
     public void setStatus(String status) {
         try {
@@ -60,13 +51,4 @@ public class Booking {
             this.bookingStatus = BookingStatus.PENDING;
         }
     }
-
-    public PaymentMethod getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
-
-    public double getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(double totalAmount) { this.totalAmount = totalAmount; }
-
-    public LocalDateTime getBookingTime() { return bookingTime; }
-    public void setBookingTime(LocalDateTime bookingTime) { this.bookingTime = bookingTime; }
 }

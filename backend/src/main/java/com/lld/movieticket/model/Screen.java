@@ -1,5 +1,10 @@
 package com.lld.movieticket.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class Screen {
     private long id;
     private long theaterId;
@@ -16,19 +21,4 @@ public class Screen {
         this.totalRows = totalRows;
         this.totalCols = totalCols;
     }
-
-    public long getId() { return id; }
-    public void setId(long id) { this.id = id; }
-
-    public long getTheaterId() { return theaterId; }
-    public void setTheaterId(long theaterId) { this.theaterId = theaterId; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public int getTotalRows() { return totalRows; }
-    public void setTotalRows(int totalRows) { this.totalRows = totalRows; }
-
-    public int getTotalCols() { return totalCols; }
-    public void setTotalCols(int totalCols) { this.totalCols = totalCols; }
 }

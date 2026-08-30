@@ -150,15 +150,33 @@ shape as elevator/ludo.
 
 ## Movie Ticket Booking Module (BookMyShow)
 ### Backend
+Audited from HANDOFF.md's "unverified" list — the module already had `repository/`, `factory/` and
+`strategy/` packages and a real concurrency test, closer to the bar than most of that list, but two
+of its "patterns" turned out to be dead code and its exception hierarchy had never been wired into
+the shared contract. Raised in place, same audit-and-harden shape as shoppingcart/stockbroker.
 - `MovieTicketInitializer`: Sample movies (Inception, The Dark Knight, Interstellar), theaters (PVR Superplex, Cinepolis), screens, shows, seats, and users.
 - `MovieTicketService`: getMovies, getShows, getSeats, holdSeats, bookSeats, cancelBooking, getUserBookings, and isolated sim methods (`simReset`, `simGetSeats`, `simGetEvents`, `simHoldSeats`, `simBookSeats`, `simExpireHold`, `simCancelBooking`).
 - Concurrency & Double-Booking Prevention: `SeatLockManager` using per-seat `ReentrantLock` (`showId:seatId`), deadlock prevention via ascending seat ID acquisition, and 5-minute hold TTL.
-- Strategy & Observer Patterns: `PricingStrategy` (`BasePricingStrategy`, `SurgePricingStrategy`), `SeatMapNotifier` publishing status updates to `SeatAvailabilityObserver`.
-- Custom Exceptions: `SeatNotAvailableException` (409), `HoldExpiredException` (410), `BookingFailedException` (422), `CancellationFailedException` (400), `InvalidShowException` (404).
+- **Strategy pattern, actually wired up (fixed)**: `SurgePricingStrategy` existed but was dead code — `MovieTicketService`'s constructor took a concrete `BasePricingStrategy` directly, so nothing in the running app ever selected it. New `PricingStrategyFactory` (`com.lld.movieticket.strategy`, `EnumMap<PricingTier, PricingStrategy>`, the same shape as `inventory.strategy.ReorderStrategyFactory`) classifies each `Show` by its `showTime` — 5 PM or later is `PEAK` (gets `SurgePricingStrategy`'s 25% markup), everything else (including an unparseable time) is `STANDARD` (`BasePricingStrategy`) — and every pricing call site in the service now goes through `pricingStrategyFactory.resolve(show)` instead of a single fixed strategy.
+- **Factory pattern, actually wired up (fixed)**: `SeatFactory.createSeat` existed but `MovieTicketRepository#createShowWithSeats` constructed every `Seat` inline instead of calling it. Now delegates to the factory (identical seed pricing — GOLD 350.0, SILVER 200.0 — so no seed data changed).
+- **Exception hierarchy, migrated onto the shared contract (RCA-035)**: `MovieTicketException` used to extend bare `RuntimeException` with its own hand-rolled `errorCode` field, invisible to `DomainExceptionContractTest`'s classpath scan; `MovieTicketController` caught each concrete subclass itself to hand-build a `Map.of("error", e.getErrorCode(), "message", ...)` body. Now `MovieTicketException` is `abstract` and `extends com.lld.config.DomainException` (the `TicTacToeException` shape — no `BASES` allowlist entry needed), each subclass carries `@ResponseStatus`, and the controller's five local handlers are gone — `GlobalExceptionHandler` covers all of it in the standard `ErrorResponse` shape. Statuses unchanged from what the removed handlers already returned: `SeatNotAvailableException` (409), `HoldExpiredException` (410), `BookingFailedException` (422), `CancellationFailedException` (400), `InvalidShowException` (404).
+- **Concurrency bug, found and fixed (RCA-035)**: `cancelBooking` read-checked-and-wrote a booking's status plus the show's `availableSeats` counter with no lock — two concurrent cancels on the same booking could both pass the "not already cancelled" check and both increment `availableSeats`, inflating it past the show's real capacity. Fixed with a per-booking `ReentrantLock` (`bookingLocks`, lazily populated via `computeIfAbsent`, the same idiom `gameLocks` uses in `tictactoe.service.TicTacToeService`).
+- Lombok (`@Getter @Setter`) across the model package (`Movie`, `Theater`, `Screen`, `Show`, `Seat`, `Booking`, `User`, `SimEvent`) — hand-rolled boilerplate accessors removed; each model's non-trivial derived accessors (`Seat#getType/setType(String)`, `Seat#isAvailable/setAvailable(boolean)`, `Booking#getStatus/setStatus(String)`) and custom multi-arg constructors kept as hand-written methods alongside the generated ones.
 
 ### Frontend
 - 5 tabs: 🎬 Movies & Booking, 📊 Booking History, 🕹️ Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Real-time seat map polling every 3s, hold countdown timer (`⏱ 4:58`), payment method selector, idempotency key support, and 8-step interactive 2D simulation scene calling isolated `/api/movie-ticket/sim/*` endpoints.
+- `usePolling` adoption and the hardcoded-color pass are deliberately out of scope here — see the
+  portfolio-wide scope decision recorded in HANDOFF.md.
+
+### Tests (1 file -> 4)
+`MovieTicketServiceTest` (pre-existing, kept — hold/book/cancel happy paths, all-or-nothing rollback,
+idempotent booking, the original hold-conflict concurrency test, isolated sim-engine proof),
+`MovieTicketRepositoryTest` (new — seed data shape, per-show seat indexing, `SeatFactory` pricing,
+`clear()`/id-generator resets), `PricingStrategyTest` (new — base/surge pricing math, the peak/
+standard showtime classification, factory resolution end-to-end), `MovieTicketConcurrencyTest` (new
+— disjoint concurrent bookings all succeed, contested concurrent bookings resolve to exactly one
+winner, RCA-035's cancel-booking race with its regression test).
 
 ## Elevator Module
 ### Backend

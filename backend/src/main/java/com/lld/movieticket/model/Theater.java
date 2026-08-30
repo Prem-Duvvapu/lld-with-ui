@@ -1,8 +1,13 @@
 package com.lld.movieticket.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter
+@Setter
 public class Theater {
     private long id;
     private String name;
@@ -19,16 +24,4 @@ public class Theater {
             this.screenIds = screenIds;
         }
     }
-
-    public long getId() { return id; }
-    public void setId(long id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public String getLocation() { return location; }
-    public void setLocation(String location) { this.location = location; }
-
-    public List<Long> getScreenIds() { return screenIds; }
-    public void setScreenIds(List<Long> screenIds) { this.screenIds = screenIds; }
 }
