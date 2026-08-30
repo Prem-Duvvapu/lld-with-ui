@@ -166,8 +166,8 @@ the shared contract. Raised in place, same audit-and-harden shape as shoppingcar
 ### Frontend
 - 5 tabs: 🎬 Movies & Booking, 📊 Booking History, 🕹️ Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Real-time seat map polling every 3s, hold countdown timer (`⏱ 4:58`), payment method selector, idempotency key support, and 8-step interactive 2D simulation scene calling isolated `/api/movie-ticket/sim/*` endpoints.
-- `usePolling` adoption and the hardcoded-color pass are deliberately out of scope here — see the
-  portfolio-wide scope decision recorded in HANDOFF.md.
+- Seat-map polling now goes through the shared `usePolling` hook; the page's previously-hardcoded
+  dark-theme colors were fixed to read `theme.css` tokens (RCA-037).
 
 ### Tests (1 file -> 4)
 `MovieTicketServiceTest` (pre-existing, kept — hold/book/cancel happy paths, all-or-nothing rollback,
@@ -416,8 +416,11 @@ unused.
 ### Frontend
 - 6 tabs: 👤 My Profile & Network, 💼 Jobs & Applications, 💬 Messaging & Inboxes, 🕹️ Interactive 2D Simulation, 📐 Class Diagram, 📋 Design Details.
 - Real-time profile skill editor, 1-click job application with match scoring, live direct chat bubble feed, and 4-node interactive simulation sandbox with visual network topology map and real-time telemetry event stream.
-- `api.js`'s raw `fetch()` calls and the page's hardcoded colors/lack of `usePolling` are known,
-  deliberately deferred gaps — see the portfolio-wide scope decision recorded in HANDOFF.md.
+- `api.js`'s raw `fetch()` calls were converted to the shared `apiFetch` wrapper (this also fixed a
+  real bug: the old local `handleResponse` only read `err.message`, never `err.error`, so every
+  backend error — which uses the shared `ErrorResponse.error` field — silently showed a generic
+  "API request failed"). The page has no polling loop, so `usePolling` doesn't apply here. The page's
+  previously-hardcoded dark-theme colors were fixed to read `theme.css` tokens (RCA-037).
 
 ### Tests (1 file -> 4)
 `LinkedInServiceTest` (pre-existing, kept — registration/login, profile management, connection
@@ -474,8 +477,11 @@ whose only "concurrency" test called `borrowBook` twice sequentially — no wind
 ### Frontend
 - 6 tabs: 📚 Book Catalog & Borrow, 👤 Member Dashboard & Active Loans, 🔔 Notifications & Alerts, 🕹️ Concurrency & Loan Simulation, 📐 Class Diagram, 📋 Design Details.
 - Live searchable catalog with rack locations and copy availability chips, member active loan manager with due date countdown badges, accrued fine settlement, and interactive 2D simulation visualizer for last-copy races and accelerated sweep events.
-- `api.js`'s raw `fetch()` calls (not yet converted to the shared `apiFetch` wrapper) are a known,
-  deliberately deferred gap — see the portfolio-wide scope decision recorded in HANDOFF.md.
+- `api.js`'s raw `fetch()` calls were converted to the shared `apiFetch` wrapper (this also fixed a
+  real bug: the old local `handleResponse` only read `err.message`, never `err.error`, so every
+  backend error — which uses the shared `ErrorResponse.error` field — silently showed a generic
+  "API request failed"). The page has no polling loop, so `usePolling` doesn't apply here. The page's
+  previously-hardcoded dark-theme colors were fixed to read `theme.css` tokens (RCA-037).
 
 ## Airline Management Module
 ### Backend
@@ -1111,6 +1117,65 @@ the real trace instead of driving it from client-side `setTimeout` state.
   (LEFT vs. RIGHT provenance), and ticks up a "distinct worker threads used so far" badge roster —
   the real-parallelism payoff made visible.
 
+## Hotel Management Module
+### Backend
+Real domain logic was already solid (`RoomBookingService`'s per-room `ReentrantLock` with date-range
+overlap checking, a `TariffStrategy` family for weekend surcharges, a `CancellationRefundStrategy`
+family for notice-based refunds, `ReservationStatus`'s own declared transition table) — the module
+was simply missing the simulation-sandbox and error-handling conventions every reference-bar module
+has, and its diagram/design docs had gone stale across the refactor that added all of the above
+(RCA-039/RCA-043).
+- `HotelRepository`: hotels/rooms/bookings in-memory maps, seeded with 2 hotels (Grand Palace,
+  Lake View Resort) and 10 rooms across SINGLE/DOUBLE/SUITE/DELUXE types.
+- `RoomBookingService`: `book`/`checkIn`/`checkOut`/`cancel`/`markNoShow`/`isAvailable`, all under a
+  per-room `ReentrantLock`; "is this room free" is always answered by `Booking#overlaps()` against
+  the room's active reservations, never a room-wide status flag (`RoomStatus` only has
+  AVAILABLE/MAINTENANCE).
+- `TariffStrategyFactory` resolves `WeekendTariffStrategy` (1.25× surcharge on any Friday/Saturday
+  night touched) vs. `StandardTariffStrategy` purely from the requested date range.
+- `CancellationRefundStrategyFactory` resolves `FullRefundStrategy` (3+ days notice)/
+  `PartialRefundStrategy` (50%, under 3 days but before check-in)/`NoRefundStrategy` (on/after
+  check-in, or a no-show) purely from days-until-check-in and the booking's status.
+- **Simulation sandbox, added (RCA-043)**: `HotelController` had no `/sim/*` endpoints and
+  `HotelService`'s own javadoc said so explicitly. Added `com.lld.hotel.model.SimEvent` and a sim
+  sandbox on `HotelService` — a second `HotelRepository`/`RoomBookingService` pair wired to fresh
+  strategy-factory instances (reusing the real classes, not a parallel copy of their logic) — plus
+  `simReset`/`simState`/`simBook`/`simCheckIn`/`simCheckOut`/`simCancel`/`simEvents`/`simRace`
+  (N threads racing to book the same room/dates via a `CountDownLatch`-released `ExecutorService`,
+  proving the per-room lock lets exactly one win).
+- **Exception handling, fixed (RCA-043)**: `HotelController` wrapped every endpoint in its own
+  `try/catch (Exception e)` returning a hardcoded `ResponseEntity.badRequest()` (400) — even though
+  `HotelException`'s concrete subclasses were already correctly `@ResponseStatus`-annotated (404 for
+  not-found, 409 for conflicts, 400 for a bad date range) and already in
+  `DomainExceptionContractTest`'s allowlist. The try/catch silently defeated all of it. Removed
+  entirely; every endpoint now lets its exception propagate to `GlobalExceptionHandler`.
+
+### Frontend
+- `HotelPage.jsx` migrated onto the shared `LldPage` shell — it was a fully standalone page (own
+  header/back-link/nav, manually mounted `ClassDiagram`/`SequenceDiagram`/`DesignDetails`), the same
+  bug shape issue #53 and RCA-040 already fixed elsewhere.
+- **Simulation tab, fixed (RCA-043)**: the previous "Simulation" tab called the real production
+  `bookRoom`/`checkInBooking`/`checkOutBooking` endpoints directly — every visitor who played the
+  demo genuinely booked, checked in, and checked out Room R3 against live hotel data, since no
+  isolated sandbox existed to call instead. Replaced with a `SimulationTab` driving the new
+  `/api/hotel/sim/*` endpoints via an 8-step guided walkthrough: reset → book a weekend-inclusive
+  stay (exercises `WeekendTariffStrategy`) → a 5-guest concurrency race on a second room → check-in →
+  check-out → a second, non-weekend stay (exercises `StandardTariffStrategy`) → cancel it (exercises
+  `CancellationRefundStrategy`) → final snapshot.
+
+### Diagrams & Design Details (RCA-039)
+`diagrams/hotel.js` and `design/hotel.js` documented a pre-refactor version of the module — a
+4-value `BookingStatus` enum, `RoomStatus` including BOOKED/OCCUPIED as room-wide flags, and a single
+lock field directly on `HotelService`/`HotelRepository` — none of which exist anymore, while omitting
+`RoomBookingService` and both Strategy families entirely. Rewritten from the real source; the
+"Dynamic Pricing" extensibility idea in the old design file was replaced since the pricing strategy
+it proposed had, by the time this was read, already shipped as `TariffStrategy`.
+
+### Tests (2 files -> 3)
+`HotelServiceTest`/`HotelConcurrencyTest` (pre-existing, kept), `HotelSimTest` (new — `simReset`,
+`simBook` pricing/logging, the check-in/check-out lifecycle, `simCancel`'s refund resolution,
+`simRace`'s exactly-one-winner guarantee and its guest-count clamping).
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9190
@@ -1122,8 +1187,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 881 tests, 91 classes
-cd frontend && npx vitest run # 286 tests, 3 files
+cd backend && mvn test        # 1657 tests, 180 classes
+cd frontend && npx vitest run # 304 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green

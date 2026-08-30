@@ -1,22 +1,18 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { getHotels, getRooms, bookRoom, checkInBooking, checkOutBooking, cancelBooking } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import DesignDetails from '../../components/DesignDetails';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import LldPage from '../../components/LldPage';
+import {
+  getHotels, getRooms, bookRoom,
+  simReset, simGetState, simGetEvents, simBookRoom, simCheckIn, simCheckOut, simCancelBooking, simRace,
+} from './api';
 
+// This page used to be a fully standalone document (its own header/back-link/nav, manually
+// mounted ClassDiagram/SequenceDiagram/DesignDetails) with a "Simulation" tab that called the
+// REAL production booking/check-in/check-out endpoints against live hotel data — every visitor
+// who played with the demo actually booked, checked in, and checked out Room R3 for real, the
+// exact "no isolated /sim/* sandbox" gap RCA-039 flagged. It now runs inside the shared LldPage
+// shell like every other module, and the Simulation tab drives the isolated /api/hotel/sim/*
+// engine (a second, independent HotelRepository/RoomBookingService instance) added alongside it.
 const CSS = `
-.hotel-app { max-width: 1100px; margin: 0 auto; padding: 20px; }
-.hotel-header { text-align: center; margin-bottom: 20px; }
-.hotel-header h1 { font-size: 28px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-.hotel-header p { color: var(--text-muted); font-size: 14px; }
-.hotel-nav { display: flex; gap: 6px; margin-bottom: 20px; justify-content: center; flex-wrap: wrap; }
-.hotel-nav button { padding: 8px 18px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-secondary); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-.hotel-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.hotel-nav button:hover:not(.active) { background: var(--border-primary); }
-.hotel-main { background: var(--bg-secondary); border-radius: 12px; padding: 24px; border: 1px solid var(--border-primary); }
-.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; transition: all 0.2s; }
-.back-home:hover { border-color: var(--accent); color: var(--accent); }
 .hotel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 .hotel-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 10px; padding: 20px; cursor: pointer; transition: all 0.2s; }
 .hotel-card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(102,126,234,0.15); }
@@ -49,35 +45,23 @@ const CSS = `
 .result-card .label { color: var(--text-muted); } .result-card .value { font-weight: 600; color: var(--text-primary); }
 .error { margin-top: 12px; padding: 10px; background: var(--danger-bg); color: var(--danger); border-radius: 8px; border: 1px solid var(--danger-bg); font-size: 13px; }
 .success { margin-top: 12px; padding: 10px; background: var(--success-bg); color: var(--success); border-radius: 8px; border: 1px solid var(--success-bg); font-size: 13px; }
-.flow-section { display: flex; flex-direction: column; align-items: center; }
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
+.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-primary); transition: all 0.3s; }
 .step-dot.active { background: var(--accent); box-shadow: 0 0 8px rgba(102,126,234,0.5); }
 .step-dot.done { background: var(--success); }
-.hotel-scene { position: relative; width: 100%; height: 340px; background: linear-gradient(180deg, #1a1a2e, #16213e); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-primary); margin-bottom: 16px; }
-.hotel-building { position: absolute; left: 50%; top: 30px; transform: translateX(-50%); width: 320px; height: 220px; background: linear-gradient(180deg, #2d3a5e, #1a2444); border-radius: 8px; border: 2px solid #4a6fa5; transition: all 0.8s; }
-.hotel-building .hotel-name-sign { text-align: center; padding: 8px; color: #ffd700; font-weight: 700; font-size: 14px; letter-spacing: 2px; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
-.hotel-floor { position: absolute; left: 10px; right: 10px; height: 35px; display: flex; gap: 6px; align-items: center; justify-content: center; }
-.hotel-floor.f1 { bottom: 10px; } .hotel-floor.f2 { bottom: 50px; } .hotel-floor.f3 { bottom: 90px; }
-.hotel-window { width: 28px; height: 28px; background: #2a3a5a; border: 1px solid #4a6fa5; border-radius: 3px; transition: all 0.5s; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #8899bb; }
-.hotel-window.lit { background: #ffd700; box-shadow: 0 0 12px rgba(255,215,0,0.4); border-color: #ffd700; color: #333; }
-.hotel-window.occupied { background: #ff6b6b; box-shadow: 0 0 12px rgba(255,107,107,0.3); border-color: #ff6b6b; color: #fff; }
-.hotel-reception { position: absolute; left: 50%; bottom: 230px; transform: translateX(-50%); width: 100px; height: 40px; background: #8B4513; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #ffd700; font-size: 11px; font-weight: 600; border: 1px solid #a0522d; transition: all 0.5s; }
-.hotel-reception.active { background: #a0522d; box-shadow: 0 0 15px rgba(139,69,19,0.5); }
-.hotel-ground { position: absolute; bottom: 0; left: 0; right: 0; height: 30px; background: #2d4a2d; }
-.hotel-guest { position: absolute; font-size: 26px; z-index: 5; transition: all 1s cubic-bezier(0.4, 0, 0.2, 1); }
-.hotel-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-card); border: 2px solid var(--accent); border-radius: 12px; padding: 20px; z-index: 10; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 220px; text-align: center; animation: popIn 0.5s ease-out; }
-@keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
-.hotel-popup.done { border-color: var(--success); }
-.hotel-popup h3 { color: var(--info); margin-bottom: 8px; font-size: 16px; }
-.hotel-popup .detail { font-size: 12px; color: var(--text-secondary); padding: 3px 0; }
-.flow-btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; color: #fff; margin: 0 4px; }
-.flow-btn:hover { transform: translateY(-2px); }
-.flow-btn.primary { background: var(--accent-gradient); }
-.flow-btn.success { background: var(--success); }
-.flow-btn.danger { background: var(--danger); }
-.flow-btn.warning { background: var(--warning); }
-.flow-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.sim-panel { background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 20px; }
+.sim-walkthrough { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+.sim-rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.sim-room-tile { background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: 8px; padding: 10px; text-align: center; font-size: 11px; transition: all 0.3s; }
+.sim-room-tile.avail { border-color: var(--success); }
+.sim-room-tile.held { border-color: var(--warning); box-shadow: 0 0 10px rgba(234,179,8,0.25); }
+.sim-room-tile .room-id { font-weight: 800; font-size: 14px; color: var(--text-primary); }
+.sim-event-stream { background: var(--bg-primary); border-radius: 10px; border: 1px solid var(--border-primary); padding: 16px; display: flex; flex-direction: column; max-height: 340px; overflow-y: auto; }
+.sim-event { background: var(--bg-secondary); padding: 8px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 6px; }
+.sim-event .head { display: flex; justify-content: space-between; color: var(--text-secondary); font-size: 10px; }
+.sim-event .head strong { color: var(--text-primary); }
+.sim-event.race { border-left: 3px solid var(--warning); }
+.sim-event.error { border-left: 3px solid var(--danger); }
 `;
 
 function HotelsTab() {
@@ -182,195 +166,243 @@ function HotelsTab() {
   );
 }
 
-function AnimatedFlow() {
+// Dates chosen so the guided script deterministically exercises both TariffStrategy branches:
+// nextFriday/nextSaturday guarantee a weekend-inclusive stay (WeekendTariffStrategy), while the
+// short guestB stay two weeks out touches no Friday/Saturday night (StandardTariffStrategy).
+function isoDate(daysFromNow) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
+}
+function nextFriday() {
+  const d = new Date();
+  const add = (5 - d.getDay() + 7) % 7 || 7;
+  d.setDate(d.getDate() + add + 7); // push a week out so it never collides with "today"
+  return d;
+}
+
+const guestACheckInDate = nextFriday();
+const guestACheckOutDate = new Date(guestACheckInDate);
+guestACheckOutDate.setDate(guestACheckOutDate.getDate() + 2); // Fri -> Sun, guaranteed to include Fri & Sat nights
+const guestAIn = guestACheckInDate.toISOString().slice(0, 10);
+const guestAOut = guestACheckOutDate.toISOString().slice(0, 10);
+
+const SIM_STEPS = [
+  { label: 'Reset Sandbox', hint: 'Re-seed the isolated sim repository: 2 hotels, 10 rooms, zero bookings.' },
+  { label: 'Book Room R1 for Alice', hint: `Fri–Sun stay (${guestAIn} → ${guestAOut}) spans a weekend night, so TariffStrategyFactory resolves WeekendTariffStrategy.` },
+  { label: 'Concurrency Race on Room R4', hint: '5 simulated guests race to book R4 for the same dates at the same instant — RoomBookingService\'s per-room lock must let exactly one win.' },
+  { label: 'Check In Alice', hint: 'Alice\'s booking moves PENDING/CONFIRMED → CHECKED_IN.' },
+  { label: 'Check Out Alice', hint: 'CHECKED_IN → CHECKED_OUT, freeing Room R1\'s calendar for that date range.' },
+  { label: 'Book Room R2 for Bob', hint: 'A short 1-night stay with no Friday/Saturday night, so StandardTariffStrategy applies instead.' },
+  { label: 'Cancel Bob\'s Booking', hint: 'CancellationRefundStrategyFactory resolves a refund tier purely from days-until-check-in.' },
+  { label: 'Final Snapshot', hint: 'Every booking this run produced, as the sandbox now stands.' },
+];
+
+function SimulationTab() {
   const [step, setStep] = useState(0);
-  const [booking, setBooking] = useState(null);
+  const [state, setState] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [bookingA, setBookingA] = useState(null);
+  const [bookingB, setBookingB] = useState(null);
+  const [raceResult, setRaceResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [windowsLit, setWindowsLit] = useState(0);
-  const [guestX, setGuestX] = useState(-60);
-  const [doorOpen, setDoorOpen] = useState(false);
-  const [showStay, setShowStay] = useState(false);
-  const [stayTimer, setStayTimer] = useState(0);
-  const [showReceipt, setShowReceipt] = useState(false);
   const mountedRef = useRef(true);
-  const timerRef = useRef(null);
-
-  const steps = ['Browse', 'Book', 'CheckIn', 'Stay', 'CheckOut', 'Done'];
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
 
-  const reset = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setStep(0); setBooking(null); setLoading(false); setError('');
-    setWindowsLit(0); setGuestX(-60); setDoorOpen(false);
-    setShowStay(false); setStayTimer(0); setShowReceipt(false);
-  };
+  const refresh = useCallback(async () => {
+    const [s, e] = await Promise.all([simGetState(), simGetEvents()]);
+    if (!mountedRef.current) return;
+    if (!s.error) setState(s);
+    if (!e.error) setEvents(e);
+  }, []);
 
-  const startSim = async () => {
-    setError(''); setStep(1);
-    for (let i = 1; i <= 8; i++) {
-      await new Promise(r => setTimeout(r, 200));
-      if (!mountedRef.current) return;
-      setWindowsLit(i);
+  const runStep = async (action) => {
+    setLoading(true); setError('');
+    try {
+      await action();
+      await refresh();
+      if (mountedRef.current) setStep((s) => s + 1);
+    } catch {
+      if (mountedRef.current) setError('Step failed — see the event stream for details.');
+    } finally {
+      if (mountedRef.current) setLoading(false);
     }
   };
 
-  const doBook = async () => {
-    setError(''); setLoading(true);
-    try {
-      const data = await bookRoom('R3', 'user1', 'Alice', '2025-06-01', '2025-06-03');
-      if (!mountedRef.current) return;
-      if (data.error) { setError(data.error); setLoading(false); return; }
-      setBooking(data);
-      setDoorOpen(true);
-      setGuestX(170);
-      setTimeout(() => { if (mountedRef.current) setGuestX(200); }, 800);
-      setLoading(false); setStep(2);
-    } catch { if (mountedRef.current) { setError('Failed to book'); setLoading(false); } }
-  };
+  const doReset = () => runStep(async () => {
+    const r = await simReset();
+    if (r.error) throw new Error(r.error);
+    setBookingA(null); setBookingB(null); setRaceResult(null);
+    await refresh();
+  });
 
-  const doCheckIn = async () => {
-    if (!booking) return;
-    setLoading(true);
-    try {
-      const data = await checkInBooking(booking.id);
-      if (!mountedRef.current) return;
-      if (data.error) { setError(data.error); setLoading(false); return; }
-      setBooking(data);
-      setGuestX(220);
-      setDoorOpen(false);
-      setLoading(false); setStep(3);
-      let secs = 0;
-      timerRef.current = setInterval(() => {
-        secs++; setStayTimer(secs);
-      }, 1000);
-      setTimeout(() => { if (mountedRef.current) setShowStay(true); }, 500);
-    } catch { if (mountedRef.current) { setError('Check-in failed'); setLoading(false); } }
-  };
+  const doBookA = () => runStep(async () => {
+    const b = await simBookRoom('R1', 'sim-alice', 'Alice', guestAIn, guestAOut);
+    if (b.error) throw new Error(b.error);
+    setBookingA(b);
+  });
 
-  const doCheckOut = async () => {
-    if (!booking) return;
-    if (timerRef.current) clearInterval(timerRef.current);
-    setLoading(true);
-    try {
-      const data = await checkOutBooking(booking.id);
-      if (!mountedRef.current) return;
-      if (data.error) { setError(data.error); setLoading(false); return; }
-      setBooking(data);
-      setDoorOpen(true);
-      setGuestX(-60);
-      setShowStay(false);
-      setLoading(false); setStep(4);
-      setTimeout(() => { if (mountedRef.current) { setShowReceipt(true); setTimeout(() => { if (mountedRef.current) setStep(5); }, 1500); } }, 1200);
-    } catch { if (mountedRef.current) { setError('Check-out failed'); setLoading(false); } }
-  };
+  const doRace = () => runStep(async () => {
+    const raceIn = isoDate(30);
+    const raceOut = isoDate(32);
+    const r = await simRace('R4', raceIn, raceOut, 5);
+    if (r.error) throw new Error(r.error);
+    setRaceResult(r);
+  });
 
-  const fmtTime = (s) => {
-    const m = Math.floor(s / 60); const sec = s % 60;
-    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
-  };
+  const doCheckInA = () => runStep(async () => {
+    if (!bookingA) return;
+    const b = await simCheckIn(bookingA.id, 'Alice');
+    if (b.error) throw new Error(b.error);
+    setBookingA(b);
+  });
+
+  const doCheckOutA = () => runStep(async () => {
+    if (!bookingA) return;
+    const b = await simCheckOut(bookingA.id, 'Alice');
+    if (b.error) throw new Error(b.error);
+    setBookingA(b);
+  });
+
+  const doBookB = () => runStep(async () => {
+    const shortIn = isoDate(14);
+    const shortOut = isoDate(15);
+    const b = await simBookRoom('R2', 'sim-bob', 'Bob', shortIn, shortOut);
+    if (b.error) throw new Error(b.error);
+    setBookingB(b);
+  });
+
+  const doCancelB = () => runStep(async () => {
+    if (!bookingB) return;
+    const b = await simCancelBooking(bookingB.id, 'Bob');
+    if (b.error) throw new Error(b.error);
+    setBookingB(b);
+  });
+
+  const doFinish = () => runStep(async () => {});
+
+  const stepActions = [doReset, doBookA, doRace, doCheckInA, doCheckOutA, doBookB, doCancelB, doFinish];
+  const isDone = step >= SIM_STEPS.length;
+
+  const rooms = state?.rooms || [];
 
   return (
-    <div className="flow-section">
-      <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
-        ))}
-        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
-      </div>
-
-      <div className="hotel-scene">
-        <div className="hotel-building">
-          <div className="hotel-name-sign">{step > 0 ? 'GRAND PALACE' : '✦ HOTEL ✦'}</div>
-          <div className="hotel-floor f3">
-            {[1,2,3,4].map(i => <div key={i} className={`hotel-window ${windowsLit >= i+4 ? 'lit' : ''} ${step >= 3 && i === 3 ? 'occupied' : ''}`}>{step >= 3 && i === 3 ? '👤' : ''}</div>)}
-          </div>
-          <div className="hotel-floor f2">
-            {[1,2,3,4].map(i => <div key={i} className={`hotel-window ${windowsLit >= i ? 'lit' : ''}`} />)}
-          </div>
-          <div className="hotel-floor f1">
-            {[1,2,3,4].map(i => <div key={i} className={`hotel-window ${windowsLit >= i ? 'lit' : ''}`} />)}
+    <div className="sim-panel">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: 'var(--info)' }}>🏨 Booking Lifecycle & Concurrency Simulation</h2>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            Isolated sandbox — a second HotelRepository/RoomBookingService instance, never touching real hotel data.
           </div>
         </div>
-        <div className={`hotel-reception ${step >= 2 ? 'active' : ''}`}>RECEPTION</div>
-        <div className="hotel-ground" />
-        <div className="hotel-guest" style={{ left: guestX, bottom: 30 }}>🧑</div>
-
-        {step === 2 && booking && (
-          <div className="hotel-popup">
-            <h3>📅 Booked!</h3>
-            <div className="detail"><strong>{booking.id}</strong></div>
-            <div className="detail">{booking.guestName} • Room {booking.roomId}</div>
-            <div className="detail">₹{booking.totalAmount.toFixed(2)}</div>
-          </div>
-        )}
-
-        {showStay && (
-          <div className="hotel-popup" style={{ top: '30%', minWidth: 160 }}>
-            <div style={{ fontSize: 36 }}>😴</div>
-            <div className="detail">Enjoying Stay...</div>
-            <div className="detail" style={{ fontSize: 20, fontWeight: 700, color: 'var(--info)' }}>{fmtTime(stayTimer)}</div>
-          </div>
-        )}
-
-        {showReceipt && booking && (
-          <div className="hotel-popup done">
-            <h3>🧾 Checked Out!</h3>
-            <div className="detail">Stay: {fmtTime(stayTimer)}</div>
-            <div className="detail" style={{ fontSize: 18, fontWeight: 700, color: 'var(--success)' }}>₹{booking.totalAmount?.toFixed(2)}</div>
-          </div>
+        {step > 0 && (
+          <button onClick={doReset} disabled={loading} className="btn-primary" style={{ width: 'auto', padding: '8px 16px', fontSize: 12 }}>↺ Reset</button>
         )}
       </div>
 
-      {error && <div style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
+      <div className="step-indicator">
+        {SIM_STEPS.map((s, i) => (
+          <div key={s.label} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s.label} />
+        ))}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
+          {isDone ? 'Complete' : `Step ${step + 1} / ${SIM_STEPS.length}`}
+        </span>
+      </div>
 
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-        {step === 0 && <button onClick={startSim} className="flow-btn primary">🏨 Browse Hotels</button>}
-        {step === 1 && <button onClick={doBook} disabled={loading} className="flow-btn success">📅 Book Room {loading ? '...' : ''}</button>}
-        {step === 2 && <button onClick={doCheckIn} disabled={loading} className="flow-btn warning">🔑 Check In {loading ? '...' : ''}</button>}
-        {step === 3 && !showStay && <span style={{ fontSize: 13, color: '#888' }}>😴 Enjoying Stay...</span>}
-        {step === 3 && showStay && <button onClick={doCheckOut} disabled={loading} className="flow-btn danger">🧾 Check Out {loading ? '...' : ''}</button>}
-        {step === 4 && <span style={{ fontSize: 13, color: '#888' }}>🧾 Processing...</span>}
-        {step === 5 && <button onClick={reset} className="flow-btn primary">🔄 New Simulation</button>}
+      <div className="sim-walkthrough">
+        {!isDone ? (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>{SIM_STEPS[step].label}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>{SIM_STEPS[step].hint}</div>
+            <button
+              onClick={() => stepActions[step]()}
+              disabled={loading}
+              className="btn-primary"
+              style={{ width: 'auto', padding: '10px 24px', fontSize: 13 }}
+            >
+              ▶ {loading ? 'Running...' : 'Run This Step'}
+            </button>
+          </>
+        ) : (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 6 }}>✅</div>
+            <div style={{ fontWeight: 700, color: 'var(--success)' }}>Simulation complete — Alice's stay ran through booking, check-in and check-out; Bob's booking was cancelled with a refund; and the R4 race settled with exactly one winner.</div>
+          </div>
+        )}
+        {error && <div className="error" style={{ marginTop: 10 }}>{error}</div>}
+      </div>
+
+      {raceResult && (
+        <div className="result-card" style={{ marginBottom: 20 }}>
+          <h3>🏁 Race Result — Room R4</h3>
+          <div className="detail"><span className="label">Attempts</span><span className="value">{raceResult.attempts}</span></div>
+          <div className="detail"><span className="label">Winner</span><span className="value">{raceResult.winner}</span></div>
+          <div className="detail"><span className="label">Rejected</span><span className="value">{raceResult.rejected}</span></div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>Sandbox Rooms (Hotel H1)</div>
+          <div className="sim-rooms">
+            {rooms.filter(r => r.hotelId === 'H1').map((r) => {
+              const isHeld = [bookingA, bookingB].some(b => b && b.roomId === r.id && ['CONFIRMED', 'CHECKED_IN'].includes(b.status));
+              return (
+                <div key={r.id} className={`sim-room-tile ${isHeld ? 'held' : 'avail'}`}>
+                  <div className="room-id">{r.id}</div>
+                  <div style={{ color: 'var(--text-muted)' }}>{r.type}</div>
+                  <div style={{ color: 'var(--text-muted)' }}>₹{r.price}</div>
+                </div>
+              );
+            })}
+          </div>
+          {(bookingA || bookingB) && (
+            <div className="result-card">
+              <h3>Sandbox Bookings</h3>
+              {bookingA && (
+                <div className="detail"><span className="label">Alice — {bookingA.roomId}</span><span className="value">{bookingA.status} ({bookingA.tariffStrategyName})</span></div>
+              )}
+              {bookingB && (
+                <div className="detail"><span className="label">Bob — {bookingB.roomId}</span><span className="value">{bookingB.status}{bookingB.refundAmount != null && bookingB.status === 'CANCELLED' ? ` · ₹${bookingB.refundAmount} refunded` : ''}</span></div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>Live Simulation Event Stream ({events.length})</div>
+          <div className="sim-event-stream">
+            {events.slice().reverse().map((ev) => (
+              <div key={ev.id} className={`sim-event ${ev.eventType === 'RACE' ? 'race' : ''}`}>
+                <div className="head"><strong>{ev.eventType}</strong><span>{ev.actor}</span></div>
+                <div style={{ marginTop: 2, color: 'var(--text-secondary)' }}>{ev.description}</div>
+              </div>
+            ))}
+            {events.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: 20 }}>Run "Reset Sandbox" to begin.</div>}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
 export default function HotelPage() {
-  const [activeTab, setActiveTab] = useState('hotels');
-
-  const tabs = [
-    { key: 'hotels', label: 'Hotels' },
-    { key: 'simulation', label: 'Simulation' },
-    { key: 'diagram', label: 'Class Diagram' },
-    { key: 'sequence', label: 'Sequence Diagram' },
-    { key: 'design', label: 'Design Details' },
-  ];
-
   return (
-    <div className="hotel-app">
-      <style>{CSS}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header className="hotel-header">
-        <h1>Hotel Management System</h1>
-        <p>Browse hotels, book rooms, check in/out with interactive simulation</p>
-      </header>
-      <nav className="hotel-nav">
-        {tabs.map((tab) => (
-          <button key={tab.key} className={activeTab === tab.key ? 'active' : ''} onClick={() => setActiveTab(tab.key)}>
-            {tab.label}
-          </button>
-        ))}
-      </nav>
-      <main className="hotel-main">
-        {activeTab === 'hotels' && <HotelsTab />}
-        {activeTab === 'simulation' && <AnimatedFlow />}
-        {activeTab === 'diagram' && <ClassDiagram module="hotel" />}
-        {activeTab === 'sequence' && <SequenceDiagram module="hotel" />}
-        {activeTab === 'design' && <DesignDetails module="hotel" />}
-      </main>
-    </div>
+    <LldPage
+      module="hotel"
+      title="Hotel Management System"
+      icon="🏨"
+      tabs={[{ id: 'hotels', label: '🏨 Hotels' }, 'simulation', 'diagram', 'sequence', 'design']}
+    >
+      {(tab) => (
+        <>
+          <style>{CSS}</style>
+          {tab === 'hotels' && <HotelsTab />}
+          {tab === 'simulation' && <SimulationTab />}
+        </>
+      )}
+    </LldPage>
   );
 }
