@@ -1304,47 +1304,47 @@ function InteractiveZomatoSimulation() {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
         gap: '1px',
-        background: 'var(--border-primary, #334155)',
-        border: '1px solid var(--border-primary, #334155)',
+        background: 'var(--border-primary)',
+        border: '1px solid var(--border-primary)',
         borderRadius: 'var(--radius-md, 8px)',
         overflow: 'hidden'
       }}>
-        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Order ID</div>
+        <div style={{ background: 'var(--bg-card)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Order ID</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#facc15' }}>{realOrder?.id || '\u2014'}</div>
         </div>
-        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Order Status</div>
+        <div style={{ background: 'var(--bg-card)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Order Status</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: realOrder?.status === 'DELIVERED' ? '#22c55e' : '#38bdf8' }}>
             {realOrder?.status || 'IDLE'}
           </div>
         </div>
-        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Assigned Agent</div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: realOrder?.deliveryAgentName ? '#22c55e' : 'var(--text-muted, #94a3b8)' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Assigned Agent</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: realOrder?.deliveryAgentName ? '#22c55e' : 'var(--text-muted)' }}>
             {realOrder?.deliveryAgentName || 'Unassigned'}
           </div>
         </div>
-        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Available Agents</div>
+        <div style={{ background: 'var(--bg-card)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Available Agents</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: availableAgentsCount > 0 ? '#22c55e' : '#ef4444' }}>
             {availableAgentsCount}
           </div>
         </div>
-        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Delivery Fee</div>
+        <div style={{ background: 'var(--bg-card)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Delivery Fee</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#facc15' }}>
             {realOrder ? `\u20B9${realOrder.deliveryFee}` : '\u2014'}
           </div>
         </div>
-        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Total Payable</div>
+        <div style={{ background: 'var(--bg-card)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Total Payable</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#e23744' }}>
             {realOrder ? `\u20B9${realOrder.totalAmount?.toFixed(2)}` : '\u2014'}
           </div>
         </div>
-        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
-          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Audit Events</div>
+        <div style={{ background: 'var(--bg-card)', padding: '10px 14px' }}>
+          <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700 }}>Audit Events</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#38bdf8' }}>{events.length}</div>
         </div>
       </div>
@@ -1529,8 +1529,8 @@ function InteractiveZomatoSimulation() {
         padding: '12px 16px',
         borderRadius: 'var(--radius-md)',
         background: logBad ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-primary)',
-        border: `1px solid ${logBad ? 'var(--danger, #ef4444)' : 'var(--border-primary)'}`,
-        color: logBad ? 'var(--danger, #ef4444)' : 'var(--info, #38bdf8)',
+        border: `1px solid ${logBad ? 'var(--danger)' : 'var(--border-primary)'}`,
+        color: logBad ? 'var(--danger)' : 'var(--info)',
         fontSize: 'var(--font-xs)',
         fontWeight: 600,
         textAlign: 'center'
@@ -1557,7 +1557,7 @@ function InteractiveZomatoSimulation() {
             <button
               onClick={handleStep1Race}
               disabled={apiLoading}
-              style={{ padding: '12px 24px', background: 'var(--accent-gradient, #e23744)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
+              style={{ padding: '12px 24px', background: 'var(--accent-gradient)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 700, fontSize: 'var(--font-sm)', cursor: apiLoading ? 'wait' : 'pointer' }}
             >
               {apiLoading ? 'Running Lock Contention...' : '\uD83D\uDD10 Run 5-Order Agent Contention Race ➔'}
             </button>
