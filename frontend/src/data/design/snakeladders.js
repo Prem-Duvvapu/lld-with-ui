@@ -21,20 +21,80 @@ export default {
   ],
   entities: [
     {
+      name: 'SnakeLaddersService',
+      description: 'Facade for the whole module: player setup, dice rolls, snake/ladder resolution, and the isolated /sim/* demo engine. The controller only translates HTTP; every rule lives here or in Game#rollAndMove().',
+      fields: [
+        { name: 'repository', type: 'GameRepository', description: 'Production repository holding every real match, injected via @Qualifier("snakeladdersGameRepository")' },
+        { name: 'diceRoller', type: 'DiceRoller', description: 'Injected Spring bean — RandomDiceRoller in production' },
+        { name: 'gameLocks', type: 'ConcurrentHashMap<String, ReentrantLock>', description: 'One lock per game id, created on first use via computeIfAbsent' },
+        { name: 'simRepository', type: 'GameRepository', description: 'A second, independent repository instance backing /sim/* so the demo can never touch a real match' },
+        { name: 'simEventLog', type: 'CopyOnWriteArrayList<SimEvent>', description: 'Append-only log of simulation steps, safe for concurrent read while the UI polls it' }
+      ],
+      methods: [
+        { name: 'createGame(playerNames)', returns: 'Game', description: 'Validates 2-4 players, then creates and saves a new match with the default snakes/ladders' },
+        { name: 'getGame(id)', returns: 'Game', description: 'Looks the game up, throwing GameNotFoundException when absent' },
+        { name: 'rollDice(gameId)', returns: 'Game', description: 'Locks the game, rejects a roll on an already-FINISHED game via GameAlreadyFinishedException, otherwise delegates to Game#rollAndMove()' }
+      ]
+    },
+    {
       name: 'Game',
-      description: 'Core domain entity: id, the player list, current-turn index, the snake/ladder maps, its own DiceRoller, GameState, winner, and the last roll/message shown in the UI.'
+      description: 'Core domain entity: id, the player list, current-turn index, the snake/ladder maps, its own DiceRoller, GameState, winner, and the last roll/message shown in the UI.',
+      fields: [
+        { name: 'id', type: 'String', description: 'Repository-assigned id' },
+        { name: 'players', type: 'List<Player>', description: '2-4 players, fixed at construction in registration order' },
+        { name: 'currentPlayerIndex', type: 'int', description: 'Index into players of whoever rolls next' },
+        { name: 'snakes, ladders', type: 'Map<Integer, Integer>', description: 'Head→tail and bottom→top destination lookups' },
+        { name: 'diceRoller', type: 'DiceRoller', description: 'Strategy supplying each roll — RandomDiceRoller in production, FixedDiceRoller in tests' },
+        { name: 'state', type: 'GameState', description: 'WAITING, IN_PROGRESS, or FINISHED' },
+        { name: 'winner', type: 'Player', description: 'Set only once state becomes FINISHED' },
+        { name: 'lastDiceValue', type: 'int', description: 'The most recent roll, for the UI to display' },
+        { name: 'lastMessage', type: 'String', description: 'Human-readable narration of the last roll\'s outcome' }
+      ],
+      methods: [
+        { name: 'rollAndMove()', returns: 'int', description: 'Rolls for the current player and applies the exact-count/snake/ladder rules, returning the die value; a no-op returning -1 if the game is not IN_PROGRESS' },
+        { name: 'getCurrentPlayer()', returns: 'Player', description: 'The player whose turn it is' }
+      ]
     },
     {
       name: 'Player',
-      description: 'A participant: name, board position (0-100), and token color.'
+      description: 'A participant: name, board position (0-100), and token color.',
+      fields: [
+        { name: 'name', type: 'String', description: 'Display name supplied when the match is created' },
+        { name: 'position', type: 'int', description: 'Current cell, 0 (not yet on the board) to 100' },
+        { name: 'color', type: 'String', description: 'Hex token color assigned from a fixed 4-color palette' }
+      ],
+      methods: []
     },
     {
       name: 'DiceRoller',
-      description: 'Strategy interface — roll(): int. RandomDiceRoller (production, a Spring bean) wraps java.util.Random; FixedDiceRoller (tests and, potentially, scripted demos) replays a fixed sequence, repeating its last value once exhausted.'
+      description: 'Strategy interface — roll(): int. RandomDiceRoller (production, a Spring bean) wraps java.util.Random; FixedDiceRoller (tests and, potentially, scripted demos) replays a fixed sequence, repeating its last value once exhausted.',
+      fields: [],
+      methods: [
+        { name: 'roll()', returns: 'int', description: 'A value in [1, 6]. RandomDiceRoller: genuine uniform roll. FixedDiceRoller: next value in a pinned sequence, repeating the last once exhausted.' }
+      ]
+    },
+    {
+      name: 'GameRepository',
+      description: 'ConcurrentHashMap-backed store keyed by generated match id — one instance for the live API, a second for /sim/*.',
+      fields: [
+        { name: 'games', type: 'ConcurrentHashMap<String, Game>', description: 'All matches this repository instance owns' },
+        { name: 'counter', type: 'AtomicInteger', description: 'Source of the generated id sequence' }
+      ],
+      methods: [
+        { name: 'generateId()', returns: 'String', description: 'Atomically increments the counter and formats the next match id' },
+        { name: 'save(game)', returns: 'void', description: 'Upserts a match by its id' },
+        { name: 'get(id)', returns: 'Game', description: 'Looks up a match by id, or null if absent' }
+      ]
     },
     {
       name: 'GameState',
-      description: 'Enum tracking session lifecycle: WAITING, IN_PROGRESS, FINISHED.'
+      description: 'Enum tracking session lifecycle: WAITING, IN_PROGRESS, FINISHED.',
+      fields: [
+        { name: 'WAITING', type: 'enum constant', description: 'Reserved for a pre-start lobby state; games are created directly IN_PROGRESS today' },
+        { name: 'IN_PROGRESS', type: 'enum constant', description: 'Accepting rolls' },
+        { name: 'FINISHED', type: 'enum constant', description: 'A player has landed exactly on cell 100' }
+      ],
+      methods: []
     },
     {
       name: 'SnakeLaddersException hierarchy',
@@ -42,7 +102,17 @@ export default {
     },
     {
       name: 'SimEvent',
-      description: 'One telemetry row in the /sim/* engine\'s event log — actor, description, the die value rolled, a snapshot of every player\'s position, and status — so the demo tab can replay a scripted game step by step.'
+      description: 'One telemetry row in the /sim/* engine\'s event log — actor, description, the die value rolled, a snapshot of every player\'s position, and status — so the demo tab can replay a scripted game step by step.',
+      fields: [
+        { name: 'id', type: 'long', description: 'Monotonically increasing id from simEventIdGen' },
+        { name: 'timestamp', type: 'String', description: 'Instant.now().toString() at the moment the step was applied' },
+        { name: 'actor', type: 'String', description: 'Player name, or "system" for reset' },
+        { name: 'description', type: 'String', description: 'Human-readable narration of the step' },
+        { name: 'diceValue', type: 'int', description: 'The die value rolled for this step' },
+        { name: 'playersSnapshot', type: 'List<Player>', description: 'Deep-copied player positions right after the step was applied' },
+        { name: 'status', type: 'GameState', description: 'Match state right after the step' }
+      ],
+      methods: []
     }
   ],
   designPatterns: [

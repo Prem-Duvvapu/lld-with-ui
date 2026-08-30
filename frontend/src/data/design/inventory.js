@@ -60,11 +60,20 @@ export default {
     },
     {
       name: 'StockAlertObserver (interface)',
-      description: 'Two independent implementations subscribe to the same event stream without knowing about each other: InAppStockAlertObserver (queryable feed backing GET /alerts, bounded to 100) and LoggingStockAlertObserver (writes to the server log).'
+      description: 'Two independent implementations subscribe to the same event stream without knowing about each other: InAppStockAlertObserver (queryable feed backing GET /alerts, bounded to 100) and LoggingStockAlertObserver (writes to the server log).',
+      fields: [],
+      methods: [
+        { name: 'onStockAlert(alert)', returns: 'void', description: 'Called by StockAlertNotifier for every crossing; implementations must never throw into the publisher and must never mutate inventory state' }
+      ]
     },
     {
       name: 'ReorderStrategy (interface)',
-      description: 'Three implementations resolved by ReorderStrategyFactory via an EnumMap — the same shape as splitwise’s SplitStrategyFactory. MinRestockStrategy orders exactly the shortfall to the reorder level (rejects if already at/above it). EoqReorderStrategy computes the classic Harris economic-order-quantity lot size, ceil(sqrt(2DS/H)), deterministic per product. UrgentBufferReorderStrategy targets 5× the reorder level on a true stock-out, 3× otherwise, always at least 1 unit.'
+      description: 'Three implementations resolved by ReorderStrategyFactory via an EnumMap — the same shape as splitwise’s SplitStrategyFactory. MinRestockStrategy orders exactly the shortfall to the reorder level (rejects if already at/above it). EoqReorderStrategy computes the classic Harris economic-order-quantity lot size, ceil(sqrt(2DS/H)), deterministic per product. UrgentBufferReorderStrategy targets 5× the reorder level on a true stock-out, 3× otherwise, always at least 1 unit.',
+      fields: [],
+      methods: [
+        { name: 'name()', returns: 'String', description: 'Human-readable name surfaced in the UI and audit events' },
+        { name: 'reorderQuantity(product)', returns: 'int', description: 'Units to order right now; throws InvalidStockOperationException when the policy is not applicable (e.g. stock already above the reorder level)' }
+      ]
     },
     {
       name: 'InventoryRepository',
@@ -77,7 +86,15 @@ export default {
     },
     {
       name: 'StockAlert',
-      description: 'One Observer-fanned-out event: which product, what crossing (LOW_STOCK / OUT_OF_STOCK / RESTOCKED / REORDER_PLACED), the stock level and movement that caused it.'
+      description: 'One Observer-fanned-out event: which product, what crossing (LOW_STOCK / OUT_OF_STOCK / RESTOCKED / REORDER_PLACED), the stock level and movement that caused it.',
+      fields: [
+        { name: 'type', type: 'AlertType', description: 'LOW_STOCK, OUT_OF_STOCK, RESTOCKED, or REORDER_PLACED' },
+        { name: 'productId, sku, productName', type: 'long, String, String', description: 'Which product crossed the threshold' },
+        { name: 'currentStock, reorderLevel, quantityChanged', type: 'int, int, int', description: 'The stock level at alert time, the product\'s configured threshold, and how much the triggering movement changed it by' },
+        { name: 'movementType', type: 'StockMovementType', description: 'INBOUND, OUTBOUND, or TRANSFER — the kind of movement that triggered this alert' },
+        { name: 'message', type: 'String', description: 'Human-readable summary for the alert feed' }
+      ],
+      methods: []
     },
     {
       name: 'StockMovement',
