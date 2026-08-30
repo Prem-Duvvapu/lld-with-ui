@@ -3890,3 +3890,102 @@ node /tmp/scan_entities3.mjs   # see this RCA's step 5 for the script's approach
    once a repo establishes a required shape for one module via a real bug fix, sweep the same shape
    requirement across every other module immediately rather than waiting for another individual
    report per module.
+
+## RCA-043: Hotel's "Simulation" Tab Mutated Real Production Data, and Its Controller Silently Coerced Every Domain Failure to HTTP 400
+
+### 1. Overview & Severity
+**Severity: Medium-High.** Closing the module-maturity gap RCA-039 flagged (hotel had no
+`/sim/*` engine, unlike every other reference-bar module) surfaced two real, independent bugs while
+building it: (1) hotel's existing frontend "Simulation" tab was never actually isolated — it called
+the real `bookRoom`/`checkInBooking`/`checkOutBooking` production endpoints directly, so every
+visitor who clicked through the demo genuinely booked, checked in, and checked out Room R3 against
+live hotel data; (2) `HotelController` wrapped every endpoint in a `try/catch (Exception e)` that
+unconditionally returned `ResponseEntity.badRequest()` (HTTP 400), completely bypassing the
+already-correct `HotelException` hierarchy's per-exception `@ResponseStatus` values and the shared
+`GlobalExceptionHandler` — so a 404-worthy `RoomNotFoundException` or a 409-worthy
+`RoomUnavailableException` both silently came back as 400.
+
+### 2. Symptoms & Error Logs
+No test caught either bug: no existing test asserted an HTTP status code for any hotel endpoint
+(`HotelServiceTest`/`HotelConcurrencyTest` both call `HotelService` directly, never through
+`HotelController`), and `HotelPage.jsx`'s "Simulation" tab visually looked identical whether it was
+touching real or sandboxed data — the only tell was `HotelService`'s own javadoc: *"the interactive
+simulation sandbox (/sim/*)... are not yet wired up"*, and reading `AnimatedFlow`'s `doBook`/
+`doCheckIn`/`doCheckOut` handlers to see they called the plain (non-`sim`-prefixed) `api.js`
+functions.
+
+### 3. Root Cause
+- **Fake simulation isolation**: hotel never had a `/sim/*` engine to begin with, so whoever built
+  the frontend "Simulation" tab wired its guided walkthrough to the only endpoints that existed —
+  the real ones. This is the exact isolation guarantee CLAUDE.md's "Modules with an interactive UI
+  simulation expose an isolated `/sim/*` endpoint set backed by a separate sandbox instance"
+  convention exists to prevent, just never implemented for this module.
+- **Controller-level exception coercion**: `HotelController` was written before (or without
+  adopting) this repo's shared exception contract — every method individually caught `Exception`
+  and hand-built an `ErrorResponse.of(e)` at a hardcoded 400, rather than letting the exception
+  propagate to `GlobalExceptionHandler`, which already reads each exception's `@ResponseStatus` via
+  `AnnotationUtils`. The concrete exceptions were already correctly annotated
+  (`RoomNotFoundException`/`HotelNotFoundException`/`BookingNotFoundException` → 404,
+  `RoomUnavailableException`/`InvalidReservationTransitionException` → 409,
+  `InvalidDateRangeException` → 400) and `HotelException` was already in
+  `DomainExceptionContractTest`'s allowlist — the annotations were simply never given the chance to
+  take effect.
+
+### 4. Diagnostic Commands
+```bash
+# Find a module's simulation UI calling non-sim-prefixed (i.e. real/production) API functions:
+grep -n "await book\|await checkIn\|await checkOut\|await cancel" frontend/src/lld/<module>/<Module>Page.jsx
+# — a match inside a component named AnimatedFlow/SimulationTab/*Sim* is the tell.
+
+# Find a controller whose own try/catch defeats an otherwise-correct exception hierarchy:
+grep -n "catch (Exception" backend/src/main/java/com/lld/<module>/controller/*.java
+# then cross-check: are the module's own exceptions already correctly @ResponseStatus-annotated?
+grep -n "@ResponseStatus" backend/src/main/java/com/lld/<module>/exception/*.java
+```
+
+### 5. Step-by-Step Resolution
+1. Added `com.lld.hotel.model.SimEvent` (majority-convention shape, matching 23 other modules).
+2. Added a sim sandbox to `HotelService`: a second `HotelRepository` instance and a second
+   `RoomBookingService` instance constructed against fresh `TariffStrategyFactory`/
+   `CancellationRefundStrategyFactory` instances (reusing the real classes, not a parallel copy of
+   their locking/pricing/refund logic) — the same shape as restaurant's
+   `simTableAllocationService`/`simKitchenService`. Added `simReset`/`simState`/`simBook`/
+   `simCheckIn`/`simCheckOut`/`simCancel`/`simEvents`, plus `simRace`, which runs N threads racing to
+   book the same room for the same date range via a `CountDownLatch`-released `ExecutorService`,
+   proving `RoomBookingService`'s per-room lock lets exactly one win rather than asserting it in
+   prose (mirrors restaurant's `simRace`).
+3. Added `/api/hotel/sim/*` endpoints to `HotelController`, and, while rewriting that file anyway,
+   removed every `try/catch (Exception e)` block — every endpoint now lets a thrown
+   `HotelException` subtype propagate to `GlobalExceptionHandler`, which maps it to its real
+   `@ResponseStatus`.
+4. Migrated `HotelPage.jsx` to the shared `LldPage` shell (it was a fully standalone page — own
+   header/back-link/nav, manually mounted `ClassDiagram`/`SequenceDiagram`/`DesignDetails` — the
+   same bug shape issue #53 and RCA-040 already fixed for other modules) and replaced `AnimatedFlow`
+   with a `SimulationTab` driving the new isolated `/sim/*` endpoints via an 8-step guided
+   walkthrough: reset → book a weekend-inclusive stay (exercising `WeekendTariffStrategy`) → a
+   5-guest concurrency race on a second room → check-in → check-out → book a second, non-weekend
+   stay (exercising `StandardTariffStrategy`) → cancel it (exercising `CancellationRefundStrategy`)
+   → final snapshot.
+5. Added `HotelSimTest` (7 cases) covering `simReset`/`simBook`/the check-in/check-out lifecycle/
+   `simCancel`'s refund resolution/`simRace`'s exactly-one-winner guarantee/its guest-count
+   clamping. Ran the full `com.lld.hotel.**` suite (19/19 passing, including the pre-existing
+   `HotelServiceTest`/`HotelConcurrencyTest`), `npx vitest run` (304/304), and `npm run build`
+   (entry chunk unchanged at 260.78 kB).
+
+### 6. Preventative Measures
+1. A module's own doc comment stating a feature "is not yet wired up" is a direct, load-bearing
+   signal — the same lesson RCA-039 drew from `ReservationStatus`'s refactor-narrating javadoc, now
+   confirmed for a missing-feature comment too. Grep every module's service/controller for "not yet"
+   or "NOTE:" comments periodically; they tend to describe exactly the gap that needs closing next.
+2. A frontend "Simulation" tab calling the same `api.js` functions the live UI calls (rather than
+   `sim`-prefixed ones) is invisible by inspection of the running app — it looks and behaves
+   identically to a real isolated demo until someone reads the handler code or the data it mutates.
+   The diagnostic grep above (non-sim-prefixed calls inside a component named `*Flow`/`*Sim*`) is
+   cheap enough to run across every module that claims to have a simulation tab.
+3. A controller's own `try/catch (Exception e)` returning a fixed status code silently defeats an
+   otherwise fully correct exception hierarchy — `DomainExceptionContractTest`/
+   `GlobalExceptionHandlerTest` verify the mapping table itself is correct, but neither test
+   exercises real controllers end-to-end for every module, so a controller that never lets an
+   exception reach the handler passes both suites while still returning the wrong status code on
+   every request. `ErrorContractIntegrationTest`'s MockMvc-based approach is the right template to
+   extend per-module if this class of bug needs a systematic guard rather than a per-report fix.

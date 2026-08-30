@@ -45,3 +45,52 @@ export function getBooking(id) {
 export function getActiveBookings() {
   return apiFetch('/hotel/bookings/active');
 }
+
+// Isolated Simulation Endpoints — a completely separate sandbox instance, so replaying the demo
+// can never corrupt real hotel/room/booking data.
+export function simReset() {
+  return apiFetch('/hotel/sim/reset', { method: 'POST' });
+}
+
+export function simGetState() {
+  return apiFetch('/hotel/sim/state');
+}
+
+export function simGetEvents() {
+  return apiFetch('/hotel/sim/events');
+}
+
+export function simBookRoom(roomId, userId, guestName, checkIn, checkOut) {
+  return apiFetch('/hotel/sim/book', {
+    method: 'POST',
+    body: JSON.stringify({ roomId, userId, guestName, checkIn, checkOut }),
+  });
+}
+
+export function simCheckIn(bookingId, actorName) {
+  return apiFetch(`/hotel/sim/bookings/${bookingId}/check-in`, {
+    method: 'POST',
+    body: JSON.stringify({ actorName }),
+  });
+}
+
+export function simCheckOut(bookingId, actorName) {
+  return apiFetch(`/hotel/sim/bookings/${bookingId}/check-out`, {
+    method: 'POST',
+    body: JSON.stringify({ actorName }),
+  });
+}
+
+export function simCancelBooking(bookingId, actorName) {
+  return apiFetch(`/hotel/sim/bookings/${bookingId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ actorName }),
+  });
+}
+
+export function simRace(roomId, checkIn, checkOut, guests = 5) {
+  return apiFetch('/hotel/sim/race', {
+    method: 'POST',
+    body: JSON.stringify({ roomId, checkIn, checkOut, guests }),
+  });
+}
