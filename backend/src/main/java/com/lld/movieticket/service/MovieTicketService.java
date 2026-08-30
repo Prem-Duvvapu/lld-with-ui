@@ -4,8 +4,7 @@ import com.lld.movieticket.exception.*;
 import com.lld.movieticket.model.*;
 import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
-import com.lld.movieticket.strategy.BasePricingStrategy;
-import com.lld.movieticket.strategy.PricingStrategy;
+import com.lld.movieticket.strategy.PricingStrategyFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 public class MovieTicketService {
@@ -21,10 +21,12 @@ public class MovieTicketService {
     private final SeatLockManager seatLockManager;
     private final MovieTicketPaymentProcessor paymentProcessor;
     private final SeatMapNotifier seatMapNotifier;
-    private final PricingStrategy pricingStrategy;
+    private final PricingStrategyFactory pricingStrategyFactory;
 
     // Idempotency cache: key -> Booking
     private final Map<String, Booking> idempotencyCache = new ConcurrentHashMap<>();
+    // Per-booking lock guarding cancelBooking's status check + availableSeats increment (RCA-035)
+    private final Map<Long, ReentrantLock> bookingLocks = new ConcurrentHashMap<>();
 
     // Simulation Engine Isolation
     private final MovieTicketRepository simRepository;
@@ -36,12 +38,12 @@ public class MovieTicketService {
                               SeatLockManager seatLockManager,
                               MovieTicketPaymentProcessor paymentProcessor,
                               SeatMapNotifier seatMapNotifier,
-                              BasePricingStrategy basePricingStrategy) {
+                              PricingStrategyFactory pricingStrategyFactory) {
         this.repository = repository;
         this.seatLockManager = seatLockManager;
         this.paymentProcessor = paymentProcessor;
         this.seatMapNotifier = seatMapNotifier;
-        this.pricingStrategy = basePricingStrategy;
+        this.pricingStrategyFactory = pricingStrategyFactory;
 
         // Initialize simulation engine repository & locks
         this.simRepository = new MovieTicketRepository();
@@ -89,7 +91,7 @@ public class MovieTicketService {
         for (Long sId : seatIds) {
             Seat seat = repository.findSeatById(showId, sId);
             if (seat != null) {
-                totalAmount += pricingStrategy.calculatePrice(show, seat);
+                totalAmount += pricingStrategyFactory.resolve(show).calculatePrice(show, seat);
             }
         }
 
@@ -132,7 +134,7 @@ public class MovieTicketService {
         for (Long sId : seatIds) {
             Seat seat = repository.findSeatById(showId, sId);
             if (seat != null) {
-                totalAmount += pricingStrategy.calculatePrice(show, seat);
+                totalAmount += pricingStrategyFactory.resolve(show).calculatePrice(show, seat);
             }
         }
 
@@ -162,26 +164,41 @@ public class MovieTicketService {
         return saved;
     }
 
+    /**
+     * Guards {@link #cancelBooking}'s read-check-set of a booking's status plus the show's
+     * {@code availableSeats} increment. Without this, two concurrent cancel requests for the same
+     * booking can both pass the "not already cancelled" check before either writes CANCELLED back
+     * (a classic TOCTOU race) — each then adds the booking's seat count to {@code availableSeats},
+     * so a show can end up reporting more available seats than it actually has. Per-seat locking
+     * in {@link SeatLockManager} already makes the seat-status flip itself safe; this closes the
+     * gap around it (RCA-035).
+     */
     public Booking cancelBooking(long bookingId) {
-        Booking booking = repository.findBookingById(bookingId);
-        if (booking == null) throw new IllegalArgumentException("Booking " + bookingId + " not found.");
-        if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
-            throw new CancellationFailedException("Booking " + bookingId + " is already cancelled.");
+        ReentrantLock lock = bookingLocks.computeIfAbsent(bookingId, k -> new ReentrantLock());
+        lock.lock();
+        try {
+            Booking booking = repository.findBookingById(bookingId);
+            if (booking == null) throw new IllegalArgumentException("Booking " + bookingId + " not found.");
+            if (booking.getBookingStatus() == BookingStatus.CANCELLED) {
+                throw new CancellationFailedException("Booking " + bookingId + " is already cancelled.");
+            }
+
+            booking.setBookingStatus(BookingStatus.CANCELLED);
+            repository.saveBooking(booking);
+
+            Show show = repository.findShowById(booking.getShowId());
+            if (show != null) {
+                show.setAvailableSeats(show.getAvailableSeats() + booking.getSeatIds().size());
+                repository.updateShow(show);
+            }
+
+            // Release seats back to AVAILABLE
+            seatLockManager.cancelBookedSeats(booking.getShowId(), booking.getSeatIds(), repository, seatMapNotifier);
+
+            return booking;
+        } finally {
+            lock.unlock();
         }
-
-        booking.setBookingStatus(BookingStatus.CANCELLED);
-        repository.saveBooking(booking);
-
-        Show show = repository.findShowById(booking.getShowId());
-        if (show != null) {
-            show.setAvailableSeats(show.getAvailableSeats() + booking.getSeatIds().size());
-            repository.updateShow(show);
-        }
-
-        // Release seats back to AVAILABLE
-        seatLockManager.cancelBookedSeats(booking.getShowId(), booking.getSeatIds(), repository, seatMapNotifier);
-
-        return booking;
     }
 
     public Booking getBooking(long bookingId) {
@@ -231,7 +248,7 @@ public class MovieTicketService {
             double total = 0.0;
             for (Long sid : seatIds) {
                 Seat seat = simRepository.findSeatById(showId, sid);
-                if (seat != null) total += pricingStrategy.calculatePrice(show, seat);
+                if (seat != null) total += pricingStrategyFactory.resolve(show).calculatePrice(show, seat);
             }
             logSimEvent("HOLD_SUCCESS", actorName, actorName + " successfully held seat(s) " + seatIds, Map.of("seatIds", seatIds, "showId", showId), simRepository.getSeatsByShow(showId));
             return Map.of("status", "SUCCESS", "seatIds", seatIds, "totalAmount", total);
@@ -248,7 +265,7 @@ public class MovieTicketService {
             double total = 0.0;
             for (Long sid : seatIds) {
                 Seat seat = simRepository.findSeatById(showId, sid);
-                if (seat != null) total += pricingStrategy.calculatePrice(show, seat);
+                if (seat != null) total += pricingStrategyFactory.resolve(show).calculatePrice(show, seat);
             }
             show.setAvailableSeats(Math.max(0, show.getAvailableSeats() - seatIds.size()));
             simRepository.updateShow(show);

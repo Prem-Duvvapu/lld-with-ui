@@ -8,6 +8,8 @@ import com.lld.movieticket.service.MovieTicketService;
 import com.lld.movieticket.service.MovieTicketPaymentProcessor;
 import com.lld.movieticket.service.SeatLockManager;
 import com.lld.movieticket.strategy.BasePricingStrategy;
+import com.lld.movieticket.strategy.PricingStrategyFactory;
+import com.lld.movieticket.strategy.SurgePricingStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -23,7 +25,7 @@ public class MovieTicketServiceTest {
     private SeatLockManager seatLockManager;
     private MovieTicketPaymentProcessor paymentProcessor;
     private SeatMapNotifier seatMapNotifier;
-    private BasePricingStrategy pricingStrategy;
+    private PricingStrategyFactory pricingStrategyFactory;
     private MovieTicketService service;
 
     @BeforeEach
@@ -33,8 +35,8 @@ public class MovieTicketServiceTest {
         seatLockManager = new SeatLockManager();
         paymentProcessor = new MovieTicketPaymentProcessor();
         seatMapNotifier = new SeatMapNotifier();
-        pricingStrategy = new BasePricingStrategy();
-        service = new MovieTicketService(repository, seatLockManager, paymentProcessor, seatMapNotifier, pricingStrategy);
+        pricingStrategyFactory = new PricingStrategyFactory(new BasePricingStrategy(), new SurgePricingStrategy());
+        service = new MovieTicketService(repository, seatLockManager, paymentProcessor, seatMapNotifier, pricingStrategyFactory);
     }
 
     @Test

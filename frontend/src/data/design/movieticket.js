@@ -24,9 +24,29 @@ export default {
           description: 'Data access layer injected via constructor'
         },
         {
-          name: 'lock',
-          type: 'ReentrantLock',
-          description: 'Ensures atomic booking and cancellation operations'
+          name: 'seatLockManager',
+          type: 'SeatLockManager',
+          description: 'Per-seat ReentrantLocks (fair, ascending-id acquisition) guarding hold/confirm/release/cancel'
+        },
+        {
+          name: 'pricingStrategyFactory',
+          type: 'PricingStrategyFactory',
+          description: 'Resolves BasePricingStrategy vs SurgePricingStrategy per show, classified by showTime'
+        },
+        {
+          name: 'idempotencyCache',
+          type: 'ConcurrentHashMap<String, Booking>',
+          description: 'Idempotency-key -> Booking, so a retried bookSeats call returns the original result'
+        },
+        {
+          name: 'bookingLocks',
+          type: 'ConcurrentHashMap<Long, ReentrantLock>',
+          description: 'Per-booking lock guarding cancelBooking\'s status check + availableSeats increment (RCA-035)'
+        },
+        {
+          name: 'simRepository, simSeatLockManager, simEventLog',
+          type: 'MovieTicketRepository, SeatLockManager, List<SimEvent>',
+          description: 'A second, fully independent repository/lock-manager pair backing /sim/* so the demo can never touch a real show'
         }
       ],
       methods: [
@@ -43,65 +63,70 @@ export default {
         {
           name: 'getSeats(showId)',
           returns: 'List<Seat>',
-          description: 'Returns all seats for a show with availability'
+          description: 'Expires stale holds, then returns all seats for a show with current availability'
         },
         {
-          name: 'bookSeats(showId, seatIds, userId)',
+          name: 'holdSeats(showId, seatIds, userId)',
+          returns: 'Map<String, Object>',
+          description: 'Locks every requested seat in ascending id order, validates all are available, then holds all of them (5-minute TTL) — all-or-nothing'
+        },
+        {
+          name: 'bookSeats(showId, seatIds, userId, method, key)',
           returns: 'Booking',
-          description: 'Validates and books selected seats — thread safe'
+          description: 'Confirms held seats, charges via MovieTicketPaymentProcessor, and caches the result under the idempotency key if one was supplied'
         },
         {
           name: 'cancelBooking(bookingId)',
           returns: 'Booking',
-          description: 'Cancels booking, restores seats and show availability'
+          description: 'Locked per booking id (RCA-035): marks the booking CANCELLED, restores the show\'s availableSeats, and releases the seats'
         }
       ]
     },
     {
       name: 'MovieTicketRepository',
-      description: 'In-memory data store with ConcurrentHashMap and ReentrantLock for thread safety.',
+      description: 'In-memory data store — one ConcurrentHashMap per entity type, plus an AtomicLong id generator each.',
       fields: [
         {
-          name: 'movies',
-          type: 'ConcurrentHashMap<Long, Movie>',
-          description: 'All movies indexed by ID'
+          name: 'movies, theaters, screens, shows, bookings',
+          type: 'ConcurrentHashMap<Long, ...>',
+          description: 'One map per entity type, keyed by generated id'
         },
         {
-          name: 'shows',
-          type: 'ConcurrentHashMap<Long, Show>',
-          description: 'All shows indexed by ID'
+          name: 'showSeats',
+          type: 'ConcurrentHashMap<Long, Map<Long, Seat>>',
+          description: 'Seats indexed per show — a seat id only resolves under the show it actually belongs to, never globally'
         },
         {
-          name: 'seats',
-          type: 'ConcurrentHashMap<Long, Seat>',
-          description: 'All seats indexed by ID'
+          name: 'users',
+          type: 'ConcurrentHashMap<String, User>',
+          description: 'Seeded demo users, keyed by string id'
         },
         {
-          name: 'bookings',
-          type: 'ConcurrentHashMap<Long, Booking>',
-          description: 'All bookings indexed by ID'
-        },
-        {
-          name: 'lock',
-          type: 'ReentrantLock',
-          description: 'Ensures atomic write operations'
+          name: 'movieIdGen, theaterIdGen, screenIdGen, showIdGen, seatIdGen, bookingIdGen',
+          type: 'AtomicLong',
+          description: 'One monotonic id sequence per entity type; all reset together by clear()'
         }
       ],
       methods: [
         {
-          name: 'getMovies()',
-          returns: 'List<Movie>',
-          description: 'Returns all movies'
+          name: 'seedInitialData()',
+          returns: 'void',
+          description: 'Clears everything, then seeds 4 users, 3 movies, 2 theaters/3 screens, and 6 shows (2 per movie) with a full 24-seat grid each'
         },
         {
-          name: 'getShowsByMovie(movieId)',
-          returns: 'List<Show>',
-          description: 'Filters shows by movie'
+          name: 'createShowWithSeats(movieId, theaterId, screenId, screenName, showTime, date)',
+          returns: 'long',
+          description: 'Builds a new show\'s 4x6 seat grid via SeatFactory (rows 1-2 GOLD, rows 3-4 SILVER) and registers the show'
+        },
+        {
+          name: 'findSeatById(showId, seatId)',
+          returns: 'Seat',
+          description: 'Looks a seat up within its own show\'s index only'
         },
         {
           name: 'saveBooking(booking)',
           returns: 'Booking',
-          description: 'Thread-safe booking save'
+          description: 'Upserts a booking by id'
         }
       ]
     },
@@ -159,7 +184,7 @@ export default {
         {
           name: 'showTime',
           type: 'String',
-          description: 'Time of show (10:00 AM, 2:00 PM, etc.)'
+          description: 'Time of show ("10:00 AM", "07:00 PM", etc.) — also what PricingStrategyFactory classifies as STANDARD or PEAK'
         },
         {
           name: 'availableSeats',
@@ -176,37 +201,37 @@ export default {
     },
     {
       name: 'Seat',
-      description: 'A single seat in the cinema with type and pricing.',
+      description: 'A single seat in the cinema with type, pricing and hold/booking state.',
       fields: [
         {
-          name: 'id',
-          type: 'long',
-          description: 'Unique identifier'
+          name: 'id, showId, row, col',
+          type: 'long, long, int, int',
+          description: 'Identity — a seat id only means something within its own show'
         },
         {
-          name: 'row',
-          type: 'int',
-          description: 'Row number (1-4)'
-        },
-        {
-          name: 'col',
-          type: 'int',
-          description: 'Column number (1-6)'
-        },
-        {
-          name: 'type',
-          type: 'String',
-          description: 'Gold (rows 1-2) or Silver (rows 3-4)'
+          name: 'seatType',
+          type: 'SeatType',
+          description: 'GOLD (rows 1-2) or SILVER (rows 3-4); getType()/setType(String) mirror it as a plain string'
         },
         {
           name: 'price',
           type: 'double',
-          description: 'Gold: ₹350, Silver: ₹200'
+          description: 'Gold: ₹350, Silver: ₹200 by default (SeatFactory), or a peak-show surcharge via PricingStrategyFactory'
         },
         {
-          name: 'available',
-          type: 'boolean',
-          description: 'Whether the seat is free to book'
+          name: 'status',
+          type: 'SeatStatus',
+          description: 'AVAILABLE, HELD or BOOKED; isAvailable()/setAvailable(boolean) mirror it as a derived boolean'
+        },
+        {
+          name: 'heldByUserId, holdExpiresAt',
+          type: 'String, long',
+          description: 'Who currently holds this seat and when that hold\'s TTL elapses'
+        },
+        {
+          name: 'version',
+          type: 'long',
+          description: 'Incremented on every state change — a hook for optimistic-concurrency checks, not currently enforced'
         }
       ],
       methods: []
@@ -216,34 +241,24 @@ export default {
       description: 'A confirmed seat booking with payment details.',
       fields: [
         {
-          name: 'id',
-          type: 'long',
-          description: 'Unique identifier'
+          name: 'id, showId, seatIds, userId',
+          type: 'long, long, List<Long>, String',
+          description: 'Identity: which show, which seats, and who booked them'
         },
         {
-          name: 'showId',
-          type: 'long',
-          description: 'Which show this booking is for'
+          name: 'bookingStatus',
+          type: 'BookingStatus',
+          description: 'PENDING, CONFIRMED or CANCELLED; getStatus()/setStatus(String) mirror it as a plain string'
         },
         {
-          name: 'seatIds',
-          type: 'List<Long>',
-          description: 'List of booked seat IDs'
-        },
-        {
-          name: 'userId',
-          type: 'String',
-          description: 'Who made the booking'
-        },
-        {
-          name: 'status',
-          type: 'String',
-          description: 'BOOKED or CANCELLED'
+          name: 'paymentMethod',
+          type: 'PaymentMethod',
+          description: 'UPI, CREDIT_CARD, DEBIT_CARD or NET_BANKING'
         },
         {
           name: 'totalAmount',
           type: 'double',
-          description: 'Sum of all booked seat prices'
+          description: 'Sum of all booked seats\' resolved prices at booking time'
         },
         {
           name: 'bookingTime',
@@ -258,22 +273,17 @@ export default {
     {
       name: 'Strategy Pattern',
       used: true,
-      explanation: 'BasePricingStrategy and SurgePricingStrategy compute seat prices dynamically.'
+      explanation: 'BasePricingStrategy and SurgePricingStrategy compute seat prices dynamically; PricingStrategyFactory (an EnumMap<PricingTier, PricingStrategy>) resolves which one applies per Show by classifying its showTime — 5 PM or later gets the surge strategy\'s markup, everything else gets base pricing. SurgePricingStrategy was dead code before this factory existed: the service used to construct BasePricingStrategy directly, so nothing ever selected the surge strategy at runtime.'
     },
     {
       name: 'Factory Pattern',
       used: true,
-      explanation: 'SeatFactory creates Seat instances with predefined row/col layouts and prices per seat type.'
+      explanation: 'SeatFactory creates Seat instances with predefined row/col layouts and prices per seat type, now actually called from MovieTicketRepository#createShowWithSeats (it previously existed but every show\'s seats were constructed inline, bypassing it entirely).'
     },
     {
       name: 'Observer Pattern',
       used: true,
       explanation: 'SeatMapNotifier publishes seat status changes to SeatAvailabilityObserver instances.'
-    },
-    {
-      name: 'State Pattern',
-      used: true,
-      explanation: 'SeatStatus enum (AVAILABLE, HELD, BOOKED) enforces valid state transitions.'
     },
     {
       name: 'Singleton Pattern',
@@ -330,14 +340,14 @@ export default {
       difficulty: 'Easy'
     },
     {
-      area: 'Dynamic Seat Pricing',
-      description: 'Replace fixed pricing with a PricingStrategy. Peak hours (evening shows) cost more. Weekends have premium pricing.',
+      area: 'Demand-Based Dynamic Pricing',
+      description: 'PricingStrategyFactory currently classifies a show as PEAK purely by its fixed showTime (5 PM or later). A DemandSurgePricingStrategy could instead read the show\'s live occupancy percentage (seats booked / totalSeats) and scale the multiplier continuously — a near-empty peak-hour show and a nearly-sold-out matinee would price very differently instead of both falling into the same coarse bucket.',
       difficulty: 'Medium'
     },
     {
-      area: 'Multiple Parking Lots',
-      description: 'Add ParkingLot entity with its own floors/spots/gates. Modify service to take parkingLotId parameter. Repository becomes a multi-lot store. Frontend adds lot selector.',
-      difficulty: 'Hard'
+      area: 'Optimistic Concurrency on Seat.version',
+      description: 'Seat#version already increments on every state change but nothing reads it back — SeatLockManager\'s per-seat ReentrantLock is what actually prevents double-booking today. A client could instead send back the version it last saw with its hold/confirm request, and the service could reject a stale write with a 409 even before touching the lock, giving a faster, more specific error for the common "the seat map on your screen is out of date" case.',
+      difficulty: 'Medium'
     }
   ]
 };

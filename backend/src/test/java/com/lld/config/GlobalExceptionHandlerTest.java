@@ -7,6 +7,12 @@ import com.lld.airline.exception.HoldExpiredException;
 import com.lld.airline.exception.InvalidCancellationException;
 import com.lld.airline.exception.SeatNotAvailableException;
 
+// movieticket — SeatNotAvailableException, HoldExpiredException and BookingFailedException are
+// kept fully-qualified inline below since airline already imports classes of those exact simple
+// names, the same collision-avoidance shape stackoverflow's UserNotFoundException uses.
+import com.lld.movieticket.exception.CancellationFailedException;
+import com.lld.movieticket.exception.InvalidShowException;
+
 // library
 import com.lld.library.exception.BookNotAvailableException;
 import com.lld.library.exception.BorrowLimitExceededException;
@@ -85,6 +91,12 @@ class GlobalExceptionHandlerTest {
                 Arguments.of(new BookingFailedException("payment failed"), 422),
                 Arguments.of(new InvalidCancellationException("departed"), 400),
                 Arguments.of(new FlightNotFoundException("no flight"), 404),
+                // movieticket
+                Arguments.of(new com.lld.movieticket.exception.SeatNotAvailableException("seat held"), 409),
+                Arguments.of(new com.lld.movieticket.exception.HoldExpiredException("hold gone"), 410),
+                Arguments.of(new com.lld.movieticket.exception.BookingFailedException("payment failed"), 422),
+                Arguments.of(new CancellationFailedException("already cancelled"), 400),
+                Arguments.of(new InvalidShowException("no show"), 404),
                 // library
                 Arguments.of(new BookNotAvailableException("all copies out"), 409),
                 Arguments.of(new BorrowLimitExceededException("quota"), 409),

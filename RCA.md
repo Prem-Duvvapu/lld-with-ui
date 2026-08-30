@@ -3117,3 +3117,135 @@ done
    time the RCA-030 grep command above was rerun in this session, until switched to a `while IFS=
    read -r` loop. Anyone reusing RCA-030's diagnostic command in this repo's shell should use the
    `while read` form, not the bash-style `for` loop, or double-check the loop is actually iterating.
+
+## RCA-035: Movie Ticket's `cancelBooking` Had an Unguarded Check-Then-Act, and Its Exception Hierarchy Never Extended `DomainException`
+
+**Severity:** Medium (the exception-contract gap meant every domain failure in this module used a
+hand-rolled, inconsistent error body instead of the shared one; the concurrency gap could let a
+show's `availableSeats` count drift above its real capacity)
+**Date:** 2026-08-30
+**Status:** Resolved
+**Affected:** `com.lld.movieticket.service.MovieTicketService#cancelBooking`,
+`com.lld.movieticket.exception.*`
+
+### 1. Overview & Severity
+Auditing `movieticket` against the 17-criteria reference bar (HANDOFF.md's "unverified" list) found
+two real defects hiding behind a structurally solid-looking module: a genuine check-then-act
+concurrency race in `cancelBooking`, and an exception hierarchy that had never actually been wired
+into the shared error contract despite looking like it had one.
+
+### 2. Symptoms & Error Logs
+Neither defect produced a visible symptom under this module's own pre-existing tests — the single
+`MovieTicketServiceTest` never called `cancelBooking` concurrently, and none of its tests went
+through the HTTP layer, so a bare 500 from an unmapped exception was never observed. Both were found
+by reading the code against the reference bar's checklist, then confirmed by a new failing test:
+```
+MovieTicketConcurrencyTest#concurrentCancelOfTheSameBookingOnlyOneSucceeds (pre-fix)
+org.opentest4j.AssertionFailedError: exactly one of N concurrent cancels on the same booking should succeed
+ ==> expected: <1> but was: <4>
+```
+4 of 10 racing threads all passed the "not already cancelled" check before any of them wrote
+`CANCELLED` back, so 4 threads each added the booking's seat count to `Show#availableSeats`.
+
+### 3. Root Cause
+**Concurrency:** `cancelBooking` read `booking.getBookingStatus()`, branched on it, then wrote
+`CANCELLED` and incremented `show.availableSeats` — a classic read-decide-write sequence with no
+lock around it. `SeatLockManager#cancelBookedSeats` (called at the end of the method) does correctly
+take a per-seat lock for the seat-status flip, but that only protects the seats, not the booking's
+own status field or the show's counter — two concurrent cancel calls could both pass the status
+check before either wrote back, exactly the same TOCTOU shape as RCA-032/033 (shopping cart) and
+RCA-024 (airline), just discovered in a fourth module.
+
+**Exception contract:** `MovieTicketException extends RuntimeException` directly (not
+`com.lld.config.DomainException`), carried its own hand-rolled `errorCode` string field, and none of
+its five concrete subclasses had `@ResponseStatus`. Nothing crashed in practice only because
+`MovieTicketController` had its own five local `@ExceptionHandler` methods, each hand-building a
+`Map.of("error", e.getErrorCode(), "message", e.getMessage())` body — exactly the per-module,
+inconsistent-shape pattern `GlobalExceptionHandler`/`DomainException`/`ErrorResponse` were built to
+eliminate (see that class's own javadoc: "airline / library / linkedin / stockbroker threw 27 domain
+exceptions that all extended RuntimeException with no status mapping... every one surfaced as a bare
+HTTP 500"). This module had simply never been migrated onto that shared contract, so it carried
+forward the pre-refactor pattern without anyone noticing, since its local handlers happened to work.
+
+A third defect surfaced only once the first two were fixed and the full suite was run: the new
+`com.lld.movieticket.strategy.PricingStrategyFactory` collided on Spring's default bean name with
+the pre-existing `com.lld.parkinglot.strategy.PricingStrategyFactory` — the exact same
+`ConflictingBeanDefinitionException` shape as RCA-023 (ludo vs. snakeladders) and RCA-025 (airline
+vs. parkinglot/carrental), now a fourth occurrence of the identical class-name collision:
+```
+Caused by: org.springframework.context.annotation.ConflictingBeanDefinitionException: Annotation-specified
+bean name 'pricingStrategyFactory' for bean class [com.lld.parkinglot.strategy.PricingStrategyFactory]
+conflicts with existing, non-compatible bean definition of same name and class
+[com.lld.movieticket.strategy.PricingStrategyFactory]
+```
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce the race directly:
+cd backend && mvn -o -q test -Dtest='com.lld.movieticket.MovieTicketConcurrencyTest#concurrentCancelOfTheSameBookingOnlyOneSucceeds'
+
+# Find a domain exception hierarchy that never extends DomainException (invisible to
+# DomainExceptionContractTest's classpath scan, so a missing @ResponseStatus goes undetected):
+grep -rLn "extends DomainException\|extends [A-Za-z]*Exception" backend/src/main/java/com/lld/*/exception/*.java | xargs grep -l "extends RuntimeException"
+
+# RCA-023's own recommended check, still worth rerunning before adding a new @Component/@Service/
+# @Repository class with a generic name like "PricingStrategyFactory" or "PaymentProcessor":
+find backend/src/main/java -name '*.java' -exec basename {} \; | sort | uniq -d
+```
+
+### 5. Step-by-Step Resolution
+1. Added `bookingLocks: ConcurrentHashMap<Long, ReentrantLock>` to `MovieTicketService`, lazily
+   populated via `computeIfAbsent` (one lock per booking id, never shared across bookings). Wrapped
+   `cancelBooking`'s entire read-check-write-write sequence in that lock.
+2. Changed `MovieTicketException` to `extends com.lld.config.DomainException` and made it `abstract`
+   (never thrown directly), following `tictactoe.exception.TicTacToeException`'s shape — this keeps
+   it out of `DomainExceptionContractTest`'s `BASES` allowlist entirely, since an abstract base never
+   needs its own status. Dropped the now-redundant `errorCode` field: `ErrorResponse.code` already
+   derives the same information from `getClass().getSimpleName()`.
+3. Added `@ResponseStatus` to all five concrete subclasses, matching the exact statuses the removed
+   controller handlers already used (so no observable behavior changed): `SeatNotAvailableException`
+   409, `HoldExpiredException` 410, `BookingFailedException` 422, `CancellationFailedException` 400,
+   `InvalidShowException` 404 — coincidentally identical to `airline`'s analogous exceptions, which
+   made a good cross-check.
+4. Deleted `MovieTicketController`'s five local `@ExceptionHandler` methods plus its
+   `IllegalArgumentException` handler; `GlobalExceptionHandler`'s existing `DomainException` and
+   `IllegalArgumentException` handlers now cover all of it. The frontend's error display is a strict
+   improvement as a side effect: `apiFetch`'s `body.error || body.message` used to surface the raw
+   machine code (e.g. `"SEAT_UNAVAILABLE"`) as the on-screen message; it now surfaces the actual
+   human-readable message, since nothing in `MovieTicketPage.jsx` branched on the old code strings.
+5. Added the five new mappings to `GlobalExceptionHandlerTest`'s parameterized `domainExceptions()`
+   list and `MovieTicketConcurrencyTest#concurrentCancelOfTheSameBookingOnlyOneSucceeds`, then reran
+   the full `com.lld.movieticket.**` suite plus `com.lld.config.**` to confirm both.
+6. Gave the new factory an explicit bean name — `@Component("movieTicketPricingStrategyFactory")`
+   — following `carrental`/`airline`'s existing precedent for this exact class name, and documented
+   the collision risk in its javadoc. Ran RCA-023's `find ... basename ... uniq -d` check across the
+   whole `backend/src/main/java` tree afterward: several other simple-name duplicates exist
+   (`PaymentProcessor`, `SeatLockManager` among them), but only one of each currently has an
+   unqualified `@Component` (`concertticket`'s) — no *active* second collision today, just the same
+   latent fragility RCA-023/025 already flagged, left as-is since fixing a module nothing asked about
+   is out of scope for this pass.
+7. Re-ran the full `mvn -o -q test` suite (1606+ tests) to confirm `ErrorContractIntegrationTest` and
+   every other module's suite passed together, with zero unrelated regressions.
+
+### 6. Preventative Measures
+1. Same lesson as RCA-032/033: any check-then-act on a shared mutable field (a status enum, a
+   counter) needs either a lock held across the whole read-decide-write, or an atomic map primitive
+   — never a plain read followed by a write with real work in between. Four modules have now hit
+   this exact shape; it is worth grepping for "read a `getXxxStatus()`, branch, write it back much
+   later" across the remaining unaudited modules before assuming it's fixed everywhere.
+2. A module whose exception hierarchy extends bare `RuntimeException` instead of `DomainException`
+   is invisible to `DomainExceptionContractTest`'s classpath scan — the guard-rail that exists
+   specifically to catch a forgotten `@ResponseStatus` cannot catch a hierarchy it never sees in the
+   first place. A working local `@ExceptionHandler` in the controller can mask this gap indefinitely,
+   since the module never actually 500s — it just silently duplicates the shared contract instead of
+   using it. Worth a one-time repo-wide check: `grep -rLn "extends DomainException" backend/src/main/java/com/lld/*/exception/*Exception.java`
+   against every module's base exception file, not just the ones already known to be on the
+   contract.
+3. This is the fourth time a generically-named Strategy/Factory/Manager class has collided on
+   Spring's default bean name across modules (RCA-023, RCA-025, now this). `ReorderStrategyFactory`-
+   shaped classes keep getting copied into new modules under the same generic name without a glance
+   at whether that exact name already exists elsewhere in `com.lld.*` — any new `@Component`/
+   `@Service`/`@Repository` class should default to an explicit, module-prefixed bean name rather
+   than relying on the decapitalized-simple-name default, especially for common LLD vocabulary
+   (`PaymentProcessor`, `PricingStrategyFactory`, `SeatLockManager`, `Notifier`...) that many modules
+   independently reinvent.
