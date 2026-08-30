@@ -22,6 +22,7 @@ import {
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
+import { usePolling } from '../../hooks/usePolling';
 import ThemeToggle from '../../components/ThemeToggle';
 
 const DENOMINATIONS = [
@@ -156,11 +157,7 @@ function MachineHardwareTab() {
     }
   };
 
-  useEffect(() => {
-    fetchMachineData();
-    const interval = setInterval(fetchMachineData, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(fetchMachineData, 3000, []);
 
   const handleKeypadPress = (val) => {
     setError('');

@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import LldPage from '../../components/LldPage';
 import { getStatus, transition, emergency } from './api';
+import { usePolling } from '../../hooks/usePolling';
 
 const CSS = `
 .ts-container { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 12px; padding: 20px; }
@@ -66,11 +67,7 @@ function AnimatedFlow() {
     }
   };
 
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 1500);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(fetchStatus, 1500, []);
 
   const handleCycle = async () => {
     addLog('State Machine Transition Triggered');
@@ -192,11 +189,7 @@ export default function TrafficSignalPage() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 1000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(loadData, 1000, []);
 
   const handleTransition = async () => {
     try {

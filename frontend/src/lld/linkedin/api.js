@@ -1,215 +1,167 @@
+import { apiFetch } from '../../utils/api';
+
 const BASE_URL = '/api/linkedin';
 
-async function handleResponse(res) {
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || 'API request failed');
-  }
-  return res.json();
-}
-
 // Users & Profile
-export async function getUsers() {
-  const res = await fetch(`${BASE_URL}/users`);
-  return handleResponse(res);
+export function getUsers() {
+  return apiFetch(`${BASE_URL}/users`);
 }
 
-export async function getUser(userId) {
-  const res = await fetch(`${BASE_URL}/users/${userId}`);
-  return handleResponse(res);
+export function getUser(userId) {
+  return apiFetch(`${BASE_URL}/users/${userId}`);
 }
 
-export async function registerUser(name, email, password) {
-  const res = await fetch(`${BASE_URL}/users/register`, {
+export function registerUser(name, email, password) {
+  return apiFetch(`${BASE_URL}/users/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email, password }),
   });
-  return handleResponse(res);
 }
 
-export async function login(email, password) {
-  const res = await fetch(`${BASE_URL}/users/login`, {
+export function login(email, password) {
+  return apiFetch(`${BASE_URL}/users/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  return handleResponse(res);
 }
 
-export async function updateProfile(userId, data) {
-  const res = await fetch(`${BASE_URL}/users/${userId}/profile`, {
+export function updateProfile(userId, data) {
+  return apiFetch(`${BASE_URL}/users/${userId}/profile`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  return handleResponse(res);
 }
 
-export async function addSkill(userId, skill) {
-  const res = await fetch(`${BASE_URL}/users/${userId}/skills`, {
+export function addSkill(userId, skill) {
+  return apiFetch(`${BASE_URL}/users/${userId}/skills`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ skill }),
   });
-  return handleResponse(res);
 }
 
-export async function addExperience(userId, expData) {
-  const res = await fetch(`${BASE_URL}/users/${userId}/experience`, {
+export function addExperience(userId, expData) {
+  return apiFetch(`${BASE_URL}/users/${userId}/experience`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(expData),
   });
-  return handleResponse(res);
 }
 
 // Connections
-export async function sendConnectionRequest(senderId, receiverId) {
-  const res = await fetch(`${BASE_URL}/connections/request`, {
+export function sendConnectionRequest(senderId, receiverId) {
+  return apiFetch(`${BASE_URL}/connections/request`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ senderId, receiverId }),
   });
-  return handleResponse(res);
 }
 
-export async function acceptConnection(connectionId, targetUserId) {
-  const res = await fetch(`${BASE_URL}/connections/${connectionId}/accept`, {
+export function acceptConnection(connectionId, targetUserId) {
+  return apiFetch(`${BASE_URL}/connections/${connectionId}/accept`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ targetUserId }),
   });
-  return handleResponse(res);
 }
 
-export async function rejectConnection(connectionId, targetUserId) {
-  const res = await fetch(`${BASE_URL}/connections/${connectionId}/reject`, {
+export function rejectConnection(connectionId, targetUserId) {
+  return apiFetch(`${BASE_URL}/connections/${connectionId}/reject`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ targetUserId }),
   });
-  return handleResponse(res);
 }
 
-export async function getConnections(userId) {
-  const res = await fetch(`${BASE_URL}/connections/${userId}`);
-  return handleResponse(res);
+export function getConnections(userId) {
+  return apiFetch(`${BASE_URL}/connections/${userId}`);
 }
 
-export async function getPendingRequests(userId) {
-  const res = await fetch(`${BASE_URL}/connections/${userId}/pending`);
-  return handleResponse(res);
+export function getPendingRequests(userId) {
+  return apiFetch(`${BASE_URL}/connections/${userId}/pending`);
 }
 
 // Messaging
-export async function sendMessage(senderId, receiverId, content) {
-  const res = await fetch(`${BASE_URL}/messages/send`, {
+export function sendMessage(senderId, receiverId, content) {
+  return apiFetch(`${BASE_URL}/messages/send`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ senderId, receiverId, content }),
   });
-  return handleResponse(res);
 }
 
-export async function getConversation(userA, userB) {
-  const res = await fetch(`${BASE_URL}/messages?userA=${userA}&userB=${userB}`);
-  return handleResponse(res);
+export function getConversation(userA, userB) {
+  return apiFetch(`${BASE_URL}/messages?userA=${userA}&userB=${userB}`);
 }
 
 // Jobs
-export async function getJobs() {
-  const res = await fetch(`${BASE_URL}/jobs`);
-  return handleResponse(res);
+export function getJobs() {
+  return apiFetch(`${BASE_URL}/jobs`);
 }
 
-export async function postJob(jobData) {
-  const res = await fetch(`${BASE_URL}/jobs`, {
+export function postJob(jobData) {
+  return apiFetch(`${BASE_URL}/jobs`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(jobData),
   });
-  return handleResponse(res);
 }
 
-export async function applyJob(jobId, applicantId) {
-  const res = await fetch(`${BASE_URL}/jobs/${jobId}/apply`, {
+export function applyJob(jobId, applicantId) {
+  return apiFetch(`${BASE_URL}/jobs/${jobId}/apply`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ applicantId }),
   });
-  return handleResponse(res);
 }
 
 // Search & Notifications
-export async function searchUsers(query, requestingUserId) {
+export function searchUsers(query, requestingUserId) {
   const q = encodeURIComponent(query || '');
   const r = requestingUserId ? `&requestingUserId=${requestingUserId}` : '';
-  const res = await fetch(`${BASE_URL}/search/users?query=${q}${r}`);
-  return handleResponse(res);
+  return apiFetch(`${BASE_URL}/search/users?query=${q}${r}`);
 }
 
-export async function searchJobs(query, location, applicantId) {
+export function searchJobs(query, location, applicantId) {
   const q = encodeURIComponent(query || '');
   const l = encodeURIComponent(location || '');
   const a = applicantId ? `&applicantId=${applicantId}` : '';
-  const res = await fetch(`${BASE_URL}/search/jobs?query=${q}&location=${l}${a}`);
-  return handleResponse(res);
+  return apiFetch(`${BASE_URL}/search/jobs?query=${q}&location=${l}${a}`);
 }
 
-export async function getNotifications(userId) {
-  const res = await fetch(`${BASE_URL}/notifications/${userId}`);
-  return handleResponse(res);
+export function getNotifications(userId) {
+  return apiFetch(`${BASE_URL}/notifications/${userId}`);
 }
 
 // Simulation Endpoints
-export async function simReset() {
-  const res = await fetch(`${BASE_URL}/sim/reset`, { method: 'POST' });
-  return handleResponse(res);
+export function simReset() {
+  return apiFetch(`${BASE_URL}/sim/reset`, { method: 'POST' });
 }
 
-export async function simConnect(senderId, receiverId) {
-  const res = await fetch(`${BASE_URL}/sim/connect`, {
+export function simConnect(senderId, receiverId) {
+  return apiFetch(`${BASE_URL}/sim/connect`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ senderId, receiverId }),
   });
-  return handleResponse(res);
 }
 
-export async function simAccept(connectionId) {
-  const res = await fetch(`${BASE_URL}/sim/accept`, {
+export function simAccept(connectionId) {
+  return apiFetch(`${BASE_URL}/sim/accept`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ connectionId }),
   });
-  return handleResponse(res);
 }
 
-export async function simMessage(senderId, receiverId, content) {
-  const res = await fetch(`${BASE_URL}/sim/message`, {
+export function simMessage(senderId, receiverId, content) {
+  return apiFetch(`${BASE_URL}/sim/message`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ senderId, receiverId, content }),
   });
-  return handleResponse(res);
 }
 
-export async function simApply(applicantId, jobId) {
-  const res = await fetch(`${BASE_URL}/sim/apply`, {
+export function simApply(applicantId, jobId) {
+  return apiFetch(`${BASE_URL}/sim/apply`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ applicantId, jobId }),
   });
-  return handleResponse(res);
 }
 
-export async function simGetSnapshots() {
-  const res = await fetch(`${BASE_URL}/sim/snapshots`);
-  return handleResponse(res);
+export function simGetSnapshots() {
+  return apiFetch(`${BASE_URL}/sim/snapshots`);
 }
 
-export async function simGetEvents() {
-  const res = await fetch(`${BASE_URL}/sim/events`);
-  return handleResponse(res);
+export function simGetEvents() {
+  return apiFetch(`${BASE_URL}/sim/events`);
 }

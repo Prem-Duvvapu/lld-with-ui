@@ -26,6 +26,7 @@ import {
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import { usePolling } from '../../hooks/usePolling';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -154,11 +155,7 @@ function OrderBaristaTab() {
     }
   };
 
-  useEffect(() => {
-    fetchState();
-    const interval = setInterval(fetchState, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(fetchState, 3000, []);
 
   const handleSelectBase = async (type) => {
     setLoading(true);

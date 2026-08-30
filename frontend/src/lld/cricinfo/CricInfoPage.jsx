@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import LldPage from '../../components/LldPage';
 import * as api from './api';
+import { usePolling } from '../../hooks/usePolling';
 
 const CSS = `
 .cric-container { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 12px; padding: 20px; }
@@ -153,11 +154,7 @@ function LiveScoringTab() {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
-  useEffect(() => {
-    const id = setInterval(refresh, 4000);
-    return () => clearInterval(id);
-  }, [refresh]);
+  usePolling(refresh, 4000, [refresh]);
 
   const bowl = async (payload) => {
     if (!liveMatch) return;
@@ -304,11 +301,7 @@ function MatchesTab() {
     if (!teamBId && t[1]) setTeamBId(t[1].id);
   }, [teamAId, teamBId]);
 
-  useEffect(() => { refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    const id = setInterval(refresh, 6000);
-    return () => clearInterval(id);
-  }, [refresh]);
+  usePolling(refresh, 6000, [refresh]);
 
   const create = async () => {
     try {

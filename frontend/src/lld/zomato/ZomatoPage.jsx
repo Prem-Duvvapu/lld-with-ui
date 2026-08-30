@@ -3,6 +3,7 @@ import LldPage from '../../components/LldPage';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import StepIndicator from '../../components/ui/StepIndicator';
+import { usePolling } from '../../hooks/usePolling';
 import classDiagrams from '../../data/classDiagrams';
 import designDetails from '../../data/designDetails';
 import { useToast } from '../../components/ui/ToastContext';
@@ -75,11 +76,7 @@ export default function ZomatoPage() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 4000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(fetchData, 4000, []);
 
   // Update selected customer address
   useEffect(() => {
