@@ -117,45 +117,18 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'MergeSortException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidSortParametersException',
-      fields: [
-        'extends MergeSortException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'MergeSortController', to: 'MergeSortService', label: 'delegates to' },
     { from: 'MergeSortService', to: 'ParallelMergeSorter', label: 'creates one per run' },
     { from: 'MergeSortService', to: 'RunRequest', label: 'validates' },
     { from: 'MergeSortService', to: 'RunResult', label: 'assembles' },
-    { from: 'MergeSortService', to: 'InvalidSortParametersException', label: 'throws on bad params' },
     { from: 'ParallelMergeSorter', to: 'SortTask', label: 'submits root task' },
-    { from: 'ParallelMergeSorter', to: 'RunExecutionException', label: 'throws on timeout/interrupt' },
     { from: 'SortTask', to: 'SortTask', label: 'forks/joins left+right' },
     { from: 'SortTask', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidSortParametersException', to: 'MergeSortException', label: 'extends', dashed: true },
     { from: 'MergeSortController', to: 'RunRequest', label: 'accepts' },
     { from: 'MergeSortController', to: 'RunResult', label: 'returns' }
   ]

@@ -1,31 +1,40 @@
 // Sequence diagram content for foo-bar.
-// Grounded directly in FooBar concurrency primitive (two Semaphores: fooSem initialized to 1, barSem initialized to 0).
+// Grounded directly in FooBarService#run / FooBarPrinter (two Semaphores: fooSemaphore
+// initialized to 1, barSemaphore initialized to 0) — corrected after an earlier version
+// omitted the real POST /run HTTP contract and controller/service layer entirely.
 export default {
   title: 'Print FooBar Alternately — Dual Semaphore Handshake',
   description:
-    'How two threads alternate printing "foo" and "bar" using two Semaphores with alternating permit releases to guarantee strict alternating execution without busy waiting.',
+    'How FooBarService#run spins up two real threads (foo, bar) against one FooBarPrinter. fooSemaphore starts with 1 permit so the foo thread always goes first; each thread acquires its own semaphore, prints, then releases the OTHER thread\'s semaphore — a strict ping-pong that makes interleaving corruption structurally impossible.',
   flows: [
     {
-      id: 'foobar-handshake',
-      label: 'Strict alternating "foobar" execution via dual semaphores',
+      id: 'foobar-dual-semaphore-handshake',
+      label: 'POST /run — foo and bar threads strictly alternate via two semaphores',
       description:
-        'Thread A executes foo() and releases barSemaphore. Thread B acquires barSemaphore, prints "bar", and releases fooSemaphore, producing "foobar" repeatedly N times.',
+        'A run request (n=3) starts a foo thread and a bar thread against one FooBarPrinter. The bar thread blocks immediately on barSemaphore (0 permits) while the foo thread acquires fooSemaphore (1 permit), prints "foo", and releases barSemaphore — unblocking bar, which prints "bar" and releases fooSemaphore back, repeating n times to produce "foobarfoobarfoobar" (FooBarServiceTest proves the output never deviates from strict alternation under real thread scheduling).',
       participants: [
-        { id: 'threadA', name: 'Thread A\n(Foo Worker)', kind: 'actor' },
-        { id: 'fooSem', name: 'fooSemaphore\n(Init: 1)', kind: 'lock', stereotype: 'Semaphore' },
-        { id: 'threadB', name: 'Thread B\n(Bar Worker)', kind: 'actor' },
-        { id: 'barSem', name: 'barSemaphore\n(Init: 0)', kind: 'lock', stereotype: 'Semaphore' },
+        { id: 'client', name: 'Client', kind: 'actor' },
+        { id: 'controller', name: 'FooBarController', kind: 'component', stereotype: 'controller' },
+        { id: 'service', name: 'FooBarService', kind: 'component', stereotype: 'facade' },
+        { id: 'fooTh', name: '"foo-thread"', kind: 'actor' },
+        { id: 'barTh', name: '"bar-thread"', kind: 'actor' },
+        { id: 'printer', name: 'FooBarPrinter\n(fooSem=1, barSem=0)', kind: 'component', stereotype: 'primitive' },
       ],
       steps: [
-        { from: 'threadA', to: 'fooSem', text: 'fooSem.acquire() — ACQUIRED (permits: 1→0)', activate: 'fooSem' },
-        { from: 'threadB', to: 'barSem', text: 'barSem.acquire() — BLOCKS (permits: 0)' },
-        { from: 'threadA', to: 'threadA', text: 'print("foo")' },
-        { from: 'threadA', to: 'barSem', text: 'barSem.release() — releases permit to Thread B', activate: 'barSem' },
-        { from: 'threadA', to: 'fooSem', text: 'fooSem idle', deactivate: 'fooSem' },
-        { from: 'barSem', to: 'threadB', text: 'barSem.acquire() completes (unblocked)', deactivate: 'barSem' },
-        { from: 'threadB', to: 'threadB', text: 'print("bar")' },
-        { from: 'threadB', to: 'fooSem', text: 'fooSem.release() — releases permit back to Thread A' },
-        { type: 'note', over: ['threadA', 'threadB'], text: 'One full "foobar" cycle completed.' },
+        { from: 'client', to: 'controller', text: 'POST /api/concurrency/foo-bar/run {n:3}' },
+        { from: 'controller', to: 'service', text: 'run(request)', activate: 'service' },
+        { from: 'service', to: 'fooTh', text: 'start "foo-thread" -> printer.foo()' },
+        { from: 'service', to: 'barTh', text: 'start "bar-thread" -> printer.bar()' },
+        { from: 'barTh', to: 'printer', text: 'barSemaphore.acquire() — BLOCKS (0 permits)' },
+        { from: 'fooTh', to: 'printer', text: 'fooSemaphore.acquire() — ACQUIRED (1→0 permits)', activate: 'printer' },
+        { from: 'printer', to: 'printer', text: 'append("foo"); record FOO_PRINTED(i=1)' },
+        { from: 'printer', to: 'barTh', text: 'barSemaphore.release() — unblocks bar-thread', deactivate: 'printer' },
+        { from: 'barTh', to: 'printer', text: 'barSemaphore.acquire() completes; append("bar"); record BAR_PRINTED(i=1)', activate: 'printer' },
+        { from: 'printer', to: 'fooTh', text: 'fooSemaphore.release() — unblocks foo-thread for repetition 2', deactivate: 'printer' },
+        { type: 'note', over: ['fooTh', 'barTh'], text: 'Repeats 2 more times (n=3). At no point can bar-thread acquire before foo-thread has released exactly once for that repetition.' },
+        { from: 'service', to: 'fooTh', text: 'thread.join() on both threads' },
+        { from: 'service', to: 'controller', text: 'return RunResult {result: "foobarfoobarfoobar", orderedTrace[]}', type: 'return', deactivate: 'service' },
+        { from: 'controller', to: 'client', text: '200 OK — full ordered trace for replay', type: 'return' },
       ],
     },
   ],

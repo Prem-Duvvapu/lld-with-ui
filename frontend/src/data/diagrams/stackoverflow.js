@@ -11,8 +11,6 @@ export default {
       fields: [
         '- repository: StackOverflowRepository',
         '- votingService: VotingService',
-        '- simRepository: StackOverflowRepository',
-        '- simVotingService: VotingService'
       ],
       methods: [
         '+ postQuestion(title, body, authorId, tags): Question',
@@ -21,7 +19,6 @@ export default {
         '+ voteQuestion(id, userId, voteTypeRaw): Question',
         '+ voteAnswer(id, userId, voteTypeRaw): Answer',
         '+ closeQuestion(id, userId): Question',
-        '+ simAsk() / simAnswer() / simVoteAnswer() / simAccept() / simClose() / simRace(): ...'
       ]
     },
     {

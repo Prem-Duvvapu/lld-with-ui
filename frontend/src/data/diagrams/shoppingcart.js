@@ -200,19 +200,6 @@ export default {
       fields: ['implements PaymentStrategy'],
       methods: ['+ processPayment(orderId, amount): String', '+ getMethod(): PaymentMethod']
     },
-    {
-      name: 'ShoppingCartException',
-      stereotype: 'exception',
-      fields: [
-        'extends DomainException',
-        'ProductNotFoundException (404)',
-        'CartEmptyException (400)',
-        'InsufficientStockException (409)',
-        'InvalidOrderStateException (400)',
-        'PaymentFailedException (422)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'ShoppingCartService', to: 'Product', label: 'manages thread-safe catalog' },
@@ -231,7 +218,5 @@ export default {
     { from: 'DebitCardPaymentStrategy', to: 'PaymentStrategy', label: 'implements', dashed: true },
     { from: 'UpiPaymentStrategy', to: 'PaymentStrategy', label: 'implements', dashed: true },
     { from: 'WalletPaymentStrategy', to: 'PaymentStrategy', label: 'implements', dashed: true },
-    { from: 'ShoppingCartService', to: 'ShoppingCartException', label: 'throws', dashed: true },
-    { from: 'ShoppingCartPaymentProcessor', to: 'ShoppingCartException', label: 'throws', dashed: true }
   ]
 };

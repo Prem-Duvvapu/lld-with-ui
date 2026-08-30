@@ -124,30 +124,6 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'BloomFilterException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidBloomFilterParametersException',
-      fields: [
-        'extends BloomFilterException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'BloomFilterController', to: 'BloomFilterService', label: 'delegates to' },
@@ -155,14 +131,11 @@ export default {
     { from: 'BloomFilterService', to: 'RunRequest', label: 'validates' },
     { from: 'BloomFilterService', to: 'RunResult', label: 'assembles' },
     { from: 'BloomFilterService', to: 'QueryOutcome', label: 'builds per query' },
-    { from: 'BloomFilterService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'BloomFilterService', to: 'InvalidBloomFilterParametersException', label: 'throws on bad params' },
     { from: 'BloomFilter', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
     { from: 'RunResult', to: 'QueryOutcome', label: 'contains' },
-    { from: 'InvalidBloomFilterParametersException', to: 'BloomFilterException', label: 'extends', dashed: true },
     { from: 'BloomFilterController', to: 'RunRequest', label: 'accepts' },
     { from: 'BloomFilterController', to: 'RunResult', label: 'returns' }
   ]

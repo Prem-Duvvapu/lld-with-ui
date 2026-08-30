@@ -10,8 +10,6 @@ export default {
       stereotype: 'singleton',
       fields: [
         '- mainMachine: CoffeeMachine',
-        '- simMachine: CoffeeMachine',
-        '- simEvents: List<SimEvent>'
       ],
       methods: [
         '+ getMenu(): List<CoffeeRecipe>',
@@ -22,8 +20,6 @@ export default {
         '+ brew(): CoffeeOrder',
         '+ collectCoffee(): CoffeeOrder',
         '+ cancelOrder(): CoffeeOrder',
-        '+ simReset(): Map',
-        '+ simSimulateRace(step): Map'
       ]
     },
     {

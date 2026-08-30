@@ -12,17 +12,12 @@ export default {
         '- repository: LudoRepository',
         '- diceRoller: DiceRoller',
         '- gameLocks: ConcurrentHashMap<Long, ReentrantLock>',
-        '- simRepository: LudoRepository',
-        '- simEventLog: List<SimEvent>'
       ],
       methods: [
         '+ createGame(playerNames): Game',
         '+ getGame(id): Game',
         '+ rollDice(id): Game',
         '+ moveToken(id, playerIndex, tokenIndex): Game',
-        '+ simReset(): Game',
-        '+ simRoll(): Game',
-        '+ simMove(playerIndex, tokenIndex): Game'
       ]
     },
     {
@@ -32,7 +27,6 @@ export default {
         '+ createGame(body): Game',
         '+ rollDice(id): Game',
         '+ moveToken(id, body): Game',
-        '+ simRoll(): Game'
       ]
     },
     {
@@ -146,51 +140,11 @@ export default {
         '+ get(id): Game'
       ]
     },
-    {
-      name: 'LudoException',
-      stereotype: 'abstract',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'InvalidMoveException',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'NotYourTurnException',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'GameOverException',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'GameNotFoundException',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'SimEvent',
-      fields: [
-        '- id: long',
-        '- actor: String',
-        '- description: String',
-        '- diceValue: int',
-        '- tokensSnapshot: List<List<Token>>',
-        '- status: GameStatus'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'LudoController', to: 'LudoService', label: 'delegates to' },
-    { from: 'LudoService', to: 'LudoRepository', label: 'uses (live)' },
-    { from: 'LudoService', to: 'LudoRepository', label: 'uses (sim sandbox)' },
+    { from: 'LudoService', to: 'LudoRepository', label: 'uses' },
     { from: 'LudoService', to: 'DiceRoller', label: 'rolls via' },
-    { from: 'LudoService', to: 'SimEvent', label: 'logs' },
     { from: 'RandomDiceRoller', to: 'DiceRoller', label: 'implements', dashed: true },
     { from: 'FixedDiceRoller', to: 'DiceRoller', label: 'implements', dashed: true },
     { from: 'LudoService', to: 'Game', label: 'manages' },
@@ -203,9 +157,5 @@ export default {
     { from: 'ActiveState', to: 'TokenState', label: 'implements', dashed: true },
     { from: 'FinishedState', to: 'TokenState', label: 'implements', dashed: true },
     { from: 'TokenStates', to: 'TokenState', label: 'resolves' },
-    { from: 'InvalidMoveException', to: 'LudoException', label: 'extends', dashed: true },
-    { from: 'NotYourTurnException', to: 'LudoException', label: 'extends', dashed: true },
-    { from: 'GameOverException', to: 'LudoException', label: 'extends', dashed: true },
-    { from: 'GameNotFoundException', to: 'LudoException', label: 'extends', dashed: true }
   ]
 };

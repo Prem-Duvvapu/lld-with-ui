@@ -12,15 +12,11 @@ export default {
         '- repository: GameRepository',
         '- diceRoller: DiceRoller',
         '- gameLocks: ConcurrentHashMap<String, ReentrantLock>',
-        '- simRepository: GameRepository',
-        '- simEventLog: List<SimEvent>'
       ],
       methods: [
         '+ createGame(playerNames): Game',
         '+ getGame(id): Game',
         '+ rollDice(gameId): Game',
-        '+ simReset(): Game',
-        '+ simRoll(): Game'
       ]
     },
     {
@@ -117,43 +113,6 @@ export default {
         '+ generateId(): String'
       ]
     },
-    {
-      name: 'SnakeLaddersException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'GameNotFoundException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 404'],
-      methods: []
-    },
-    {
-      name: 'InvalidPlayerCountException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 400'],
-      methods: []
-    },
-    {
-      name: 'GameAlreadyFinishedException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 409'],
-      methods: []
-    },
-    {
-      name: 'SimEvent',
-      fields: [
-        '- id: long',
-        '- timestamp: String',
-        '- actor: String',
-        '- description: String',
-        '- diceValue: int',
-        '- playersSnapshot: List<Player>',
-        '- status: GameState'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     {
@@ -198,30 +157,5 @@ export default {
       label: 'implements',
       dashed: true
     },
-    {
-      from: 'GameNotFoundException',
-      to: 'SnakeLaddersException',
-      label: 'extends'
-    },
-    {
-      from: 'InvalidPlayerCountException',
-      to: 'SnakeLaddersException',
-      label: 'extends'
-    },
-    {
-      from: 'GameAlreadyFinishedException',
-      to: 'SnakeLaddersException',
-      label: 'extends'
-    },
-    {
-      from: 'SnakeLaddersService',
-      to: 'SnakeLaddersException',
-      label: 'throws'
-    },
-    {
-      from: 'SnakeLaddersService',
-      to: 'SimEvent',
-      label: 'logs (/sim/* engine)'
-    }
   ]
 };

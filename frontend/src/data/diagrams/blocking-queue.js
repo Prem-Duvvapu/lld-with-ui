@@ -113,43 +113,16 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'BlockingQueueException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidQueueParametersException',
-      fields: [
-        'extends BlockingQueueException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'BlockingQueueController', to: 'BlockingQueueService', label: 'delegates to' },
     { from: 'BlockingQueueService', to: 'BoundedBlockingQueue<T>', label: 'creates one per run' },
     { from: 'BlockingQueueService', to: 'RunRequest', label: 'validates' },
     { from: 'BlockingQueueService', to: 'RunResult', label: 'assembles' },
-    { from: 'BlockingQueueService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'BlockingQueueService', to: 'InvalidQueueParametersException', label: 'throws on bad params' },
     { from: 'BoundedBlockingQueue<T>', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidQueueParametersException', to: 'BlockingQueueException', label: 'extends', dashed: true },
     { from: 'BlockingQueueController', to: 'RunRequest', label: 'accepts' },
     { from: 'BlockingQueueController', to: 'RunResult', label: 'returns' }
   ]

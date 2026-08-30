@@ -31,8 +31,6 @@ export default {
         '+ payFine(memberId, amount): void',
         '+ getActiveLoansForMember(memberId): List<Loan>',
         '+ scheduledDueDateSweep(): void',
-        '+ simBorrow(memberId, isbn): Map',
-        '+ simTriggerSweep(makeOverdue): Map'
       ]
     },
     {
@@ -224,18 +222,6 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'LibraryException',
-      stereotype: 'abstract',
-      fields: [],
-      methods: [
-        'BookNotAvailableException (409)',
-        'BorrowLimitExceededException (409)',
-        'MemberNotFoundException (404)',
-        'LoanNotFoundException (404)',
-        'InvalidReturnException (400)'
-      ]
-    }
   ],
   relationships: [
     { from: 'LibraryService', to: 'Book', label: 'manages' },
@@ -244,7 +230,6 @@ export default {
     { from: 'LibraryService', to: 'FineStrategy', label: 'uses' },
     { from: 'LibraryService', to: 'DueDateNotifier', label: 'notifies via' },
     { from: 'LibraryService', to: 'MemberFactory', label: 'creates via' },
-    { from: 'LibraryService', to: 'LibraryException', label: 'throws' },
     { from: 'Book', to: 'BookCopy', label: '1..* copies' },
     { from: 'Member', to: 'LoanPolicy', label: 'has' },
     { from: 'Member', to: 'MemberType', label: 'typed by' },

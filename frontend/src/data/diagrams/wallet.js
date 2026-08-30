@@ -23,7 +23,6 @@ export default {
         '- repository: WalletRepository',
         '- walletLocks: ConcurrentHashMap<Long, ReentrantLock>',
         '- commandLog: List<WalletCommand>',
-        '- simRepository: WalletRepository'
       ],
       methods: [
         '+ createWallet(userId, name): Wallet',
@@ -32,7 +31,6 @@ export default {
         '+ sendMoney(from, to, amt, desc): Map',
         '+ getTransactions(id): List<Transaction>',
         '+ getCommandLog(): List<String>',
-        '+ simReset() / simCredit() / simDebit() / simTransfer() / simRace()'
       ]
     },
     {
@@ -138,49 +136,11 @@ export default {
         '+ getTransactionsByWalletId(id): List'
       ]
     },
-    {
-      name: 'WalletException',
-      stereotype: 'abstract',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'WalletNotFoundException',
-      fields: ['404'],
-      methods: []
-    },
-    {
-      name: 'InsufficientBalanceException',
-      fields: ['409'],
-      methods: []
-    },
-    {
-      name: 'InvalidAmountException',
-      fields: ['400'],
-      methods: []
-    },
-    {
-      name: 'SelfTransferException',
-      fields: ['400'],
-      methods: []
-    },
-    {
-      name: 'WalletSimEvent',
-      fields: [
-        '- id: String',
-        '- stepNumber: int',
-        '- eventType: String',
-        '- status: String',
-        '- details: Map<String, Object>'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'WalletController', to: 'WalletService', label: 'delegates to' },
     { from: 'WalletService', to: 'WalletRepository', label: 'uses (live)' },
     { from: 'WalletService', to: 'WalletCommand', label: 'builds & executes' },
-    { from: 'WalletService', to: 'WalletSimEvent', label: 'logs (sim)' },
     { from: 'CreditCommand', to: 'WalletCommand', label: 'implements' },
     { from: 'DebitCommand', to: 'WalletCommand', label: 'implements' },
     { from: 'TransferCommand', to: 'WalletCommand', label: 'implements' },
@@ -193,12 +153,5 @@ export default {
     { from: 'WalletRepository', to: 'Wallet', label: 'stores' },
     { from: 'Transaction', to: 'Wallet', label: 'references (from/to)' },
     { from: 'CreditCommand', to: 'PaymentMethod', label: 'records' },
-    { from: 'WalletNotFoundException', to: 'WalletException', label: 'extends' },
-    { from: 'InsufficientBalanceException', to: 'WalletException', label: 'extends' },
-    { from: 'InvalidAmountException', to: 'WalletException', label: 'extends' },
-    { from: 'SelfTransferException', to: 'WalletException', label: 'extends' },
-    { from: 'DebitCommand', to: 'InsufficientBalanceException', label: 'throws' },
-    { from: 'TransferCommand', to: 'InsufficientBalanceException', label: 'throws' },
-    { from: 'TransferCommand', to: 'SelfTransferException', label: 'throws' }
   ]
 };

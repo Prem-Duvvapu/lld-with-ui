@@ -22,8 +22,6 @@ export default {
         '+ holdSeats(showId, seatIds, userId): Map',
         '+ bookSeats(showId, seatIds, userId, method, key): Booking',
         '+ cancelBooking(bookingId): Booking',
-        '+ simHoldSeats(...)',
-        '+ simBookSeats(...)'
       ]
     },
     {

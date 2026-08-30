@@ -100,43 +100,16 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'ZeroEvenOddException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidZeroEvenOddParametersException',
-      fields: [
-        'extends ZeroEvenOddException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'ZeroEvenOddController', to: 'ZeroEvenOddService', label: 'delegates to' },
     { from: 'ZeroEvenOddService', to: 'ZeroEvenOddPrinter', label: 'creates one per run' },
     { from: 'ZeroEvenOddService', to: 'RunRequest', label: 'validates' },
     { from: 'ZeroEvenOddService', to: 'RunResult', label: 'assembles' },
-    { from: 'ZeroEvenOddService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'ZeroEvenOddService', to: 'InvalidZeroEvenOddParametersException', label: 'throws on bad params' },
     { from: 'ZeroEvenOddPrinter', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidZeroEvenOddParametersException', to: 'ZeroEvenOddException', label: 'extends', dashed: true },
     { from: 'ZeroEvenOddController', to: 'RunRequest', label: 'accepts' },
     { from: 'ZeroEvenOddController', to: 'RunResult', label: 'returns' }
   ]

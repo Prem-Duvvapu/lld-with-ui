@@ -104,43 +104,16 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'H2OException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidH2OParametersException',
-      fields: [
-        'extends H2OException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'H2OController', to: 'H2OService', label: 'delegates to' },
     { from: 'H2OService', to: 'H2OBonder', label: 'creates one per run' },
     { from: 'H2OService', to: 'RunRequest', label: 'validates' },
     { from: 'H2OService', to: 'RunResult', label: 'assembles' },
-    { from: 'H2OService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'H2OService', to: 'InvalidH2OParametersException', label: 'throws on bad params' },
     { from: 'H2OBonder', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidH2OParametersException', to: 'H2OException', label: 'extends', dashed: true },
     { from: 'H2OController', to: 'RunRequest', label: 'accepts' },
     { from: 'H2OController', to: 'RunResult', label: 'returns' }
   ]

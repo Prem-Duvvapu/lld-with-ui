@@ -16,15 +16,14 @@ export default {
         '+ placeBid(request): Bid',
         '+ closeAuction(id): Auction',
         '+ getNotifications(): List<OutbidEvent>',
-        '+ simRace(body): Map'
       ]
     },
     {
       name: 'AuctionService',
       stereotype: 'facade',
       fields: [
-        '- repository, simRepository: AuctionRepository',
-        '- notifier, simNotifier: AuctionNotifier',
+        '- repository: AuctionRepository',
+        '- notifier: AuctionNotifier',
         '- strategyFactory: BidIncrementStrategyFactory',
         '- auctionLocks: ConcurrentHashMap<Long, ReentrantLock>'
       ],
@@ -32,7 +31,6 @@ export default {
         '+ createAuction(itemName, description, startingBid, durationMinutes, startDelayMinutes, policy, incrementValue): Auction',
         '+ placeBid(auctionId, bidderId, amount): Bid',
         '+ closeAuction(auctionId): Auction',
-        '+ simRace(auctionId, bidderCount, step): Map',
         '- doPlaceBid(repo, notifier, auctionId, bidderId, amount): Bid',
         '- requireBiddable(auction, now): void',
         '- syncStatus(repo, auction, now): void'
@@ -136,12 +134,6 @@ export default {
       methods: []
     },
     {
-      name: 'AuctionException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
       name: 'AuctionStatus',
       stereotype: 'enum',
       fields: ['PENDING', 'ACTIVE', 'CLOSED'],
@@ -159,7 +151,6 @@ export default {
     { from: 'AuctionService', to: 'AuctionRepository', label: 'uses' },
     { from: 'AuctionService', to: 'AuctionNotifier', label: 'publishes via' },
     { from: 'AuctionService', to: 'BidIncrementStrategyFactory', label: 'resolves via' },
-    { from: 'AuctionService', to: 'AuctionException', label: 'throws', dashed: true },
     { from: 'AuctionNotifier', to: 'AuctionObserver', label: 'notifies' },
     { from: 'AuctionNotifier', to: 'OutbidEvent', label: 'publishes' },
     { from: 'InAppAuctionObserver', to: 'AuctionObserver', label: 'implements', dashed: true },

@@ -24,15 +24,14 @@ export default {
       name: 'SocialService',
       stereotype: 'facade',
       fields: [
-        '- repository, simRepository: SocialRepository',
-        '- feedNotifier, simFeedNotifier: FeedNotifier',
+        '- repository: SocialRepository',
+        '- feedNotifier: FeedNotifier',
         '- friendPairLocks: ConcurrentHashMap<String, ReentrantLock>'
       ],
       methods: [
         '+ createPost(userId, content): Post',
         '+ sendFriendRequest(fromUserId, toUserId): FriendRequest',
         '+ respondToRequest(requestId, accept): FriendRequest',
-        '+ simRaceFriendRequests(userId1, userId2, attempts, step): Map',
         '- doCreatePost(repo, notifier, userId, content): Post',
         '- doSendFriendRequest(repo, fromUserId, toUserId): FriendRequest',
         '- doRespondToRequest(repo, requestId, accept): FriendRequest',
@@ -128,66 +127,11 @@ export default {
       fields: ['PENDING', 'ACCEPTED', 'REJECTED'],
       methods: []
     },
-    {
-      name: 'SimEvent',
-      stereotype: 'entity',
-      fields: ['- stepNumber: int', '- eventType: String', '- status: String', '- description: String', '- details: Map<String, Object>'],
-      methods: ['+ addDetail(key, value): SimEvent']
-    },
-    {
-      name: 'SocialException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'UserNotFoundException',
-      stereotype: 'exception',
-      fields: ['404'],
-      methods: []
-    },
-    {
-      name: 'PostNotFoundException',
-      stereotype: 'exception',
-      fields: ['404'],
-      methods: []
-    },
-    {
-      name: 'FriendRequestNotFoundException',
-      stereotype: 'exception',
-      fields: ['404'],
-      methods: []
-    },
-    {
-      name: 'AlreadyFriendsException',
-      stereotype: 'exception',
-      fields: ['409'],
-      methods: []
-    },
-    {
-      name: 'DuplicateFriendRequestException',
-      stereotype: 'exception',
-      fields: ['409'],
-      methods: []
-    },
-    {
-      name: 'RequestAlreadyRespondedException',
-      stereotype: 'exception',
-      fields: ['409'],
-      methods: []
-    },
-    {
-      name: 'InvalidSocialActionException',
-      stereotype: 'exception',
-      fields: ['400'],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'SocialController', to: 'SocialService', label: 'delegates to' },
     { from: 'SocialService', to: 'SocialRepository', label: 'uses' },
     { from: 'SocialService', to: 'FeedNotifier', label: 'publishes via' },
-    { from: 'SocialService', to: 'SocialException', label: 'throws', dashed: true },
     { from: 'FeedNotifier', to: 'FeedObserver', label: 'notifies' },
     { from: 'FeedNotifier', to: 'FeedEvent', label: 'publishes' },
     { from: 'InAppFeedObserver', to: 'FeedObserver', label: 'implements', dashed: true },
@@ -201,12 +145,5 @@ export default {
     { from: 'Post', to: 'Comment', label: 'has' },
     { from: 'FriendRequest', to: 'FriendRequestStatus', label: 'has status' },
     { from: 'FriendRequest', to: 'User', label: 'from / to' },
-    { from: 'UserNotFoundException', to: 'SocialException', label: 'extends', dashed: true },
-    { from: 'PostNotFoundException', to: 'SocialException', label: 'extends', dashed: true },
-    { from: 'FriendRequestNotFoundException', to: 'SocialException', label: 'extends', dashed: true },
-    { from: 'AlreadyFriendsException', to: 'SocialException', label: 'extends', dashed: true },
-    { from: 'DuplicateFriendRequestException', to: 'SocialException', label: 'extends', dashed: true },
-    { from: 'RequestAlreadyRespondedException', to: 'SocialException', label: 'extends', dashed: true },
-    { from: 'InvalidSocialActionException', to: 'SocialException', label: 'extends', dashed: true }
   ]
 };

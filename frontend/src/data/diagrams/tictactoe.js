@@ -11,8 +11,6 @@ export default {
       fields: [
         '- repository: GameRepository',
         '- gameLocks: ConcurrentHashMap<String, ReentrantLock>',
-        '- simRepository: GameRepository',
-        '- simEventLog: List<SimEvent>'
       ],
       methods: [
         '+ createGame(p1, p2): Game',
@@ -20,9 +18,6 @@ export default {
         '+ makeMove(gameId, row, col, playerName): Game',
         '+ undoLastMove(gameId): Game',
         '+ resetGame(gameId): Game',
-        '+ simReset(): Game',
-        '+ simMove(row, col, description): Game',
-        '+ simUndo(): Game'
       ]
     },
     {
@@ -123,54 +118,6 @@ export default {
         '+ generateId(): String'
       ]
     },
-    {
-      name: 'TicTacToeException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'GameNotFoundException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 404'],
-      methods: []
-    },
-    {
-      name: 'InvalidMoveException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 400'],
-      methods: []
-    },
-    {
-      name: 'CellOccupiedException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 422'],
-      methods: []
-    },
-    {
-      name: 'NotYourTurnException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 409'],
-      methods: []
-    },
-    {
-      name: 'GameOverException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 409'],
-      methods: []
-    },
-    {
-      name: 'SimEvent',
-      fields: [
-        '- id: long',
-        '- timestamp: String',
-        '- actor: String',
-        '- description: String',
-        '- boardSnapshot: String[][]',
-        '- status: GameStatus'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     {
@@ -218,40 +165,5 @@ export default {
       to: 'Symbol',
       label: 'assigned'
     },
-    {
-      from: 'GameNotFoundException',
-      to: 'TicTacToeException',
-      label: 'extends'
-    },
-    {
-      from: 'InvalidMoveException',
-      to: 'TicTacToeException',
-      label: 'extends'
-    },
-    {
-      from: 'CellOccupiedException',
-      to: 'TicTacToeException',
-      label: 'extends'
-    },
-    {
-      from: 'NotYourTurnException',
-      to: 'TicTacToeException',
-      label: 'extends'
-    },
-    {
-      from: 'GameOverException',
-      to: 'TicTacToeException',
-      label: 'extends'
-    },
-    {
-      from: 'TicTacToeService',
-      to: 'TicTacToeException',
-      label: 'throws'
-    },
-    {
-      from: 'TicTacToeService',
-      to: 'SimEvent',
-      label: 'logs (/sim/* engine)'
-    }
   ]
 };

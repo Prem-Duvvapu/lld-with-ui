@@ -121,43 +121,16 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'ConcurrentHashMapException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidMapParametersException',
-      fields: [
-        'extends ConcurrentHashMapException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'ConcurrentHashMapController', to: 'ConcurrentHashMapService', label: 'delegates to' },
     { from: 'ConcurrentHashMapService', to: 'StripedHashMap<K,V>', label: 'creates one per phase per run' },
     { from: 'ConcurrentHashMapService', to: 'RunRequest', label: 'validates' },
     { from: 'ConcurrentHashMapService', to: 'RunResult', label: 'assembles' },
-    { from: 'ConcurrentHashMapService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'ConcurrentHashMapService', to: 'InvalidMapParametersException', label: 'throws on bad params' },
     { from: 'StripedHashMap<K,V>', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidMapParametersException', to: 'ConcurrentHashMapException', label: 'extends', dashed: true },
     { from: 'ConcurrentHashMapController', to: 'RunRequest', label: 'accepts' },
     { from: 'ConcurrentHashMapController', to: 'RunResult', label: 'returns' }
   ]
