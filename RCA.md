@@ -3575,3 +3575,95 @@ grep -n "^## RCA-017" RCA.md                                              # read
    indefinitely. There is no cheap automated guard against this today; the only defense demonstrated
    here is a human (or agent) actually cross-referencing a cited number against this file while
    reading the surrounding code for an unrelated reason.
+
+## RCA-039: Hotel's Class Diagram and Design Details Documented a Pre-Refactor Version of the Module
+
+### 1. Overview & Severity
+**Severity: Low-Medium.** The class-existence sweep from RCA-038 flagged `hotel`'s diagram
+(`BookingStatus` — 4 values, no such class in `com.lld.hotel`) as the last unresolved item from that
+pass, deferred pending a closer look. Reading the real source confirmed it: `hotel`'s diagram and
+design-details predate a real refactor and describe a `RoomStatus` with `BOOKED`/`OCCUPIED` as
+room-wide flags, a 4-value `BookingStatus`, and a single lock field directly on
+`HotelService`/`HotelRepository` — none of which exist anymore — while omitting the real
+`RoomBookingService`, `TariffStrategy` family, and `CancellationRefundStrategy` family entirely. The
+old design file's own "Dynamic Pricing" extensibility idea proposed adding a `PricingStrategy`
+interface — which, by the time this was read, had already shipped as `TariffStrategy`.
+
+### 2. Symptoms & Error Logs
+No test failure — same as RCA-036/RCA-038, `designDataCoverage.test.js` checks structure, not
+truthfulness. The class-existence sweep's only hit for this module:
+```
+=== hotel -> hotel : MISSING: BookingStatus
+```
+`Booking`, `Hotel`, `Room`, `RoomType` all did resolve to real classes, which is why this one read as
+a narrower "stale enum name" issue rather than the wholesale fictional-domain fabrication RCA-036/038
+found elsewhere — the true gap only became visible on reading the full real source, not from the
+sweep alone.
+
+### 3. Root Cause
+The diagram/design content was written against an earlier version of `com.lld.hotel` and never
+updated when the module was refactored to add per-date-range availability, `RoomBookingService`, and
+the two Strategy families. `ReservationStatus`'s own javadoc documents the motivating bug directly:
+*"The previous model had four statuses (CONFIRMED/CHECKED_IN/CHECKED_OUT/CANCELLED) with each
+service method deciding for itself which source states it would accept — e.g. cancel() rejected
+CHECKED_OUT and CANCELLED by name but silently allowed cancelling a CHECKED_IN guest out of a room
+they were standing in."* The diagram/design files kept describing that earlier model verbatim
+(including the exact four old status names) after the real enum grew to six values with a declared
+transition table, and `RoomStatus` dropped `BOOKED`/`OCCUPIED` entirely once availability became a
+per-date-range check via `Booking.overlaps()` rather than a room-wide flag.
+
+Separately, `HotelService`'s own javadoc notes *"the interactive simulation sandbox (/sim/*), the
+8-step frontend walkthrough ... are not yet wired up"* — unlike `restaurant`/`traffic-signal`/most of
+the reference-bar modules, `hotel` has no `/sim/*` engine at all yet. That is a module-maturity gap
+(CLAUDE.md's "module maturity is uneven"), not a fabrication, and is out of scope for this pass; it
+would need the `/simulation` skill's full treatment, not a diagram/design correction.
+
+### 4. Diagnostic Commands
+```bash
+# Same class-existence sweep as RCA-036/038 (see those entries' §4)
+grep -oP "name: '\K[^']+" frontend/src/data/diagrams/hotel.js | while read -r cls; do
+  grep -rq "class $cls\b\|interface $cls\b\|enum $cls\b\|record $cls\b" backend/src/main/java/com/lld/hotel/ \
+    || echo "NOT FOUND: $cls"
+done
+
+# A name that DOES resolve (Booking, Room) is not proof its fields/enum values are current —
+# diff the enum's real values against what the diagram lists:
+grep -A8 "enum ReservationStatus" backend/src/main/java/com/lld/hotel/model/ReservationStatus.java
+grep -A8 "name: 'BookingStatus'" frontend/src/data/diagrams/hotel.js   # (the stale name, pre-fix)
+```
+
+### 5. Step-by-Step Resolution
+1. Read every real class in `com.lld.hotel` (`HotelService`, `RoomBookingService`,
+   `HotelRepository`, `Hotel`/`Room`/`Booking` and their enums, both Strategy families) before
+   writing a replacement.
+2. Rewrote `diagrams/hotel.js` and `design/hotel.js` from scratch: `RoomStatus` now shows only
+   `AVAILABLE`/`MAINTENANCE`; `ReservationStatus` (not `BookingStatus`) shows all six real values;
+   `RoomBookingService`, `TariffStrategy`/`StandardTariffStrategy`/`WeekendTariffStrategy`/
+   `TariffStrategyFactory`, and `CancellationRefundStrategy`/`FullRefundStrategy`/
+   `PartialRefundStrategy`/`NoRefundStrategy`/`CancellationRefundStrategyFactory`/`RefundResult` are
+   now all documented; the "Dynamic Pricing" extensibility idea was replaced since the pricing
+   strategy it proposed already exists.
+3. While rewriting, found and fixed one real inaccuracy in the already-existing
+   `sequences/hotel.js`: it showed `TariffStrategyFactory` resolving by `room.getType()` via a
+   `getTariffStrategy(...)` call; the real method is `resolve(checkIn, checkOut)`, keyed on whether
+   the stay touches a Friday/Saturday night, not on room type. Corrected both the method name and
+   the resolution basis shown in the sequence steps.
+4. Left `hotel`'s missing `/sim/*` engine and simulation tab untouched — a real gap, but a
+   module-maturity one for a future `/upgrade-lld` or `/simulation` pass, not a documentation
+   fabrication this pass's diagnostic (or scope) covers.
+5. Ran the frontend suite (`npx vitest run`, 304/304) and `npm run build` (entry chunk unchanged at
+   260.77 kB) to confirm the rewritten files are structurally valid.
+
+### 6. Preventative Measures
+1. A class name resolving to a real class (as `Booking`/`Room`/`Hotel` did here) is not proof the
+   *rest* of that class's diagram entry — its fields, its enum values, its associated Strategy
+   layers — is current. The class-existence sweep is a floor, not a ceiling; a module that clears it
+   can still describe a stale pre-refactor version of itself, as this one did.
+2. When a refactor's own javadoc explicitly narrates "the previous model had N statuses and this bug
+   class" (as `ReservationStatus`'s does here), that comment is a direct, load-bearing signal that
+   any design documentation predating the refactor needs re-verification — it is effectively the
+   author already having written the diff summary for whoever checks the diagrams next.
+3. An "extensibility" section proposing a pattern to add in the future is itself a signal worth
+   checking against real source before trusting the rest of the file — if the proposed pattern
+   already exists (as `TariffStrategy` did here), the design content is provably stale, not just
+   possibly so.

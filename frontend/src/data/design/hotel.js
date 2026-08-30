@@ -1,324 +1,219 @@
 // designDetails — hotel
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Rewritten from scratch (2026-08-30) — the previous version predated a refactor: it described a
+// 4-value BookingStatus (CONFIRMED/CHECKED_IN/CHECKED_OUT/CANCELLED), a RoomStatus that included
+// BOOKED/OCCUPIED as room-wide flags, a single lock field directly on HotelService/HotelRepository,
+// and proposed a future "PricingStrategy interface" for dynamic pricing that had, by the time this
+// was written, already shipped as TariffStrategy. The real module answers "is this room free" per
+// date range (never from a room-wide flag), delegates all booking-lifecycle locking to
+// RoomBookingService, and prices/refunds through two real Strategy families.
 
 export default {
   title: 'Hotel Management — Design Details',
   requirements: [
-    'Hotel management system with multiple hotels, rooms, and bookings',
-    'Each hotel has a name, location, rating, and list of amenities',
-    'Rooms are categorized as SINGLE, DOUBLE, SUITE, or DELUXE with different pricing',
-    'Room states: AVAILABLE, BOOKED, OCCUPIED, MAINTENANCE — only AVAILABLE rooms can be booked',
-    'Booking flow: book room (CONFIRMED) → check in (CHECKED_IN) → check out (CHECKED_OUT)',
-    'Booking has associated guest name, check-in/out dates, and total amount (price × nights)',
-    'Cancellation is allowed for CONFIRMED and CHECKED_IN bookings, restores room to AVAILABLE',
-    'Thread-safe concurrent access via ReentrantLock — multiple guests can book simultaneously'
+    'Hotel management system with multiple hotels, each with its own set of rooms',
+    'Rooms are categorized as SINGLE, DOUBLE, SUITE, or DELUXE, each with its own nightly price',
+    'A room\'s RoomStatus is only ever AVAILABLE (bookable) or MAINTENANCE (not bookable at all) — there is no room-wide "booked"/"occupied" flag',
+    '"Is this room free" is answered per date range: a booking request overlaps against every reservation still holding that room (PENDING/CONFIRMED/CHECKED_IN), never a single status field',
+    'Reservation lifecycle: PENDING → CONFIRMED (committed atomically inside the same booking call) → CHECKED_IN → CHECKED_OUT, with CANCELLED reachable from PENDING/CONFIRMED/CHECKED_IN and NO_SHOW from CONFIRMED — every other transition is rejected by ReservationStatus\'s own transition table',
+    'Pricing — a stay is priced by TariffStrategyFactory: a flat per-night rate, or a Friday/Saturday-night surcharge if the stay touches at least one such night',
+    'Cancellation refunds — CancellationRefundStrategyFactory resolves how much comes back purely from how much notice was given: 3+ days before check-in is a full refund, less than 3 days (but before check-in) is a 50% refund, on/after check-in or a no-show is no refund',
+    'Thread-safe booking — two guests racing to book overlapping dates on the same room must produce exactly one winner, the other rejected, never both confirmed'
   ],
   entities: [
     {
       name: 'HotelService',
-      description: 'Core business logic layer. Handles hotel search, room listing, booking, check-in, check-out, and cancellation. All booking state mutations are protected by ReentrantLock.',
+      description: 'Facade the controller delegates to wholesale. Owns hotel/room lookups and translates repository state into API-shaped results; every booking-lifecycle mutation is delegated to RoomBookingService, which owns the actual locking.',
       fields: [
         {
           name: 'repository',
           type: 'HotelRepository',
-          description: 'Data access layer injected via constructor'
+          description: 'Hotel/room/booking storage, injected via constructor'
         },
         {
-          name: 'lock',
-          type: 'ReentrantLock',
-          description: 'Ensures atomic booking state transitions'
+          name: 'bookingService',
+          type: 'RoomBookingService',
+          description: 'Owns per-room locking and every state transition — HotelService never mutates a Booking or Room directly'
         }
       ],
       methods: [
         {
-          name: 'getAllHotels()',
-          returns: 'List<Hotel>',
-          description: 'Returns all hotels in the system'
-        },
-        {
-          name: 'getAvailableRooms(hotelId, dates)',
+          name: 'getAvailableRooms(hotelId, checkIn, checkOut)',
           returns: 'List<Room>',
-          description: 'Returns available rooms for a hotel (simplified — all AVAILABLE status rooms)'
+          description: 'Filters the hotel\'s rooms through RoomBookingService.isAvailable() for the requested date range — not a static AVAILABLE-status filter'
         },
         {
-          name: 'bookRoom(roomId, userId, guestName, dates)',
+          name: 'bookRoom / checkIn / checkOut / cancelBooking / markNoShow',
           returns: 'Booking',
-          description: 'Validates room availability → calculates total → marks room BOOKED → creates booking'
+          description: 'Each is a thin delegate to the matching RoomBookingService method'
+        }
+      ]
+    },
+    {
+      name: 'RoomBookingService',
+      description: 'Serialises every mutation of a room\'s booking calendar under a per-room ReentrantLock (fair, so a contended room serves requests in arrival order) so two guests can never be confirmed into overlapping dates. The room\'s active reservations are re-read and re-checked for overlap INSIDE the lock, not before it — a snapshot taken before acquiring the lock can already be stale by the time the lock is granted.',
+      fields: [
+        {
+          name: 'roomLocks',
+          type: 'ConcurrentMap<String, ReentrantLock>',
+          description: 'One fair lock per roomId, created lazily via computeIfAbsent'
         },
         {
-          name: 'checkIn(bookingId)',
+          name: 'tariffStrategyFactory, refundStrategyFactory',
+          type: 'TariffStrategyFactory, CancellationRefundStrategyFactory',
+          description: 'Resolve pricing at booking time and refund amount at cancellation/no-show time'
+        }
+      ],
+      methods: [
+        {
+          name: 'book(roomId, userId, guestName, checkIn, checkOut)',
           returns: 'Booking',
-          description: 'Marks booking CHECKED_IN and room OCCUPIED'
+          description: 'Under the room\'s lock: rejects a MAINTENANCE room or an overlapping active reservation, prices the stay via TariffStrategyFactory, creates the booking PENDING, then transitions it to CONFIRMED inside the same locked section — the availability check and the commit are one atomic step'
         },
         {
-          name: 'checkOut(bookingId)',
+          name: 'cancel(bookingId, cancellationDate) / markNoShow(bookingId)',
           returns: 'Booking',
-          description: 'Marks booking CHECKED_OUT and room AVAILABLE'
+          description: 'Transitions the booking, then resolves and records a RefundResult via CancellationRefundStrategyFactory'
         },
         {
-          name: 'cancelBooking(bookingId)',
-          returns: 'Booking',
-          description: 'Cancels booking and restores room to AVAILABLE'
+          name: 'isAvailable(roomId, checkIn, checkOut)',
+          returns: 'boolean',
+          description: 'True when the room is AVAILABLE (not MAINTENANCE) and no active reservation for it overlaps the requested range'
         }
       ]
     },
     {
       name: 'HotelRepository',
-      description: 'In-memory data store using ConcurrentHashMap and ReentrantLock for thread safety.',
+      description: 'In-memory store. hotels/rooms only change at seed time and hold a plain map; bookings is written continuously from concurrent requests and stays a ConcurrentHashMap.',
       fields: [
         {
-          name: 'hotels',
-          type: 'Map<String, Hotel>',
-          description: 'All hotels indexed by ID (LinkedHashMap preserves order)'
+          name: 'hotels, rooms, bookings',
+          type: 'Map<String, T>',
+          description: 'One map per aggregate, keyed by id'
         },
         {
-          name: 'rooms',
-          type: 'ConcurrentHashMap<String, Room>',
-          description: 'All rooms indexed by ID'
-        },
-        {
-          name: 'bookings',
-          type: 'ConcurrentHashMap<String, Booking>',
-          description: 'All bookings indexed by ID'
-        },
-        {
-          name: 'lock',
-          type: 'ReentrantLock',
-          description: 'Ensures atomic write operations'
+          name: 'bookingCounter',
+          type: 'AtomicInteger',
+          description: 'Backs generateBookingId() ("HBK-00001" style)'
         }
       ],
       methods: [
         {
-          name: 'getAvailableRooms(hotelId)',
-          returns: 'List<Room>',
-          description: 'Filters rooms by hotel and AVAILABLE status'
-        },
-        {
-          name: 'generateBookingId()',
-          returns: 'String',
-          description: 'Atomic counter — produces "HBK-00001" format'
-        },
-        {
-          name: 'saveBooking(booking)',
-          returns: 'void',
-          description: 'Thread-safe booking insert'
-        },
-        {
-          name: 'getActiveBookings()',
+          name: 'findActiveBookingsForRoom(roomId)',
           returns: 'List<Booking>',
-          description: 'Returns CONFIRMED and CHECKED_IN bookings, sorted newest first'
+          description: 'Every booking for roomId whose status.holdsRoom() is true — the set a new booking attempt checks for date overlap; must be called AFTER acquiring the room\'s lock, never before, or the read is stale by the time it is acted on'
         }
       ]
     },
     {
-      name: 'Hotel',
-      description: 'A hotel property with basic information and amenities.',
-      fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique identifier (H1, H2)'
-        },
-        {
-          name: 'name',
-          type: 'String',
-          description: 'Hotel display name, e.g. Grand Palace'
-        },
-        {
-          name: 'location',
-          type: 'String',
-          description: 'City/location, e.g. Mumbai'
-        },
-        {
-          name: 'rating',
-          type: 'double',
-          description: 'Star rating out of 5'
-        },
-        {
-          name: 'amenities',
-          type: 'List<String>',
-          description: 'Facilities like Pool, Gym, Spa, WiFi'
-        }
-      ],
+      name: 'ReservationStatus',
+      description: 'Declares its own legal-transition table (canTransitionTo/allowedNext), the same pattern as uber.model.RideStatus, rather than leaving each service method to decide for itself which source statuses it accepts. holdsRoom() answers whether a booking in this status still occupies the room\'s calendar for its date range.',
+      fields: [],
       methods: []
     },
     {
-      name: 'Room',
-      description: 'A bookable room with type, pricing, and availability status.',
-      fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique identifier (R1, R2)'
-        },
-        {
-          name: 'roomNumber',
-          type: 'String',
-          description: 'Physical room number, e.g. 101'
-        },
-        {
-          name: 'type',
-          type: 'RoomType (enum)',
-          description: 'SINGLE (₹3K), DOUBLE (₹5K), SUITE (₹12K), DELUXE (₹8K)'
-        },
-        {
-          name: 'price',
-          type: 'double',
-          description: 'Per-night price in INR'
-        },
-        {
-          name: 'status',
-          type: 'RoomStatus (enum)',
-          description: 'AVAILABLE, BOOKED, OCCUPIED, or MAINTENANCE'
-        }
-      ],
+      name: 'TariffStrategy',
+      description: 'Strategy interface for turning a room and a stay into a price. TariffStrategyFactory.resolve() picks WeekendTariffStrategy whenever the stay touches at least one Friday or Saturday night, StandardTariffStrategy otherwise — so a five-night stay that only touches one weekend night is not charged the surcharge for the whole stay.',
+      fields: [],
       methods: [
         {
-          name: 'setStatus(status)',
-          returns: 'void',
-          description: 'Transitions room state, controlled by service'
+          name: 'calculateTariff(room, checkIn, checkOut)',
+          returns: 'double',
+          description: 'StandardTariffStrategy: room.price × nights. WeekendTariffStrategy: prices night-by-night, applying a 1.25× surcharge only to Friday/Saturday nights.'
         }
       ]
     },
     {
-      name: 'Booking',
-      description: 'A confirmed room reservation with guest info and payment details.',
-      fields: [
+      name: 'CancellationRefundStrategy',
+      description: 'Strategy interface for how much of a booking\'s total comes back on cancellation. CancellationRefundStrategyFactory.resolve() picks purely from days-until-check-in and whether the booking is a no-show — RoomBookingService never encodes a refund rule itself.',
+      fields: [],
+      methods: [
         {
-          name: 'id',
-          type: 'String',
-          description: 'Unique booking identifier (HBK-00001)'
-        },
-        {
-          name: 'roomId',
-          type: 'String',
-          description: 'Which room is booked'
-        },
-        {
-          name: 'guestName',
-          type: 'String',
-          description: 'Name of the guest staying'
-        },
-        {
-          name: 'checkIn',
-          type: 'LocalDate',
-          description: 'Check-in date'
-        },
-        {
-          name: 'checkOut',
-          type: 'LocalDate',
-          description: 'Check-out date'
-        },
-        {
-          name: 'status',
-          type: 'BookingStatus (enum)',
-          description: 'CONFIRMED → CHECKED_IN → CHECKED_OUT or CANCELLED'
-        },
-        {
-          name: 'totalAmount',
-          type: 'double',
-          description: 'price × nights'
+          name: 'calculateRefund(booking, cancellationDate)',
+          returns: 'RefundResult',
+          description: 'FullRefundStrategy (3+ days notice): full amount. PartialRefundStrategy (less than 3 days, before check-in): 50%. NoRefundStrategy (on/after check-in, or NO_SHOW): 0.'
         }
-      ],
-      methods: []
+      ]
     }
   ],
   designPatterns: [
     {
-      name: 'Repository Pattern',
+      name: 'Strategy',
       used: true,
-      explanation: 'HotelRepository abstracts all data access behind semantic methods. The service never touches maps directly — it calls getRoom(), generateBookingId(), and saveBooking(). This keeps business logic clean and enables testing with mock repositories.'
+      explanation: 'Two independent Strategy families: TariffStrategy (Standard vs. Weekend surcharge), resolved by date range, and CancellationRefundStrategy (Full/Partial/None), resolved by notice given. Neither RoomBookingService method hard-codes a pricing or refund rule.'
     },
     {
-      name: 'Singleton Pattern',
+      name: 'State',
       used: true,
-      explanation: 'Spring @Service and @Repository are singletons, ensuring one consistent state across all requests. Critical since all data lives in memory and must be shared across concurrent users.'
+      explanation: 'ReservationStatus declares its own legal-transition map (canTransitionTo/allowedNext) rather than leaving bookRoom/checkIn/checkOut/cancel to each independently decide which source statuses they accept — the exact class of bug the accompanying javadoc says the previous 4-status model had.'
     },
     {
-      name: 'Dependency Injection (IoC)',
+      name: 'Repository',
       used: true,
-      explanation: 'HotelService receives HotelRepository via constructor injection. Spring auto-wires the dependency, making the service testable without Spring container and allowing repository swaps.'
+      explanation: 'HotelRepository is the only class touching the hotels/rooms/bookings maps; HotelService and RoomBookingService both go through it rather than holding their own storage.'
     },
     {
-      name: 'State Pattern',
+      name: 'Facade',
       used: true,
-      explanation: 'Room and Booking use enum-based state machines. Room: AVAILABLE → BOOKED → OCCUPIED → AVAILABLE. Booking: CONFIRMED → CHECKED_IN → CHECKED_OUT. Each service method checks the current state and transitions accordingly, preventing invalid transitions.'
-    },
-    {
-      name: 'Unit of Work',
-      used: true,
-      explanation: 'bookRoom() wraps room status change + booking creation in a single ReentrantLock block. If any step fails, no partial state is committed. checkOut() similarly atomically updates both booking and room.'
+      explanation: 'HotelService is the single entry point the controller calls; it composes RoomBookingService for all lifecycle mutation rather than the controller wiring both directly.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'HotelService handles booking business logic (validation, pricing, state transitions). HotelRepository manages data storage. HotelController handles HTTP concerns. Each has one clear responsibility.'
+      description: 'RoomBookingService owns per-room locking and every status transition. HotelRepository owns storage only. TariffStrategyFactory/CancellationRefundStrategyFactory each own one pricing decision. HotelService composes them for lookups and delegation.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'Adding a new room type requires only adding an enum constant and pricing. New room statuses can be added without changing booking flow. The system is open for extension of room types and statuses.'
+      description: 'A new pricing rule (e.g. a seasonal rate) is a new TariffStrategy implementation plus one more branch in TariffStrategyFactory.resolve() — RoomBookingService.book() does not change.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'HotelService depends on HotelRepository abstraction. Spring injects the concrete implementation. Switching from in-memory to database requires only a new repository implementation.'
+      description: 'RoomBookingService depends on the TariffStrategy/CancellationRefundStrategy interfaces, not on any concrete implementation — Spring injects whichever beans exist, and the factories resolve at call time.'
     },
     {
-      name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Room status validation is centralized in bookRoom/checkIn/checkOut methods. Booking ID generation is in one place. Amount calculation uses a single formula (price × nights).'
-    },
-    {
-      name: 'Fail-Fast Validation',
-      description: 'Each operation validates state before making changes: bookRoom checks AVAILABLE, checkIn checks CONFIRMED, checkOut checks CHECKED_IN. Invalid transitions are rejected immediately.'
+      name: 'Encapsulation',
+      description: 'ReservationStatus keeps its transition table a private static final map, exposing only canTransitionTo()/allowedNext()/holdsRoom() — RoomBookingService calls canTransitionTo() before every mutation instead of comparing enum ordinals itself.'
     }
   ],
   oopConcepts: [
     {
-      name: 'Encapsulation — State Machine',
-      description: 'Room and Booking statuses are only modified through controlled service methods. External code cannot directly change room status from AVAILABLE to OCCUPIED without going through checkIn().',
-      alternative: 'Could expose public setters. Controlled mutation via service is chosen because it enforces business rules (only CHECKED_IN bookings can transition to CHECKED_OUT).'
+      name: 'Encapsulation — Availability Is Never a Single Flag',
+      description: 'RoomStatus only distinguishes AVAILABLE/MAINTENANCE. "Is this room free for these dates" is always answered by checking Booking.overlaps() against findActiveBookingsForRoom(), never by reading a room-wide booked/occupied flag.',
+      alternative: 'An earlier revision used a single RoomStatus.BOOKED flag — the first booking for ANY future date blocked every other date range on that room until one checkout. Per-date-range overlap checking is what makes multiple non-overlapping future bookings on the same room possible at all.'
     },
     {
-      name: 'Composition over Inheritance',
-      description: 'Booking contains roomId (reference to Room) and hotelId. Room contains a hotelId reference. Entities are linked by ID rather than through inheritance hierarchies.',
-      alternative: 'Could make Booking extend Room. Composition is chosen because a Booking is not a type of Room — it represents a temporary usage of a room.'
+      name: 'Composition — Service Delegation',
+      description: 'HotelService has-a RoomBookingService rather than inheriting or reimplementing its locking; each can be tested independently (RoomBookingService\'s concurrency tests never need HotelService at all).',
+      alternative: 'Could fold booking-lifecycle locking directly into HotelService as private methods — composition keeps the one class that must reason about concurrency in its own file with its own tests.'
     },
     {
-      name: 'Enum-based State Machine',
-      description: 'RoomStatus and BookingStatus enums define valid states and transitions. Service methods check current state before transitioning, making the state machine explicit and type-safe.',
-      alternative: 'Could use String status fields. Enums are chosen because they are type-safe, self-documenting, and prevent invalid status values at compile time.'
+      name: 'Polymorphism — Two Independent Strategy Families',
+      description: 'RoomBookingService.book() calls tariffStrategyFactory.resolve(...).calculateTariff(...) and, on cancellation, refundStrategyFactory.resolve(...).calculateRefund(...) — against interfaces, never switching on a strategy name itself.',
+      alternative: 'Could use an if/else per pricing or refund rule inline in RoomBookingService — polymorphism keeps each rule\'s math in its own class with its own unit tests.'
     }
   ],
   extensibility: [
     {
-      area: 'Dynamic Pricing (Seasonal/Holiday)',
-      description: 'Add a pricing strategy that adjusts room prices based on season, day of week, or occupancy. Can be implemented as a PricingStrategy interface without changing booking flow.',
+      area: 'Seasonal / Holiday Pricing',
+      description: 'A new SeasonalTariffStrategy implementing TariffStrategy, with TariffStrategyFactory.resolve() checking a holiday calendar before falling back to the weekend/standard rules — RoomBookingService.book() is unaffected.',
       difficulty: 'Easy'
     },
     {
-      area: 'Room Service / Addons',
-      description: 'Add ServiceRequest entity (room service, housekeeping, spa). Booking can have optional addons. Extends booking without changing core check-in/out flow.',
+      area: 'Room Transfer',
+      description: 'Moving a guest between rooms mid-stay needs two room locks held at once — RoomBookingService\'s own javadoc already documents the convention for this (acquire in ascending room-id order, matching zomato.DeliveryAssignmentService\'s order-then-agent locks) even though nothing in the module needs two locks today.',
       difficulty: 'Medium'
     },
     {
-      area: 'Multiple Locations / Search',
-      description: 'Extend search to support city, date range, guests count, room type filter. Add caching for popular searches. No changes to booking flow.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Online Payment Gateway',
-      description: 'Add PaymentService interface. Call payment.process(amount) during booking creation. Refund on cancellation. Existing amount calculation unchanged.',
-      difficulty: 'Medium'
-    },
-    {
-      area: 'Loyalty Program',
-      description: 'Add loyalty points per booking (₹1 = 1 point). Redeem points for discounts. Track member tiers (Silver/Gold/Platinum) with tier-based benefits.',
-      difficulty: 'Easy'
+      area: 'Multi-Room / Group Bookings',
+      description: 'Booking today is always exactly one room. A group booking would need to acquire every room\'s lock (in a fixed order, per the convention above) and roll back every room\'s reservation if any one of them fails its overlap check.',
+      difficulty: 'Hard'
     },
     {
       area: 'Database Persistence',
-      description: 'Implement JpaHotelRepository. Swap via Spring @Profile. No service layer changes needed due to Dependency Injection.',
+      description: 'Swap HotelRepository\'s in-memory maps for a JPA-backed implementation behind the same method signatures — RoomBookingService and HotelService need no change since they only ever call the repository\'s interface-shaped methods.',
       difficulty: 'Medium'
     }
   ]
