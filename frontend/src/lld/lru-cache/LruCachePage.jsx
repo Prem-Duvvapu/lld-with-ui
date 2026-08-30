@@ -22,16 +22,16 @@ import {
 } from './api';
 
 const CSS = `
-.lru-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 20px; transition: box-shadow 0.3s ease; }
+.lru-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 20px; transition: box-shadow 0.3s ease; }
 .lru-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.04); }
 
 .lru-grid-2 { display: grid; grid-template-columns: 360px 1fr; gap: 24px; }
 @media (max-width: 1024px) { .lru-grid-2 { grid-template-columns: 1fr; } }
 
-.lru-input { padding: 10px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); font-size: var(--font-xs); font-weight: 600; width: 100%; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s; }
+.lru-input { padding: 10px 14px; border: 1px solid var(--border-primary); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); font-size: var(--font-xs); font-weight: 600; width: 100%; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s; }
 .lru-input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
 
-.lru-btn { padding: 10px 18px; border: none; border-radius: var(--radius-md); font-weight: 700; font-size: var(--font-xs); cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); display: inline-flex; align-items: center; justify-content: center; gap: 8px; user-select: none; }
+.lru-btn { padding: 10px 18px; border: none; border-radius: var(--radius-md); font-weight: 700; font-size: var(--font-xs); cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-primary); display: inline-flex; align-items: center; justify-content: center; gap: 8px; user-select: none; }
 .lru-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 .lru-btn.primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: #fff; border: none; }
 .lru-btn.success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; border: none; }
@@ -39,31 +39,31 @@ const CSS = `
 .lru-btn.warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #fff; border: none; }
 
 .chip-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.chip-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-primary); font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; }
+.chip-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-primary); background: var(--bg-primary); font-size: 11px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; }
 .chip-btn:hover { background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-color: #3b82f6; transform: scale(1.03); }
 
 /* Progress Bar */
-.capacity-progress-bg { width: 100%; height: 10px; background: var(--bg-secondary); border-radius: 5px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border-color); }
+.capacity-progress-bg { width: 100%; height: 10px; background: var(--bg-secondary); border-radius: 5px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border-primary); }
 .capacity-progress-fill { height: 100%; transition: width 0.4s ease, background-color 0.4s ease; }
 
 /* Doubly Linked List Stage */
-.lru-stage { position: relative; min-height: 280px; background: var(--bg-primary); border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; box-shadow: inset 0 2px 6px rgba(0,0,0,0.03); }
+.lru-stage { position: relative; min-height: 280px; background: var(--bg-primary); border-radius: var(--radius-lg); border: 1px solid var(--border-primary); padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; box-shadow: inset 0 2px 6px rgba(0,0,0,0.03); }
 .dll-chain { display: flex; align-items: center; gap: 14px; flex-wrap: nowrap; padding: 12px 6px; overflow-x: auto; max-width: 100%; width: 100%; justify-content: flex-start; scrollbar-width: thin; }
 
 .badge-tag { padding: 8px 14px; border-radius: var(--radius-md); font-size: 11px; font-weight: 900; letter-spacing: 0.5px; text-transform: uppercase; white-space: nowrap; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .badge-tag.head { background: rgba(16, 185, 129, 0.12); border: 2px solid #10b981; color: #10b981; }
 .badge-tag.tail { background: rgba(239, 68, 68, 0.12); border: 2px solid #ef4444; color: #ef4444; }
 
-.node-box { min-width: 140px; padding: 16px; background: var(--card-bg); border: 2px solid var(--border-color); border-radius: var(--radius-lg); text-align: left; position: relative; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; user-select: none; box-shadow: 0 4px 14px rgba(0,0,0,0.05); }
+.node-box { min-width: 140px; padding: 16px; background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: var(--radius-lg); text-align: left; position: relative; transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; user-select: none; box-shadow: 0 4px 14px rgba(0,0,0,0.05); }
 .node-box:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
 .node-box.mru { border-color: #10b981; background: rgba(16, 185, 129, 0.04); box-shadow: 0 0 20px rgba(16, 185, 129, 0.25); }
 .node-box.lru { border-color: #ef4444; background: rgba(239, 68, 68, 0.04); box-shadow: 0 0 20px rgba(239, 68, 68, 0.25); }
 
-.pointer-badge { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: var(--text-muted); padding: 4px 6px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-color); white-space: nowrap; }
+.pointer-badge { display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: var(--text-muted); padding: 4px 6px; background: var(--bg-secondary); border-radius: 6px; border: 1px solid var(--border-primary); white-space: nowrap; }
 
 /* HashMap Index Cards */
 .hashmap-grid { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 18px; width: 100%; }
-.hash-pill { padding: 10px 16px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); font-family: monospace; font-size: 12px; font-weight: 700; color: var(--text-primary); transition: all 0.2s ease; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.hash-pill { padding: 10px 16px; background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-family: monospace; font-size: 12px; font-weight: 700; color: var(--text-primary); transition: all 0.2s ease; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .hash-pill:hover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.08); transform: translateY(-2px); }
 
 /* 2D Interactive Memory Rack Scene */
@@ -87,6 +87,31 @@ const CSS = `
 
 .sim-chute { position: absolute; bottom: 20px; right: 24px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 10px; padding: 10px 18px; color: #fca5a5; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 10px; z-index: 10; }
 `;
+
+// Node ordering always runs from "keep longest" to "evict next" (LruCache#getSnapshot delegates
+// to the active EvictionPolicy#getOrderedNodes), but what that means in plain English depends on
+// which of the three strategies is active — labeling every policy's head/tail "MRU"/"LRU" was
+// misleading once the policy switched to LFU or FIFO.
+function policyLabels(policy) {
+  switch (policy) {
+    case 'LFU':
+      return { head: 'MFU', headSub: '(Most Frequently Used)', tail: 'LFU', tailSub: '(Least Frequently Used)' };
+    case 'FIFO':
+      return { head: 'NEWEST', headSub: '(Most Recently Inserted)', tail: 'OLDEST', tailSub: '(Next to Evict)' };
+    default:
+      return { head: 'MRU', headSub: '(Most Recently Used)', tail: 'LRU', tailSub: '(Least Recently Used)' };
+  }
+}
+
+const OP_META = {
+  PUT: { icon: '📥', color: '#3b82f6' },
+  GET: { icon: '🔍', color: '#8b5cf6' },
+  REMOVE: { icon: '🗑️', color: '#ef4444' },
+  EVICT: { icon: '⚠️', color: '#f59e0b' },
+  CLEAR: { icon: '🧹', color: '#ef4444' },
+  CAPACITY: { icon: '📏', color: '#0284c7' },
+  POLICY: { icon: '🔀', color: '#0284c7' },
+};
 
 function CacheOperationsTab({ snapshot, onUpdate, toast }) {
   const [key, setKey] = useState('');
@@ -163,6 +188,7 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
   const usagePercent = Math.min(100, Math.round((nodes.length / capacity) * 100));
   const isFull = nodes.length >= capacity;
   const lruNode = nodes.length > 0 ? nodes[nodes.length - 1] : null;
+  const labels = policyLabels(policy);
 
   return (
     <div>
@@ -201,9 +227,9 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
         </div>
 
         {isFull && lruNode && (
-          <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: 6, fontSize: 12, fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span>⚠️ CACHE AT CAPACITY ({capacity}/{capacity}).</span>
-            <span>Next PUT will evict LRU node: <strong>"{lruNode.key}"</strong></span>
+            <span>Next PUT will evict the {labels.tail} node: <strong>"{lruNode.key}"</strong></span>
           </div>
         )}
       </div>
@@ -256,7 +282,7 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
             </div>
 
             {lastResult && (
-              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-color)', fontSize: 12 }}>
+              <div style={{ marginTop: 14, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', fontSize: 12 }}>
                 <div style={{ fontWeight: 800, color: lastResult.status === 'HIT' ? '#10b981' : lastResult.status === 'MISS' ? '#ef4444' : '#3b82f6' }}>
                   {lastResult.type}({lastResult.key}) ➔ {lastResult.status}
                 </div>
@@ -285,7 +311,7 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
                 <span>🧠 Doubly-Linked List Memory Chain</span>
               </h3>
               <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>
-                Click any node to promote it to HEAD
+                Click any node to GET(key){policy === 'LRU' ? ' — promotes it to HEAD' : ''}
               </span>
             </div>
 
@@ -293,12 +319,12 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
               <div className="dll-chain">
                 <div className="badge-tag head">
                   <span>✨ HEAD</span>
-                  <span style={{ fontSize: 9 }}>(MRU)</span>
+                  <span style={{ fontSize: 9 }}>({labels.head})</span>
                 </div>
 
                 {nodes.length === 0 ? (
                   <div style={{ color: 'var(--text-muted)', fontSize: 13, padding: '40px 20px', textAlign: 'center' }}>
-                    Cache is empty. Use controls on the left to add entries!
+                    {snapshot === null ? '⏳ Loading cache state…' : 'Cache is empty. Use controls on the left to add entries!'}
                   </div>
                 ) : (
                   nodes.map((item, idx) => {
@@ -309,7 +335,7 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
                         <div
                           className={`node-box ${isMRU ? 'mru' : isLRU ? 'lru' : ''}`}
                           onClick={() => handleGet(item.key)}
-                          title="Click to perform GET(key) and promote to MRU HEAD"
+                          title={`Click to perform GET("${item.key}")${policy === 'LRU' ? ' and promote it to the MRU HEAD' : ''}`}
                         >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                             <span style={{ fontSize: 13, fontWeight: 900, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
@@ -328,10 +354,10 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
                             {item.value}
                           </div>
 
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, fontSize: 10, color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', paddingTop: 6 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, fontSize: 10, color: 'var(--text-muted)', borderTop: '1px solid var(--border-primary)', paddingTop: 6 }}>
                             <span>👁️ Access: <strong>{item.accessCount}</strong></span>
                             <span style={{ color: isMRU ? '#10b981' : isLRU ? '#ef4444' : 'inherit', fontWeight: 800 }}>
-                              {isMRU ? 'HEAD' : isLRU ? 'TAIL' : `#${idx + 1}`}
+                              {isMRU ? `HEAD (${labels.head})` : isLRU ? `TAIL (${labels.tail})` : `#${idx + 1}`}
                             </span>
                           </div>
                         </div>
@@ -349,11 +375,11 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
 
                 <div className="badge-tag tail">
                   <span>⚠️ TAIL</span>
-                  <span style={{ fontSize: 9 }}>(LRU)</span>
+                  <span style={{ fontSize: 9 }}>({labels.tail})</span>
                 </div>
               </div>
 
-              <div style={{ marginTop: 22, textAlign: 'center', width: '100%', borderTop: '1px dashed var(--border-color)', paddingTop: 16 }}>
+              <div style={{ marginTop: 22, textAlign: 'center', width: '100%', borderTop: '1px dashed var(--border-primary)', paddingTop: 16 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', marginBottom: 10 }}>
                   ⚡ O(1) ConcurrentHashMap Direct Memory Key Index (Click key to trigger instant GET):
                 </div>
@@ -419,23 +445,42 @@ function TelemetryTab({ snapshot, onUpdate, toast }) {
           📊 Real-Time Cache Telemetry & Metrics
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginTop: 16 }}>
-          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>CACHE HITS</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#10b981', marginTop: 4 }}>{stats.hits}</div>
           </div>
-          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>CACHE MISSES</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#ef4444', marginTop: 4 }}>{stats.misses}</div>
           </div>
-          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>EVICTIONS</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#f59e0b', marginTop: 4 }}>{stats.evictions}</div>
           </div>
-          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
+          <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', padding: 14, textAlign: 'center' }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)' }}>HIT RATE</div>
             <div style={{ fontSize: 24, fontWeight: 900, color: '#3b82f6', marginTop: 4 }}>{stats.hitRate}%</div>
           </div>
         </div>
+
+        {(stats.hits > 0 || stats.misses > 0) && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 6 }}>
+              <span>HIT / MISS RATIO</span>
+              <span>{stats.hits} hits · {stats.misses} misses</span>
+            </div>
+            <div style={{ display: 'flex', height: 14, borderRadius: 7, overflow: 'hidden', border: '1px solid var(--border-primary)' }}>
+              <div
+                title={`${stats.hits} hits`}
+                style={{ width: `${(stats.hits / Math.max(1, stats.hits + stats.misses)) * 100}%`, background: '#10b981', transition: 'width 0.4s ease' }}
+              />
+              <div
+                title={`${stats.misses} misses`}
+                style={{ width: `${(stats.misses / Math.max(1, stats.hits + stats.misses)) * 100}%`, background: '#ef4444', transition: 'width 0.4s ease' }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="lru-grid-2">
@@ -495,30 +540,42 @@ function TelemetryTab({ snapshot, onUpdate, toast }) {
   );
 }
 
-function LogsTab({ logs }) {
+function LogsTab({ snapshot, logs }) {
   return (
     <div className="lru-card">
-      <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 800, marginBottom: 16 }}>
-        📜 Cache Operation & Eviction Timeline Log
-      </h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
+        <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 800, margin: 0 }}>
+          📜 Cache Operation & Eviction Timeline Log
+        </h3>
+        {logs && logs.length > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)' }}>
+            {logs.length} entr{logs.length === 1 ? 'y' : 'ies'} · newest first
+          </span>
+        )}
+      </div>
       {!logs || logs.length === 0 ? (
-        <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)' }}>No logs recorded yet.</div>
+        <div style={{ padding: 30, textAlign: 'center', color: 'var(--text-muted)' }}>
+          {snapshot === null ? '⏳ Loading log stream…' : 'No logs recorded yet. Run a PUT/GET/REMOVE from the Operations tab.'}
+        </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 450, overflowY: 'auto' }}>
           {logs.map(log => {
             const isHit = log.status === 'HIT';
             const isMiss = log.status === 'MISS';
             const isEvict = log.status === 'EVICTION' || log.status === 'RESIZE_EVICT';
-            const borderColor = isHit ? '#10b981' : isMiss ? '#ef4444' : isEvict ? '#f59e0b' : '#3b82f6';
+            const meta = OP_META[log.op] || { icon: '•', color: '#3b82f6' };
+            const borderColor = isHit ? '#10b981' : isMiss ? '#ef4444' : isEvict ? '#f59e0b' : meta.color;
             return (
               <div
                 key={log.id}
                 style={{
                   display: 'flex',
-                  justify: 'space-between',
+                  justifyContent: 'space-between',
                   alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 8,
                   padding: '10px 14px',
-                  border: '1px solid var(--border-color)',
+                  border: '1px solid var(--border-primary)',
                   borderLeft: `4px solid ${borderColor}`,
                   borderRadius: 'var(--radius-sm)',
                   background: 'var(--bg-primary)',
@@ -526,7 +583,7 @@ function LogsTab({ logs }) {
                 }}
               >
                 <div>
-                  <span style={{ fontWeight: 800, color: borderColor, marginRight: 8 }}>[{log.op}]</span>
+                  <span style={{ fontWeight: 800, color: borderColor, marginRight: 8 }}>{meta.icon} [{log.op}]</span>
                   <strong style={{ color: 'var(--text-primary)' }}>{log.key}</strong>
                   <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>({log.val})</span>
                 </div>
@@ -567,6 +624,7 @@ function Interactive2DSimulation({ toast }) {
   const capacity = simSnapshot?.capacity || 5;
   const policy = simSnapshot?.policy || 'LRU';
   const stats = simSnapshot?.stats || { hits: 0, misses: 0, evictions: 0, hitRate: 0 };
+  const simLabels = policyLabels(policy);
 
   const handleSimPut = async (k, v) => {
     const key = k || keyInput;
@@ -694,7 +752,7 @@ function Interactive2DSimulation({ toast }) {
         </div>
 
         {/* Interactive Controls Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)' }}>
           {/* Put Form */}
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="lru-input" placeholder="Put Key" value={keyInput} onChange={e => setKeyInput(e.target.value)} />
@@ -717,7 +775,7 @@ function Interactive2DSimulation({ toast }) {
             <select
               value={policy}
               onChange={e => handleSimPolicy(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 11 }}
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 11 }}
             >
               <option value="LRU">LRU Policy</option>
               <option value="LFU">LFU Policy</option>
@@ -765,7 +823,7 @@ function Interactive2DSimulation({ toast }) {
                 title={item ? `Click to trigger GET("${item.key}")` : 'Empty Memory Slot'}
               >
                 <div style={{ position: 'absolute', top: 8, fontSize: 9, fontWeight: 900, color: isMRU ? '#4ade80' : isLRU ? '#f87171' : '#64748b' }}>
-                  {isMRU ? 'HEAD (MRU)' : isLRU ? 'TAIL (LRU)' : `SLOT #${idx + 1}`}
+                  {isMRU ? `HEAD (${simLabels.head})` : isLRU ? `TAIL (${simLabels.tail})` : `SLOT #${idx + 1}`}
                 </div>
 
                 {item ? (
@@ -861,7 +919,7 @@ export default function LruCachePage() {
 
           {activeTab === 'operations' && <CacheOperationsTab snapshot={snapshot} onUpdate={setSnapshot} toast={toast} />}
           {activeTab === 'telemetry' && <TelemetryTab snapshot={snapshot} onUpdate={setSnapshot} toast={toast} />}
-          {activeTab === 'logs' && <LogsTab logs={snapshot?.logs} />}
+          {activeTab === 'logs' && <LogsTab snapshot={snapshot} logs={snapshot?.logs} />}
           {activeTab === 'simulation' && <Interactive2DSimulation toast={toast} />}
           {activeTab === 'diagram' && <ClassDiagram module="lrucache" />}
           {activeTab === 'design' && <DesignDetails module="lrucache" />}

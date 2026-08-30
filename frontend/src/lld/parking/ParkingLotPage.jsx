@@ -818,7 +818,7 @@ function AnimatedFlow() {
 
       {/* STEP 0: CONFIGURE VEHICLE & STRATEGIES */}
       {step === 0 && (
-        <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '20px', width: '100%' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: '20px', width: '100%' }}>
           <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 700, marginBottom: '12px', color: '#3b82f6' }}>
             Step 1: Configure Vehicle & Parking Strategies
           </h4>
@@ -901,7 +901,7 @@ function AnimatedFlow() {
 
       {/* STEP 6: SCAN TICKET AT EXIT GATE G2 */}
       {step === 6 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', background: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: 16, borderRadius: 'var(--radius-lg)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border-primary)', padding: 16, borderRadius: 'var(--radius-lg)' }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
             <label style={{ fontSize: 13, fontWeight: 600 }}>Select Pricing Strategy for API:</label>
             <Select value={simPricingStrategy} onChange={(e) => setSimPricingStrategy(e.target.value)}>
@@ -918,7 +918,7 @@ function AnimatedFlow() {
 
       {/* STEP 7: SCAN PREVIEW & PAYMENT */}
       {step === 7 && scanPreview && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', background: 'var(--card-bg)', border: '1px solid var(--border-color)', padding: 16, borderRadius: 'var(--radius-lg)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border-primary)', padding: 16, borderRadius: 'var(--radius-lg)' }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>
             Calculated Amount: ₹{scanPreview.amount?.toFixed(2)} ({simPricingStrategy})
           </div>
@@ -938,7 +938,7 @@ function AnimatedFlow() {
 
       {/* TELEMETRY: isolated sandbox event log */}
       {simEventLog.length > 0 && (
-        <div style={{ width: '100%', marginTop: 20, background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 14 }}>
+        <div style={{ width: '100%', marginTop: 20, background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 14 }}>
           <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: 'var(--info)' }}>
             📊 Sandbox Event Log ({simEventLog.length})
           </h4>
