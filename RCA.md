@@ -3667,3 +3667,59 @@ grep -A8 "name: 'BookingStatus'" frontend/src/data/diagrams/hotel.js   # (the st
    checking against real source before trusting the rest of the file — if the proposed pattern
    already exists (as `TariffStrategy` did here), the design content is provably stale, not just
    possibly so.
+
+## RCA-040: Chess Was a Fully Standalone Page With an Unscoped `body` Override, the Same Architectural Bug Issue #53 Fixed for Snake & Ladders and Minesweeper
+
+### 1. Overview & Severity
+**Severity: Low.** `ChessPage.jsx` rendered its own document shell — a `<style>` tag injecting a
+global `* { margin: 0 }` reset and an unscoped `body { background: #1a1a2e; color: #e0e0e0 }` rule,
+its own `<header>`/back-link/`<nav>` tab bar, and manually mounted `ClassDiagram`/`SequenceDiagram`/
+`DesignDetails` for the diagram/sequence/design tabs — instead of the shared `LldPage` shell every
+other module uses. This is architecturally identical to the bug issue #53 fixed for Snake & Ladders
+and Minesweeper this session: an unscoped `body` rule stays in effect for as long as the component
+is mounted, painting the whole document (not just this page's content) regardless of which theme —
+light or dark — the site is set to, and a component-owned tab bar duplicates `LldPage`'s
+breadcrumb/header/tabs instead of composing with it.
+
+### 2. Symptoms & Error Logs
+No test failure — `routing.test.js` only checks that every route has a file and every file is
+routed, not which shell a page renders inside; `designDataCoverage.test.js` only checks the
+diagram/design *data*, not which component renders it. Visually: navigating to `/chess` painted the
+whole browser tab (not just the page content) with `#1a1a2e` regardless of the site's light/dark
+theme setting, and the page had its own narrower fixed-width layout and tab styling instead of the
+site-wide 1200px `LldPage` shell.
+
+### 3. Root Cause
+Same root cause as issue #53: this page predates (or was never migrated to) the `LldPage` shell
+convention documented in `CLAUDE.md` ("`LldPage` is the shared shell... a page that also renders
+`<ClassDiagram>` for those tabs is writing dead code"). It manually re-implemented the header, back
+link, tab bar, and diagram/sequence/design tab rendering that `LldPage` already provides, and its
+`<style>` block reset `body` globally rather than scoping every rule to the component's own markup.
+
+### 4. Diagnostic Commands
+```bash
+# Find any lld page still injecting an unscoped body/*-selector rule instead of using LldPage:
+grep -rl "^body\s*{" frontend/src/lld/*/*Page.jsx
+grep -rL "LldPage" frontend/src/lld/*/*Page.jsx | xargs grep -l "ClassDiagram\|SequenceDiagram\|DesignDetails"
+```
+
+### 5. Step-by-Step Resolution
+1. Migrated `ChessPage.jsx` to the `LldPage` shell, following the exact pattern already applied to
+   `SnakeLaddersPage.jsx`/`MinesweeperPage.jsx` this session: `tabs={[{ id: 'game', label: '🎮 Game'
+   }, 'simulation', 'diagram', 'sequence', 'design']}`, with `<style>` now scoped to only the
+   component-specific classes (`.setup`, `.chess-board`, `.game-status`, `.scene`, `.popup`, etc.) —
+   the `*`/`body`/`.app`/`header`/`nav`/`main` page-chrome rules were removed entirely since
+   `LldPage`'s own shell and `LldPage.css` already supply the equivalent card/header/tab-bar look.
+2. Left every component-specific hardcoded color as-is — this is a structural shell migration, not
+   a theme-adaptive-color pass (that is a separate, already-partially-completed effort tracked
+   elsewhere in this session's work); mixing the two would make the diff harder to review for either
+   concern.
+3. Ran the frontend suite (`npx vitest run`, 304/304) and `npm run build` (entry chunk unchanged at
+   260.77 kB) to confirm the migration didn't break anything structurally.
+
+### 6. Preventative Measures
+1. Same preventative measure as issue #53: a repo-wide grep for `^body\s*{` inside `frontend/src/
+   lld/**/*Page.jsx` finds any remaining standalone pages before a user has to notice the wrong
+   background color live. This is the second and (per that grep) now the last such module found this
+   session — worth an occasional sweep after future `/new-lld` additions, since a copy-pasted
+   pre-`LldPage`-era page is an easy way for this pattern to resurface.

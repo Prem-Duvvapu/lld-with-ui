@@ -1,23 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import LldPage from '../../components/LldPage';
 import { createGame, getGame, makeMove, getValidMoves, simReset, simMove, simGetEventLog } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import DesignDetails from '../../components/DesignDetails';
 
+// This page used to be a fully standalone document — its own `*` reset and an unscoped
+// `body { background: #1a1a2e }` rule that leaked outside this component's own subtree for as
+// long as the page was mounted (the same bug shape issue #53 fixed for snakeladders/minesweeper:
+// a page rendering its own header/nav/back-link and manually mounting ClassDiagram/SequenceDiagram/
+// DesignDetails instead of the shared LldPage shell). It now runs inside LldPage like every other
+// module, which gives it the same 1200px-wide, theme-aware layout, breadcrumb and tab bar as the
+// rest of the site.
 const s = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #e0e0e0; }
-.app { max-width: 560px; margin: 0 auto; padding: 20px; }
-header { text-align: center; margin-bottom: 20px; }
-header h1 { font-size: 28px; color: #f0f0f0; }
-header p { color: #888; font-size: 14px; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #666; border-radius: 6px; color: #ccc; text-decoration: none; font-size: 14px; font-weight: 600; }
-.back-home:hover { background: #333; color: #fff; }
-nav { display: flex; gap: 8px; margin-bottom: 20px; justify-content: center; }
-nav button { padding: 8px 20px; border: 2px solid #555; border-radius: 8px; background: #2a2a3e; color: #ccc; cursor: pointer; font-weight: 600; font-size: 13px; }
-nav button.active { background: #4a4a6e; color: #fff; border-color: #8b5cf6; }
-main { background: #2a2a3e; border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
 .setup { max-width: 320px; margin: 0 auto; }
 .setup h2 { margin-bottom: 16px; color: #e0e0e0; }
 .form-group { margin-bottom: 12px; }
@@ -271,53 +263,44 @@ function AnimatedFlow() {
 }
 
 export default function ChessPage() {
-  const [page, setPage] = useState('game');
   const [gameId, setGameId] = useState(null);
   const [playerWhite, setPlayerWhite] = useState('Magnus');
   const [playerBlack, setPlayerBlack] = useState('Hikaru');
 
   return (
-    <div className="app">
-      <style>{s}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header>
-        <h1>♚ Chess</h1>
-        <p>Low-Level Design</p>
-      </header>
-      <nav>
-        <button className={page === 'game' ? 'active' : ''} onClick={() => setPage('game')}>Game</button>
-        <button className={page === 'simulation' ? 'active' : ''} onClick={() => setPage('simulation')}>Simulation</button>
-        <button className={page === 'diagram' ? 'active' : ''} onClick={() => setPage('diagram')}>Class Diagram</button>
-        <button className={page === 'sequence' ? 'active' : ''} onClick={() => setPage('sequence')}>Sequence Diagram</button>
-        <button className={page === 'design' ? 'active' : ''} onClick={() => setPage('design')}>Design Details</button>
-      </nav>
-      <main>
-        {page === 'game' && (
-          !gameId ? (
-            <div className="setup">
-              <h2>New Game</h2>
-              <div className="form-group">
-                <label>White Player</label>
-                <input value={playerWhite} onChange={(e) => setPlayerWhite(e.target.value)} />
+    <LldPage
+      module="chess"
+      title="Chess"
+      icon="♚"
+      tabs={[{ id: 'game', label: '🎮 Game' }, 'simulation', 'diagram', 'sequence', 'design']}
+    >
+      {(tab) => (
+        <>
+          <style>{s}</style>
+          {tab === 'game' && (
+            !gameId ? (
+              <div className="setup">
+                <h2>New Game</h2>
+                <div className="form-group">
+                  <label>White Player</label>
+                  <input value={playerWhite} onChange={(e) => setPlayerWhite(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Black Player</label>
+                  <input value={playerBlack} onChange={(e) => setPlayerBlack(e.target.value)} />
+                </div>
+                <button className="btn-primary" onClick={async () => {
+                  const data = await createGame(playerWhite, playerBlack);
+                  if (!data.error) setGameId(data.id);
+                }}>Start Game</button>
               </div>
-              <div className="form-group">
-                <label>Black Player</label>
-                <input value={playerBlack} onChange={(e) => setPlayerBlack(e.target.value)} />
-              </div>
-              <button className="btn-primary" onClick={async () => {
-                const data = await createGame(playerWhite, playerBlack);
-                if (!data.error) setGameId(data.id);
-              }}>Start Game</button>
-            </div>
-          ) : (
-            <GamePanel gameId={gameId} onNewGame={() => setGameId(null)} />
-          )
-        )}
-        {page === 'simulation' && <AnimatedFlow />}
-        {page === 'diagram' && <ClassDiagram module="chess" />}
-        {page === 'sequence' && <SequenceDiagram module="chess" />}
-        {page === 'design' && <DesignDetails module="chess" />}
-      </main>
-    </div>
+            ) : (
+              <GamePanel gameId={gameId} onNewGame={() => setGameId(null)} />
+            )
+          )}
+          {tab === 'simulation' && <AnimatedFlow />}
+        </>
+      )}
+    </LldPage>
   );
 }
