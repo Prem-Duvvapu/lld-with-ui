@@ -266,7 +266,7 @@ export default function MovieTicketPage() {
   }, [simAutoPlay]);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', padding: '24px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', padding: '24px' }}>
       {/* Toast Notification Banner */}
       {toastMsg && (
         <div style={{
@@ -286,7 +286,7 @@ export default function MovieTicketPage() {
           <h1 style={{ fontSize: 32, fontWeight: 800, margin: '4px 0', background: 'linear-gradient(90deg, #a78bfa, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             🎬 BookMyShow — Movie Ticket Booking LLD
           </h1>
-          <p style={{ color: '#94a3b8', fontSize: 14 }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
             Thread-Safe Cinema Reservations • Per-Seat Granularity Locks • Double-Booking Prevention & Hold TTL
           </p>
         </div>
@@ -295,7 +295,7 @@ export default function MovieTicketPage() {
           <select
             value={currentUser}
             onChange={e => setCurrentUser(e.target.value)}
-            style={{ padding: '8px 12px', background: '#1e293b', border: '1px solid #334155', color: '#f8fafc', borderRadius: 8, fontSize: 13 }}
+            style={{ padding: '8px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', borderRadius: 8, fontSize: 13 }}
           >
             {users.map(u => (
               <option key={u.id} value={u.id}>👤 User: {u.name} ({u.id})</option>
@@ -306,7 +306,7 @@ export default function MovieTicketPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', gap: 8, borderBottom: '1px solid #334155', paddingBottom: 12 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', gap: 8, borderBottom: '1px solid var(--border-primary)', paddingBottom: 12 }}>
         {[
           { id: 'booking', label: '🎬 Movies & Booking' },
           { id: 'history', label: '📊 Booking History' },
@@ -320,8 +320,8 @@ export default function MovieTicketPage() {
             onClick={() => setActiveTab(tab.id)}
             style={{
               padding: '10px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14,
-              background: activeTab === tab.id ? '#8b5cf6' : '#1e293b',
-              color: activeTab === tab.id ? '#fff' : '#94a3b8',
+              background: activeTab === tab.id ? '#8b5cf6' : 'var(--bg-secondary)',
+              color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
               transition: 'all 0.2s'
             }}
           >
@@ -344,13 +344,13 @@ export default function MovieTicketPage() {
                 <h2 style={{ fontSize: 20, marginBottom: 16, color: '#a78bfa' }}>Now Showing Movies</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
                   {movies.map(movie => {
-                    const poster = MOVIE_POSTERS[movie.title] || { bg: '#1e293b', emoji: '🎬' };
+                    const poster = MOVIE_POSTERS[movie.title] || { bg: 'var(--bg-secondary)', emoji: '🎬' };
                     return (
                       <div
                         key={movie.id}
                         onClick={() => handleSelectMovie(movie)}
                         style={{
-                          background: '#1e293b', borderRadius: 16, padding: 20, cursor: 'pointer', border: '1px solid #334155',
+                          background: 'var(--bg-secondary)', borderRadius: 16, padding: 20, cursor: 'pointer', border: '1px solid var(--border-primary)',
                           transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
                         }}
                       >
@@ -361,7 +361,7 @@ export default function MovieTicketPage() {
                           {poster.emoji}
                         </div>
                         <h3 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px 0' }}>{movie.title}</h3>
-                        <p style={{ color: '#94a3b8', fontSize: 13, margin: '0 0 12px 0' }}>{movie.genre} • {movie.duration} mins • {movie.language || 'English'}</p>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 12px 0' }}>{movie.genre} • {movie.duration} mins • {movie.language || 'English'}</p>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ background: '#f59e0b', color: '#000', padding: '4px 10px', borderRadius: 6, fontWeight: 800, fontSize: 13 }}>⭐ {movie.rating}</span>
                           <span style={{ color: '#8b5cf6', fontWeight: 600, fontSize: 14 }}>Select Show →</span>
@@ -376,13 +376,13 @@ export default function MovieTicketPage() {
               <div>
                 <button
                   onClick={() => setSelectedMovie(null)}
-                  style={{ background: 'transparent', border: '1px solid #475569', color: '#94a3b8', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', marginBottom: 16 }}
+                  style={{ background: 'transparent', border: '1px solid #475569', color: 'var(--text-secondary)', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', marginBottom: 16 }}
                 >
                   ← Back to Movies
                 </button>
-                <div style={{ background: '#1e293b', padding: 24, borderRadius: 16, border: '1px solid #334155', marginBottom: 24 }}>
+                <div style={{ background: 'var(--bg-secondary)', padding: 24, borderRadius: 16, border: '1px solid var(--border-primary)', marginBottom: 24 }}>
                   <h2 style={{ fontSize: 24, color: '#a78bfa', margin: '0 0 8px 0' }}>{selectedMovie.title}</h2>
-                  <p style={{ color: '#94a3b8', margin: 0 }}>{selectedMovie.genre} • {selectedMovie.duration} mins • Rated ⭐ {selectedMovie.rating}</p>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{selectedMovie.genre} • {selectedMovie.duration} mins • Rated ⭐ {selectedMovie.rating}</p>
                 </div>
 
                 <h3 style={{ fontSize: 18, marginBottom: 16 }}>Available Showtimes</h3>
@@ -392,11 +392,11 @@ export default function MovieTicketPage() {
                       key={show.id}
                       onClick={() => handleSelectShow(show)}
                       style={{
-                        background: '#1e293b', border: '2px solid #334155', borderRadius: 12, padding: 20, cursor: 'pointer',
+                        background: 'var(--bg-secondary)', border: '2px solid var(--border-primary)', borderRadius: 12, padding: 20, cursor: 'pointer',
                         transition: 'all 0.2s'
                       }}
                     >
-                      <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 4 }}>{show.screen}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>{show.screen}</div>
                       <div style={{ fontSize: 18, fontWeight: 800, color: '#8b5cf6', marginBottom: 8 }}>🕒 {show.showTime}</div>
                       <div style={{ fontSize: 13, color: show.availableSeats > 0 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
                         {show.availableSeats > 0 ? `🟢 ${show.availableSeats} / ${show.totalSeats} seats available` : '🔴 Sold Out'}
@@ -411,24 +411,24 @@ export default function MovieTicketPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <button
                     onClick={() => setSelectedShow(null)}
-                    style={{ background: 'transparent', border: '1px solid #475569', color: '#94a3b8', padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}
+                    style={{ background: 'transparent', border: '1px solid #475569', color: 'var(--text-secondary)', padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}
                   >
                     ← Back to Shows
                   </button>
-                  <div style={{ fontSize: 14, color: '#94a3b8' }}>
+                  <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
                     Show: <strong style={{ color: '#fff' }}>{selectedMovie.title} ({selectedShow.showTime})</strong>
                   </div>
                 </div>
 
                 {/* Seat Map Display Card */}
-                <div style={{ background: '#1e293b', borderRadius: 20, padding: 28, border: '1px solid #334155' }}>
+                <div style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 28, border: '1px solid var(--border-primary)' }}>
                   {/* Screen Header */}
                   <div style={{ textAlign: 'center', marginBottom: 32 }}>
                     <div style={{
                       height: 12, background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)',
                       borderRadius: 6, marginBottom: 8, boxShadow: '0 0 20px #8b5cf6'
                     }} />
-                    <span style={{ fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>🎬 CINEMA SCREEN THIS WAY</span>
+                    <span style={{ fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>🎬 CINEMA SCREEN THIS WAY</span>
                   </div>
 
                   {/* Seat Grid */}
@@ -437,9 +437,9 @@ export default function MovieTicketPage() {
                       {seats.map(seat => {
                         const isSelected = selectedSeatIds.includes(seat.id);
                         const isHeldByMe = seat.status === 'HELD' && seat.heldByUserId === currentUser;
-                        let bg = '#334155';
+                        let bg = 'var(--border-primary)';
                         let border = '#475569';
-                        let textColor = '#f8fafc';
+                        let textColor = 'var(--text-primary)';
 
                         if (isSelected) {
                           bg = '#3b82f6'; border = '#60a5fa'; textColor = '#fff';
@@ -448,7 +448,7 @@ export default function MovieTicketPage() {
                         } else if (seat.status === 'HELD') {
                           bg = isHeldByMe ? '#f59e0b' : '#64748b'; border = isHeldByMe ? '#d97706' : '#475569';
                         } else if (seat.status === 'AVAILABLE') {
-                          border = seat.seatType === 'GOLD' ? '#eab308' : '#94a3b8';
+                          border = seat.seatType === 'GOLD' ? '#eab308' : 'var(--text-secondary)';
                           bg = 'transparent';
                         }
 
@@ -475,18 +475,18 @@ export default function MovieTicketPage() {
                   </div>
 
                   {/* Legend */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 24, fontSize: 13, color: '#94a3b8', borderTop: '1px solid #334155', paddingTop: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: 24, fontSize: 13, color: 'var(--text-secondary)', borderTop: '1px solid var(--border-primary)', paddingTop: 20 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, border: '2px solid #eab308' }} /> Gold (₹350)</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, border: '2px solid #94a3b8' }} /> Silver (₹200)</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, border: '2px solid var(--text-secondary)' }} /> Silver (₹200)</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#3b82f6' }} /> Selected</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#f59e0b' }} /> Held (You)</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#ef4444' }} /> Booked</div>
                   </div>
 
                   {/* Action Panel */}
-                  <div style={{ marginTop: 24, padding: 20, background: '#0f172a', borderRadius: 12, border: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ marginTop: 24, padding: 20, background: 'var(--bg-primary)', borderRadius: 12, border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <div style={{ fontSize: 14, color: '#94a3b8' }}>Selected Seats: <strong style={{ color: '#fff' }}>{selectedSeatIds.length}</strong></div>
+                      <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Selected Seats: <strong style={{ color: '#fff' }}>{selectedSeatIds.length}</strong></div>
                       <div style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>
                         Total: ₹{seats.filter(s => selectedSeatIds.includes(s.id)).reduce((acc, s) => acc + s.price, 0).toFixed(2)}
                       </div>
@@ -515,7 +515,7 @@ export default function MovieTicketPage() {
                         <select
                           value={paymentMethod}
                           onChange={e => setPaymentMethod(e.target.value)}
-                          style={{ padding: '10px 14px', background: '#1e293b', border: '1px solid #475569', color: '#fff', borderRadius: 8, fontSize: 13 }}
+                          style={{ padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid #475569', color: 'var(--text-primary)', borderRadius: 8, fontSize: 13 }}
                         >
                           <option value="UPI">Pay via UPI</option>
                           <option value="CREDIT_CARD">Credit Card</option>
@@ -563,19 +563,19 @@ export default function MovieTicketPage() {
           <div>
             <h2 style={{ fontSize: 20, marginBottom: 16, color: '#a78bfa' }}>Booking History ({currentUser})</h2>
             {userBookings.length === 0 ? (
-              <div style={{ background: '#1e293b', padding: 40, borderRadius: 16, textAlign: 'center', color: '#94a3b8' }}>
+              <div style={{ background: 'var(--bg-secondary)', padding: 40, borderRadius: 16, textAlign: 'center', color: 'var(--text-secondary)' }}>
                 No active bookings found for user {currentUser}.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 {userBookings.map(b => (
                   <div key={b.id} style={{
-                    background: '#1e293b', padding: 20, borderRadius: 12, border: '1px solid #334155',
+                    background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '1px solid var(--border-primary)',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                   }}>
                     <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>Booking #{b.id}</div>
-                      <div style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Booking #{b.id}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                         Seats: {b.seatIds?.join(', ')} • Amount: ₹{b.totalAmount.toFixed(2)} • Time: {new Date(b.bookingTime).toLocaleString()}
                       </div>
                     </div>
@@ -610,10 +610,10 @@ export default function MovieTicketPage() {
         {activeTab === 'simulation' && (
           <div>
             {/* Control Bar */}
-            <div style={{ background: '#1e293b', padding: 20, borderRadius: 16, border: '1px solid #334155', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ background: 'var(--bg-secondary)', padding: 20, borderRadius: 16, border: '1px solid var(--border-primary)', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: 18, color: '#a78bfa' }}>8-Step Concurrency & Double-Booking Simulation</h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#94a3b8' }}>
+                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
                   Watch simulated users (Alice 👩, Bob 👨, Charlie 🧑, Diana 👧) compete for seats concurrently.
                 </p>
               </div>
@@ -644,17 +644,17 @@ export default function MovieTicketPage() {
             {/* Stage Grid & Event Timeline Layout */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
               {/* Left: Theatre Seat Canvas */}
-              <div style={{ background: '#0f172a', borderRadius: 16, padding: 24, border: '1px solid #334155' }}>
+              <div style={{ background: 'var(--bg-primary)', borderRadius: 16, padding: 24, border: '1px solid var(--border-primary)' }}>
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
                   <div style={{ height: 10, background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)', borderRadius: 5, marginBottom: 6 }} />
-                  <span style={{ fontSize: 11, letterSpacing: 2, color: '#94a3b8', fontWeight: 700 }}>🎬 SIMULATION STAGE</span>
+                  <span style={{ fontSize: 11, letterSpacing: 2, color: 'var(--text-secondary)', fontWeight: 700 }}>🎬 SIMULATION STAGE</span>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, maxWidth: 480, margin: '0 auto 24px auto' }}>
                   {simSeats.map(seat => {
-                    let bg = '#1e293b';
-                    let border = '#334155';
-                    let textColor = '#94a3b8';
+                    let bg = 'var(--bg-secondary)';
+                    let border = 'var(--border-primary)';
+                    let textColor = 'var(--text-secondary)';
 
                     if (seat.status === 'BOOKED') {
                       bg = '#ef4444'; border = '#dc2626'; textColor = '#fff';
@@ -687,7 +687,7 @@ export default function MovieTicketPage() {
                 </div>
 
                 {/* HUD Stats */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', background: '#1e293b', padding: 12, borderRadius: 10, fontSize: 13 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-around', background: 'var(--bg-secondary)', padding: 12, borderRadius: 10, fontSize: 13 }}>
                   <div>🟢 Available: <strong style={{ color: '#10b981' }}>{simSeats.filter(s => s.status === 'AVAILABLE').length}</strong></div>
                   <div>🟡 Held: <strong style={{ color: '#f59e0b' }}>{simSeats.filter(s => s.status === 'HELD').length}</strong></div>
                   <div>🔴 Booked: <strong style={{ color: '#ef4444' }}>{simSeats.filter(s => s.status === 'BOOKED').length}</strong></div>
@@ -695,21 +695,21 @@ export default function MovieTicketPage() {
               </div>
 
               {/* Right: Simulation Event Log */}
-              <div style={{ background: '#1e293b', borderRadius: 16, padding: 20, border: '1px solid #334155', maxHeight: 520, overflowY: 'auto' }}>
+              <div style={{ background: 'var(--bg-secondary)', borderRadius: 16, padding: 20, border: '1px solid var(--border-primary)', maxHeight: 520, overflowY: 'auto' }}>
                 <h4 style={{ margin: '0 0 16px 0', fontSize: 16, color: '#a78bfa' }}>📜 Event Log Timeline</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {simEvents.slice().reverse().map(e => (
                     <div key={e.id} style={{
-                      padding: 12, borderRadius: 8, background: '#0f172a', borderLeft: `4px solid ${
+                      padding: 12, borderRadius: 8, background: 'var(--bg-primary)', borderLeft: `4px solid ${
                         e.eventType.includes('SUCCESS') || e.eventType.includes('CONFIRMED') ? '#10b981' :
                         e.eventType.includes('FAILED') ? '#ef4444' : '#f59e0b'
                       }`
                     }}>
-                      <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
                         <strong>{e.actorName}</strong>
                         <span>{e.eventType}</span>
                       </div>
-                      <div style={{ fontSize: 12, color: '#f8fafc', marginTop: 4 }}>{e.description}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>{e.description}</div>
                     </div>
                   ))}
                 </div>

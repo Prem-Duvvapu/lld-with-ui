@@ -3355,3 +3355,107 @@ done
    not yet explicitly re-verified in this session's audit passes (grep each class diagram's class
    names against real source, the diagnostic command above) should be treated as unverified, not
    assumed clean, until someone actually does that check.
+
+## RCA-037: Five Pages Were Hardcoded to the Dark Theme, and a Naive Hex→Token Bulk-Conversion Would Have Broken Both an Illustration and a Real-Content Page
+
+### 1. Overview & Severity
+**Severity: Medium.** `airline`, `library`, `linkedin`, `movieticket`, and `coffeemachine` had their
+entire interactive UI hand-authored with the pre-theming era's dark-mode palette hardcoded directly
+into inline `style={{ background: '#1e293b', color: '#f8fafc', ... }}` objects, so switching the site
+to light theme via `ThemeToggle` left these five pages rendering the exact same dark cards, borders,
+and text regardless of the user's chosen theme — the opposite of every other module, which reads
+`var(--bg-secondary)` etc. from `theme.css`. Not a crash or data-loss bug, but a real, user-visible
+inconsistency the user asked to have "done properly" rather than patched narrowly.
+
+### 2. Symptoms & Error Logs
+No exception, no test failure — `designDataCoverage.test.js` and `routing.test.js` don't inspect
+inline style literals, so this shipped invisibly for as long as the five pages existed. Visually:
+toggling to light theme anywhere else in the portfolio changes card/border/text colors; these five
+pages stayed dark. No log output; found by a manual visual/grep sweep across every `lld/*/​*Page.jsx`
+for known dark-theme hex literals (`#1e293b`, `#0f172a`, `#334155`, `#94a3b8`, `#64748b`,
+`#f8fafc`/`#f9fafb`) that theme.css's tokens already had adaptive equivalents for.
+
+### 3. Root Cause
+These five pages were written before (or without adopting) the `theme.css` token system that the
+rest of the portfolio uses — likely copy-pasted from an earlier single-theme design pass and never
+retrofitted when theming was introduced elsewhere. Two second-order traps surfaced while fixing it:
+
+- **Illustration content is not page chrome.** `vendingmachine`'s `MachineHardwareTab`/`SimulationTab`
+  literally illustrate a physical vending-machine cabinet, LCD display, and coin/bill dispensers —
+  the same hex values that mean "dark card background" elsewhere here mean "the plastic housing of a
+  machine" and must stay fixed regardless of site theme. A first pass wrongly bulk-converted the
+  entire file before the mistake was caught (the code's own `PHYSICAL VENDING MACHINE CABINET`
+  comment was the tell) and required a full `git checkout --` revert. `coffeemachine` had the same
+  trap in miniature: three individual literals (a "Whipped Cream Layer" swatch, an "Assembled Order
+  Description" panel nested inside a still-hardcoded-dark hardware container, and an "Ingredient
+  Hoppers Grid" label in the same container) were caught mid-sed and reverted one at a time.
+- **A single hex value maps to two different, non-interchangeable roles.** `#334155` was used both
+  as a `border:` line (safe to map to `var(--border-primary)`) *and* as a solid `background:` fill on
+  buttons, avatars, and badges paired with `color: '#fff'`. `--border-primary` resolves to a *light*
+  gray (`#d0d7de`) in light theme — so every button/avatar/badge converted this way silently became
+  white text on a near-white background in light mode, an accessibility regression the exact-string
+  grep used for the border conversion did not surface for background usages, and a follow-up
+  ternary-background sweep (`background: cond ? 'x' : 'var(--border-primary)'`) caught two more
+  instances (a LinkedIn "2nd Degree" badge, a LinkedIn chat bubble) plus one more of the same shape
+  using `var(--text-muted)` as a background fill on Movie Ticket's held-seat tile — none of these
+  three used the literal string `background: 'var(--border-primary)'` the first grep searched for,
+  since the token appeared only inside a ternary expression.
+
+### 4. Diagnostic Commands
+```bash
+# Find dark-theme literals with adaptive-token equivalents already defined in theme.css
+grep -n "#1e293b\|#0f172a\|#334155\|#94a3b8\|#64748b\|#f8fafc\|#f9fafb" frontend/src/lld/<module>/<Module>Page.jsx
+
+# Before converting anything, rule out illustration/physical-device content:
+grep -n "374151\|4338ca\|312e81\|6b7280\|1f2937\|030712\|0b1120\|020617\|451a03\|4b5563\|1e1b4b\|111827" \
+  frontend/src/lld/<module>/<Module>Page.jsx   # a hit means manual per-line review, not bulk sed
+
+# After converting, find every var(--border-primary)/var(--text-muted) used as a FILL, not a border —
+# both the flat-string and ternary shapes:
+grep -n "background:.*var(--\(border-primary\|text-muted\))" frontend/src/lld/<module>/<Module>Page.jsx \
+  | grep -v "border:"
+
+# Sanity-check nothing was nested inside a permanently-dark rgba() overlay (those don't react to theme):
+grep -n "rgba(0,0,0\|rgba(255,255,255" frontend/src/lld/<module>/<Module>Page.jsx
+```
+
+### 5. Step-by-Step Resolution
+1. Converted `airline`, `library`, `linkedin`, `movieticket` in full: stripped `var(--token, #hex)`
+   fallbacks down to `var(--token)`; bulk-`sed`'d the six dark-literal hex values to their `theme.css`
+   token equivalents; fixed the resulting "white input text on now-light card" regression with a sed
+   scoped to lines already containing `var(--bg-...)`.
+2. Converted exactly one legitimate `coffeemachine` literal (JSON event-details text, confirmed its
+   container was already theme-reactive) and reverted three false positives caught mid-pass (Whipped
+   Cream Layer swatch, Assembled Order Description text, Ingredient Hoppers Grid label — all three
+   nested inside hardcoded-dark hardware-panel containers, correctly still dark-only).
+3. Fully reverted `vendingmachine` via `git checkout --` after recognizing its entire hardware tab is
+   a deliberate physical-device illustration, confirmed by an empty `git diff` afterward.
+4. Grepped all four bulk-converted files for `background: 'var(--border-primary)'` used as a flat
+   button/avatar/badge fill (11 hits across the four files) and reverted every one paired with
+   `color: '#fff'` back to the original literal `#334155`; separately verified the two paired with a
+   non-white color (`#a78bfa` fixed badge text on library, `var(--text-secondary)` on a LinkedIn job
+   badge) — the first was already correct (fixed dark bg + fixed light text, matching the pre-existing
+   design), the second needed its text color pinned to a fixed `#cbd5e1` since `--text-secondary`
+   renders as *dark* text in light theme against this badge's now-always-dark `#334155` background.
+5. Ran a second, broader grep for the same misuse in *ternary* form (`cond ? 'x' : 'var(--border-
+   primary)'`), which the first grep's exact-string match couldn't see, and found three more:
+   LinkedIn's "2nd Degree" connection badge, LinkedIn's received-message chat bubble, and Movie
+   Ticket's held-by-someone-else seat tile (this last one used `var(--text-muted)` as a background
+   fill, not `--border-primary`) — reverted all three to their original fixed hex values.
+6. Re-ran `npx vitest run` (304/304 passed) and `npm run build` (entry chunk 260.77 kB, unchanged
+   from before this pass) to confirm no regression.
+
+### 6. Preventative Measures
+1. A bulk hex→token sed keyed on the literal string is blind to the same token appearing inside a
+   ternary or template-literal expression. After any bulk conversion, always run a second pass
+   grepping for the token itself (`var(--border-primary)`, etc.) rather than the original hex, to
+   catch every place it landed — including ones the first pass's string-matching missed.
+2. A CSS custom property's *name* documents its intended role (`--border-primary` implies "borders"),
+   and reusing it for an unrelated role (a solid background fill) produces contrast bugs invisible in
+   whichever theme happened to be active while eyeballing the diff — always check both themes'
+   resolved values (see the token table in this repo's session context / `theme.css`) before trusting
+   a token substitution, not just one.
+3. Before converting any color in a page with a physical/illustrative UI section (vending machines,
+   coffee machines, hardware panels), grep for the richer illustration-only palette this repo uses for
+   such content (see Diagnostic Commands) — its presence is a strong signal that colors in that
+   section carry representational meaning and must stay theme-invariant, not adaptive.

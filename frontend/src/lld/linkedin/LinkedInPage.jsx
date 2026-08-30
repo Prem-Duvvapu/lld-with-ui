@@ -307,30 +307,30 @@ export default function LinkedInPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header Bar */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'var(--bg-secondary, #1e293b)', borderBottom: '1px solid var(--border-primary, #334155)' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 42, height: 42, borderRadius: 8, background: '#0a66c2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, boxShadow: '0 4px 12px rgba(10,102,194,0.35)' }}>
             in
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>LinkedIn Professional Network</h1>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>LLD Portfolio Module #26 · Connections, Jobs & Messaging</span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>LLD Portfolio Module #26 · Connections, Jobs & Messaging</span>
           </div>
         </div>
 
         {/* User Switcher & Theme */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-card, #0f172a)', padding: '6px 12px', borderRadius: 8, border: '1px solid #334155' }}>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>Active Profile:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-card)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Active Profile:</span>
             <select
               value={currentUserId}
               onChange={(e) => setCurrentUserId(e.target.value)}
-              style={{ background: 'transparent', color: '#f8fafc', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none' }}
+              style={{ background: 'transparent', color: 'var(--text-primary)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none' }}
             >
               {users.map(u => (
-                <option key={u.id} value={u.id} style={{ background: '#1e293b', color: '#f8fafc' }}>
+                <option key={u.id} value={u.id} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
                   {u.name} ({u.email})
                 </option>
               ))}
@@ -348,7 +348,7 @@ export default function LinkedInPage() {
       )}
 
       {/* Tab Navigation */}
-      <nav style={{ display: 'flex', gap: 8, padding: '12px 24px', background: 'var(--bg-secondary, #1e293b)', borderBottom: '1px solid #334155', overflowX: 'auto' }}>
+      <nav style={{ display: 'flex', gap: 8, padding: '12px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', overflowX: 'auto' }}>
         {[
           { id: 'network', label: '👤 My Profile & Network', badge: pendingRequests.length },
           { id: 'jobs', label: '💼 Jobs & Applications', badge: jobs.length },
@@ -375,7 +375,7 @@ export default function LinkedInPage() {
               alignItems: 'center',
               gap: 8,
               background: activeTab === t.id ? '#0a66c2' : 'transparent',
-              color: activeTab === t.id ? '#fff' : '#94a3b8',
+              color: activeTab === t.id ? '#fff' : 'var(--text-secondary)',
               transition: 'all 0.2s',
             }}
           >
@@ -399,7 +399,7 @@ export default function LinkedInPage() {
             {/* Left Column: Current User Profile Card */}
             <div>
               {currentUser && (
-                <div style={{ background: 'var(--bg-card, #1e293b)', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+                <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
                   <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16 }}>
                     <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #0a66c2, #004182)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800 }}>
                       {currentUser.name.charAt(0)}
@@ -407,19 +407,19 @@ export default function LinkedInPage() {
                     <div>
                       <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{currentUser.name}</h2>
                       <div style={{ fontSize: 13, color: '#0a66c2', fontWeight: 600, marginTop: 2 }}>{currentUser.profile?.headline || 'Professional Member'}</div>
-                      <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>📍 {currentUser.profile?.location || 'Remote'} · {connections.length} Connections</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>📍 {currentUser.profile?.location || 'Remote'} · {connections.length} Connections</div>
                     </div>
                   </div>
 
                   {currentUser.profile?.summary && (
-                    <div style={{ background: 'var(--bg-primary, #0f172a)', padding: 12, borderRadius: 8, fontSize: 13, color: '#cbd5e1', marginBottom: 16, lineHeight: 1.5 }}>
+                    <div style={{ background: 'var(--bg-primary)', padding: 12, borderRadius: 8, fontSize: 13, color: '#cbd5e1', marginBottom: 16, lineHeight: 1.5 }}>
                       {currentUser.profile.summary}
                     </div>
                   )}
 
                   {/* Skills Tag Cloud */}
                   <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8 }}>Skills & Competencies</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8 }}>Skills & Competencies</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                       {currentUser.profile?.skills?.map((s, idx) => (
                         <span key={idx} style={{ background: 'rgba(10,102,194,0.15)', color: '#60a5fa', border: '1px solid rgba(10,102,194,0.3)', padding: '4px 10px', borderRadius: 14, fontSize: 12, fontWeight: 600 }}>
@@ -433,7 +433,7 @@ export default function LinkedInPage() {
                         placeholder="Add skill (e.g. Docker)..."
                         value={newSkill}
                         onChange={e => setNewSkill(e.target.value)}
-                        style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 12 }}
+                        style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 12 }}
                       />
                       <button type="submit" style={{ padding: '6px 12px', background: '#0a66c2', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                         + Add
@@ -444,11 +444,11 @@ export default function LinkedInPage() {
                   {/* Experience List */}
                   {currentUser.profile?.experiences?.length > 0 && (
                     <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8 }}>Experience</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8 }}>Experience</div>
                       {currentUser.profile.experiences.map((exp, idx) => (
                         <div key={idx} style={{ borderLeft: '2px solid #0a66c2', paddingLeft: 10, marginBottom: 8 }}>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>{exp.title}</div>
-                          <div style={{ fontSize: 12, color: '#94a3b8' }}>{exp.company} · {exp.location}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{exp.company} · {exp.location}</div>
                         </div>
                       ))}
                     </div>
@@ -456,15 +456,15 @@ export default function LinkedInPage() {
 
                   {/* Notifications feed */}
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 8 }}>Recent Notifications ({notifications.length})</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 8 }}>Recent Notifications ({notifications.length})</div>
                     <div style={{ maxHeight: 150, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {notifications.length === 0 ? (
-                        <div style={{ fontSize: 12, color: '#64748b' }}>No notifications yet.</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No notifications yet.</div>
                       ) : (
                         notifications.slice().reverse().map((n, i) => (
-                          <div key={i} style={{ background: '#0f172a', padding: 8, borderRadius: 6, fontSize: 11, borderLeft: '3px solid #0a66c2' }}>
+                          <div key={i} style={{ background: 'var(--bg-primary)', padding: 8, borderRadius: 6, fontSize: 11, borderLeft: '3px solid #0a66c2' }}>
                             <div style={{ fontWeight: 600, color: '#e2e8f0' }}>{n.message}</div>
-                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>{new Date(n.timestamp).toLocaleTimeString()}</div>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{new Date(n.timestamp).toLocaleTimeString()}</div>
                           </div>
                         ))
                       )}
@@ -486,10 +486,10 @@ export default function LinkedInPage() {
                     {pendingRequests.map(req => {
                       const sender = users.find(u => u.id === req.requesterId);
                       return (
-                        <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1e293b', padding: '10px 14px', borderRadius: 8 }}>
+                        <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-secondary)', padding: '10px 14px', borderRadius: 8 }}>
                           <div>
                             <div style={{ fontWeight: 700, fontSize: 13 }}>{sender?.name || req.requesterId}</div>
-                            <div style={{ fontSize: 12, color: '#94a3b8' }}>{sender?.profile?.headline || 'Wants to connect'}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{sender?.profile?.headline || 'Wants to connect'}</div>
                           </div>
                           <div style={{ display: 'flex', gap: 8 }}>
                             <button
@@ -513,7 +513,7 @@ export default function LinkedInPage() {
               )}
 
               {/* People Search with Relevance Scoring */}
-              <div style={{ background: 'var(--bg-card, #1e293b)', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
                 <h3 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 800 }}>🔍 Discover & Search Professionals</h3>
                 <form onSubmit={handleUserSearch} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   <input
@@ -521,7 +521,7 @@ export default function LinkedInPage() {
                     placeholder="Search by name, skills (e.g. Java, AI), or title..."
                     value={userSearchQuery}
                     onChange={e => setUserSearchQuery(e.target.value)}
-                    style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 13 }}
+                    style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 13 }}
                   />
                   <button type="submit" style={{ padding: '10px 18px', background: '#0a66c2', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     Ranked Search
@@ -533,7 +533,7 @@ export default function LinkedInPage() {
                   {(userSearchResults.length > 0 ? userSearchResults.map(r => r.user) : users.filter(u => u.id !== currentUserId)).map(other => {
                     const isConnected = connections.some(c => c.id === other.id);
                     return (
-                      <div key={other.id} style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                      <div key={other.id} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 14, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                             <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#334155', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 16 }}>
@@ -546,7 +546,7 @@ export default function LinkedInPage() {
                               </span>
                             </div>
                           </div>
-                          <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.4, marginBottom: 10 }}>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: 10 }}>
                             {other.profile?.headline || 'Software Professional'}
                           </div>
                         </div>
@@ -588,7 +588,7 @@ export default function LinkedInPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Explore Job Opportunities</h2>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>Weighted algorithmic job matching based on skill overlap & location</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Weighted algorithmic job matching based on skill overlap & location</div>
               </div>
               <button
                 onClick={() => setShowPostJobModal(true)}
@@ -605,7 +605,7 @@ export default function LinkedInPage() {
                 placeholder="Search job title, skills, or keywords..."
                 value={jobSearchQuery}
                 onChange={e => setJobSearchQuery(e.target.value)}
-                style={{ flex: 1, padding: '12px 16px', borderRadius: 8, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 14 }}
+                style={{ flex: 1, padding: '12px 16px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 14 }}
               />
               <button type="submit" style={{ padding: '12px 24px', background: '#0a66c2', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                 Search Jobs
@@ -618,14 +618,14 @@ export default function LinkedInPage() {
                 const hasApplied = job.applicantUserIds?.includes(currentUserId) || job.applicants?.includes(currentUserId);
                 const isPoster = job.posterId === currentUserId;
                 return (
-                  <div key={job.id} style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div key={job.id} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                         <div>
-                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>{job.title}</h3>
+                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{job.title}</h3>
                           <div style={{ fontSize: 13, color: '#60a5fa', fontWeight: 600, marginTop: 2 }}>{job.company} · 📍 {job.location}</div>
                         </div>
-                        <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#334155', color: '#94a3b8', fontWeight: 600 }}>
+                        <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#334155', color: '#cbd5e1', fontWeight: 600 }}>
                           {job.employmentType}
                         </span>
                       </div>
@@ -636,15 +636,15 @@ export default function LinkedInPage() {
 
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '12px 0' }}>
                         {job.requiredSkills?.map((skill, idx) => (
-                          <span key={idx} style={{ background: '#0f172a', color: '#94a3b8', border: '1px solid #334155', padding: '2px 8px', borderRadius: 6, fontSize: 11 }}>
+                          <span key={idx} style={{ background: 'var(--bg-primary)', color: 'var(--text-secondary)', border: '1px solid var(--border-primary)', padding: '2px 8px', borderRadius: 6, fontSize: 11 }}>
                             {skill}
                           </span>
                         ))}
                       </div>
                     </div>
 
-                    <div style={{ borderTop: '1px solid #334155', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                    <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                         👥 {job.applicantUserIds?.length || 0} Applicants
                       </span>
                       {hasApplied ? (
@@ -670,7 +670,7 @@ export default function LinkedInPage() {
             {/* Post Job Modal */}
             {showPostJobModal && (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 14, padding: 24, width: '100%', maxWidth: 500 }}>
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 500 }}>
                   <h3 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 800 }}>Create Job Opening</h3>
                   <form onSubmit={handlePostJob} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <input
@@ -679,7 +679,7 @@ export default function LinkedInPage() {
                       value={newJobTitle}
                       onChange={e => setNewJobTitle(e.target.value)}
                       required
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="text"
@@ -687,28 +687,28 @@ export default function LinkedInPage() {
                       value={newJobCompany}
                       onChange={e => setNewJobCompany(e.target.value)}
                       required
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="text"
                       placeholder="Location (e.g. San Francisco, CA or Remote)"
                       value={newJobLocation}
                       onChange={e => setNewJobLocation(e.target.value)}
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <textarea
                       placeholder="Job Description..."
                       value={newJobDesc}
                       onChange={e => setNewJobDesc(e.target.value)}
                       rows={3}
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="text"
                       placeholder="Required Skills comma-separated (e.g. Java, Kubernetes, React)"
                       value={newJobSkills}
                       onChange={e => setNewJobSkills(e.target.value)}
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                       <button
@@ -736,15 +736,15 @@ export default function LinkedInPage() {
         {/* TAB 3: MESSAGING */}
         {/* =================================================================== */}
         {activeTab === 'messages' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20, height: 600, background: '#1e293b', borderRadius: 12, border: '1px solid #334155', overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20, height: 600, background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
             {/* Left: Connected Contacts List */}
-            <div style={{ borderRight: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: 16, borderBottom: '1px solid #334155', fontWeight: 800, fontSize: 14 }}>
+            <div style={{ borderRight: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: 16, borderBottom: '1px solid var(--border-primary)', fontWeight: 800, fontSize: 14 }}>
                 Active Connections ({connections.length})
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {connections.length === 0 ? (
-                  <div style={{ padding: 20, color: '#64748b', fontSize: 13, textAlign: 'center' }}>
+                  <div style={{ padding: 20, color: 'var(--text-muted)', fontSize: 13, textAlign: 'center' }}>
                     No connections yet. Connect with professionals in the Network tab to chat!
                   </div>
                 ) : (
@@ -761,15 +761,15 @@ export default function LinkedInPage() {
                           gap: 12,
                           cursor: 'pointer',
                           background: isSelected ? 'rgba(10,102,194,0.15)' : 'transparent',
-                          borderBottom: '1px solid #334155',
+                          borderBottom: '1px solid var(--border-primary)',
                         }}
                       >
                         <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#0a66c2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                           {contact.name.charAt(0)}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, color: '#f8fafc' }}>{contact.name}</div>
-                          <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)' }}>{contact.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {contact.profile?.headline || 'Connected'}
                           </div>
                         </div>
@@ -784,7 +784,7 @@ export default function LinkedInPage() {
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
               {selectedChatUser ? (
                 <>
-                  <div style={{ padding: '14px 20px', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#0a66c2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                       {selectedChatUser.name.charAt(0)}
                     </div>
@@ -796,7 +796,7 @@ export default function LinkedInPage() {
 
                   <div style={{ flex: 1, padding: 20, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {messages.length === 0 ? (
-                      <div style={{ textAlign: 'center', color: '#64748b', marginTop: 40, fontSize: 13 }}>
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: 40, fontSize: 13 }}>
                         No messages yet. Send a greeting to start conversation!
                       </div>
                     ) : (
@@ -814,7 +814,7 @@ export default function LinkedInPage() {
                             }}>
                               {m.content}
                             </div>
-                            <div style={{ fontSize: 10, color: '#64748b', marginTop: 2, textAlign: isMe ? 'right' : 'left' }}>
+                            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, textAlign: isMe ? 'right' : 'left' }}>
                               {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           </div>
@@ -823,13 +823,13 @@ export default function LinkedInPage() {
                     )}
                   </div>
 
-                  <form onSubmit={handleSendMessage} style={{ padding: 16, borderTop: '1px solid #334155', display: 'flex', gap: 10 }}>
+                  <form onSubmit={handleSendMessage} style={{ padding: 16, borderTop: '1px solid var(--border-primary)', display: 'flex', gap: 10 }}>
                     <input
                       type="text"
                       placeholder={`Message ${selectedChatUser.name}...`}
                       value={messageInput}
                       onChange={e => setMessageInput(e.target.value)}
-                      style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 13 }}
+                      style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 13 }}
                     />
                     <button type="submit" style={{ padding: '10px 20px', background: '#0a66c2', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>
                       Send
@@ -837,7 +837,7 @@ export default function LinkedInPage() {
                   </form>
                 </>
               ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#64748b', fontSize: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 14 }}>
                   Select a contact on the left to start messaging
                 </div>
               )}
@@ -850,13 +850,13 @@ export default function LinkedInPage() {
         {/* =================================================================== */}
         {activeTab === 'simulation' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+            <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#38bdf8' }}>
                     🕹️ Network Graph & Concurrency Simulation
                   </h2>
-                  <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     Isolated real-time sandbox testing connection race locks, messaging guards, and job application idempotency.
                   </div>
                 </div>
@@ -870,7 +870,7 @@ export default function LinkedInPage() {
               </div>
 
               {/* Simulation Controls Panel */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: '#0f172a', padding: 16, borderRadius: 10, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: 'var(--bg-primary)', padding: 16, borderRadius: 10, marginBottom: 20 }}>
                 {/* 1. Trigger Connection */}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>1. Trigger Connection Request</div>
@@ -878,18 +878,18 @@ export default function LinkedInPage() {
                     <select
                       value={simSelectedSender}
                       onChange={e => setSimSelectedSender(e.target.value)}
-                      style={{ flex: 1, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                      style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
                     >
                       <option value="sim-alice">Alice (AI Scientist)</option>
                       <option value="sim-bob">Bob (Cloud Architect)</option>
                       <option value="sim-charlie">Charlie (Eng Manager)</option>
                       <option value="sim-diana">Diana (Product Manager)</option>
                     </select>
-                    <span style={{ alignSelf: 'center', color: '#94a3b8' }}>➔</span>
+                    <span style={{ alignSelf: 'center', color: 'var(--text-secondary)' }}>➔</span>
                     <select
                       value={simSelectedReceiver}
                       onChange={e => setSimSelectedReceiver(e.target.value)}
-                      style={{ flex: 1, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                      style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
                     >
                       <option value="sim-alice">Alice (AI Scientist)</option>
                       <option value="sim-bob">Bob (Cloud Architect)</option>
@@ -912,7 +912,7 @@ export default function LinkedInPage() {
                     type="text"
                     value={simMsgText}
                     onChange={e => setSimMsgText(e.target.value)}
-                    style={{ width: '100%', padding: '6px', borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11, marginBottom: 8 }}
+                    style={{ width: '100%', padding: '6px', borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11, marginBottom: 8 }}
                   />
                   <button
                     onClick={handleSimMessage}
@@ -925,7 +925,7 @@ export default function LinkedInPage() {
                 {/* 3. Job Application Idempotency Test */}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#a855f7', marginBottom: 8 }}>3. Test Job Application Race</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8 }}>
                     Simulate Alice applying to Charlie's Staff Backend role at Netflix.
                   </div>
                   <button
@@ -940,8 +940,8 @@ export default function LinkedInPage() {
               {/* Network Graph Visualizer */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Visual Graph Node Representation */}
-                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
+                <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
                     Topology Map (4 Simulated Nodes)
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -951,22 +951,22 @@ export default function LinkedInPage() {
                       { id: 'sim-charlie', name: 'Charlie Kim', role: 'Eng Manager', company: 'Netflix' },
                       { id: 'sim-diana', name: 'Diana Prince', role: 'Product Manager', company: 'AWS' },
                     ].map(node => (
-                      <div key={node.id} style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, padding: 12 }}>
+                      <div key={node.id} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 8, padding: 12 }}>
                         <div style={{ fontWeight: 700, fontSize: 12, color: '#60a5fa' }}>{node.name}</div>
-                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{node.role}</div>
-                        <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>{node.company}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{node.role}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>{node.company}</div>
                       </div>
                     ))}
                   </div>
 
                   {/* Active Links */}
                   <div style={{ marginTop: 14 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 6 }}>
                       Active Network Edges:
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                       {simSnapshots?.connections?.map((c, i) => (
-                        <div key={i} style={{ fontSize: 11, background: '#1e293b', padding: '6px 10px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div key={i} style={{ fontSize: 11, background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span>{c.requesterId} ➔ {c.targetId} ({c.status})</span>
                           {c.status === 'PENDING' && (
                             <button
@@ -983,15 +983,15 @@ export default function LinkedInPage() {
                 </div>
 
                 {/* Real-Time Event Log Stream */}
-                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
+                <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
                     Live Simulation Event Stream ({simEvents.length})
                   </div>
                   <div style={{ flex: 1, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {simEvents.slice().reverse().map(ev => (
-                      <div key={ev.id} style={{ background: '#1e293b', padding: '8px 10px', borderRadius: 6, borderLeft: `3px solid ${ev.type.includes('FAIL') || ev.type.includes('REJECT') ? '#ef4444' : '#10b981'}`, fontSize: 11 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: 10 }}>
-                          <span style={{ fontWeight: 700, color: '#f8fafc' }}>{ev.type}</span>
+                      <div key={ev.id} style={{ background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: 6, borderLeft: `3px solid ${ev.type.includes('FAIL') || ev.type.includes('REJECT') ? '#ef4444' : '#10b981'}`, fontSize: 11 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: 10 }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{ev.type}</span>
                           <span>{ev.timestamp}</span>
                         </div>
                         <div style={{ marginTop: 2, color: '#cbd5e1' }}>{ev.description}</div>

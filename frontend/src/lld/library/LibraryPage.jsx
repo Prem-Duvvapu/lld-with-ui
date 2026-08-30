@@ -254,30 +254,30 @@ export default function LibraryPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f172a)', color: 'var(--text-primary, #f8fafc)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Header Bar */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'var(--bg-secondary, #1e293b)', borderBottom: '1px solid var(--border-primary, #334155)' }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 42, height: 42, borderRadius: 8, background: '#8b5cf6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, boxShadow: '0 4px 12px rgba(139,92,246,0.35)' }}>
             📖
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>Library Management System</h1>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>LLD Portfolio Module #10 · Multi-Copy Catalog, Strategy Fines & Observer Sweeps</span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>LLD Portfolio Module #10 · Multi-Copy Catalog, Strategy Fines & Observer Sweeps</span>
           </div>
         </div>
 
         {/* Member Selector & Theme */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0f172a', padding: '6px 12px', borderRadius: 8, border: '1px solid #334155' }}>
-            <span style={{ fontSize: 12, color: '#94a3b8' }}>Active Member:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Active Member:</span>
             <select
               value={selectedMemberId}
               onChange={(e) => setSelectedMemberId(e.target.value)}
-              style={{ background: 'transparent', color: '#f8fafc', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none' }}
+              style={{ background: 'transparent', color: 'var(--text-primary)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none' }}
             >
               {members.map(m => (
-                <option key={m.id} value={m.id} style={{ background: '#1e293b', color: '#f8fafc' }}>
+                <option key={m.id} value={m.id} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
                   {m.name} ({m.type})
                 </option>
               ))}
@@ -295,7 +295,7 @@ export default function LibraryPage() {
       )}
 
       {/* Navigation Tabs */}
-      <nav style={{ display: 'flex', gap: 8, padding: '12px 24px', background: '#1e293b', borderBottom: '1px solid #334155', overflowX: 'auto' }}>
+      <nav style={{ display: 'flex', gap: 8, padding: '12px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', overflowX: 'auto' }}>
         {[
           { id: 'catalog', label: '📚 Book Catalog & Borrow', badge: books.length },
           { id: 'dashboard', label: '👤 Member Dashboard & Loans', badge: activeLoans.length },
@@ -322,7 +322,7 @@ export default function LibraryPage() {
               alignItems: 'center',
               gap: 8,
               background: activeTab === t.id ? '#8b5cf6' : 'transparent',
-              color: activeTab === t.id ? '#fff' : '#94a3b8',
+              color: activeTab === t.id ? '#fff' : 'var(--text-secondary)',
               transition: 'all 0.2s',
             }}
           >
@@ -346,7 +346,7 @@ export default function LibraryPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Library Book Catalog</h2>
-                <div style={{ fontSize: 13, color: '#94a3b8' }}>Multi-copy assets with rack locations and real-time availability tracking</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Multi-copy assets with rack locations and real-time availability tracking</div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
@@ -371,7 +371,7 @@ export default function LibraryPage() {
                 placeholder="Search by book title, author, category, or ISBN..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ flex: 1, padding: '12px 16px', borderRadius: 8, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 14 }}
+                style={{ flex: 1, padding: '12px 16px', borderRadius: 8, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 14 }}
               />
               <button type="submit" style={{ padding: '12px 24px', background: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                 Search Catalog
@@ -386,7 +386,7 @@ export default function LibraryPage() {
                 const hasFreeCopies = availableCount > 0;
 
                 return (
-                  <div key={book.isbn} style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div key={book.isbn} style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                         <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, background: '#334155', color: '#a78bfa', fontWeight: 600 }}>
@@ -405,22 +405,22 @@ export default function LibraryPage() {
                         </span>
                       </div>
 
-                      <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>{book.title}</h3>
-                      <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 12 }}>by {book.author}</div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>ISBN: {book.isbn}</div>
+                      <h3 style={{ margin: '0 0 4px 0', fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{book.title}</h3>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>by {book.author}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>ISBN: {book.isbn}</div>
 
                       {/* Copies breakdown */}
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 6 }}>Copy Barcodes:</div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 6 }}>Copy Barcodes:</div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                         {book.copies?.map((c, i) => (
                           <span key={i} style={{
-                            background: c.isAvailable ? '#0f172a' : '#334155',
-                            color: c.isAvailable ? '#38bdf8' : '#64748b',
+                            background: c.isAvailable ? 'var(--bg-primary)' : 'var(--border-primary)',
+                            color: c.isAvailable ? '#38bdf8' : 'var(--text-muted)',
                             padding: '2px 8px',
                             borderRadius: 4,
                             fontSize: 10,
                             textDecoration: c.isAvailable ? 'none' : 'line-through',
-                            border: '1px solid #334155'
+                            border: '1px solid var(--border-primary)'
                           }}>
                             {c.copyId} ({c.rackLocation})
                           </span>
@@ -435,8 +435,8 @@ export default function LibraryPage() {
                         width: '100%',
                         padding: '10px',
                         borderRadius: 8,
-                        background: hasFreeCopies ? '#8b5cf6' : '#334155',
-                        color: hasFreeCopies ? '#fff' : '#64748b',
+                        background: hasFreeCopies ? '#8b5cf6' : 'var(--border-primary)',
+                        color: hasFreeCopies ? '#fff' : 'var(--text-muted)',
                         border: 'none',
                         fontWeight: 700,
                         fontSize: 13,
@@ -453,7 +453,7 @@ export default function LibraryPage() {
             {/* Add Book Modal */}
             {showAddBookModal && (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460 }}>
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460 }}>
                   <h3 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 800 }}>Add Book to Catalog</h3>
                   <form onSubmit={handleAddBook} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <input
@@ -462,7 +462,7 @@ export default function LibraryPage() {
                       value={newIsbn}
                       onChange={e => setNewIsbn(e.target.value)}
                       required
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="text"
@@ -470,7 +470,7 @@ export default function LibraryPage() {
                       value={newTitle}
                       onChange={e => setNewTitle(e.target.value)}
                       required
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="text"
@@ -478,24 +478,24 @@ export default function LibraryPage() {
                       value={newAuthor}
                       onChange={e => setNewAuthor(e.target.value)}
                       required
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="text"
                       placeholder="Category"
                       value={newCategory}
                       onChange={e => setNewCategory(e.target.value)}
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <div>
-                      <label style={{ fontSize: 12, color: '#94a3b8' }}>Number of Physical Copies:</label>
+                      <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Number of Physical Copies:</label>
                       <input
                         type="number"
                         min="1"
                         max="10"
                         value={newCopies}
                         onChange={e => setNewCopies(parseInt(e.target.value) || 1)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', marginTop: 4 }}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', marginTop: 4 }}
                       />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
@@ -521,7 +521,7 @@ export default function LibraryPage() {
             {/* Register Member Modal */}
             {showRegisterMemberModal && (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460 }}>
+                <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 460 }}>
                   <h3 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 800 }}>Register Library Member</h3>
                   <form onSubmit={handleRegisterMember} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <input
@@ -530,7 +530,7 @@ export default function LibraryPage() {
                       value={newMemberName}
                       onChange={e => setNewMemberName(e.target.value)}
                       required
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <input
                       type="email"
@@ -538,14 +538,14 @@ export default function LibraryPage() {
                       value={newMemberEmail}
                       onChange={e => setNewMemberEmail(e.target.value)}
                       required
-                      style={{ padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff' }}
+                      style={{ padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
                     />
                     <div>
-                      <label style={{ fontSize: 12, color: '#94a3b8' }}>Member Type (Factory Policy):</label>
+                      <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Member Type (Factory Policy):</label>
                       <select
                         value={newMemberType}
                         onChange={e => setNewMemberType(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: '#0f172a', border: '1px solid #334155', color: '#fff', marginTop: 4 }}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', marginTop: 4 }}
                       >
                         <option value="STUDENT">STUDENT (Max 3 books, 14-day loan)</option>
                         <option value="FACULTY">FACULTY (Max 10 books, 30-day loan)</option>
@@ -582,7 +582,7 @@ export default function LibraryPage() {
             {/* Left: Member Profile & Fine Balance */}
             <div>
               {selectedMember && (
-                <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+                <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
                   <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 16 }}>
                     <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800 }}>
                       {selectedMember.name.charAt(0)}
@@ -590,20 +590,20 @@ export default function LibraryPage() {
                     <div>
                       <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{selectedMember.name}</h2>
                       <div style={{ fontSize: 13, color: '#a78bfa', fontWeight: 600 }}>{selectedMember.type} MEMBER</div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>{selectedMember.email}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{selectedMember.email}</div>
                     </div>
                   </div>
 
                   {/* Quota & Policy Stats */}
-                  <div style={{ background: '#0f172a', padding: 14, borderRadius: 8, display: 'flex', justifyContent: 'space-around', textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ background: 'var(--bg-primary)', padding: 14, borderRadius: 8, display: 'flex', justifyContent: 'space-around', textAlign: 'center', marginBottom: 16 }}>
                     <div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>ACTIVE LOANS</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ACTIVE LOANS</div>
                       <div style={{ fontSize: 18, fontWeight: 800, color: '#38bdf8' }}>
                         {selectedMember.activeLoanCount} / {selectedMember.loanPolicy?.maxBooksAllowed}
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>LOAN PERIOD</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>LOAN PERIOD</div>
                       <div style={{ fontSize: 18, fontWeight: 800, color: '#34d399' }}>
                         {selectedMember.loanPolicy?.loanDurationDays} Days
                       </div>
@@ -627,7 +627,7 @@ export default function LibraryPage() {
                           placeholder="Pay amount (₹)"
                           value={payAmount}
                           onChange={e => setPayAmount(e.target.value)}
-                          style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: '#0f172a', border: '1px solid #334155', color: '#fff', fontSize: 12 }}
+                          style={{ flex: 1, padding: '6px 10px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 12 }}
                         />
                         <button type="submit" style={{ padding: '6px 12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                           Pay Fine
@@ -641,13 +641,13 @@ export default function LibraryPage() {
 
             {/* Right: Active Loans & Return Operations */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+              <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
                 <h3 style={{ margin: '0 0 16px 0', fontSize: 16, fontWeight: 800 }}>
                   Active Borrowed Books ({activeLoans.length})
                 </h3>
 
                 {activeLoans.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 30, color: '#64748b', fontSize: 13 }}>
+                  <div style={{ textAlign: 'center', padding: 30, color: 'var(--text-muted)', fontSize: 13 }}>
                     No books currently checked out. Borrow books from the Catalog tab!
                   </div>
                 ) : (
@@ -656,7 +656,7 @@ export default function LibraryPage() {
                       const book = books.find(b => b.isbn === loan.isbn);
                       const isOverdue = loan.status === 'OVERDUE';
                       return (
-                        <div key={loan.loanId} style={{ background: '#0f172a', border: `1px solid ${isOverdue ? '#ef4444' : '#334155'}`, borderRadius: 10, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div key={loan.loanId} style={{ background: 'var(--bg-primary)', border: `1px solid ${isOverdue ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 10, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <h4 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>{book?.title || loan.isbn}</h4>
@@ -664,7 +664,7 @@ export default function LibraryPage() {
                                 {loan.status}
                               </span>
                             </div>
-                            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
                               Copy ID: {loan.copyId} · Issued: {loan.issueDate} · Due Date: <strong>{loan.dueDate}</strong>
                             </div>
                           </div>
@@ -683,15 +683,15 @@ export default function LibraryPage() {
               </div>
 
               {/* Loan History */}
-              <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+              <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
                 <h3 style={{ margin: '0 0 12px 0', fontSize: 15, fontWeight: 800 }}>Borrowing History</h3>
                 <div style={{ maxHeight: 200, overflowY: 'auto' }}>
                   {loanHistory.length === 0 ? (
-                    <div style={{ color: '#64748b', fontSize: 12 }}>No history records available.</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>No history records available.</div>
                   ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
-                        <tr style={{ color: '#94a3b8', borderBottom: '1px solid #334155', textAlign: 'left' }}>
+                        <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
                           <th style={{ padding: '6px 0' }}>Loan ID</th>
                           <th>ISBN / Book</th>
                           <th>Issued</th>
@@ -702,7 +702,7 @@ export default function LibraryPage() {
                       </thead>
                       <tbody>
                         {loanHistory.map(l => (
-                          <tr key={l.loanId} style={{ borderBottom: '1px solid #334155' }}>
+                          <tr key={l.loanId} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                             <td style={{ padding: '8px 0', fontWeight: 600 }}>{l.loanId}</td>
                             <td>{l.isbn}</td>
                             <td>{l.issueDate}</td>
@@ -724,17 +724,17 @@ export default function LibraryPage() {
         {/* TAB 3: NOTIFICATIONS */}
         {/* =================================================================== */}
         {activeTab === 'notifications' && (
-          <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 24, maxWidth: 800, margin: '0 auto' }}>
+          <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 24, maxWidth: 800, margin: '0 auto' }}>
             <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 800 }}>
               🔔 Member Notification Feed ({notifications.length})
             </h2>
-            <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20 }}>
               Dispatched via Observer Pattern (`DueDateNotifier`) during background sweeps and lifecycle triggers.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {notifications.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
                   No notifications for {selectedMember?.name}.
                 </div>
               ) : (
@@ -748,19 +748,19 @@ export default function LibraryPage() {
                   if (isReminder) color = '#f59e0b';
 
                   return (
-                    <div key={idx} style={{ background: '#0f172a', borderLeft: `4px solid ${color}`, borderRadius: 8, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div key={idx} style={{ background: 'var(--bg-primary)', borderLeft: `4px solid ${color}`, borderRadius: 8, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontSize: 11, fontWeight: 700, color, textTransform: 'uppercase' }}>
                           {notif.type.replace(/_/g, ' ')}
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: '#f8fafc' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: 'var(--text-primary)' }}>
                           {notif.message}
                         </div>
-                        <div style={{ fontSize: 10, color: '#64748b', marginTop: 4 }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
                           Ref ID: {notif.referenceId}
                         </div>
                       </div>
-                      <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
                         {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
@@ -776,13 +776,13 @@ export default function LibraryPage() {
         {/* =================================================================== */}
         {activeTab === 'simulation' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ background: '#1e293b', borderRadius: 12, border: '1px solid #334155', padding: 20 }}>
+            <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#a855f7' }}>
                     🕹️ Concurrency & Loan Lifecycle Simulation
                   </h2>
-                  <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                     Demonstrating Last-Copy Races (per-book lock), Borrow-Limit Races (per-member lock), and Observer Due-Date Sweeps.
                   </div>
                 </div>
@@ -796,7 +796,7 @@ export default function LibraryPage() {
               </div>
 
               {/* Simulation Controls Panel */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: '#0f172a', padding: 16, borderRadius: 10, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: 'var(--bg-primary)', padding: 16, borderRadius: 10, marginBottom: 20 }}>
                 {/* Control 1: Test Borrow & Last Copy Race */}
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>1. Simulate Borrow / Last-Copy Race</div>
@@ -804,7 +804,7 @@ export default function LibraryPage() {
                     <select
                       value={simMemberId}
                       onChange={e => setSimMemberId(e.target.value)}
-                      style={{ flex: 1, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                      style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
                     >
                       <option value="sim-mem-1">Alice (Student - Max 3)</option>
                       <option value="sim-mem-2">Prof. Bob (Faculty - Max 10)</option>
@@ -813,7 +813,7 @@ export default function LibraryPage() {
                     <select
                       value={simBookIsbn}
                       onChange={e => setSimBookIsbn(e.target.value)}
-                      style={{ flex: 1, padding: 6, borderRadius: 6, background: '#1e293b', border: '1px solid #334155', color: '#fff', fontSize: 11 }}
+                      style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
                     >
                       <option value="978-0132350884">Clean Code (1 copy)</option>
                       <option value="978-0134685991">Effective Java (2 copies)</option>
@@ -845,7 +845,7 @@ export default function LibraryPage() {
                       Force Overdue Transition
                     </button>
                   </div>
-                  <div style={{ fontSize: 10, color: '#94a3b8' }}>Accelerates clock to test observer notification delivery.</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Accelerates clock to test observer notification delivery.</div>
                 </div>
 
                 {/* Control 3: Quick Return with Fine */}
@@ -868,13 +868,13 @@ export default function LibraryPage() {
               {/* 2D Visual Shelf & Topology */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Visual Bookshelf Canvas */}
-                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
+                <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
                     📚 Simulated Book Stacks (Physical Copies)
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {simSnapshots?.books?.map(b => (
-                      <div key={b.isbn} style={{ background: '#1e293b', padding: 10, borderRadius: 8 }}>
+                      <div key={b.isbn} style={{ background: 'var(--bg-secondary)', padding: 10, borderRadius: 8 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
                           <span>{b.title}</span>
                           <span style={{ color: b.copies?.some(c => c.isAvailable) ? '#34d399' : '#f87171' }}>
@@ -902,21 +902,21 @@ export default function LibraryPage() {
                 </div>
 
                 {/* Real-time Event Log */}
-                <div style={{ background: '#0f172a', padding: 16, borderRadius: 10, border: '1px solid #334155', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', marginBottom: 12 }}>
+                <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
                     Live Simulation Event Stream ({simEvents.length})
                   </div>
                   <div style={{ flex: 1, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {simEvents.slice().reverse().map(ev => (
                       <div key={ev.id} style={{
-                        background: '#1e293b',
+                        background: 'var(--bg-secondary)',
                         padding: '8px 10px',
                         borderRadius: 6,
                         borderLeft: `3px solid ${ev.type.includes('REJECT') || ev.type.includes('FAIL') || ev.type.includes('OVERDUE') ? '#ef4444' : '#10b981'}`,
                         fontSize: 11
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: 10 }}>
-                          <span style={{ fontWeight: 700, color: '#f8fafc' }}>{ev.type}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: 10 }}>
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{ev.type}</span>
                           <span>{ev.timestamp}</span>
                         </div>
                         <div style={{ marginTop: 2, color: '#cbd5e1' }}>{ev.description}</div>
