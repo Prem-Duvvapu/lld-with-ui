@@ -12,17 +12,12 @@ export default {
         '- repository: MinesweeperRepository',
         '- minePlacer: MinePlacer',
         '- gameLocks: ConcurrentHashMap<Long, ReentrantLock>',
-        '- simRepository: MinesweeperRepository',
-        '- simEventLog: List<SimEvent>'
       ],
       methods: [
         '+ createGame(rows, cols, mines): Game',
         '+ revealCell(gameId, row, col): Game',
         '+ flagCell(gameId, row, col): Game',
         '+ getGame(id): Game',
-        '+ simReset(): Game',
-        '+ simReveal(row, col): Game',
-        '+ simFlag(row, col): Game'
       ]
     },
     {
@@ -99,48 +94,6 @@ export default {
         '+ nextId(): long'
       ]
     },
-    {
-      name: 'MinesweeperException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
-      name: 'GameNotFoundException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 404'],
-      methods: []
-    },
-    {
-      name: 'GameOverException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 409'],
-      methods: []
-    },
-    {
-      name: 'InvalidCellException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 400'],
-      methods: []
-    },
-    {
-      name: 'InvalidBoardConfigException',
-      stereotype: 'exception',
-      fields: ['@ResponseStatus 400'],
-      methods: []
-    },
-    {
-      name: 'SimEvent',
-      fields: [
-        '- id: long',
-        '- timestamp: String',
-        '- actor: String',
-        '- description: String',
-        '- status: GameStatus',
-        '- revealedCount: int'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     {
@@ -180,35 +133,5 @@ export default {
       label: 'implements',
       dashed: true
     },
-    {
-      from: 'GameNotFoundException',
-      to: 'MinesweeperException',
-      label: 'extends'
-    },
-    {
-      from: 'GameOverException',
-      to: 'MinesweeperException',
-      label: 'extends'
-    },
-    {
-      from: 'InvalidCellException',
-      to: 'MinesweeperException',
-      label: 'extends'
-    },
-    {
-      from: 'InvalidBoardConfigException',
-      to: 'MinesweeperException',
-      label: 'extends'
-    },
-    {
-      from: 'MinesweeperService',
-      to: 'MinesweeperException',
-      label: 'throws'
-    },
-    {
-      from: 'MinesweeperService',
-      to: 'SimEvent',
-      label: 'logs (/sim/* engine)'
-    }
   ]
 };

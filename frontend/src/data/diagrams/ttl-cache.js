@@ -138,38 +138,12 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'TtlCacheException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidCacheParametersException',
-      fields: [
-        'extends TtlCacheException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'TtlCacheController', to: 'TtlCacheService', label: 'delegates to' },
     { from: 'TtlCacheService', to: 'TtlCache', label: 'creates one per run' },
     { from: 'TtlCacheService', to: 'RunRequest', label: 'normalizes & validates' },
     { from: 'TtlCacheService', to: 'RunResult', label: 'assembles' },
-    { from: 'TtlCacheService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'TtlCacheService', to: 'InvalidCacheParametersException', label: 'throws on bad params' },
     { from: 'TtlCache', to: 'CacheEntry', label: 'stores' },
     { from: 'TtlCache', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
@@ -177,7 +151,6 @@ export default {
     { from: 'RunRequest', to: 'PutSpec', label: 'scripts' },
     { from: 'RunRequest', to: 'GetSpec', label: 'schedules' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidCacheParametersException', to: 'TtlCacheException', label: 'extends', dashed: true },
     { from: 'TtlCacheController', to: 'RunRequest', label: 'accepts' },
     { from: 'TtlCacheController', to: 'RunResult', label: 'returns' }
   ]

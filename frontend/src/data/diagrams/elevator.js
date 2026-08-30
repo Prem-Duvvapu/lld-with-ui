@@ -14,7 +14,6 @@ export default {
         '+ setMaintenance(body): void',
         '+ getDispatchPolicy(): Map',
         '+ setDispatchPolicy(body): Map',
-        '+ sim*(...): Map  // isolated /sim/* endpoints'
       ]
     },
     {
@@ -24,15 +23,12 @@ export default {
         '- activePolicy: DispatchPolicy',
         '- controllerLock: ReentrantLock',
         '- pendingExternalRequests: Queue<Request>',
-        '- simElevators: Map<Long, Elevator>  // isolated sandbox'
       ],
       methods: [
         '+ handleExternalRequest(sourceFloor, destinationFloor): Request',
         '+ handleInternalRequest(elevatorId, destinationFloor): void',
         '+ setElevatorMaintenance(elevatorId, maintenance): void',
         '+ stepSimulation(): List<Elevator>',
-        '+ simRequest(sourceFloor, destinationFloor): Map',
-        '+ simStep(): Map'
       ]
     },
     {
@@ -173,31 +169,6 @@ export default {
         '+ nextRequestId(): long'
       ]
     },
-    {
-      name: 'ElevatorException',
-      stereotype: 'abstract exception',
-      methods: []
-    },
-    {
-      name: 'FloorOutOfRangeException',
-      stereotype: 'exception 400',
-      methods: []
-    },
-    {
-      name: 'ElevatorNotFoundException',
-      stereotype: 'exception 404',
-      methods: []
-    },
-    {
-      name: 'IllegalElevatorStateTransitionException',
-      stereotype: 'exception 409',
-      methods: []
-    },
-    {
-      name: 'ElevatorUnavailableException',
-      stereotype: 'exception 409',
-      methods: []
-    }
   ],
   relationships: [
     { from: 'ElevatorController', to: 'ElevatorService', label: 'delegates to' },
@@ -223,9 +194,5 @@ export default {
     { from: 'InMemoryElevatorEventObserver', to: 'ElevatorObserver', label: 'implements' },
     { from: 'ElevatorRepository', to: 'Elevator', label: 'stores' },
     { from: 'ElevatorRepository', to: 'Request', label: 'stores' },
-    { from: 'FloorOutOfRangeException', to: 'ElevatorException', label: 'extends' },
-    { from: 'ElevatorNotFoundException', to: 'ElevatorException', label: 'extends' },
-    { from: 'IllegalElevatorStateTransitionException', to: 'ElevatorException', label: 'extends' },
-    { from: 'ElevatorUnavailableException', to: 'ElevatorException', label: 'extends' }
   ]
 };

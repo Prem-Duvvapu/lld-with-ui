@@ -11,7 +11,6 @@ export default {
         '- repository: ChessRepository',
         '- strategyFactory: PieceMoveStrategyFactory',
         '- gameLocks: Map<Long, ReentrantLock>',
-        '- simRepository: ChessRepository'
       ],
       methods: [
         '+ createGame(w, b): Game',
@@ -129,12 +128,6 @@ export default {
       methods: ['+ opposite(): Color', '+ index(): int']
     },
     {
-      name: 'ChessException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
       name: 'ChessRepository',
       fields: ['- games: ConcurrentHashMap<Long, Game>'],
       methods: ['+ save(game): void', '+ get(id): Game', '+ nextId(): long']
@@ -144,7 +137,6 @@ export default {
     { from: 'ChessService', to: 'ChessRepository', label: 'uses' },
     { from: 'ChessService', to: 'PieceMoveStrategyFactory', label: 'uses' },
     { from: 'ChessService', to: 'ApplyMoveCommand', label: 'creates & executes' },
-    { from: 'ChessService', to: 'ChessException', label: 'throws' },
     { from: 'PieceMoveStrategyFactory', to: 'PieceMoveStrategy', label: 'resolves' },
     { from: 'PawnMoveStrategy', to: 'PieceMoveStrategy', label: 'implements' },
     { from: 'RookMoveStrategy', to: 'PieceMoveStrategy', label: 'implements' },

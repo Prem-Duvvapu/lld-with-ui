@@ -23,7 +23,6 @@ export default {
         '+ createAccount(userId, name, email, initialDeposit): Account',
         '+ placeOrder(accountId, symbol, side, type, price, quantity): Order',
         '+ cancelOrder(orderId): Order',
-        '+ simReset() / simPlaceOrder(...) / simCancelOrder(orderId)',
       ],
     },
     {
@@ -208,12 +207,6 @@ export default {
       name: 'OrderStatus',
       stereotype: 'enum',
       fields: ['PENDING', 'PARTIALLY_FILLED', 'EXECUTED', 'CANCELLED', 'REJECTED'],
-      methods: [],
-    },
-    {
-      name: 'StockBrokerException',
-      stereotype: 'exception',
-      fields: ['extends DomainException'],
       methods: [],
     },
   ],

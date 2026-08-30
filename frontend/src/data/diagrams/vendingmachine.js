@@ -169,16 +169,12 @@ export default {
       stereotype: 'service',
       fields: [
         '- mainMachine: VendingMachine',
-        '- simMachine: VendingMachine',
-        '- simEvents: List<SimEvent>'
       ],
       methods: [
         '+ getSlots(): List',
         '+ selectProduct(code): Transaction',
         '+ insertMoney(val): Transaction',
         '+ dispense(): Transaction',
-        '+ simReset(): Map',
-        '+ simDispense(step): Map'
       ]
     }
   ],

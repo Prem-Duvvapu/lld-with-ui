@@ -1,36 +1,48 @@
 // Sequence diagram content for logging-framework.
-// Grounded directly in LoggingService, LogLevel filtering (Chain of Responsibility),
-// and Appender strategy dispatch (ConsoleAppender, FileAppender, DatabaseAppender).
+// Grounded directly in Logger#log, the level.isGreaterOrEqual(threshold) inline filter,
+// LogHandlerChainBuilder's per-level Chain of Responsibility, and appender dispatch —
+// corrected after an earlier version invented a "LogLevelFilter" class that performs the
+// threshold check as its own chain step. In the real code the threshold check happens
+// inline inside Logger#log BEFORE the chain is even built; the Chain of Responsibility
+// that actually exists (TraceLogHandler -> DebugLogHandler -> ... -> FatalLogHandler) routes
+// an already-accepted message to the ONE handler whose level exactly matches it, not a
+// cascading threshold filter.
 export default {
-  title: 'Logging Framework — Chain of Responsibility Filter & Multi-Appender Fan-Out',
+  title: 'Logging Framework — Threshold Filter, Level-Routing Chain & Appender Fan-Out',
   description:
-    'How LoggingFramework filters messages by severity level and fans out formatted messages across configured appenders (Console, File, Database) via Chain of Responsibility and Strategy patterns.',
+    'How Logger#log filters by an inline threshold comparison, formats and persists the message, then hands it to a freshly-built LogHandlerChainBuilder chain that routes it to the ONE LogHandler whose level exactly matches, which fans it out to every effective appender (synchronously, or via AsyncLogDispatcher when async mode is on).',
   flows: [
     {
-      id: 'logging-filter-and-dispatch',
-      label: 'Log event passes level filter → Formatted and dispatched to appenders',
+      id: 'logging-filter-chain-and-dispatch',
+      label: 'POST /api/logging/log — threshold check, format, persist, chain-route, fan out to appenders',
       description:
-        'An application service logs an ERROR message. LoggingService filters the message through the LogLevel hierarchy (INFO < WARN < ERROR), formats the message with timestamp and thread context, and asynchronously dispatches to ConsoleAppender and FileAppender.',
+        'An application logs an ERROR message on "RootLogger" (effective threshold INFO). Logger#log passes the inline level.isGreaterOrEqual(threshold) check, builds and formats the LogMessage, saves it to LogRepository, then asks LogHandlerChainBuilder for a fresh chain built for that threshold. The chain walks Trace→Debug→Info→Warn→Error→Fatal; ErrorLogHandler is the one whose level equals ERROR, so it writes to every effective appender (LoggerTest / LogHandlerChainTest cover the routing and threshold-filter behaviour).',
       participants: [
         { id: 'app', name: 'Application\nService', kind: 'actor' },
-        { id: 'controller', name: 'Logging\nController', kind: 'component', stereotype: 'controller' },
-        { id: 'logger', name: 'Logger / \nLoggingService', kind: 'component', stereotype: 'facade' },
-        { id: 'filterChain', name: 'LogLevelFilter\n(Chain of Resp.)', kind: 'component', stereotype: 'chain' },
-        { id: 'formatter', name: 'LogFormatter', kind: 'component' },
-        { id: 'consoleAppender', name: 'Console\nAppender', kind: 'component', stereotype: 'strategy' },
-        { id: 'fileAppender', name: 'File\nAppender', kind: 'component', stereotype: 'strategy' },
+        { id: 'controller', name: 'LoggingController', kind: 'component', stereotype: 'controller' },
+        { id: 'logger', name: 'Logger', kind: 'component', stereotype: 'facade' },
+        { id: 'repository', name: 'LogRepository', kind: 'store' },
+        { id: 'chainBuilder', name: 'LogHandlerChainBuilder', kind: 'component', stereotype: 'chain' },
+        { id: 'errorHandler', name: 'ErrorLogHandler', kind: 'component', stereotype: 'chain' },
+        { id: 'consoleAppender', name: 'ConsoleAppender', kind: 'component', stereotype: 'strategy' },
+        { id: 'fileAppender', name: 'FileAppender', kind: 'component', stereotype: 'strategy' },
       ],
       steps: [
-        { from: 'app', to: 'controller', text: 'POST /api/logging/log {level: "ERROR", message: "Database connection timed out", context: {db: "users"}}' },
+        { from: 'app', to: 'controller', text: 'POST /api/logging/log {loggerName: "RootLogger", level: "ERROR", message: "Database connection timed out", context: {db: "users"}}' },
         { from: 'controller', to: 'logger', text: 'log(LogLevel.ERROR, "Database connection timed out", context)', activate: 'logger' },
-        { from: 'logger', to: 'filterChain', text: 'isLoggable(LogLevel.ERROR, threshold=INFO)', activate: 'filterChain' },
-        { from: 'filterChain', to: 'logger', text: 'return true (ERROR >= INFO) ✓', type: 'return', deactivate: 'filterChain' },
-        { from: 'logger', to: 'formatter', text: 'format(LogEvent {ERROR, "Database connection timed out", timestamp, thread})', activate: 'formatter' },
-        { from: 'formatter', to: 'logger', text: 'return "[2026-08-29 08:30:00.123] [main] ERROR Database connection timed out"', type: 'return', deactivate: 'formatter' },
-        { from: 'logger', to: 'consoleAppender', text: 'append(formattedLog) — write to standard error stream' },
-        { from: 'logger', to: 'fileAppender', text: 'append(formattedLog) — flush to rotating app.log file' },
-        { from: 'logger', to: 'controller', text: 'return LogResult {status: DELIVERED, appenders: ["Console", "File"]}', type: 'return', deactivate: 'logger' },
-        { from: 'controller', to: 'app', text: '200 OK — Log event recorded', type: 'return' },
+        { from: 'logger', to: 'logger', text: 'getEffectiveLevel() -> INFO ; level.isGreaterOrEqual(INFO)? ERROR >= INFO -> true, not filtered' },
+        { from: 'logger', to: 'logger', text: 'build LogMessage {level, loggerName, message, threadName, context, timestamp}; format via activeFormatter' },
+        { from: 'logger', to: 'repository', text: 'repository.save(logMessage)', activate: 'repository' },
+        { from: 'repository', to: 'logger', text: 'return saved LogMessage (id assigned)', type: 'return', deactivate: 'repository' },
+        { from: 'logger', to: 'chainBuilder', text: 'LogHandlerChainBuilder.buildChain(threshold=INFO) -> fresh Info->Warn->Error->Fatal chain', activate: 'chainBuilder' },
+        { from: 'chainBuilder', to: 'logger', text: 'return chainHead (InfoLogHandler)', type: 'return', deactivate: 'chainBuilder' },
+        { from: 'logger', to: 'errorHandler', text: 'chainHead.handle(saved, effectiveAppenders, formatter, asyncDispatcher, isAsync) — walks Info -> Warn -> Error', activate: 'errorHandler' },
+        { type: 'note', over: ['errorHandler'], text: 'message.getLevel() == ERROR matches ErrorLogHandler exactly — the chain stops here, never reaching FatalLogHandler.' },
+        { from: 'errorHandler', to: 'consoleAppender', text: '[isAsync=false] appender.append(message, formatter) — for each enabled effective appender' },
+        { from: 'errorHandler', to: 'fileAppender', text: 'appender.append(message, formatter)' },
+        { from: 'errorHandler', to: 'logger', text: 'return true (handled)', type: 'return', deactivate: 'errorHandler' },
+        { from: 'logger', to: 'controller', text: 'return saved LogMessage', type: 'return', deactivate: 'logger' },
+        { from: 'controller', to: 'app', text: '200 OK — LogMessage {id, level: ERROR, formattedMessage, appenders it reached}', type: 'return' },
       ],
     },
   ],

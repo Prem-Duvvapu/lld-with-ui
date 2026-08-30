@@ -15,7 +15,6 @@ export default {
         '+ holdSeats(flightId, body): Map',
         '+ bookFlight(body): Booking',
         '+ cancelBooking(bookingId): Booking',
-        '+ simHold/simBook/simCancel/simExpire(body): Map'
       ]
     },
     {
@@ -27,7 +26,6 @@ export default {
         '- paymentProcessor: PaymentProcessor',
         '- refundPolicyFactory: RefundPolicyFactory',
         '- pricingStrategyFactory: PricingStrategyFactory',
-        '- simFlightsById, simBookingsById: Map (isolated sandbox)'
       ],
       methods: [
         '+ createFlight(..., pricingModel): Flight',
@@ -35,7 +33,6 @@ export default {
         '+ bookFlight(flightId, seats, passengers, userId, payment, idemKey, fareType): Booking',
         '+ cancelBooking(bookingId): Booking',
         '+ scheduledStaleHoldCleanup(): void',
-        '+ simReset/simHold/simBook/simCancel/simExpireHold(...): Map'
       ]
     },
     {
@@ -186,18 +183,6 @@ export default {
       methods: []
     },
     {
-      name: 'SimEvent',
-      stereotype: 'entity',
-      fields: ['- id: long', '- timestamp, type, actor, description: String', '- data: Map'],
-      methods: []
-    },
-    {
-      name: 'AirlineException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
       name: 'SeatClass',
       stereotype: 'enum',
       fields: ['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST'],
@@ -235,7 +220,6 @@ export default {
     { from: 'AirlineService', to: 'PaymentProcessor', label: 'charges via' },
     { from: 'AirlineService', to: 'RefundPolicyFactory', label: 'resolves refund via' },
     { from: 'AirlineService', to: 'PricingStrategyFactory', label: 'resolves fare via' },
-    { from: 'AirlineService', to: 'AirlineException', label: 'throws', dashed: true },
     { from: 'PricingStrategyFactory', to: 'PricingStrategy', label: 'resolves' },
     { from: 'ClassBasedPricingStrategy', to: 'PricingStrategy', label: 'implements', dashed: true },
     { from: 'DemandSurgePricingStrategy', to: 'PricingStrategy', label: 'implements', dashed: true },
@@ -261,6 +245,5 @@ export default {
     { from: 'Booking', to: 'BookingStatus', label: 'has state' },
     { from: 'PaymentProcessor', to: 'Payment', label: 'creates' },
     { from: 'Payment', to: 'Booking', label: 'settles' },
-    { from: 'AirlineService', to: 'SimEvent', label: 'logs sim events as' }
   ]
 };

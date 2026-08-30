@@ -17,25 +17,21 @@ export default {
         '+ updateStatus(id, status): Task',
         '+ claimTask(id, body): Task',
         '+ getOrderedTasks(boardId, policy): List<Task>',
-        '+ simClaimRace(body): Map',
-        '+ simTransitionRace(body): Map'
       ]
     },
     {
       name: 'TaskService',
       stereotype: 'facade',
       fields: [
-        '- repository, simRepository: TaskRepository',
+        '- repository: TaskRepository',
         '- orderingFactory: TaskOrderingStrategyFactory',
-        '- taskLocks, simTaskLocks: ConcurrentHashMap<Long, ReentrantLock>'
+        '- taskLocks: ConcurrentHashMap<Long, ReentrantLock>'
       ],
       methods: [
         '+ createTask(boardId, title, desc, priority, assignee, dueDate): Task',
         '+ moveTask(taskId, target): Task',
         '+ claimTask(taskId, actor): Task',
         '+ getOrderedTasks(boardId, policy): List<Task>',
-        '+ simClaimRace(taskId, actors, step): Map',
-        '+ simTransitionRace(taskId, first, second, step): Map',
         '- doMoveTask(repo, locks, taskId, target): Task',
         '- doClaimTask(repo, locks, taskId, actor): Task'
       ]
@@ -156,12 +152,6 @@ export default {
       methods: ['+ forPolicy(policy): TaskOrderingStrategy']
     },
     {
-      name: 'TaskException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
       name: 'TaskStatus',
       stereotype: 'enum',
       fields: ['TODO', 'IN_PROGRESS', 'REVIEW', 'BLOCKED', 'DONE', 'CANCELLED'],
@@ -184,7 +174,6 @@ export default {
     { from: 'TaskController', to: 'TaskService', label: 'delegates to' },
     { from: 'TaskService', to: 'TaskRepository', label: 'uses' },
     { from: 'TaskService', to: 'TaskOrderingStrategyFactory', label: 'resolves via' },
-    { from: 'TaskService', to: 'TaskException', label: 'throws', dashed: true },
     { from: 'TaskRepository', to: 'Task', label: 'stores' },
     { from: 'TaskRepository', to: 'Board', label: 'stores' },
     { from: 'Task', to: 'TaskStatus', label: 'has status' },
@@ -202,6 +191,5 @@ export default {
     { from: 'FifoWithinPriorityStrategy', to: 'TaskOrderingStrategy', label: 'implements', dashed: true },
     { from: 'DueDateFirstStrategy', to: 'TaskOrderingStrategy', label: 'implements', dashed: true },
     { from: 'WeightedScoreStrategy', to: 'TaskOrderingStrategy', label: 'implements', dashed: true },
-    { from: 'Task', to: 'TaskException', label: 'throws', dashed: true }
   ]
 };

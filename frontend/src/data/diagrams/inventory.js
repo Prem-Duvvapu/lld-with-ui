@@ -18,15 +18,14 @@ export default {
         '+ reorder(productId, policy): StockMovement',
         '+ transferStock(productId, request): StockMovement',
         '+ getAlerts(): List<StockAlert>',
-        '+ simRace(body): Map'
       ]
     },
     {
       name: 'InventoryService',
       stereotype: 'facade',
       fields: [
-        '- repository, simRepository: InventoryRepository',
-        '- notifier, simNotifier: StockAlertNotifier',
+        '- repository: InventoryRepository',
+        '- notifier: StockAlertNotifier',
         '- reorderFactory: ReorderStrategyFactory',
         '- productLocks: ConcurrentHashMap<Long, ReentrantLock>'
       ],
@@ -35,7 +34,6 @@ export default {
         '+ updateStock(productId, qty, type, reason): StockMovement',
         '+ reorder(productId, policy): StockMovement',
         '+ transferStock(productId, from, to, qty): StockMovement',
-        '+ simRace(productId, buyers): Map',
         '- doUpdateStock(repo, notifier, feed, productId, qty, type, reason): StockMovement'
       ]
     },
@@ -162,12 +160,6 @@ export default {
       methods: []
     },
     {
-      name: 'InventoryException',
-      stereotype: 'exception',
-      fields: [],
-      methods: []
-    },
-    {
       name: 'ReorderPolicy',
       stereotype: 'enum',
       fields: ['MIN_RESTOCK', 'EOQ', 'URGENT_BUFFER'],
@@ -191,7 +183,6 @@ export default {
     { from: 'InventoryService', to: 'InventoryRepository', label: 'uses' },
     { from: 'InventoryService', to: 'StockAlertNotifier', label: 'publishes via' },
     { from: 'InventoryService', to: 'ReorderStrategyFactory', label: 'resolves via' },
-    { from: 'InventoryService', to: 'InventoryException', label: 'throws', dashed: true },
     { from: 'StockAlertNotifier', to: 'StockAlertObserver', label: 'notifies' },
     { from: 'InAppStockAlertObserver', to: 'StockAlertObserver', label: 'implements', dashed: true },
     { from: 'LoggingStockAlertObserver', to: 'StockAlertObserver', label: 'implements', dashed: true },
@@ -208,6 +199,5 @@ export default {
     { from: 'Product', to: 'Supplier', label: 'supplied by' },
     { from: 'StockMovement', to: 'StockMovementType', label: 'typed by' },
     { from: 'StockAlert', to: 'Product', label: 'concerns' },
-    { from: 'MinRestockStrategy', to: 'InventoryException', label: 'throws', dashed: true }
   ]
 };

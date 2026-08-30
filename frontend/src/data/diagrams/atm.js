@@ -22,8 +22,6 @@ export default {
         '+ withdraw(accNum, amount): WithdrawalTransaction',
         '+ deposit(accNum, amount, notes): DepositTransaction',
         '+ ejectCard(): Map',
-        '+ simReset()',
-        '+ simWithdraw(...)'
       ]
     },
     {

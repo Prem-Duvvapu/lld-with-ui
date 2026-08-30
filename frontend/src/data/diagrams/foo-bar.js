@@ -96,43 +96,16 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'FooBarException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidFooBarParametersException',
-      fields: [
-        'extends FooBarException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'FooBarController', to: 'FooBarService', label: 'delegates to' },
     { from: 'FooBarService', to: 'FooBarPrinter', label: 'creates one per run' },
     { from: 'FooBarService', to: 'RunRequest', label: 'validates' },
     { from: 'FooBarService', to: 'RunResult', label: 'assembles' },
-    { from: 'FooBarService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'FooBarService', to: 'InvalidFooBarParametersException', label: 'throws on bad params' },
     { from: 'FooBarPrinter', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidFooBarParametersException', to: 'FooBarException', label: 'extends', dashed: true },
     { from: 'FooBarController', to: 'RunRequest', label: 'accepts' },
     { from: 'FooBarController', to: 'RunResult', label: 'returns' }
   ]

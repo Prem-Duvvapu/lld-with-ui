@@ -3012,3 +3012,108 @@ grep -rn "idempotencyCache.get\|idempotencyCache.put" backend/src/main/java/com/
    check. Any idempotency-key or "retry-safe" claim in this repo's design docs should be backed by
    a genuinely concurrent test (multiple threads, `CountDownLatch`-released, same key), not just a
    sequential one, exactly as `ShoppingCartConcurrencyTest` now does.
+
+## RCA-034: The Remaining 10 Never-Sampled Sequence Diagrams From RCA-030 Were Also Fabricated, Plus Two Files Marked "Clean" in That Original Spot-Check Weren't
+
+**Severity:** Medium (same class as RCA-030/RCA-031 — documentation content, not application code,
+so no runtime impact, but actively misleading to a reader trying to learn the real design)
+**Date:** 2026-08-30
+**Status:** Resolved for the 12 files below; the rest of the 45-module sequence set is now fully
+sampled across RCA-030 + RCA-031 + this entry
+**Affected:** `frontend/src/data/sequences/{bloom-filter,concurrent-hashmap,merge-sort,ttl-cache,fizz-buzz,foo-bar,h2o,zero-even-odd,cricinfo,logging-framework}.js`
+
+### 1. Overview & Severity
+RCA-030's own Preventative Measures section named 8 files as never sampled at all (`bloom-filter`,
+`concurrent-hashmap`, `fizz-buzz`, `foo-bar`, `h2o`, `merge-sort`, `zero-even-odd`, `ttl-cache`) and
+flagged "a few others" as possibly unsampled too. Running the diagnostic grep across every one of
+the 45 sequence files (not just the previously-skipped 8) turned up two more that RCA-030's original
+22-module spot-check had marked clean but weren't: `cricinfo` (invented a `MatchEngine` class; the
+real one is `BallRecordingEngine`) and `logging-framework` (invented a `LogLevelFilter` chain-of-
+responsibility step; the real chain is `LogHandlerChainBuilder` routing to per-level handlers, and
+the real threshold filter is a plain inline comparison in `Logger#log`, not a chain step at all).
+
+All 8 previously-unsampled files turned out fabricated too, but in a way RCA-030's grep pattern was
+structurally blind to: they don't reference fictitious class *names* (there's no invented
+`XyzService` to catch), they invent a fictitious *architecture* — a live, free-form `put()`/`get()`
+demo instead of the real design, which for every primitive in `com.lld.concurrency` is a single
+`POST /api/concurrency/<name>/run` that scripts a fixed scenario against real threads and returns a
+complete timestamped trace (`RunRequest` → `{Name}Service#run` → `RunResult` with `orderedTrace[]`).
+`concurrent-hashmap.js` was the worst of the 8: it showed two threads doing a bare `put()` on
+different stripes, when the real `ConcurrentHashMapService#run` scripts two entirely different
+phases (concurrent `merge()`-increment conservation, then a `CountDownLatch`-released
+`computeIfAbsent()` race) that the two-thread-put diagram didn't depict at all.
+
+### 2. Symptoms & Error Logs
+None — same as RCA-030, `designDataCoverage.test.js` only checks structural registration
+(id resolves, no duplicate barrel keys, no edge to an undeclared class), never content accuracy
+against the Java source, so all 304 frontend tests passed against every fabricated file the whole
+time.
+
+### 3. Root Cause
+1. RCA-030's diagnostic grep (`\b[A-Z][a-zA-Z]{3,}(Service|Strategy|...)\b` → existence-check each
+   match) only catches a *wrong class name*. It has no way to catch a *right-shaped but wrong
+   architecture* — a diagram that never names a fictitious class because it never engages with the
+   real endpoint/service contract at all, just invents a plausible-looking simpler demo. This is the
+   same blind-spot family as RCA-031 (embedded `\n` defeating the regex), but a different flavor:
+   here the regex ran fine and found nothing to flag, because there was nothing regex-shaped to find.
+2. `cricinfo` and `logging-framework` being wrongly marked "clean" in RCA-030's original spot-check
+   confirms that pass was a human/agent skim, not the diagnostic grep run to completion against
+   every one of the 22 "checked" files — a name like `MatchEngine` (vs. the real
+   `BallRecordingEngine`) or `LogLevelFilter` (vs. the real `LogHandlerChainBuilder`) is exactly what
+   the grep is built to catch and would have caught immediately if actually run against these files.
+
+### 4. Diagnostic Commands
+```bash
+# The RCA-030 grep, run against literally every sequence file this time, not a sample —
+# tr -d '\n' first (RCA-031's fix) so embedded newlines in participant labels can't hide a name:
+for f in frontend/src/data/sequences/*.js; do
+  mod=$(basename "$f" .js)
+  classes=$(tr -d '\n' < "$f" | grep -oE '[A-Z][a-zA-Z]{3,}(Service|Strategy|Factory|Repository|Exception|Controller|Observer|Notifier|Handler|Manager|Engine|Processor|Command|Filter|Recorder)' | sort -u)
+  missing=""
+  while IFS= read -r c; do
+    [ -z "$c" ] && continue
+    find backend/src/main/java -name "${c}.java" | grep -q . || missing="$missing $c"
+  done <<< "$classes"
+  [ -n "$missing" ] && echo "=== $mod === MISSING:$missing"
+done
+# NOTE: this shell's `for x in $multiline_var` does NOT word-split on newlines the way bash does —
+# it is zsh, and unquoted expansion doesn't split on $IFS by default. Use `while IFS= read -r`
+# reading from a `<<<` heredoc/process-substitution instead, or the loop silently treats the whole
+# multi-line variable as one item and never iterates.
+```
+
+### 5. Step-by-Step Resolution
+1. Ran the grep above against all 45 files (not a sample). It flagged real candidates for 3 files
+   (`cricinfo`→`MatchEngine`, `bloom-filter`→`HashEngine`, `logging-framework`→`LogLevelFilter`) after
+   filtering out JDK-builtin false positives (`BlockingQueue`, `ArrayBlockingQueue`,
+   `ScheduledExecutorService`) and test-method-name false positives (`fansOutToBothObservers` matching
+   `...ToBothObserver`, `FineCalculationStrategy`/`DiscountStrategy` appearing only inside this
+   session's own explanatory code comments from RCA-030, not the actual diagram content).
+2. For those 3 plus the 7 other never-sampled primitives with no name-shaped hook for the grep to
+   catch (`concurrent-hashmap`, `merge-sort`, `ttl-cache`, `fizz-buzz`, `foo-bar`, `h2o`,
+   `zero-even-odd`), read the real `{Name}Service#run` / primitive model class end to end for each
+   and rewrote the diagram from scratch around the actual mechanism: e.g. `h2o.js` was missing an
+   entire layer — the real `H2OBonder` throttles with TWO semaphores (`hydrogenSemaphore`: 2 permits,
+   `oxygenSemaphore`: 1 permit) in front of the `CyclicBarrier(3)`, which the old diagram didn't
+   depict at all; `fizz-buzz.js` claimed Semaphore-based coordination through an invented
+   "Coordinator" class, when the real `FizzBuzzPrinter` is one shared `ReentrantLock`+`Condition`
+   with four threads awaiting on mutually-exclusive predicates.
+3. Ran `npx vitest run` (304/304 passing) and `npm run build` (entry chunk 260.85 kB, unchanged)
+   after every file.
+
+### 6. Preventative Measures
+1. A class-name-existence grep is necessary but not sufficient for verifying generated documentation
+   content — it catches "wrong noun," not "wrong architecture." The only real check for the latter is
+   reading the actual service/primitive source for that module before trusting (or writing) a
+   diagram about it, exactly as RCA-030's own measure #4 already said — this entry is evidence that
+   measure needs to be followed for the *whole* module set, not just the ones a grep flags.
+2. All 45 sequence-diagram files have now been individually read against real source at least once
+   across RCA-030 + RCA-031 + this entry — there is no more "unsampled" tier left. Any *future* sequence
+   diagram added to this repo should be written by whoever most recently read that module's real
+   service code (as this session's own per-module upgrade passes already did), never generated in a
+   detached bulk pass.
+3. This session's shell is zsh, not bash, and unquoted `for x in $multilineVar` does not word-split
+   the way it would under bash — this silently produced an empty-seeming diagnostic result the first
+   time the RCA-030 grep command above was rerun in this session, until switched to a `while IFS=
+   read -r` loop. Anyone reusing RCA-030's diagnostic command in this repo's shell should use the
+   `while read` form, not the bash-style `for` loop, or double-check the loop is actually iterating.

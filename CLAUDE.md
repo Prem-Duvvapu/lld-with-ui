@@ -92,6 +92,14 @@ ran (RCA-002). **Never add a second key for the same module.**
 spellings go in `ALIAS_MAP`, never into a component — the duplicated resolvers are how the two
 components drifted apart in the first place.
 
+**Class diagrams (`src/data/diagrams/{module}.js`) show the domain design only** — no exception
+classes (no `XxxException` entries, no `throws`/`extends DomainException` relationships) and no
+simulation plumbing (no `SimEvent`/`{Module}SimService` classes, no `sim*`-prefixed fields or
+methods, no `/sim/*` labels on relationships). The simulation tab exists purely so a user can watch
+the flow/sequence play out; it is not part of the class design and clutters the diagram if shown
+there (issues #47, #48). This does not apply to `src/data/sequences/{module}.js` — a sequence
+diagram walking a `/sim/*` request is fine, since sequence diagrams are about flow, not structure.
+
 ### Module maturity is uneven
 
 All 45 modules now have backends — the last three concurrency primitives (`bloom-filter`,

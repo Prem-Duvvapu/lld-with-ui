@@ -104,43 +104,16 @@ export default {
       ],
       methods: []
     },
-    {
-      name: 'FizzBuzzException',
-      stereotype: 'abstract',
-      fields: [
-        'extends DomainException'
-      ],
-      methods: []
-    },
-    {
-      name: 'InvalidFizzBuzzParametersException',
-      fields: [
-        'extends FizzBuzzException',
-        '@ResponseStatus(400)'
-      ],
-      methods: []
-    },
-    {
-      name: 'RunExecutionException',
-      fields: [
-        'extends RuntimeException',
-        '(server-side safety-timeout fault, never a domain 4xx)'
-      ],
-      methods: []
-    }
   ],
   relationships: [
     { from: 'FizzBuzzController', to: 'FizzBuzzService', label: 'delegates to' },
     { from: 'FizzBuzzService', to: 'FizzBuzzPrinter', label: 'creates one per run' },
     { from: 'FizzBuzzService', to: 'RunRequest', label: 'validates' },
     { from: 'FizzBuzzService', to: 'RunResult', label: 'assembles' },
-    { from: 'FizzBuzzService', to: 'RunExecutionException', label: 'throws on timeout' },
-    { from: 'FizzBuzzService', to: 'InvalidFizzBuzzParametersException', label: 'throws on bad params' },
     { from: 'FizzBuzzPrinter', to: 'TraceRecorder', label: 'reports every event to' },
     { from: 'TraceRecorder', to: 'TraceEvent', label: 'appends' },
     { from: 'TraceEvent', to: 'EventType', label: 'typed by' },
     { from: 'RunResult', to: 'TraceEvent', label: 'contains ordered' },
-    { from: 'InvalidFizzBuzzParametersException', to: 'FizzBuzzException', label: 'extends', dashed: true },
     { from: 'FizzBuzzController', to: 'RunRequest', label: 'accepts' },
     { from: 'FizzBuzzController', to: 'RunResult', label: 'returns' }
   ]

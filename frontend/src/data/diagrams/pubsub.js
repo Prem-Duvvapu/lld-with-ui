@@ -11,8 +11,6 @@ export default {
       fields: [
         '- broker: Broker',
         '- repository: PubSubRepository',
-        '- simBroker: Broker',
-        '- simRepository: PubSubRepository'
       ],
       methods: [
         '+ createTopic(name): Topic',
@@ -21,7 +19,6 @@ export default {
         '+ publish(topic, payload, pubId): List<String>',
         '+ publishToSubscriber(topic, subId, payload, pubId): void',
         '+ getSubscriberMessages(topic, subId): List<Message>',
-        '+ simPublish(topic, payload, pubId): List<TopicSnapshot>'
       ]
     },
     {
