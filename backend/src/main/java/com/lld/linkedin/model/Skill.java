@@ -1,8 +1,11 @@
 package com.lld.linkedin.model;
 
+import lombok.Getter;
+
 import java.util.Objects;
 import java.util.UUID;
 
+@Getter
 public class Skill {
     private final String id;
     private final String name;
@@ -21,14 +24,6 @@ public class Skill {
         }
         this.id = id != null ? id : UUID.randomUUID().toString();
         this.name = name.trim().toLowerCase();
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override

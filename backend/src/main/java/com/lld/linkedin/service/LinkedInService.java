@@ -9,10 +9,9 @@ import com.lld.linkedin.model.*;
 import com.lld.linkedin.observer.InAppNotificationObserver;
 import com.lld.linkedin.observer.LoggingNotificationObserver;
 import com.lld.linkedin.observer.NotificationObserver;
+import com.lld.linkedin.repository.LinkedInRepository;
 import com.lld.linkedin.strategy.JobSearchRankingStrategy;
 import com.lld.linkedin.strategy.UserSearchRankingStrategy;
-import com.lld.linkedin.strategy.WeightedJobSearchStrategy;
-import com.lld.linkedin.strategy.WeightedUserSearchStrategy;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -28,52 +27,38 @@ import java.util.stream.Collectors;
 @Service
 public class LinkedInService {
 
-    private static volatile LinkedInService instance;
-
-    // Concurrency Repositories (Real State)
-    private final Map<String, User> usersById = new ConcurrentHashMap<>();
-    private final Map<String, String> usersByEmail = new ConcurrentHashMap<>();
-    private final Map<String, Connection> connectionsById = new ConcurrentHashMap<>();
-    private final Map<String, Set<String>> userConnections = new ConcurrentHashMap<>();
-    private final Map<String, String> activeConnectionPairs = new ConcurrentHashMap<>();
+    private final LinkedInRepository repository;
     private final Map<String, ReentrantLock> connectionLocks = new ConcurrentHashMap<>();
-    private final Map<String, List<Message>> conversations = new ConcurrentHashMap<>();
-    private final Map<String, JobPosting> jobPostings = new ConcurrentHashMap<>();
-    private final Map<String, Set<String>> jobApplications = new ConcurrentHashMap<>();
-    private final Map<String, List<Notification>> notificationsByUser = new ConcurrentHashMap<>();
 
     private final List<NotificationObserver> observers = new CopyOnWriteArrayList<>();
-    private UserSearchRankingStrategy userSearchStrategy = new WeightedUserSearchStrategy();
-    private JobSearchRankingStrategy jobSearchStrategy = new WeightedJobSearchStrategy();
+    private final InAppNotificationObserver inAppObserver;
+    private final UserSearchRankingStrategy userSearchStrategy;
+    private final JobSearchRankingStrategy jobSearchStrategy;
 
-    // Isolated Simulation Engine State
-    private final Map<String, User> simUsersById = new ConcurrentHashMap<>();
-    private final Map<String, Connection> simConnectionsById = new ConcurrentHashMap<>();
-    private final Map<String, Set<String>> simUserConnections = new ConcurrentHashMap<>();
-    private final Map<String, String> simActiveConnectionPairs = new ConcurrentHashMap<>();
-    private final Map<String, List<Message>> simConversations = new ConcurrentHashMap<>();
-    private final Map<String, JobPosting> simJobPostings = new ConcurrentHashMap<>();
+    // Isolated Simulation Engine State — a second, fully independent repository instance so
+    // replaying the demo can never touch a real user/connection/job, mirroring
+    // movieticket.service.MovieTicketService's simRepository shape.
+    private final LinkedInRepository simRepository = new LinkedInRepository();
     private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
     private final AtomicLong simEventIdGen = new AtomicLong(1);
 
-    public LinkedInService() {
-        // Register default observers
-        observers.add(new InAppNotificationObserver());
-        observers.add(new LoggingNotificationObserver());
+    public LinkedInService(LinkedInRepository repository,
+                           UserSearchRankingStrategy userSearchStrategy,
+                           JobSearchRankingStrategy jobSearchStrategy,
+                           InAppNotificationObserver inAppObserver,
+                           LoggingNotificationObserver loggingObserver) {
+        this.repository = repository;
+        this.userSearchStrategy = userSearchStrategy;
+        this.jobSearchStrategy = jobSearchStrategy;
+        this.inAppObserver = inAppObserver;
+
+        observers.add(inAppObserver);
+        if (loggingObserver != null) {
+            observers.add(loggingObserver);
+        }
 
         initDefaultData();
         simReset();
-    }
-
-    public static LinkedInService getInstance() {
-        if (instance == null) {
-            synchronized (LinkedInService.class) {
-                if (instance == null) {
-                    instance = new LinkedInService();
-                }
-            }
-        }
-        return instance;
     }
 
     // =========================================================================
@@ -90,9 +75,6 @@ public class LinkedInService {
 
     public void dispatchNotification(Notification notification) {
         if (notification == null) return;
-        notificationsByUser.computeIfAbsent(notification.getRecipientId(), k -> new CopyOnWriteArrayList<>())
-                .add(notification);
-
         for (NotificationObserver observer : observers) {
             try {
                 observer.onNotification(notification);
@@ -120,7 +102,7 @@ public class LinkedInService {
         String normalizedEmail = email.trim().toLowerCase();
         String userId = "user-" + UUID.randomUUID().toString().substring(0, 8);
 
-        String existing = usersByEmail.putIfAbsent(normalizedEmail, userId);
+        String existing = repository.claimEmail(normalizedEmail, userId);
         if (existing != null) {
             throw new UserAlreadyExistsException("Email already registered: " + normalizedEmail);
         }
@@ -128,9 +110,7 @@ public class LinkedInService {
         String passwordHash = Integer.toHexString(password.hashCode());
         User user = new User(userId, name.trim(), normalizedEmail, passwordHash);
 
-        usersById.put(userId, user);
-        userConnections.put(userId, ConcurrentHashMap.newKeySet());
-        notificationsByUser.put(userId, new CopyOnWriteArrayList<>());
+        repository.saveUser(user);
 
         return user;
     }
@@ -140,11 +120,11 @@ public class LinkedInService {
             throw new InvalidCredentialsException("Invalid email or password");
         }
         String normalizedEmail = email.trim().toLowerCase();
-        String userId = usersByEmail.get(normalizedEmail);
+        String userId = repository.findUserIdByEmail(normalizedEmail);
         if (userId == null) {
             throw new InvalidCredentialsException("Invalid email or password");
         }
-        User user = usersById.get(userId);
+        User user = repository.findUserById(userId);
         if (user == null || !user.validatePassword(password)) {
             throw new InvalidCredentialsException("Invalid email or password");
         }
@@ -153,7 +133,7 @@ public class LinkedInService {
     }
 
     public User getUser(String userId) {
-        User user = usersById.get(userId);
+        User user = repository.findUserById(userId);
         if (user == null) {
             throw new UserNotFoundException("User not found with ID: " + userId);
         }
@@ -161,7 +141,7 @@ public class LinkedInService {
     }
 
     public List<User> getAllUsers() {
-        return new ArrayList<>(usersById.values());
+        return repository.getAllUsers();
     }
 
     public Profile updateProfile(String userId, String headline, String summary, String location) {
@@ -211,9 +191,9 @@ public class LinkedInService {
 
         pairLock.lock();
         try {
-            String existingConnId = activeConnectionPairs.get(pairKey);
+            String existingConnId = repository.getActiveConnectionId(pairKey);
             if (existingConnId != null) {
-                Connection existing = connectionsById.get(existingConnId);
+                Connection existing = repository.findConnectionById(existingConnId);
                 if (existing != null) {
                     if (existing.getStatus() == ConnectionStatus.ACCEPTED) {
                         throw new ConnectionException("Users are already connected.");
@@ -225,11 +205,11 @@ public class LinkedInService {
             }
 
             Connection conn = new Connection(senderId, receiverId);
-            connectionsById.put(conn.getId(), conn);
-            activeConnectionPairs.put(pairKey, conn.getId());
+            repository.saveConnection(conn);
+            repository.setActiveConnectionPair(pairKey, conn.getId());
 
-            userConnections.computeIfAbsent(senderId, k -> ConcurrentHashMap.newKeySet()).add(conn.getId());
-            userConnections.computeIfAbsent(receiverId, k -> ConcurrentHashMap.newKeySet()).add(conn.getId());
+            repository.addUserConnectionId(senderId, conn.getId());
+            repository.addUserConnectionId(receiverId, conn.getId());
 
             Notification notif = new Notification(receiverId, senderId, NotificationType.CONNECTION_REQUEST,
                     sender.getName() + " sent you a connection request.", conn.getId());
@@ -242,7 +222,7 @@ public class LinkedInService {
     }
 
     public Connection acceptConnectionRequest(String connectionId, String targetUserId) {
-        Connection conn = connectionsById.get(connectionId);
+        Connection conn = repository.findConnectionById(connectionId);
         if (conn == null) {
             throw new ConnectionException("Connection request not found");
         }
@@ -264,7 +244,7 @@ public class LinkedInService {
     }
 
     public Connection rejectConnectionRequest(String connectionId, String targetUserId) {
-        Connection conn = connectionsById.get(connectionId);
+        Connection conn = repository.findConnectionById(connectionId);
         if (conn == null) {
             throw new ConnectionException("Connection request not found");
         }
@@ -275,21 +255,21 @@ public class LinkedInService {
         conn.setStatus(ConnectionStatus.REJECTED);
         String pairKey = conn.getRequesterId().compareTo(conn.getTargetId()) < 0 ?
                 conn.getRequesterId() + "#" + conn.getTargetId() : conn.getTargetId() + "#" + conn.getRequesterId();
-        activeConnectionPairs.remove(pairKey);
+        repository.removeActiveConnectionPair(pairKey);
 
         return conn;
     }
 
     public Set<User> getConnections(String userId) {
         getUser(userId); // validate user
-        Set<String> connIds = userConnections.getOrDefault(userId, Collections.emptySet());
+        Set<String> connIds = repository.getUserConnectionIds(userId);
         Set<User> connectedUsers = new HashSet<>();
 
         for (String cId : connIds) {
-            Connection c = connectionsById.get(cId);
+            Connection c = repository.findConnectionById(cId);
             if (c != null && c.getStatus() == ConnectionStatus.ACCEPTED) {
                 String otherId = c.getOtherUser(userId);
-                User other = usersById.get(otherId);
+                User other = repository.findUserById(otherId);
                 if (other != null) {
                     connectedUsers.add(other);
                 }
@@ -300,11 +280,11 @@ public class LinkedInService {
 
     public List<Connection> getPendingRequests(String userId) {
         getUser(userId);
-        Set<String> connIds = userConnections.getOrDefault(userId, Collections.emptySet());
+        Set<String> connIds = repository.getUserConnectionIds(userId);
         List<Connection> pending = new ArrayList<>();
 
         for (String cId : connIds) {
-            Connection c = connectionsById.get(cId);
+            Connection c = repository.findConnectionById(cId);
             if (c != null && c.getStatus() == ConnectionStatus.PENDING && c.getTargetId().equals(userId)) {
                 pending.add(c);
             }
@@ -321,18 +301,17 @@ public class LinkedInService {
         User receiver = getUser(receiverId);
 
         String pairKey = senderId.compareTo(receiverId) < 0 ? senderId + "#" + receiverId : receiverId + "#" + senderId;
-        String connId = activeConnectionPairs.get(pairKey);
+        String connId = repository.getActiveConnectionId(pairKey);
         if (connId == null) {
             throw new UnauthorizedActionException("Cannot send message: Users are not connected.");
         }
-        Connection conn = connectionsById.get(connId);
+        Connection conn = repository.findConnectionById(connId);
         if (conn == null || conn.getStatus() != ConnectionStatus.ACCEPTED) {
             throw new UnauthorizedActionException("Cannot send message: Connection is not active.");
         }
 
         Message message = new Message(senderId, receiverId, content);
-        conversations.computeIfAbsent(message.getConversationKey(), k -> new CopyOnWriteArrayList<>())
-                .add(message);
+        repository.addMessage(message.getConversationKey(), message);
 
         Notification notif = new Notification(receiverId, senderId, NotificationType.MESSAGE_RECEIVED,
                 "New message from " + sender.getName() + ": " + (content.length() > 30 ? content.substring(0, 27) + "..." : content),
@@ -344,7 +323,7 @@ public class LinkedInService {
 
     public List<Message> getConversation(String userA, String userB) {
         String conversationKey = userA.compareTo(userB) < 0 ? userA + "#" + userB : userB + "#" + userA;
-        return conversations.getOrDefault(conversationKey, Collections.emptyList());
+        return repository.getConversation(conversationKey);
     }
 
     // =========================================================================
@@ -357,17 +336,16 @@ public class LinkedInService {
         String jobId = "job-" + UUID.randomUUID().toString().substring(0, 8);
         JobPosting job = new JobPosting(jobId, posterId, title, company, location, description, type, requiredSkills);
 
-        jobPostings.put(job.getId(), job);
-        jobApplications.put(job.getId(), ConcurrentHashMap.newKeySet());
+        repository.saveJob(job);
         return job;
     }
 
     public List<JobPosting> getAllJobs() {
-        return new ArrayList<>(jobPostings.values());
+        return repository.getAllJobs();
     }
 
     public JobPosting getJob(String jobId) {
-        JobPosting job = jobPostings.get(jobId);
+        JobPosting job = repository.findJobById(jobId);
         if (job == null) {
             throw new JobNotFoundException("Job not found with ID: " + jobId);
         }
@@ -385,8 +363,7 @@ public class LinkedInService {
             throw new ValidationException("Cannot apply to your own job posting.");
         }
 
-        Set<String> applicants = jobApplications.computeIfAbsent(jobId, k -> ConcurrentHashMap.newKeySet());
-        boolean added = applicants.add(applicantId);
+        boolean added = repository.addJobApplicant(jobId, applicantId);
         if (!added) {
             throw new ValidationException("User has already applied for this job.");
         }
@@ -404,12 +381,12 @@ public class LinkedInService {
     // =========================================================================
 
     public List<Map<String, Object>> searchUsers(String query, String requestingUserId) {
-        User requester = requestingUserId != null ? usersById.get(requestingUserId) : null;
+        User requester = requestingUserId != null ? repository.findUserById(requestingUserId) : null;
         Set<String> directConnIds = requester != null ?
                 getConnections(requester.getId()).stream().map(User::getId).collect(Collectors.toSet()) :
                 Collections.emptySet();
 
-        return usersById.values().stream()
+        return repository.getAllUsers().stream()
                 .filter(u -> requester == null || !u.getId().equals(requester.getId()))
                 .map(u -> {
                     double score = userSearchStrategy.calculateUserRelevance(u, query, requester, directConnIds);
@@ -424,9 +401,9 @@ public class LinkedInService {
     }
 
     public List<Map<String, Object>> searchJobs(String query, String location, String applicantId) {
-        User applicant = applicantId != null ? usersById.get(applicantId) : null;
+        User applicant = applicantId != null ? repository.findUserById(applicantId) : null;
 
-        return jobPostings.values().stream()
+        return repository.getAllJobs().stream()
                 .filter(j -> j.getStatus() == JobStatus.OPEN)
                 .map(j -> {
                     double score = jobSearchStrategy.calculateJobRelevance(j, query, location, applicant);
@@ -441,7 +418,7 @@ public class LinkedInService {
     }
 
     public List<Notification> getNotifications(String userId) {
-        return notificationsByUser.getOrDefault(userId, Collections.emptyList());
+        return inAppObserver.getNotificationsForUser(userId);
     }
 
     // =========================================================================
@@ -450,12 +427,7 @@ public class LinkedInService {
 
     public synchronized void simReset() {
         simEventLog.clear();
-        simUsersById.clear();
-        simConnectionsById.clear();
-        simUserConnections.clear();
-        simActiveConnectionPairs.clear();
-        simConversations.clear();
-        simJobPostings.clear();
+        simRepository.clear();
 
         // Seed Simulation Users
         User alice = new User("sim-alice", "Alice Vance", "alice@blackmesa.gov", "hash123");
@@ -484,59 +456,59 @@ public class LinkedInService {
         diana.getProfile().addSkill(new Skill("Product Strategy"));
         diana.getProfile().addSkill(new Skill("Cloud Computing"));
 
-        simUsersById.put(alice.getId(), alice);
-        simUsersById.put(bob.getId(), bob);
-        simUsersById.put(charlie.getId(), charlie);
-        simUsersById.put(diana.getId(), diana);
+        simRepository.saveUser(alice);
+        simRepository.saveUser(bob);
+        simRepository.saveUser(charlie);
+        simRepository.saveUser(diana);
 
         // Connect Alice and Bob
         Connection connAB = new Connection(alice.getId(), bob.getId());
         connAB.setStatus(ConnectionStatus.ACCEPTED);
-        simConnectionsById.put(connAB.getId(), connAB);
+        simRepository.saveConnection(connAB);
         String pairAB = alice.getId() + "#" + bob.getId();
-        simActiveConnectionPairs.put(pairAB, connAB.getId());
-        simUserConnections.computeIfAbsent(alice.getId(), k -> ConcurrentHashMap.newKeySet()).add(connAB.getId());
-        simUserConnections.computeIfAbsent(bob.getId(), k -> ConcurrentHashMap.newKeySet()).add(connAB.getId());
+        simRepository.setActiveConnectionPair(pairAB, connAB.getId());
+        simRepository.addUserConnectionId(alice.getId(), connAB.getId());
+        simRepository.addUserConnectionId(bob.getId(), connAB.getId());
 
         // Post a demo job from Charlie
         JobPosting job1 = new JobPosting("sim-job-1", charlie.getId(), "Staff Backend Engineer", "Netflix",
                 "Los Gatos, CA", "Build high-throughput global streaming microservices.",
                 EmploymentType.FULL_TIME, Set.of("java", "microservices", "distributed systems"));
-        simJobPostings.put(job1.getId(), job1);
+        simRepository.saveJob(job1);
 
         logSimEvent("SIM_RESET", "System", "Initialized simulation with 4 users, 1 active connection (Alice-Bob), and 1 open job posting.", null);
     }
 
     public synchronized Map<String, Object> simSendConnection(String senderId, String receiverId) {
-        User sender = simUsersById.get(senderId);
-        User receiver = simUsersById.get(receiverId);
+        User sender = simRepository.findUserById(senderId);
+        User receiver = simRepository.findUserById(receiverId);
         if (sender == null || receiver == null) {
             logSimEvent("CONN_FAILED", senderId, "User lookup failed", null);
             return getSimSnapshots();
         }
 
         String pairKey = senderId.compareTo(receiverId) < 0 ? senderId + "#" + receiverId : receiverId + "#" + senderId;
-        if (simActiveConnectionPairs.containsKey(pairKey)) {
+        if (simRepository.getActiveConnectionId(pairKey) != null) {
             logSimEvent("CONN_FAILED", sender.getName(), "Connection already exists or pending with " + receiver.getName(), null);
             return getSimSnapshots();
         }
 
         Connection conn = new Connection(senderId, receiverId);
-        simConnectionsById.put(conn.getId(), conn);
-        simActiveConnectionPairs.put(pairKey, conn.getId());
-        simUserConnections.computeIfAbsent(senderId, k -> ConcurrentHashMap.newKeySet()).add(conn.getId());
-        simUserConnections.computeIfAbsent(receiverId, k -> ConcurrentHashMap.newKeySet()).add(conn.getId());
+        simRepository.saveConnection(conn);
+        simRepository.setActiveConnectionPair(pairKey, conn.getId());
+        simRepository.addUserConnectionId(senderId, conn.getId());
+        simRepository.addUserConnectionId(receiverId, conn.getId());
 
         logSimEvent("CONN_REQUEST", sender.getName(), "Sent connection request to " + receiver.getName(), Map.of("connectionId", conn.getId()));
         return getSimSnapshots();
     }
 
     public synchronized Map<String, Object> simAcceptConnection(String connectionId) {
-        Connection conn = simConnectionsById.get(connectionId);
+        Connection conn = simRepository.findConnectionById(connectionId);
         if (conn != null && conn.getStatus() == ConnectionStatus.PENDING) {
             conn.setStatus(ConnectionStatus.ACCEPTED);
-            User sender = simUsersById.get(conn.getRequesterId());
-            User receiver = simUsersById.get(conn.getTargetId());
+            User sender = simRepository.findUserById(conn.getRequesterId());
+            User receiver = simRepository.findUserById(conn.getTargetId());
             logSimEvent("CONN_ACCEPTED", receiver != null ? receiver.getName() : "User",
                     "Accepted connection request from " + (sender != null ? sender.getName() : "User"), Map.of("connectionId", conn.getId()));
         }
@@ -545,8 +517,8 @@ public class LinkedInService {
 
     public synchronized Map<String, Object> simSendMessage(String senderId, String receiverId, String content) {
         String pairKey = senderId.compareTo(receiverId) < 0 ? senderId + "#" + receiverId : receiverId + "#" + senderId;
-        String connId = simActiveConnectionPairs.get(pairKey);
-        Connection conn = connId != null ? simConnectionsById.get(connId) : null;
+        String connId = simRepository.getActiveConnectionId(pairKey);
+        Connection conn = connId != null ? simRepository.findConnectionById(connId) : null;
 
         if (conn == null || conn.getStatus() != ConnectionStatus.ACCEPTED) {
             logSimEvent("MSG_REJECTED", senderId, "Cannot message " + receiverId + ": Not 1st-degree connections!", null);
@@ -554,9 +526,9 @@ public class LinkedInService {
         }
 
         Message msg = new Message(senderId, receiverId, content);
-        simConversations.computeIfAbsent(msg.getConversationKey(), k -> new CopyOnWriteArrayList<>()).add(msg);
-        User sender = simUsersById.get(senderId);
-        User receiver = simUsersById.get(receiverId);
+        simRepository.addMessage(msg.getConversationKey(), msg);
+        User sender = simRepository.findUserById(senderId);
+        User receiver = simRepository.findUserById(receiverId);
         logSimEvent("MSG_DELIVERED", sender != null ? sender.getName() : senderId,
                 "Sent message to " + (receiver != null ? receiver.getName() : receiverId) + ": \"" + content + "\"", null);
 
@@ -564,8 +536,8 @@ public class LinkedInService {
     }
 
     public synchronized Map<String, Object> simApplyJob(String applicantId, String jobId) {
-        User applicant = simUsersById.get(applicantId);
-        JobPosting job = simJobPostings.get(jobId);
+        User applicant = simRepository.findUserById(applicantId);
+        JobPosting job = simRepository.findJobById(jobId);
         if (applicant == null || job == null) return getSimSnapshots();
 
         if (job.hasApplied(applicantId)) {
@@ -580,10 +552,9 @@ public class LinkedInService {
 
     public Map<String, Object> getSimSnapshots() {
         Map<String, Object> res = new HashMap<>();
-        res.put("users", simUsersById.values());
-        res.put("connections", simConnectionsById.values());
-        res.put("jobs", simJobPostings.values());
-        res.put("conversations", simConversations);
+        res.put("users", simRepository.getAllUsers());
+        res.put("connections", simRepository.getAllConnections());
+        res.put("jobs", simRepository.getAllJobs());
         res.put("events", simEventLog);
         return res;
     }

@@ -10,7 +10,12 @@ import com.lld.linkedin.model.Connection;
 import com.lld.linkedin.model.JobPosting;
 import com.lld.linkedin.model.Message;
 import com.lld.linkedin.model.User;
+import com.lld.linkedin.observer.InAppNotificationObserver;
+import com.lld.linkedin.observer.LoggingNotificationObserver;
+import com.lld.linkedin.repository.LinkedInRepository;
 import com.lld.linkedin.service.LinkedInService;
+import com.lld.linkedin.strategy.WeightedJobSearchStrategy;
+import com.lld.linkedin.strategy.WeightedUserSearchStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +32,8 @@ public class LinkedInServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new LinkedInService();
+        service = new LinkedInService(new LinkedInRepository(), new WeightedUserSearchStrategy(),
+                new WeightedJobSearchStrategy(), new InAppNotificationObserver(), new LoggingNotificationObserver());
     }
 
     @Test

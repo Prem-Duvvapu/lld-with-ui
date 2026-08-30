@@ -3249,3 +3249,109 @@ find backend/src/main/java -name '*.java' -exec basename {} \; | sort | uniq -d
    than relying on the decapitalized-simple-name default, especially for common LLD vocabulary
    (`PaymentProcessor`, `PricingStrategyFactory`, `SeatLockManager`, `Notifier`...) that many modules
    independently reinvent.
+
+## RCA-036: LinkedIn's Class Diagram and Design Details Described an Entirely Different, Fictional Module
+
+**Severity:** High (not a wrong detail within the right architecture, like every prior sequence-
+diagram fabrication — the whole documented domain was invented; a learner reading it would come
+away believing this module implements a social-media feed, which it does not)
+**Date:** 2026-08-30
+**Status:** Resolved
+**Affected:** `frontend/src/data/diagrams/linkedin.js`, `frontend/src/data/design/linkedin.js`
+
+### 1. Overview & Severity
+While updating linkedin's design docs to reflect the repository-extraction/DI/Lombok pass this
+session was already making (mirroring movieticket's RCA-035 and library's structural pass), the
+class diagram and most of the design-details file turned out to describe a completely different
+application: a `Post`/`Comment`/`FeedService`/`NotificationService`/`FeedRankingStrategy` social
+feed clone. `com.lld.linkedin` has no feed, no post, no comment, no like/share anywhere in it — the
+real module is a professional-network domain (`User`/`Profile`/`Connection`/`Message`/
+`JobPosting`) with canonical pair-locked connection requests, 1st-degree-gated direct messaging,
+and weighted user/job search ranking. This is qualitatively worse than RCA-030/031/034's sequence-
+diagram fabrications, which invented a wrong class name or endpoint shape *within* the correct
+domain — this invented the domain itself.
+
+### 2. Symptoms & Error Logs
+No test failure — `designDataCoverage.test.js` only checks structural integrity (no duplicate
+barrel keys, every relationship edge points at a class declared in the same file, every referenced
+module id resolves), not whether the content is *true*. A structurally self-consistent but entirely
+fictional file passes that suite every time, exactly like RCA-030's original sequence-diagram
+fabrications did. Found only by a human-shaped check: reading the class diagram side-by-side with
+the real `com.lld.linkedin.service.LinkedInService` while writing an accurate update to it.
+```
+// diagrams/linkedin.js (before) — classes that do not exist anywhere in the codebase:
+{ name: 'Post', fields: ['- author: User', '- content: String', '- likes: int', ...] }
+{ name: 'FeedService', methods: ['+ generateFeed(user): List<Post>', ...] }
+// design/linkedin.js (before) — patterns for classes that do not exist:
+{ name: 'Factory', explanation: 'PostFactory creates different post types (TextPost, ImagePost, VideoPost, ArticlePost)...' }
+{ name: 'Singleton', explanation: 'FeedService, NotificationService, and ConnectionService are singletons...' }
+```
+```bash
+$ grep -rn "class Post\|class FeedService\|class Comment" backend/src/main/java/com/lld/linkedin/
+# no output — none of these classes exist
+```
+
+### 3. Root Cause
+Unknown provenance — unlike RCA-030 (a single bulk, un-reviewed commit that fabricated all 45
+sequence diagrams at once, traceable to one bad process), these two files show no similar single
+smoking gun in isolation. The most telling clue is that `design/linkedin.js`'s `tldr`, `tradeoffs`,
+and `solid` sections (further down the same file) were **already accurate** — they correctly
+described canonical pair locking, the weighted search strategies, and `CopyOnWriteArrayList`
+observer lists, all of which are real. Only `requirements`/`entities`/`designPatterns`/
+`principles`/`oopConcepts`/`extensibility` were fictional. This split strongly suggests the file was
+assembled from two different sources at two different times — one pass genuinely grounded in the
+real service, another pass (perhaps an earlier draft written before the real module existed, or a
+generic "professional network" template never reconciled against the actual code) supplying the
+entity/pattern sections — and the two were never cross-checked against each other before being
+merged into one file. The class diagram's complete disconnection from reality suggests it was
+generated independently from (and never checked against) either the real code or even this file's
+own accurate sections.
+
+### 4. Diagnostic Commands
+```bash
+# Confirm which class names in a diagram file actually exist in the module's real source:
+grep -oP "name: '\K[^']+" frontend/src/data/diagrams/linkedin.js | while read -r cls; do
+  grep -rq "class $cls\b\|interface $cls\b\|enum $cls\b" backend/src/main/java/com/lld/linkedin/ \
+    || echo "NOT FOUND IN REAL SOURCE: $cls"
+done
+
+# A designPatterns/entities section can be internally consistent (passes structural tests) while
+# describing nothing real — always read it side-by-side with the actual service class, the same
+# discipline RCA-030's Preventative Measures already recommends for sequence diagrams.
+```
+
+### 5. Step-by-Step Resolution
+1. Read every real class in `com.lld.linkedin` (`LinkedInService`, the new `LinkedInRepository`,
+   `User`, `Profile`, `Connection`, `Message`, `JobPosting`, `Skill`, `Experience`, `Education`,
+   `Notification`, both `NotificationObserver` implementations, both search-ranking strategy
+   families) before writing a single line of the replacement.
+2. Rewrote `diagrams/linkedin.js` from scratch: every class, field, method, and relationship now
+   names something that actually exists in the real source, following this repo's no-exception/
+   no-sim-plumbing class-diagram convention (CLAUDE.md).
+3. Rewrote `design/linkedin.js`'s `requirements`, `entities`, `designPatterns`, `principles`,
+   `oopConcepts`, and `extensibility` sections to match; left `tldr`, `tradeoffs`, and `solid` as-is
+   since they were already accurate.
+4. Cross-checked the sequence diagram (`data/sequences/linkedin.js`) separately — it was already
+   correctly grounded in `sendConnectionRequest`'s canonical pair locking (confirmed by RCA-030's
+   own sweep), so only the two files above needed a rewrite.
+5. Ran the frontend suite (`npx vitest run`, 304/304) and `npm run build` (entry chunk unchanged at
+   260.85 kB) to confirm the rewritten files are structurally valid — `designDataCoverage.test.js`
+   cannot and does not verify truthfulness, only structure, so this step proves the files parse and
+   register correctly, not that they're accurate; that assurance comes only from step 1.
+
+### 6. Preventative Measures
+1. `designDataCoverage.test.js` (and every other automated guard-rail in this repo) checks
+   structural integrity, never truthfulness. A completely fictional but internally-consistent file
+   passes every existing test. The only defense against this class of fabrication is a human (or
+   agent) actually reading the real source before writing or trusting design documentation — the
+   same lesson RCA-030's Preventative Measures already stated for sequence diagrams, now confirmed
+   to apply equally to class diagrams and design-details files.
+2. A file that is *partially* accurate (like `design/linkedin.js`'s tldr/tradeoffs/solid sections
+   here) is not evidence the rest of the file is trustworthy — sections can come from different
+   sources merged without cross-checking. Verify each section against real source independently
+   rather than treating one accurate section as a signal the whole file is safe.
+3. Given RCA-030 already fabricated content at the sequence-diagram layer across all 45 modules,
+   and this incident shows the class-diagram/design-details layer was not immune either, any module
+   not yet explicitly re-verified in this session's audit passes (grep each class diagram's class
+   names against real source, the diagnostic command above) should be treated as unverified, not
+   assumed clean, until someone actually does that check.

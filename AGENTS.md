@@ -372,15 +372,62 @@ reference bar — same audit-and-harden shape as pubsub/parkinglot.
 
 ## LinkedIn Module
 ### Backend
-- `LinkedInService`: Singleton facade managing professional profiles, connections, direct messaging, job postings, and weighted search ranking algorithms.
-- Concurrency & Graph Safety: `ConcurrentHashMap` repository + canonical pair locking (`min(u1, u2) + "#" + max(u1, u2)`) preventing connection request race conditions.
-- Strategy Pattern: `UserSearchRankingStrategy` (weighted 4-factor scoring: name, headline, skills, network degree) and `JobSearchRankingStrategy` (weighted 4-factor scoring: title, skill overlap, location, recency).
+Audited from HANDOFF.md's "unverified" list — the same structural shape as library (a dead
+`getInstance()` singleton next to real Spring DI, no `repository/` package, non-Lombok models,
+only one test file), plus a wiring gap of its own: the two search strategies and both notification
+observers were `@Component` beans that the service never actually received — it called `new
+WeightedUserSearchStrategy()` etc. directly from a no-arg constructor instead of being
+constructor-injected, so the real Spring-managed beans of those exact types sat in the context
+unused.
+- **New `LinkedInRepository`** (`com.lld.linkedin.repository`) — the user/connection/message/job
+  `ConcurrentHashMap`s, extracted out of `LinkedInService` wholesale. Deliberately keeps
+  `connectionLocks` out of the repository — the canonical `min(u1,u2) + "#" + max(u1,u2)` pair
+  locking behind `sendConnectionRequest` stays a service-level concern, the same split
+  `tictactoe.service.TicTacToeService`'s `gameLocks` keeps outside `GameRepository`. The isolated
+  `/sim/*` engine now runs on a second, fully independent `LinkedInRepository` instance instead of
+  six parallel `simXxx` maps, matching `movieticket.service.MovieTicketService`'s shape.
+- **Dead `getInstance()` singleton removed** — confirmed nothing in the app, tests, or frontend
+  ever called it.
+- **Dependency injection fixed** — `LinkedInService`'s constructor now takes `LinkedInRepository`,
+  `UserSearchRankingStrategy`, `JobSearchRankingStrategy`, `InAppNotificationObserver`, and
+  `LoggingNotificationObserver` as real Spring-injected collaborators, the same shape
+  `library.service.LibraryService` already used for `FineStrategy`/`DueDateNotifier`. Also removed
+  a genuinely dead code path found in the process: `getNotifications(userId)` used to read its own
+  separate `notificationsByUser` map instead of the `InAppNotificationObserver` every notification
+  was already being dispatched to — meaning that observer's own `getNotificationsForUser` method
+  was unreachable. `getNotifications` now delegates to the observer directly (the same shape
+  `library.service.LibraryService#getNotificationsForMember` already used), and the redundant map
+  is gone.
+- Concurrency & Graph Safety: `ConcurrentHashMap` repository + canonical pair locking (`min(u1, u2) + "#" + max(u1, u2)`) preventing connection request race conditions — now proven with real threads (see Tests below), not just sequential calls.
+- Strategy Pattern: `UserSearchRankingStrategy` (weighted 4-factor scoring: name, headline, skills, network degree) and `JobSearchRankingStrategy` (weighted 4-factor scoring: title, skill overlap, location, recency) — both now actually constructor-injected rather than hardcoded.
 - Observer Pattern: `NotificationObserver` interface with `InAppNotificationObserver` and `LoggingNotificationObserver` for asynchronous event dispatching.
 - Direct Messaging Guard: Enforces 1st-degree `ACCEPTED` connection status prior to message transmission.
+- Lombok (`@Getter`, `@Setter` where a plain setter already existed) across all 10 model classes.
+  Custom-logic setters (`User#setName`, `Profile#setHeadline/setSummary/setLocation`,
+  `Connection#setStatus`, `Experience#setCurrent`) and collection-view getters
+  (`Profile#getExperiences/getEducations/getSkills`, `JobPosting#getRequiredSkills/getApplicants`)
+  kept hand-written alongside the generated accessors.
+- **Class diagram and design docs were entirely fabricated (RCA-036)** — both files described a
+  fictional `Post`/`Comment`/`FeedService`/`NotificationService`/`FeedRankingStrategy` social-feed
+  clone with no basis in the real code at all. Rewritten from scratch grounded in the actual
+  `User`/`Profile`/`Connection`/`Message`/`JobPosting` domain; the sequence diagram was already
+  accurate and untouched.
 
 ### Frontend
 - 6 tabs: 👤 My Profile & Network, 💼 Jobs & Applications, 💬 Messaging & Inboxes, 🕹️ Interactive 2D Simulation, 📐 Class Diagram, 📋 Design Details.
 - Real-time profile skill editor, 1-click job application with match scoring, live direct chat bubble feed, and 4-node interactive simulation sandbox with visual network topology map and real-time telemetry event stream.
+- `api.js`'s raw `fetch()` calls and the page's hardcoded colors/lack of `usePolling` are known,
+  deliberately deferred gaps — see the portfolio-wide scope decision recorded in HANDOFF.md.
+
+### Tests (1 file -> 4)
+`LinkedInServiceTest` (pre-existing, kept — registration/login, profile management, connection
+workflow, messaging security, job posting/application, search relevance, sim engine),
+`LinkedInRepositoryTest` (new — storage behaviour, `claimEmail`/`addJobApplicant` atomicity
+contracts), `LinkedInStrategyTest` (new — both weighted strategies' scoring math term-by-term),
+`LinkedInConcurrencyTest` (new, real threads: N racers sending a connection request from either
+direction to the same pair — exactly one wins; N racers registering with the same email — exactly
+one wins; N racers applying to the same job as the same candidate — exactly one wins; distinct
+candidates applying concurrently all succeed).
 
 ## Library Management Module
 ### Backend
