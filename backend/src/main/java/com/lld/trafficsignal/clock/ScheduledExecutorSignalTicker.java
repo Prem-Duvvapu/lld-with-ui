@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
  * shared for the whole intersection's lifetime and shut down via {@link #shutdown()} when the
  * owning bean is destroyed — the original implementation created a brand new
  * {@code newSingleThreadScheduledExecutor()} per intersection AND another one per emergency
- * override call, none of which were ever shut down (see RCA-017).
+ * override call, none of which were ever shut down (see RCA-038).
  */
 public class ScheduledExecutorSignalTicker implements SignalTicker {
 

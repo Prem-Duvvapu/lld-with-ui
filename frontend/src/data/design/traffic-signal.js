@@ -1,181 +1,159 @@
 // designDetails — trafficSignal
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Rewritten from scratch (2026-08-30) — the previous version described a fictional
+// TrafficController/Road/TrafficSignal domain (an enum-only SignalState, a "Singleton
+// TrafficController", Observer marked used:false) that does not exist anywhere in
+// com.lld.trafficsignal. The real module has no Road concept — TrafficLight sits directly on an
+// Intersection — models the State pattern with real classes (RedState/YellowState/GreenState), and
+// the Observer pattern is fully wired and in active use (SignalChangeNotifier fans phase changes
+// out to InAppSignalObserver and LoggingSignalObserver on every transition).
 
 export default {
   title: 'Traffic Signal — Design Details',
   requirements: [
-    'Traffic intersection with multiple roads — each road has a traffic light with RED, YELLOW, GREEN states',
-    'Signal timing configuration — configurable duration for each light state per road',
-    'Automatic state cycling: RED to GREEN to YELLOW to RED with configurable durations per state',
-    'Emergency override — traffic controller can manually set all signals to RED for emergency vehicle passage',
-    'Pedestrian crossing integration — pedestrian button triggers signal change with walk/don\'t-walk indicators',
-    'Multiple intersection support — system can manage several independent intersections each with its own configuration',
-    'Concurrent road coordination — when one road turns GREEN, the crossing road turns RED to prevent collisions'
+    'A 4-way intersection where exactly one TrafficLight is GREEN or YELLOW at a time (the "active" light) while every other light is RED — no two directions may be simultaneously GREEN',
+    'Automatic phase cycling: RED (10s) → GREEN (8s) → YELLOW (3s) → RED, with the next light in rotation handed GREEN once the active one completes its YELLOW clearance',
+    'Manual transition — request a specific light to move to a specific phase; rejected unless it is that light\'s one legal next phase per its current SignalState',
+    'Emergency override — force exactly one light to GREEN and every other light to RED immediately, freezing normal cycling until resumeNormalOperation() is called explicitly; a second override while one is active is rejected, not queued',
+    'Multiple intersection support — TrafficRepository stores any number of independently-ticking Intersection instances',
+    'Phase-change notifications — every transition (automatic, manual, or emergency-induced) is published to registered observers for in-app display and server-side logging',
+    'Deterministic testability — the passage of time is abstracted behind SignalTicker, so tests drive an intersection with a ManualSignalTicker instead of sleeping for a real scheduler'
   ],
   entities: [
     {
-      name: 'TrafficController',
-      description: 'Central coordinator managing all intersections. Provides manual override for emergencies and handles system-wide commands like rush-hour mode.',
+      name: 'TrafficSignalService',
+      description: 'Facade the controller delegates to wholesale. Owns one production Intersection auto-ticking on a real ScheduledExecutorSignalTicker, plus any extra intersections created via createIntersection().',
       fields: [
         {
-          name: 'intersections',
-          type: 'Map<String, Intersection>',
-          description: 'All managed intersections indexed by ID'
+          name: 'repository',
+          type: 'TrafficRepository',
+          description: 'Intersection storage, injected via constructor'
         },
         {
-          name: 'emergencyMode',
-          type: 'boolean',
-          description: 'When true, all signals are forced to RED for emergency vehicles'
+          name: 'productionTicker',
+          type: 'SignalTicker',
+          description: 'ScheduledExecutorSignalTicker in production; a test constructor accepts a ManualSignalTicker instead for deterministic timing tests'
         }
       ],
       methods: [
         {
-          name: 'startIntersection(id)',
-          returns: 'void',
-          description: 'Begins the signal cycling for a specific intersection'
+          name: 'createIntersection(name, positions)',
+          returns: 'Intersection',
+          description: 'Builds a new intersection, registers it with the repository, and schedules its tick() on the production ticker'
         },
         {
-          name: 'emergencyOverride()',
-          returns: 'void',
-          description: 'Sets all signals to RED for emergency vehicle passage'
+          name: 'requestEmergencyOverride(intersectionId, lightId)',
+          returns: 'Intersection',
+          description: 'Delegates to Intersection.requestEmergencyOverride(); throws InvalidOverrideException if one is already active'
         },
         {
-          name: 'releaseOverride()',
-          returns: 'void',
-          description: 'Restores normal signal operation after emergency'
+          name: 'manualTransition(intersectionId, lightId, requested)',
+          returns: 'Intersection',
+          description: 'Delegates to Intersection.manualTransition(); rejected with IllegalSignalTransitionException unless requested is that light\'s one legal next phase'
         }
       ]
     },
     {
       name: 'Intersection',
-      description: 'Represents a single road intersection with multiple approach roads. Coordinates signal timing so conflicting roads never have GREEN simultaneously.',
+      description: 'A 4-way intersection: exactly one TrafficLight is ever GREEN/YELLOW (the "active" light) while every other stays RED. A single ReentrantLock guards every read-then-write operation, since two directions simultaneously GREEN is a real conflict, not just a display glitch.',
       fields: [
         {
-          name: 'id',
-          type: 'String',
-          description: 'Unique intersection identifier'
+          name: 'lights',
+          type: 'List<TrafficLight>',
+          description: 'One per approach position; lights.get(0) starts GREEN, the rest RED, on construction'
         },
         {
-          name: 'roads',
-          type: 'List<Road>',
-          description: 'All approach roads at this intersection'
+          name: 'notifier',
+          type: 'SignalChangeNotifier',
+          description: 'Published to on every phase change — automatic, manual, or emergency'
         },
         {
-          name: 'currentPhase',
-          type: 'int',
-          description: 'Index of the currently active road phase'
+          name: 'lock',
+          type: 'ReentrantLock',
+          description: 'Held for the whole span of tick()/manualTransition()/requestEmergencyOverride()/resumeNormalOperation()'
         },
         {
-          name: 'timer',
-          type: 'ScheduledExecutorService',
-          description: 'Manages state transition scheduling'
+          name: 'activeIndex, emergencyActive, emergencyLightId',
+          type: 'int, boolean, Integer',
+          description: 'Which light is currently active, and whether an emergency override is in force (freezing tick() as a no-op until resumed)'
         }
       ],
       methods: [
         {
-          name: 'startCycle()',
+          name: 'tick()',
           returns: 'void',
-          description: 'Begins the signal cycling sequence'
+          description: 'One simulated second: decrements the active light\'s countdown; at zero, GREEN advances to YELLOW on the same light, or YELLOW advances to RED and hands GREEN to the next light in rotation. A no-op while an emergency override is active.'
         },
         {
-          name: 'transitionNext()',
+          name: 'requestEmergencyOverride(lightId)',
           returns: 'void',
-          description: 'Advances to the next road GREEN phase'
+          description: 'Forces the target light to GREEN and every other light to RED immediately, bypassing the legal-transition table — a documented simplification; a real preemption system would insert an all-red/clearance interval first'
         },
         {
-          name: 'emergencyStop()',
+          name: 'resumeNormalOperation()',
           returns: 'void',
-          description: 'Halts all cycling and sets all signals to RED'
+          description: 'Moves the overridden light from GREEN to YELLOW (a legal transition) and lets ordinary ticking continue from there — no automatic timeout; an earlier revision spawned a one-shot executor per call to auto-clear it, which leaked a thread pool per call'
         }
       ]
     },
     {
-      name: 'Road',
-      description: 'An approach road to the intersection. Has its own traffic signal and knows the crossing road(s) for conflict detection.',
+      name: 'TrafficLight',
+      description: 'One signal head. Its phase is delegated to a SignalState instance instead of a directly-mutated enum field, so the legal-transition table lives in the state classes, not in TrafficLight or its callers. Mutation is package-private — only Intersection, which owns the cross-light lock, may change a light\'s phase.',
       fields: [
         {
-          name: 'name',
-          type: 'String',
-          description: 'Road name (e.g., Main Street, 5th Avenue)'
-        },
-        {
-          name: 'signal',
-          type: 'TrafficSignal',
-          description: 'The traffic light controlling this road'
-        },
-        {
-          name: 'crossingRoads',
-          type: 'List<Road>',
-          description: 'Roads that intersect with this one — must not share GREEN'
-        }
-      ],
-      methods: [
-        {
-          name: 'changeSignal(state)',
-          returns: 'void',
-          description: 'Changes this road\'s signal to the given state'
-        },
-        {
-          name: 'conflictsWith(other)',
-          returns: 'boolean',
-          description: 'Checks if another road crosses this one'
-        }
-      ]
-    },
-    {
-      name: 'TrafficSignal',
-      description: 'Individual traffic light with RED, YELLOW, GREEN states. Maintains current state and configured durations for each state.',
-      fields: [
-        {
-          name: 'currentState',
+          name: 'state',
           type: 'SignalState',
-          description: 'Current light state: RED, YELLOW, or GREEN'
+          description: 'volatile — the current phase, delegated to a Red/Yellow/GreenState singleton'
         },
         {
-          name: 'durations',
-          type: 'Map<SignalState, Integer>',
-          description: 'Time in seconds for each state'
+          name: 'remainingSeconds',
+          type: 'int',
+          description: 'volatile — counts down to zero, at which point Intersection.tick() advances the phase'
         }
       ],
       methods: [
         {
-          name: 'setState(state)',
+          name: 'requestTransitionTo(requested)',
           returns: 'void',
-          description: 'Transitions the signal to the specified state'
-        },
-        {
-          name: 'getState()',
-          returns: 'SignalState',
-          description: 'Returns current light state'
+          description: 'Validates requested against state.next() and applies it if it matches, else throws IllegalSignalTransitionException — the enforcement point for "reject illegal jumps"'
         }
       ]
     },
     {
       name: 'SignalState',
-      description: 'Enum for traffic light states: RED (stop), YELLOW (caution/transition), GREEN (go). Determines vehicle and pedestrian behavior.',
-      fields: [
-        {
-          name: 'RED',
-          type: 'enum',
-          description: 'Vehicles must stop — crossing road has GREEN or YELLOW'
-        },
-        {
-          name: 'YELLOW',
-          type: 'enum',
-          description: 'Transition state — caution, about to turn RED'
-        },
-        {
-          name: 'GREEN',
-          type: 'enum',
-          description: 'Vehicles may proceed — crossing road is RED'
-        }
-      ],
+      description: 'State pattern interface for one light\'s phase. Each concrete state (RedState/YellowState/GreenState) is a singleton that knows the one phase it may legally advance to and how long it holds — RED→GREEN→YELLOW→RED is expressed entirely by how the singletons wire to each other via next(), not by an if/else chain at any call site.',
+      fields: [],
       methods: [
         {
-          name: 'nextState()',
+          name: 'next()',
           returns: 'SignalState',
-          description: 'Returns the next state in the cycle: RED to GREEN to YELLOW to RED'
+          description: 'RedState.next() → GreenState, GreenState.next() → YellowState, YellowState.next() → RedState — the whole legal-transition table'
+        }
+      ]
+    },
+    {
+      name: 'SignalTicker',
+      description: 'Abstraction over "the passage of time". ScheduledExecutorSignalTicker (one shared daemon thread per intersection, shut down via @PreDestroy) drives production; ManualSignalTicker (registered tasks only run when advance(seconds) is called explicitly, no thread involved) drives tests and the isolated /sim/* demo.',
+      fields: [],
+      methods: [
+        {
+          name: 'scheduleEverySecond(task)',
+          returns: 'TickHandle',
+          description: 'Registers a task to run once per simulated second; returns a handle whose cancel() stops it'
+        }
+      ]
+    },
+    {
+      name: 'SignalChangeNotifier / SignalObserver',
+      description: 'Observer pattern subject/interface. Every registered observer is notified — via a CopyOnWriteArrayList so publish() never locks and subscribe/unsubscribe mid-publish is safe — on every transition. A misbehaving observer\'s exception is caught per-observer so it cannot break the rest.',
+      fields: [],
+      methods: [
+        {
+          name: 'publish(event)',
+          returns: 'void',
+          description: 'Fans a SignalChangeEvent out to InAppSignalObserver (keeps the last 200 in memory) and LoggingSignalObserver (writes at DEBUG, not INFO, since the production ticker fires every second for the process lifetime — logging at INFO would flood stdout)'
         }
       ]
     }
@@ -184,88 +162,79 @@ export default {
     {
       name: 'State',
       used: true,
-      explanation: 'TrafficSignal uses the State pattern via SignalState enum. Each state (RED, YELLOW, GREEN) defines behavior and valid next transition. Adding FLASHING state only requires a new enum constant.'
-    },
-    {
-      name: 'Singleton',
-      used: true,
-      explanation: 'TrafficController is a singleton managing all intersections. A single controller ensures coordinated emergency overrides and consistent system-wide configuration.'
+      explanation: 'SignalState (RedState/YellowState/GreenState, each a singleton) drives TrafficLight\'s phase. Each state\'s next() is the only place the legal-transition table is declared — TrafficLight.requestTransitionTo() validates against it rather than re-deriving the rule itself.'
     },
     {
       name: 'Observer',
-      used: false,
-      explanation: 'Pedestrian crossing buttons act as observers watching for the walk signal. Emergency vehicles could notify the controller to trigger override. Currently handled via direct controller calls.'
+      used: true,
+      explanation: 'SignalChangeNotifier (the subject) fans every SignalChangeEvent out to registered SignalObserver implementations. InAppSignalObserver keeps a bounded in-memory history for the UI; LoggingSignalObserver writes to the server log. This is fully wired and fires on every real transition, not a hypothetical extension point.'
     },
     {
       name: 'Strategy',
-      used: false,
-      explanation: 'Signal timing strategies (MorningRushStrategy, NightStrategy, WeekendStrategy) could replace fixed durations. Intersection would delegate timing to a TimingStrategy without changing core cycle logic.'
+      used: true,
+      explanation: 'SignalTicker is swapped between ScheduledExecutorSignalTicker (a real background scheduler) and ManualSignalTicker (advances only when told to) without Intersection or TrafficSignalService changing — the seam that keeps timed-transition tests deterministic.'
     },
     {
-      name: 'Command',
-      used: false,
-      explanation: 'Emergency override, pedestrian crossing, and manual mode could be encapsulated as Command objects. Enables undo/redo, scheduling, and logging of signal changes.'
+      name: 'Repository',
+      used: true,
+      explanation: 'TrafficRepository is the only class touching the intersections map; TrafficSignalService goes through it rather than holding its own storage.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'TrafficController handles coordination. Intersection manages phase sequencing. Road owns its signal and knows conflicts. TrafficSignal maintains state and timing. Each has one reason to change.'
+      description: 'SignalState subclasses own phase-transition rules only. SignalTicker implementations own "when does time pass" only. SignalChangeNotifier owns fan-out only. Intersection composes all three plus its own cross-light locking.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'New road types, signal timing strategies, or intersection topologies can be added by extending interfaces. Core cycle logic is closed for modification but open for extension.'
+      description: 'A new phase (e.g. a protected left-turn arrow) is a new SignalState implementation wired into the existing next() chain — TrafficLight and Intersection do not change.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'Intersection depends on Road and TrafficSignal abstractions, not concrete implementations. Timing mechanism uses an interface for different scheduling backends.'
+      description: 'Intersection depends on the SignalTicker interface, not on ScheduledExecutorSignalTicker directly — production wiring and test wiring supply different implementations through the same seam.'
     },
     {
       name: 'Encapsulation',
-      description: 'TrafficSignal hides state transition rules. Intersection hides phase coordination logic. Roads cannot directly change other roads\' signals — coordination goes through the Intersection.'
-    },
-    {
-      name: 'KISS (Keep It Simple)',
-      description: 'The RED to GREEN to YELLOW cycle is a straightforward state machine. Modeling it as one keeps implementation simple and verifiable.'
+      description: 'TrafficLight\'s phase-mutating methods (forceState, decrementAndCheckExpired, requestTransitionTo) are package-private — only Intersection, which owns the lock coordinating a light with its siblings, may change a light\'s phase.'
     }
   ],
   oopConcepts: [
     {
-      name: 'State Pattern via Enum',
-      description: 'SignalState enum drives all signal behavior. Each state knows its valid transition. TrafficSignal simply delegates to current state, avoiding complex if-else chains.',
-      alternative: 'Could use boolean flags (isRed, isGreen). Enum-based state makes invalid states (both GREEN and RED) unrepresentable.'
+      name: 'Polymorphism — SignalState.next()',
+      description: 'Intersection.advance() calls active.getCurrentState() and light.forceState(...) without ever checking "is this RedState or GreenState?" — each state singleton\'s own next() supplies the correct successor.',
+      alternative: 'Could use a LightState enum with a switch statement mapping each value to its successor — the State-pattern version keeps each phase\'s duration and successor colocated in its own class instead of scattered across a switch.'
     },
     {
-      name: 'Composition over Inheritance',
-      description: 'Intersection has-a List of Road. Road has-a TrafficSignal. TrafficSignal has-a SignalState. The system is built by composing objects.',
-      alternative: 'Could extend a BaseIntersection class. Composition is chosen because intersections vary in road count and layout.'
+      name: 'Composition — Intersection has-a List<TrafficLight>',
+      description: 'Intersection coordinates its lights by composition, not inheritance; TrafficLight in turn has-a SignalState rather than encoding phase as its own field.',
+      alternative: 'Could give TrafficLight its own tick()/countdown loop per light — centralizing coordination in Intersection is what makes "exactly one active light" an invariant enforceable in one place, under one lock.'
     },
     {
-      name: 'Encapsulation — Conflict Prevention',
-      description: 'The Intersection encapsulates phase coordination. Roads cannot independently turn GREEN — every transition is validated by the Intersection to prevent conflicting signals.',
-      alternative: 'Could let each road manage its own signal. Centralized coordination guarantees safety invariants at the architectural level.'
+      name: 'Strategy — Pluggable SignalTicker',
+      description: 'Intersection.tick() is invoked by whichever SignalTicker was registered — a real ScheduledExecutorSignalTicker in production, a ManualSignalTicker under test — without Intersection knowing which.',
+      alternative: 'Could give Intersection its own background thread — pluggable ticker is what lets tests advance time deterministically with zero sleeping.'
     }
   ],
   extensibility: [
     {
-      area: 'New Signal State',
-      description: 'Add FLASHING or LEFT_TURN_ARROW state to SignalState enum. Define duration and next transition. Existing states remain unchanged.',
-      difficulty: 'Easy'
-    },
-    {
-      area: 'Adaptive Traffic Timing',
-      description: 'Add sensors to detect vehicle density. Implement AdaptiveTimingStrategy that adjusts GREEN durations based on real-time traffic volume.',
-      difficulty: 'Hard'
-    },
-    {
       area: 'Pedestrian Crossing',
-      description: 'Add PedestrianButton as an observer. When pressed, Intersection schedules a pedestrian walk interval during the next appropriate cycle.',
+      description: 'Add a PedestrianSignalState pair (WALK/DONT_WALK) alongside the vehicle SignalState hierarchy, tied to the same Intersection tick() — the observer notification path needs no change.',
       difficulty: 'Medium'
     },
     {
-      area: 'Connected Vehicle Integration',
-      description: 'Add CommunicationModule that broadcasts signal states to approaching vehicles via V2I. Vehicles receive GREEN timing for optimal speed advice.',
+      area: 'Adaptive Timing',
+      description: 'Replace each state\'s fixed getDurationSeconds() with a call to a pluggable TimingStrategy that reads simulated vehicle-density input — RedState/YellowState/GreenState\'s next() wiring is unaffected.',
       difficulty: 'Hard'
+    },
+    {
+      area: 'Scheduled Timeout on Emergency Override',
+      description: 'requestEmergencyOverride() deliberately has no auto-timeout today (an earlier version leaked a thread pool per call — see RCA-038 in this repo). A safe version would need a single shared, cancellable scheduled task per intersection instead of a fire-and-forget one per call.',
+      difficulty: 'Medium'
+    },
+    {
+      area: 'Persisted Intersection Configuration',
+      description: 'TrafficRepository is in-memory only; swapping in a JPA-backed implementation behind the same interface would let intersection layouts survive a restart without touching TrafficSignalService.',
+      difficulty: 'Medium'
     }
   ]
 };
