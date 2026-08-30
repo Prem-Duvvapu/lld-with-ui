@@ -18,6 +18,7 @@ import {
   simGetTelemetry,
   simGetAppenderLogs
 } from './api';
+import { usePolling } from '../../hooks/usePolling';
 
 const LEVEL_COLORS = {
   TRACE: '#a855f7',
@@ -280,11 +281,7 @@ export default function LoggingFrameworkPage() {
     }
   };
 
-  useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 2000);
-    return () => clearInterval(interval);
-  }, [activeAppenderTab]);
+  usePolling(loadData, 2000, [activeAppenderTab]);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });

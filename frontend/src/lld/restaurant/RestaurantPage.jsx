@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import LldPage from '../../components/LldPage';
 import * as api from './api';
+import { usePolling } from '../../hooks/usePolling';
 
 const CSS = `
 .rest-container { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 12px; padding: 20px; }
@@ -119,13 +120,8 @@ function AppTab() {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
-
-  // Poll tables every 5s
-  useEffect(() => {
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  // Poll tables every 5s (also fires immediately on mount)
+  usePolling(refresh, 5000, [refresh]);
 
   // Re-derives the table's active order from RestaurantTable.currentOrderId — the backend's
   // source of truth — rather than scanning order history by tableId. History keeps every past

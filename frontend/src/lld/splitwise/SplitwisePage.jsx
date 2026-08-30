@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getUsers, createUser, getGroups, createGroup, addExpense, getGroupExpenses, getBalances, getTransactions, settleUp, getSimplifiedDebts, getEvents, simReset, simCreateUser, simCreateGroup, simAddExpense, simSettleUp, simGetBalances, simGetEvents, simGetSimplifiedDebts } from './api';
+import { usePolling } from '../../hooks/usePolling';
 import LldPage from '../../components/LldPage';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
@@ -845,12 +846,8 @@ function ActivityFeed() {
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState('ALL');
 
-  useEffect(() => {
-    const fetchEvents = () => { getEvents().then(setEvents).catch(console.error); };
-    fetchEvents();
-    const interval = setInterval(fetchEvents, 4000);
-    return () => clearInterval(interval);
-  }, []);
+  const fetchEvents = () => { getEvents().then(setEvents).catch(console.error); };
+  usePolling(fetchEvents, 4000, []);
 
   const filteredEvents = filter === 'ALL' ? events : events.filter(e => e.type === filter);
 

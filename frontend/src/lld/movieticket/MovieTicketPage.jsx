@@ -6,6 +6,7 @@ import {
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import { usePolling } from '../../hooks/usePolling';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -54,17 +55,13 @@ export default function MovieTicketPage() {
   }, []);
 
   // Poll seats when a show is selected in main booking flow
-  useEffect(() => {
+  const fetchSeats = () => {
     if (!selectedShow) return;
-    const fetchSeats = () => {
-      getSeats(selectedShow.id)
-        .then(data => setSeats(data || []))
-        .catch(() => {});
-    };
-    fetchSeats();
-    const interval = setInterval(fetchSeats, 3000);
-    return () => clearInterval(interval);
-  }, [selectedShow]);
+    getSeats(selectedShow.id)
+      .then(data => setSeats(data || []))
+      .catch(() => {});
+  };
+  usePolling(fetchSeats, 3000, [selectedShow]);
 
   // Hold countdown timer
   useEffect(() => {

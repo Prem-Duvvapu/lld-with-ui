@@ -1,118 +1,91 @@
+import { apiFetch } from '../../utils/api';
+
 const BASE_URL = '/api/airline';
 
-async function handleResponse(res) {
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(err.message || 'API request failed');
-  }
-  return res.json();
-}
-
 // Flights & Seats
-export async function getFlights() {
-  const res = await fetch(`${BASE_URL}/flights`);
-  return handleResponse(res);
+export function getFlights() {
+  return apiFetch(`${BASE_URL}/flights`);
 }
 
-export async function searchFlights(source, destination, date) {
+export function searchFlights(source, destination, date) {
   const params = new URLSearchParams();
   if (source) params.append('source', source);
   if (destination) params.append('destination', destination);
   if (date) params.append('date', date);
-  const res = await fetch(`${BASE_URL}/flights/search?${params.toString()}`);
-  return handleResponse(res);
+  return apiFetch(`${BASE_URL}/flights/search?${params.toString()}`);
 }
 
-export async function getFlight(flightId) {
-  const res = await fetch(`${BASE_URL}/flights/${flightId}`);
-  return handleResponse(res);
+export function getFlight(flightId) {
+  return apiFetch(`${BASE_URL}/flights/${flightId}`);
 }
 
-export async function getFlightSeats(flightId) {
-  const res = await fetch(`${BASE_URL}/flights/${flightId}/seats`);
-  return handleResponse(res);
+export function getFlightSeats(flightId) {
+  return apiFetch(`${BASE_URL}/flights/${flightId}/seats`);
 }
 
 // Hold & Booking
-export async function holdSeats(flightId, seatNumbers, userId) {
-  const res = await fetch(`${BASE_URL}/flights/${flightId}/hold`, {
+export function holdSeats(flightId, seatNumbers, userId) {
+  return apiFetch(`${BASE_URL}/flights/${flightId}/hold`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ seatNumbers, userId }),
   });
-  return handleResponse(res);
 }
 
 // bookingData may include an optional `fareType` ('FLEXIBLE' | 'BASIC'); defaults server-side to FLEXIBLE.
-export async function bookFlight(bookingData) {
-  const res = await fetch(`${BASE_URL}/bookings`, {
+export function bookFlight(bookingData) {
+  return apiFetch(`${BASE_URL}/bookings`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(bookingData),
   });
-  return handleResponse(res);
 }
 
-export async function cancelBooking(bookingId) {
-  const res = await fetch(`${BASE_URL}/bookings/${bookingId}/cancel`, {
+export function cancelBooking(bookingId) {
+  return apiFetch(`${BASE_URL}/bookings/${bookingId}/cancel`, {
     method: 'POST',
   });
-  return handleResponse(res);
 }
 
-export async function getUserBookings(userId) {
-  const res = await fetch(`${BASE_URL}/users/${userId}/bookings`);
-  return handleResponse(res);
+export function getUserBookings(userId) {
+  return apiFetch(`${BASE_URL}/users/${userId}/bookings`);
 }
 
 // Simulation Endpoints
-export async function simReset() {
-  const res = await fetch(`${BASE_URL}/sim/reset`, { method: 'POST' });
-  return handleResponse(res);
+export function simReset() {
+  return apiFetch(`${BASE_URL}/sim/reset`, { method: 'POST' });
 }
 
-export async function simHold(flightId, seatNumbers, userId) {
-  const res = await fetch(`${BASE_URL}/sim/hold`, {
+export function simHold(flightId, seatNumbers, userId) {
+  return apiFetch(`${BASE_URL}/sim/hold`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ flightId, seatNumbers, userId }),
   });
-  return handleResponse(res);
 }
 
-export async function simBook(flightId, seatNumbers, passengerName, userId, fareType = 'FLEXIBLE') {
-  const res = await fetch(`${BASE_URL}/sim/book`, {
+export function simBook(flightId, seatNumbers, passengerName, userId, fareType = 'FLEXIBLE') {
+  return apiFetch(`${BASE_URL}/sim/book`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ flightId, seatNumbers, passengerName, userId, fareType }),
   });
-  return handleResponse(res);
 }
 
-export async function simCancel(bookingId, hoursBeforeDeparture) {
-  const res = await fetch(`${BASE_URL}/sim/cancel`, {
+export function simCancel(bookingId, hoursBeforeDeparture) {
+  return apiFetch(`${BASE_URL}/sim/cancel`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ bookingId, hoursBeforeDeparture }),
   });
-  return handleResponse(res);
 }
 
-export async function simExpire(flightId) {
-  const res = await fetch(`${BASE_URL}/sim/expire`, {
+export function simExpire(flightId) {
+  return apiFetch(`${BASE_URL}/sim/expire`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ flightId }),
   });
-  return handleResponse(res);
 }
 
-export async function simGetSnapshots() {
-  const res = await fetch(`${BASE_URL}/sim/snapshots`);
-  return handleResponse(res);
+export function simGetSnapshots() {
+  return apiFetch(`${BASE_URL}/sim/snapshots`);
 }
 
-export async function simGetEvents() {
-  const res = await fetch(`${BASE_URL}/sim/events`);
-  return handleResponse(res);
+export function simGetEvents() {
+  return apiFetch(`${BASE_URL}/sim/events`);
 }

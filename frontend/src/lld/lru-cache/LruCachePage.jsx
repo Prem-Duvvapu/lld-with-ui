@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import LldPage from '../../components/LldPage';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
@@ -20,6 +20,7 @@ import {
   simSetPolicy,
   simBatchSimulate
 } from './api';
+import { usePolling } from '../../hooks/usePolling';
 
 const CSS = `
 .lru-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 20px; transition: box-shadow 0.3s ease; }
@@ -614,11 +615,7 @@ function Interactive2DSimulation({ toast }) {
     if (data) setSimSnapshot(data);
   };
 
-  useEffect(() => {
-    fetchSimState();
-    const interval = setInterval(fetchSimState, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(fetchSimState, 3000, []);
 
   const nodes = simSnapshot?.nodes || [];
   const capacity = simSnapshot?.capacity || 5;
@@ -876,11 +873,7 @@ export default function LruCachePage() {
     if (data) setSnapshot(data);
   };
 
-  useEffect(() => {
-    fetchState();
-    const interval = setInterval(fetchState, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  usePolling(fetchState, 5000, []);
 
   const toast = (msg, type = 'info') => {
     setToastMsg(msg);

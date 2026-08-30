@@ -12,6 +12,7 @@ import {
   simPlaceOrder,
   simCancelOrder,
 } from './api';
+import { usePolling } from '../../hooks/usePolling';
 import './StockBrokeragePage.css';
 
 const ACCOUNTS = [
@@ -68,12 +69,8 @@ function AppTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 4000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSymbol, accountId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  usePolling(refresh, 4000, [selectedSymbol, accountId]);
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
