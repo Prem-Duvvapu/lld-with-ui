@@ -83,7 +83,7 @@ function GameGrid({ board, game, onCellClick }) {
                   : val === 'X' ? 'rgba(99,102,241,0.12)' : val === 'O' ? 'rgba(239,68,68,0.12)' : 'var(--bg-primary)',
                 border: win
                   ? '2px solid #22c55e'
-                  : val === 'X' ? '2px solid #6366f1' : val === 'O' ? '2px solid #ef4444' : '1px solid var(--border-color)',
+                  : val === 'X' ? '2px solid #6366f1' : val === 'O' ? '2px solid #ef4444' : '1px solid var(--border-primary)',
                 color: val === 'X' ? '#6366f1' : val === 'O' ? '#ef4444' : 'transparent',
                 boxShadow: win ? '0 0 16px rgba(34,197,94,0.35)' : 'none',
                 transition: 'all 0.2s ease',
@@ -187,7 +187,7 @@ function TicTacToeSimulation() {
               fontWeight: 700,
               background: i < step ? 'rgba(99,102,241,0.15)' : i === step ? '#6366f1' : 'var(--bg-primary)',
               color: i === step ? '#fff' : i < step ? '#6366f1' : 'var(--text-muted)',
-              border: i < step || i === step ? '1px solid #6366f1' : '1px solid var(--border-color)',
+              border: i < step || i === step ? '1px solid #6366f1' : '1px solid var(--border-primary)',
             }}
           >
             {i + 1}. {s.title.replace(/^\d+\. /, '')}
@@ -197,8 +197,8 @@ function TicTacToeSimulation() {
 
       {/* Current step card */}
       <div style={{
-        background: 'var(--card-bg)',
-        border: '1px solid var(--border-color)',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-primary)',
         borderLeft: '4px solid #6366f1',
         borderRadius: 'var(--radius-lg)',
         padding: '16px 20px',
@@ -212,7 +212,7 @@ function TicTacToeSimulation() {
           <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>{SIM_STEPS[step].desc}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button onClick={handleStart} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>
+          <button onClick={handleStart} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>
             🔄 Restart
           </button>
           <button onClick={handleNext} disabled={step >= SIM_STEPS.length - 1} style={{ padding: '7px 18px', borderRadius: 'var(--radius-sm)', border: 'none', background: step >= SIM_STEPS.length - 1 ? 'var(--bg-secondary)' : '#6366f1', color: step >= SIM_STEPS.length - 1 ? 'var(--text-muted)' : '#fff', cursor: step >= SIM_STEPS.length - 1 ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 'var(--font-xs)' }}>
@@ -271,8 +271,8 @@ function TicTacToeSimulation() {
 
         {/* Right: HUD + Log */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '3px solid #6366f1', borderRadius: 'var(--radius-lg)', padding: 16 }}>
-            <div style={{ fontWeight: 800, fontSize: 'var(--font-sm)', marginBottom: 12, borderBottom: '1px solid var(--border-color)', paddingBottom: 8 }}>📡 Match HUD</div>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderTop: '3px solid #6366f1', borderRadius: 'var(--radius-lg)', padding: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 'var(--font-sm)', marginBottom: 12, borderBottom: '1px solid var(--border-primary)', paddingBottom: 8 }}>📡 Match HUD</div>
             {[
               ['Move Count', `${simGame?.moveCount ?? 0} / 9`],
               ['Current Turn', simGame?.currentTurn?.name ?? '—'],
@@ -360,7 +360,7 @@ export default function TicTacToePage() {
       module="tictactoe"
       title="Tic Tac Toe Game Engine"
       icon="❌"
-      tabs={['board', 'history', 'simulation', 'diagram', 'sequence', 'details']}
+      tabs={['board', { id: 'history', label: '📜 Move History' }, 'simulation', 'diagram', 'sequence', 'details']}
     >
       {(tab) => (
         <>
@@ -368,7 +368,7 @@ export default function TicTacToePage() {
           {tab === 'board' && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24 }}>
               {/* Left: Board */}
-              <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '4px solid #6366f1', borderRadius: 'var(--radius-lg)', padding: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderTop: '4px solid #6366f1', borderRadius: 'var(--radius-lg)', padding: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
                 <h3 style={{ fontWeight: 800, fontSize: 'var(--font-lg)', margin: 0 }}>
                   {game ? `Match #${game.id}` : 'Start New Match'}
                 </h3>
@@ -377,11 +377,11 @@ export default function TicTacToePage() {
                   <form onSubmit={handleStart} style={{ width: '100%', maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div>
                       <label style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>Player 1 (X)</label>
-                      <input value={player1} onChange={e => setPlayer1(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', marginTop: 4 }} />
+                      <input value={player1} onChange={e => setPlayer1(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', background: 'var(--bg-primary)', color: 'var(--text-primary)', marginTop: 4 }} />
                     </div>
                     <div>
                       <label style={{ fontSize: 'var(--font-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>Player 2 (O)</label>
-                      <input value={player2} onChange={e => setPlayer2(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', marginTop: 4 }} />
+                      <input value={player2} onChange={e => setPlayer2(e.target.value)} style={{ width: '100%', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', background: 'var(--bg-primary)', color: 'var(--text-primary)', marginTop: 4 }} />
                     </div>
                     <button type="submit" disabled={loading} style={{ padding: '10px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer', fontSize: 'var(--font-sm)' }}>
                       {loading ? 'Starting…' : '▶ Start Match'}
@@ -406,8 +406,8 @@ export default function TicTacToePage() {
 
                     {/* Controls */}
                     <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 290 }}>
-                      <button onClick={handleUndo} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>↩ Undo</button>
-                      <button onClick={handleReset} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>🔄 Reset</button>
+                      <button onClick={handleUndo} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>↩ Undo</button>
+                      <button onClick={handleReset} style={{ flex: 1, padding: '8px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>🔄 Reset</button>
                       <button onClick={() => { setGame(null); setErrorMsg(''); }} style={{ flex: 1, padding: '8px', border: 'none', borderRadius: 'var(--radius-sm)', background: '#ef4444', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 'var(--font-xs)' }}>New</button>
                     </div>
                   </>
@@ -416,8 +416,8 @@ export default function TicTacToePage() {
 
               {/* Right: Info panel */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: 20 }}>
-                  <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', marginBottom: 14, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>📊 Match Info</div>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 20 }}>
+                  <div style={{ fontWeight: 700, fontSize: 'var(--font-sm)', marginBottom: 14, borderBottom: '1px solid var(--border-primary)', paddingBottom: 10 }}>📊 Match Info</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 'var(--font-xs)' }}>
                     {[
                       ['Player X', player1 || '—', '#6366f1'],
@@ -425,7 +425,7 @@ export default function TicTacToePage() {
                       ['Moves Made', game?.moveCount ?? 0, 'var(--text-primary)'],
                       ['Status', game?.status ?? 'NOT STARTED', 'var(--text-primary)'],
                     ].map(([k, v, c]) => (
-                      <div key={k} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', display: 'flex', justifyContent: 'space-between' }}>
+                      <div key={k} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: 'var(--text-muted)' }}>{k}</span>
                         <span style={{ fontWeight: 700, color: c }}>{String(v)}</span>
                       </div>
@@ -433,7 +433,7 @@ export default function TicTacToePage() {
                   </div>
                 </div>
 
-                <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderLeft: '4px solid #3b82f6', borderRadius: 'var(--radius-lg)', padding: 16, fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderLeft: '4px solid #3b82f6', borderRadius: 'var(--radius-lg)', padding: 16, fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                   <strong style={{ color: 'var(--text-primary)' }}>How to Play:</strong><br />
                   Click any empty cell to place your symbol. Get 3 in a row — horizontally, vertically, or diagonally — to win. Use ↩ Undo to take back your last move.
                 </div>
@@ -443,8 +443,8 @@ export default function TicTacToePage() {
 
           {/* ── TAB 2: MOVE HISTORY ───────────────────────────────────────── */}
           {tab === 'history' && (
-            <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderTop: '4px solid #3b82f6', borderRadius: 'var(--radius-lg)', padding: 20 }}>
-              <h3 style={{ fontWeight: 700, fontSize: 'var(--font-base)', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 10 }}>
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderTop: '4px solid #3b82f6', borderRadius: 'var(--radius-lg)', padding: 20 }}>
+              <h3 style={{ fontWeight: 700, fontSize: 'var(--font-base)', marginBottom: 16, borderBottom: '1px solid var(--border-primary)', paddingBottom: 10 }}>
                 📜 Move History Log
               </h3>
               {!game?.moveHistory?.length ? (
@@ -454,7 +454,7 @@ export default function TicTacToePage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {game.moveHistory.map((m, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', border: '1px solid var(--border-color)', borderLeft: `3px solid ${m.symbol === 'X' ? '#6366f1' : '#ef4444'}`, borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', fontSize: 'var(--font-xs)' }}>
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', border: '1px solid var(--border-primary)', borderLeft: `3px solid ${m.symbol === 'X' ? '#6366f1' : '#ef4444'}`, borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', fontSize: 'var(--font-xs)' }}>
                       <span>
                         <strong style={{ color: m.symbol === 'X' ? '#6366f1' : '#ef4444' }}>Move #{m.moveNumber}</strong>
                         {' — '}{m.playerName} placed <strong>{m.symbol}</strong>

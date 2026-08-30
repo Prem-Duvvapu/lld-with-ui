@@ -287,8 +287,8 @@ export default function ZomatoPage() {
                   <div>
                     {/* Customer Profile Selector */}
                     <div style={{
-                      background: 'var(--card-bg)',
-                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-primary)',
                       borderLeft: '4px solid #e23744',
                       borderRadius: 'var(--radius-lg)',
                       padding: '16px 20px',
@@ -307,7 +307,7 @@ export default function ZomatoPage() {
                             style={{
                               padding: '6px 12px',
                               borderRadius: 'var(--radius-sm)',
-                              border: '1px solid var(--border-color)',
+                              border: '1px solid var(--border-primary)',
                               background: 'var(--bg-primary)',
                               color: 'var(--text-primary)',
                               fontWeight: 600
@@ -329,7 +329,7 @@ export default function ZomatoPage() {
                           style={{
                             padding: '6px 10px',
                             borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border-color)',
+                            border: '1px solid var(--border-primary)',
                             background: 'var(--bg-primary)',
                             color: 'var(--text-primary)',
                             fontSize: 'var(--font-xs)',
@@ -342,8 +342,8 @@ export default function ZomatoPage() {
 
                     {/* Restaurant Selection Section Container */}
                     <div style={{
-                      background: 'var(--card-bg)',
-                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-primary)',
                       borderTop: '3px solid #e23744',
                       borderRadius: 'var(--radius-lg)',
                       padding: '20px',
@@ -354,7 +354,7 @@ export default function ZomatoPage() {
                         fontSize: 'var(--font-base)',
                         fontWeight: 700,
                         marginBottom: '16px',
-                        borderBottom: '1px solid var(--border-color)',
+                        borderBottom: '1px solid var(--border-primary)',
                         paddingBottom: '10px',
                         display: 'flex',
                         alignItems: 'center',
@@ -372,7 +372,7 @@ export default function ZomatoPage() {
                               onClick={() => setSelectedRestaurantId(rest.id)}
                               style={{
                                 background: isSelected ? 'rgba(226, 55, 68, 0.08)' : 'var(--bg-primary)',
-                                border: isSelected ? '2px solid #e23744' : '1px solid var(--border-color)',
+                                border: isSelected ? '2px solid #e23744' : '1px solid var(--border-primary)',
                                 borderRadius: 'var(--radius-md)',
                                 padding: '14px',
                                 cursor: 'pointer',
@@ -399,8 +399,8 @@ export default function ZomatoPage() {
                     {/* Menu Category & Food Items Section Container */}
                     {currentRestaurant && (
                       <div style={{
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-primary)',
                         borderTop: '3px solid #3b82f6',
                         borderRadius: 'var(--radius-lg)',
                         padding: '20px',
@@ -411,7 +411,7 @@ export default function ZomatoPage() {
                           justify: 'space-between',
                           alignItems: 'center',
                           marginBottom: '16px',
-                          borderBottom: '1px solid var(--border-color)',
+                          borderBottom: '1px solid var(--border-primary)',
                           paddingBottom: '12px'
                         }}>
                           <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700 }}>Menu — {currentRestaurant.name}</h3>
@@ -425,7 +425,7 @@ export default function ZomatoPage() {
                                   borderRadius: 'var(--radius-full)',
                                   fontSize: 'var(--font-xs)',
                                   fontWeight: 600,
-                                  border: selectedCategory === cat ? '1px solid #e23744' : '1px solid var(--border-color)',
+                                  border: selectedCategory === cat ? '1px solid #e23744' : '1px solid var(--border-primary)',
                                   cursor: 'pointer',
                                   background: selectedCategory === cat ? '#e23744' : 'var(--bg-secondary)',
                                   color: selectedCategory === cat ? '#fff' : 'var(--text-primary)'
@@ -446,7 +446,7 @@ export default function ZomatoPage() {
                                 key={item.id}
                                 style={{
                                   background: 'var(--bg-primary)',
-                                  border: '1px solid var(--border-color)',
+                                  border: '1px solid var(--border-primary)',
                                   borderTop: item.isVeg ? '3px solid #22c55e' : '3px solid #ef4444',
                                   borderRadius: 'var(--radius-md)',
                                   padding: '16px',
@@ -525,14 +525,14 @@ export default function ZomatoPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     {/* Cart Drawer Container */}
                     <div style={{
-                      background: 'var(--card-bg)',
-                      border: '1px solid var(--border-color)',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-primary)',
                       borderTop: '4px solid #e23744',
                       borderRadius: 'var(--radius-lg)',
                       padding: '20px',
                       boxShadow: 'var(--shadow-md)'
                     }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
                         <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700 }}>🛒 Your Food Cart</h3>
                         {cart.length > 0 && (
                           <button onClick={clearCart} style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 'var(--font-xs)', cursor: 'pointer' }}>Clear</button>
@@ -547,22 +547,22 @@ export default function ZomatoPage() {
                         <>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px', maxHeight: '200px', overflowY: 'auto' }}>
                             {cart.map(item => (
-                              <div key={item.menuItem.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-xs)', borderBottom: '1px dashed var(--border-color)', paddingBottom: '8px' }}>
+                              <div key={item.menuItem.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-xs)', borderBottom: '1px dashed var(--border-primary)', paddingBottom: '8px' }}>
                                 <div>
                                   <span style={{ fontWeight: 600 }}>{item.menuItem.name}</span>
                                   <div style={{ color: 'var(--text-muted)' }}>₹{item.menuItem.price} × {item.quantity}</div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <button onClick={() => updateQuantity(item.menuItem.id, -1)} style={{ padding: '2px 6px', border: '1px solid var(--border-color)', borderRadius: '3px', cursor: 'pointer' }}>-</button>
+                                  <button onClick={() => updateQuantity(item.menuItem.id, -1)} style={{ padding: '2px 6px', border: '1px solid var(--border-primary)', borderRadius: '3px', cursor: 'pointer' }}>-</button>
                                   <span>{item.quantity}</span>
-                                  <button onClick={() => updateQuantity(item.menuItem.id, 1)} style={{ padding: '2px 6px', border: '1px solid var(--border-color)', borderRadius: '3px', cursor: 'pointer' }}>+</button>
+                                  <button onClick={() => updateQuantity(item.menuItem.id, 1)} style={{ padding: '2px 6px', border: '1px solid var(--border-primary)', borderRadius: '3px', cursor: 'pointer' }}>+</button>
                                 </div>
                               </div>
                             ))}
                           </div>
 
                           {/* Payment Method Subsection Box */}
-                          <div style={{ marginBottom: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
+                          <div style={{ marginBottom: '16px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
                             <label style={{ fontSize: 'var(--font-xs)', fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
                               💳 Select Payment Method
                             </label>
@@ -573,8 +573,8 @@ export default function ZomatoPage() {
                                 width: '100%',
                                 padding: '8px',
                                 borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-color)',
-                                background: 'var(--card-bg)',
+                                border: '1px solid var(--border-primary)',
+                                background: 'var(--bg-card)',
                                 color: 'var(--text-primary)',
                                 fontSize: 'var(--font-xs)'
                               }}
@@ -588,7 +588,7 @@ export default function ZomatoPage() {
                           </div>
 
                           {/* Summary Breakdown Subsection */}
-                          <div style={{ fontSize: 'var(--font-xs)', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px', marginBottom: '16px' }}>
+                          <div style={{ fontSize: 'var(--font-xs)', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px', marginBottom: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <span>Item Subtotal:</span>
                               <span>₹{subtotal.toFixed(2)}</span>
@@ -601,7 +601,7 @@ export default function ZomatoPage() {
                               <span>GST Tax (5%):</span>
                               <span>₹{tax.toFixed(2)}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 'var(--font-sm)', color: '#e23744', borderTop: '1px dashed var(--border-color)', paddingTop: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 'var(--font-sm)', color: '#e23744', borderTop: '1px dashed var(--border-primary)', paddingTop: '8px' }}>
                               <span>To Pay:</span>
                               <span>₹{totalPayable.toFixed(2)}</span>
                             </div>
@@ -631,21 +631,21 @@ export default function ZomatoPage() {
                     {/* Active Order Tracker Container */}
                     {activeOrder && (
                       <div style={{
-                        background: 'var(--card-bg)',
-                        border: '1px solid var(--border-color)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-primary)',
                         borderTop: '4px solid #3b82f6',
                         borderRadius: 'var(--radius-lg)',
                         padding: '20px',
                         boxShadow: 'var(--shadow-md)'
                       }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '10px' }}>
                           <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 700 }}>🚴 Active Order Tracker</h4>
                           <span className={`badge ${getStatusBadgeClass(activeOrder.status)}`} style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700 }}>
                             {activeOrder.status}
                           </span>
                         </div>
 
-                        <div style={{ fontSize: 'var(--font-xs)', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
+                        <div style={{ fontSize: 'var(--font-xs)', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '6px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
                           <div><strong>Order ID:</strong> #{activeOrder.id}</div>
                           <div><strong>Restaurant:</strong> {activeOrder.restaurantName}</div>
                           <div><strong>Total Amount:</strong> ₹{activeOrder.totalAmount?.toFixed(2)}</div>
@@ -662,7 +662,7 @@ export default function ZomatoPage() {
                         </div>
 
                         {/* Order Stepper */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px', borderLeft: '2px solid var(--border-color)', paddingLeft: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px', borderLeft: '2px solid var(--border-primary)', paddingLeft: '12px' }}>
                           {['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED'].map((st, idx) => {
                             const statuses = ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY', 'DELIVERED'];
                             const currentIdx = statuses.indexOf(activeOrder.status);
@@ -723,33 +723,33 @@ export default function ZomatoPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
                   {/* Left Column: Menu Management */}
                   <div style={{
-                    background: 'var(--card-bg)',
-                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-primary)',
                     borderTop: '4px solid #f59e0b',
                     borderRadius: 'var(--radius-lg)',
                     padding: '20px',
                     boxShadow: 'var(--shadow-md)'
                   }}>
-                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
                       🏪 Manage Restaurant
                     </h3>
-                    <div style={{ marginBottom: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
+                    <div style={{ marginBottom: '16px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
                       <label style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Select Restaurant</label>
                       <select
                         value={selectedRestaurantId}
                         onChange={(e) => setSelectedRestaurantId(e.target.value)}
-                        style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontWeight: 600 }}
+                        style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }}
                       >
                         {restaurants.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                       </select>
                     </div>
 
-                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 700, marginTop: '20px', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                    <h4 style={{ fontSize: 'var(--font-sm)', fontWeight: 700, marginTop: '20px', marginBottom: '12px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '8px' }}>
                       Menu Stock Availability
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto' }}>
                       {currentRestaurant?.menu?.map(item => (
-                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', fontSize: 'var(--font-xs)' }}>
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', fontSize: 'var(--font-xs)' }}>
                           <div>
                             <div style={{ fontWeight: 600 }}>{item.name}</div>
                             <div style={{ color: 'var(--text-muted)' }}>₹{item.price}</div>
@@ -776,14 +776,14 @@ export default function ZomatoPage() {
 
                   {/* Right Column: Kitchen Order Queue */}
                   <div style={{
-                    background: 'var(--card-bg)',
-                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-primary)',
                     borderTop: '4px solid #e23744',
                     borderRadius: 'var(--radius-lg)',
                     padding: '20px',
                     boxShadow: 'var(--shadow-md)'
                   }}>
-                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
                       👩‍🍳 Kitchen Incoming Orders Queue
                     </h3>
 
@@ -797,7 +797,7 @@ export default function ZomatoPage() {
                           <div
                             key={ord.id}
                             style={{
-                              border: '1px solid var(--border-color)',
+                              border: '1px solid var(--border-primary)',
                               borderLeft: '4px solid #3b82f6',
                               borderRadius: 'var(--radius-md)',
                               padding: '16px',
@@ -859,30 +859,30 @@ export default function ZomatoPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
                   {/* Agent Selector & Availability */}
                   <div style={{
-                    background: 'var(--card-bg)',
-                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-primary)',
                     borderTop: '4px solid #22c55e',
                     borderRadius: 'var(--radius-lg)',
                     padding: '20px',
                     boxShadow: 'var(--shadow-md)'
                   }}>
-                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
                       🛵 Delivery Agent Controls
                     </h3>
 
-                    <div style={{ marginBottom: '16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
+                    <div style={{ marginBottom: '16px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-primary)', padding: '12px' }}>
                       <label style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Active Delivery Agent</label>
                       <select
                         value={selectedAgentId}
                         onChange={(e) => setSelectedAgentId(e.target.value)}
-                        style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', background: 'var(--card-bg)', color: 'var(--text-primary)', fontWeight: 600 }}
+                        style={{ width: '100%', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 600 }}
                       >
                         {agents.map(a => <option key={a.id} value={a.id}>{a.name} ({a.vehicleNumber})</option>)}
                       </select>
                     </div>
 
                     {currentAgent && (
-                      <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                      <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                         <div style={{ fontSize: 'var(--font-sm)', fontWeight: 700 }}>{currentAgent.name}</div>
                         <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '4px' }}>📞 {currentAgent.phone}</div>
                         <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginTop: '2px' }}>🛵 {currentAgent.vehicleNumber}</div>
@@ -911,14 +911,14 @@ export default function ZomatoPage() {
 
                   {/* Agent Deliveries Queue */}
                   <div style={{
-                    background: 'var(--card-bg)',
-                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-primary)',
                     borderTop: '4px solid #8b5cf6',
                     borderRadius: 'var(--radius-lg)',
                     padding: '20px',
                     boxShadow: 'var(--shadow-md)'
                   }}>
-                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                    <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700, marginBottom: '16px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
                       📦 Assigned Delivery Tasks
                     </h3>
 
@@ -932,7 +932,7 @@ export default function ZomatoPage() {
                           <div
                             key={ord.id}
                             style={{
-                              border: '1px solid var(--border-color)',
+                              border: '1px solid var(--border-primary)',
                               borderLeft: '4px solid #22c55e',
                               borderRadius: 'var(--radius-md)',
                               padding: '16px',
@@ -999,8 +999,8 @@ export default function ZomatoPage() {
               zIndex: 1000
             }}>
               <div style={{
-                background: 'var(--card-bg)',
-                border: '1px solid var(--border-color)',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-primary)',
                 borderRadius: 'var(--radius-lg)',
                 padding: '24px',
                 width: '320px',
@@ -1025,7 +1025,7 @@ export default function ZomatoPage() {
                     textAlign: 'center',
                     fontWeight: 800,
                     borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-color)',
+                    border: '1px solid var(--border-primary)',
                     background: 'var(--bg-primary)',
                     color: 'var(--text-primary)',
                     marginBottom: '16px'
@@ -1035,7 +1035,7 @@ export default function ZomatoPage() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     onClick={() => setOtpModalOpen(false)}
-                    style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
+                    style={{ flex: 1, padding: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
                   >
                     Cancel
                   </button>
@@ -1307,53 +1307,53 @@ function InteractiveZomatoSimulation() {
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
         gap: '1px',
-        background: 'var(--border-color, #334155)',
-        border: '1px solid var(--border-color, #334155)',
+        background: 'var(--border-primary, #334155)',
+        border: '1px solid var(--border-primary, #334155)',
         borderRadius: 'var(--radius-md, 8px)',
         overflow: 'hidden'
       }}>
-        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Order ID</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#facc15' }}>{realOrder?.id || '\u2014'}</div>
         </div>
-        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Order Status</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: realOrder?.status === 'DELIVERED' ? '#22c55e' : '#38bdf8' }}>
             {realOrder?.status || 'IDLE'}
           </div>
         </div>
-        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Assigned Agent</div>
           <div style={{ fontSize: '14px', fontWeight: 700, color: realOrder?.deliveryAgentName ? '#22c55e' : 'var(--text-muted, #94a3b8)' }}>
             {realOrder?.deliveryAgentName || 'Unassigned'}
           </div>
         </div>
-        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Available Agents</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: availableAgentsCount > 0 ? '#22c55e' : '#ef4444' }}>
             {availableAgentsCount}
           </div>
         </div>
-        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Delivery Fee</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#facc15' }}>
             {realOrder ? `\u20B9${realOrder.deliveryFee}` : '\u2014'}
           </div>
         </div>
-        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Total Payable</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#e23744' }}>
             {realOrder ? `\u20B9${realOrder.totalAmount?.toFixed(2)}` : '\u2014'}
           </div>
         </div>
-        <div style={{ background: 'var(--card-bg, #1e293b)', padding: '10px 14px' }}>
+        <div style={{ background: 'var(--bg-card, #1e293b)', padding: '10px 14px' }}>
           <div style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted, #94a3b8)', fontWeight: 700 }}>Audit Events</div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#38bdf8' }}>{events.length}</div>
         </div>
       </div>
 
       {/* Top StepIndicator */}
-      <div style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
+      <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: '16px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 700 }}>\uD83C\uDFAC Interactive 2D Order Simulation (Backend Driven)</h3>
           <div style={{ fontSize: 'var(--font-xs)', fontWeight: 700, color: '#e23744' }}>
@@ -1370,7 +1370,7 @@ function InteractiveZomatoSimulation() {
         height: '380px',
         background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
         borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--border-color)',
+        border: '1px solid var(--border-primary)',
         overflow: 'hidden',
         boxShadow: 'var(--shadow-lg)'
       }}>
@@ -1506,8 +1506,8 @@ function InteractiveZomatoSimulation() {
 
       {/* Step Navigation Controls & Toolbar */}
       <div style={{
-        background: 'var(--card-bg)',
-        border: '1px solid var(--border-color)',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-primary)',
         borderRadius: 'var(--radius-lg)',
         padding: '16px 20px',
         display: 'flex',
@@ -1518,7 +1518,7 @@ function InteractiveZomatoSimulation() {
           <button
             onClick={handleReset}
             disabled={apiLoading}
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
+            style={{ padding: '8px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer' }}
           >
             \u21BA Reset Simulation
           </button>
@@ -1532,7 +1532,7 @@ function InteractiveZomatoSimulation() {
         padding: '12px 16px',
         borderRadius: 'var(--radius-md)',
         background: logBad ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-primary)',
-        border: `1px solid ${logBad ? 'var(--danger, #ef4444)' : 'var(--border-color)'}`,
+        border: `1px solid ${logBad ? 'var(--danger, #ef4444)' : 'var(--border-primary)'}`,
         color: logBad ? 'var(--danger, #ef4444)' : 'var(--info, #38bdf8)',
         fontSize: 'var(--font-xs)',
         fontWeight: 600,
@@ -1543,8 +1543,8 @@ function InteractiveZomatoSimulation() {
 
       {/* Dynamic Interactive Workflow Panel per Step */}
       <div style={{
-        background: 'var(--card-bg)',
-        border: '1px solid var(--border-color)',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-primary)',
         borderRadius: 'var(--radius-lg)',
         padding: '24px'
       }}>
@@ -1672,7 +1672,7 @@ function InteractiveZomatoSimulation() {
               Scooter arrived at destination. Enter secret OTP (<strong>{realOrder?.deliveryOtp}</strong>) to complete verification in backend.
             </p>
 
-            <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', maxWidth: '400px', marginBottom: '16px' }}>
+            <div style={{ background: 'var(--bg-primary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', maxWidth: '400px', marginBottom: '16px' }}>
               <input
                 type="text"
                 maxLength={4}
@@ -1687,8 +1687,8 @@ function InteractiveZomatoSimulation() {
                   textAlign: 'center',
                   fontWeight: 800,
                   borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--card-bg)',
+                  border: '1px solid var(--border-primary)',
+                  background: 'var(--bg-card)',
                   color: 'var(--text-primary)',
                   marginBottom: '8px'
                 }}
@@ -1716,7 +1716,7 @@ function InteractiveZomatoSimulation() {
             </p>
             <button
               onClick={handleReset}
-              style={{ padding: '10px 20px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
+              style={{ padding: '10px 20px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', fontWeight: 700, cursor: 'pointer' }}
             >
               \u21BA Reset Simulation
             </button>
@@ -1727,10 +1727,10 @@ function InteractiveZomatoSimulation() {
       {/* Contention Race Breakdown Panel */}
       {raceResult && (
         <div style={{
-          border: '1px solid var(--border-color)',
+          border: '1px solid var(--border-primary)',
           borderRadius: 'var(--radius-lg)',
           overflow: 'hidden',
-          background: 'var(--card-bg)'
+          background: 'var(--bg-card)'
         }}>
           <div style={{ background: 'var(--bg-secondary)', padding: '10px 16px', fontWeight: 700, fontSize: 'var(--font-xs)' }}>
             \uD83D\uDD10 CONTENTION ON {raceResult.agentId} \u2014 {raceResult.attempts} Concurrent Assign Requests
@@ -1742,7 +1742,7 @@ function InteractiveZomatoSimulation() {
                 alignItems: 'center',
                 gap: '12px',
                 padding: '6px 0',
-                borderBottom: idx < raceResult.results.length - 1 ? '1px solid var(--border-color)' : 'none',
+                borderBottom: idx < raceResult.results.length - 1 ? '1px solid var(--border-primary)' : 'none',
                 fontSize: '12px'
               }}>
                 <span style={{
@@ -1766,8 +1766,8 @@ function InteractiveZomatoSimulation() {
       {/* Event Audit Log */}
       {events.length > 0 && (
         <div style={{
-          background: 'var(--card-bg)',
-          border: '1px solid var(--border-color)',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-primary)',
           borderRadius: 'var(--radius-lg)',
           padding: '16px',
           maxHeight: '220px',
@@ -1777,7 +1777,7 @@ function InteractiveZomatoSimulation() {
             \uD83D\uDCDC Simulation Audit Log ({events.length} events)
           </div>
           {events.map((e) => (
-            <div key={e.id} style={{ padding: '4px 0', fontSize: '11px', borderBottom: '1px solid var(--border-color)', display: 'flex', gap: '8px' }}>
+            <div key={e.id} style={{ padding: '4px 0', fontSize: '11px', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '8px' }}>
               <span style={{ color: '#38bdf8', fontWeight: 700 }}>[{e.type}]</span>
               <span style={{ color: 'var(--text-muted)' }}>{e.actor}:</span>
               <span style={{ color: 'var(--text-primary)' }}>{e.message}</span>

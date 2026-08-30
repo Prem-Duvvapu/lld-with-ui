@@ -177,12 +177,19 @@ function AnimatedFlow() {
 
 export default function TrafficSignalPage() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
 
   const loadData = async () => {
     try {
       const d = await getStatus();
       setData(d);
-    } catch { /* graceful fallback */ }
+      setError(null);
+    } catch (err) {
+      // Previously swallowed silently, which left the "app" tab permanently blank
+      // (white background, no content, no feedback) whenever this call failed —
+      // surface it instead so the user always sees something.
+      setError(err?.message || 'Failed to load traffic signal state');
+    }
   };
 
   useEffect(() => {
@@ -192,13 +199,23 @@ export default function TrafficSignalPage() {
   }, []);
 
   const handleTransition = async () => {
-    const d = await transition();
-    setData(d);
+    try {
+      const d = await transition();
+      setData(d);
+      setError(null);
+    } catch (err) {
+      setError(err?.message || 'Failed to advance signal phase');
+    }
   };
 
   const handleEmergency = async (id) => {
-    const d = await emergency(id);
-    setData(d);
+    try {
+      const d = await emergency(id);
+      setData(d);
+      setError(null);
+    } catch (err) {
+      setError(err?.message || 'Failed to trigger emergency override');
+    }
   };
 
   return (
@@ -209,6 +226,19 @@ export default function TrafficSignalPage() {
 
           {activeTab === 'app' && (
             <div style={{ padding: 20, textAlign: 'center' }}>
+              {error && (
+                <div style={{ maxWidth: 480, margin: '0 auto 16px', padding: '10px 16px', background: 'var(--danger-bg)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                  ⚠ {error}
+                  <button onClick={loadData} style={{ marginLeft: 12, padding: '4px 10px', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {!data && !error && (
+                <div style={{ padding: 40, color: 'var(--text-muted)', fontSize: 14 }}>⏳ Loading intersection state…</div>
+              )}
+
               {data && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, maxWidth: 600, margin: '0 auto' }}>
                   <div />

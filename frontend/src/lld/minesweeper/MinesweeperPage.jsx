@@ -1,19 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import LldPage from '../../components/LldPage';
 import { createGame, getGame, revealCell, flagCell, simReset, simReveal } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import DesignDetails from '../../components/DesignDetails';
 
+// This page used to be a fully standalone document with its own header/nav and a hard
+// `max-width: 520px` container, boxing every tab — including the Class Diagram and Design
+// Details tabs — into a narrow centered column regardless of how wide the browser window was
+// (issue #53: content stuck in the middle, hard to work with). It now runs inside the shared
+// LldPage shell like every other module, which gives it the same 1200px-wide, theme-aware
+// layout, breadcrumb and tab bar as the rest of the site.
 const styles = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-.ms-page { max-width: 520px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); min-height: 100vh; }
-.ms-header { text-align: center; margin-bottom: 16px; }
-.ms-header h1 { font-size: 26px; color: var(--text-primary); margin-bottom: 4px; }
-.ms-header p { color: var(--text-secondary); font-size: 13px; }
-.ms-nav { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; }
-.ms-nav button { padding: 6px 14px; border: 2px solid var(--border-primary); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; font-weight: 600; font-size: 12px; transition: all 0.2s; }
-.ms-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .ms-main { background: var(--bg-secondary); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid var(--border-primary); }
 .ms-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 12px; background: var(--bg-primary); border-radius: 8px; font-size: 13px; font-weight: 600; }
 .ms-info span { color: var(--text-primary); }
@@ -33,8 +28,6 @@ const styles = `
 .ms-cell.num-8 { color: #607d8b; }
 .ms-btn { padding: 8px 20px; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: #fff; background: var(--accent); margin: 4px; }
 .ms-btn:hover { opacity: 0.9; }
-.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-primary); text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-.back-home:hover { background: var(--accent); color: #fff; }
 .ms-setup { text-align: center; padding: 20px 0; }
 .ms-setup h2 { margin-bottom: 16px; color: var(--text-primary); font-size: 18px; }
 .ms-form-group { margin-bottom: 12px; }
@@ -346,7 +339,6 @@ function AnimatedFlow() {
 }
 
 export default function MinesweeperPage() {
-  const [tab, setTab] = useState('game');
   const [gameId, setGameId] = useState(null);
   const [difficulty, setDifficulty] = useState('beginner');
 
@@ -356,52 +348,43 @@ export default function MinesweeperPage() {
     expert: { rows: 16, cols: 16, mines: 50 },
   };
 
-  const tabs = ['game', 'simulation', 'diagram', 'sequence', 'design'];
-  const tabLabels = { game: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', sequence: 'Sequence Diagram', design: 'Design Details' };
-
   return (
-    <div className="ms-page">
-      <style>{styles}</style>
-      <Link to="/" className="back-home">← Back</Link>
-      <div className="ms-header">
-        <h1>💣 Minesweeper</h1>
-        <p>Low-Level Design</p>
-      </div>
-      <div className="ms-nav">
-        {tabs.map(t => (
-          <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{tabLabels[t]}</button>
-        ))}
-      </div>
-      <div className="ms-main">
-        {tab === 'game' && (
-          <>
-            {!gameId ? (
-              <div className="ms-setup">
-                <h2>New Game</h2>
-                <div className="ms-form-group">
-                  <label>Difficulty</label>
-                  <select value={difficulty} onChange={e => setDifficulty(e.target.value)}>
-                    <option value="beginner">Beginner (9×9, 10 mines)</option>
-                    <option value="intermediate">Intermediate (12×12, 25 mines)</option>
-                    <option value="expert">Expert (16×16, 50 mines)</option>
-                  </select>
+    <LldPage
+      module="minesweeper"
+      title="Minesweeper"
+      icon="💣"
+      tabs={[{ id: 'game', label: '🎮 Game' }, 'simulation', 'diagram', 'sequence', 'design']}
+    >
+      {(tab) => (
+        <>
+          <style>{styles}</style>
+          {tab === 'game' && (
+            <div className="ms-main">
+              {!gameId ? (
+                <div className="ms-setup">
+                  <h2>New Game</h2>
+                  <div className="ms-form-group">
+                    <label>Difficulty</label>
+                    <select value={difficulty} onChange={e => setDifficulty(e.target.value)}>
+                      <option value="beginner">Beginner (9×9, 10 mines)</option>
+                      <option value="intermediate">Intermediate (12×12, 25 mines)</option>
+                      <option value="expert">Expert (16×16, 50 mines)</option>
+                    </select>
+                  </div>
+                  <button className="ms-btn" onClick={async () => {
+                    const d = difficultyMap[difficulty];
+                    const data = await createGame(d.rows, d.cols, d.mines);
+                    if (!data.error) setGameId(data.id);
+                  }} style={{ padding: '12px 32px', fontSize: 15 }}>Start Game</button>
                 </div>
-                <button className="ms-btn" onClick={async () => {
-                  const d = difficultyMap[difficulty];
-                  const data = await createGame(d.rows, d.cols, d.mines);
-                  if (!data.error) setGameId(data.id);
-                }} style={{ padding: '12px 32px', fontSize: 15 }}>Start Game</button>
-              </div>
-            ) : (
-              <Game gameId={gameId} onNewGame={() => setGameId(null)} />
-            )}
-          </>
-        )}
-        {tab === 'simulation' && <AnimatedFlow />}
-        {tab === 'diagram' && <ClassDiagram module="minesweeper" />}
-        {tab === 'sequence' && <SequenceDiagram module="minesweeper" />}
-        {tab === 'design' && <DesignDetails module="minesweeper" />}
-      </div>
-    </div>
+              ) : (
+                <Game gameId={gameId} onNewGame={() => setGameId(null)} />
+              )}
+            </div>
+          )}
+          {tab === 'simulation' && <AnimatedFlow />}
+        </>
+      )}
+    </LldPage>
   );
 }

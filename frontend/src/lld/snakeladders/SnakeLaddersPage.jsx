@@ -1,18 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import LldPage from '../../components/LldPage';
 import { createGame, getGame, rollDice, simReset, simRoll } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import DesignDetails from '../../components/DesignDetails';
 
+// This page used to be a fully standalone document — its own `*` reset and a `body { background:
+// linear-gradient(...) }` rule injected through an unscoped <style> tag, which leaked outside this
+// component's own subtree for as long as the page was mounted (issue #53: wrong background colour)
+// — plus a hard `max-width: 700px` container that boxed every tab, including the Class Diagram and
+// Design Details tabs, into a narrow centered column instead of using the page (issue #53: content
+// stuck in the middle). It now runs inside the shared LldPage shell like every other module, which
+// gives it the same 1200px-wide, theme-aware layout, breadcrumb and tab bar as the rest of the site.
 const styles = `
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); color: #eee; min-height: 100vh; }
-.app { max-width: 700px; margin: 0 auto; padding: 20px; }
-header { text-align: center; margin-bottom: 20px; }
-header h1 { font-size: 32px; color: #4ecdc4; text-shadow: 0 0 20px rgba(78,205,196,0.3); }
-header p { color: #888; font-size: 14px; }
-main { background: rgba(22, 33, 62, 0.95); border-radius: 16px; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05); backdrop-filter: blur(10px); }
 .setup { max-width: 300px; margin: 0 auto; }
 .setup h2 { margin-bottom: 16px; color: #4ecdc4; font-size: 22px; }
 .form-group { margin-bottom: 14px; }
@@ -63,8 +60,6 @@ main { background: rgba(22, 33, 62, 0.95); border-radius: 16px; padding: 24px; b
 .game-actions .btn-primary { border: none; }
 .game-id { text-align: center; font-size: 12px; color: #555; margin-top: 8px; }
 .alert { text-align: center; padding: 32px; color: #666; font-size: 16px; }
-.back-home { display: inline-block; margin-bottom: 16px; padding: 8px 16px; border: 1px solid #4ecdc4; border-radius: 6px; color: #4ecdc4; text-decoration: none; font-size: 14px; font-weight: 600; transition: all 0.2s; }
-.back-home:hover { background: #4ecdc4; color: #1a1a2e; }
 .step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
 .step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a5a; transition: all 0.3s; }
 .step-dot.active { background: #667eea; box-shadow: 0 0 8px rgba(102,126,234,0.5); }
@@ -451,48 +446,36 @@ function AnimatedFlow() {
 export default function SnakeLaddersPage() {
   const [gameId, setGameId] = useState(null);
   const [players, setPlayers] = useState(['Player 1', 'Player 2']);
-  const [tab, setTab] = useState('setup');
-
-  const tabs = ['setup', 'simulation', 'diagram', 'sequence', 'design'];
-  const tabLabels = { setup: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', sequence: 'Sequence Diagram', design: 'Design Details' };
 
   return (
-    <div className="app">
-      <style>{styles}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
-      <header>
-        <h1>Snake & Ladders</h1>
-        <p>Low-Level Design</p>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 10, flexWrap: 'wrap' }}>
-          {tabs.map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: '6px 14px', border: `1px solid ${tab === t ? '#4ecdc4' : '#2a2a4a'}`, borderRadius: 6, background: tab === t ? 'rgba(78,205,196,0.15)' : 'transparent', color: tab === t ? '#4ecdc4' : '#888', cursor: 'pointer', fontSize: 13, fontWeight: 600, transition: 'all 0.2s' }}>
-              {tabLabels[t]}
-            </button>
-          ))}
-        </div>
-      </header>
-      <main>
-        {tab === 'setup' && (
-          !gameId ? (
-            <div className="setup">
-              <h2>New Game</h2>
-              {players.map((p, i) => (
-                <div key={i} className="form-group">
-                  <label>Player {i + 1}</label>
-                  <input value={p} onChange={(e) => { const next = [...players]; next[i] = e.target.value; setPlayers(next); }} />
-                </div>
-              ))}
-              <button className="btn-primary" onClick={async () => { const data = await createGame(players); if (!data.error) setGameId(data.id); }}>Start Game</button>
-            </div>
-          ) : (
-            <GameBoard gameId={gameId} playerNames={players} onNewGame={() => setGameId(null)} />
-          )
-        )}
-        {tab === 'simulation' && <AnimatedFlow />}
-        {tab === 'diagram' && <ClassDiagram module="snakeladders" />}
-        {tab === 'sequence' && <SequenceDiagram module="snakeladders" />}
-        {tab === 'design' && <DesignDetails module="snakeladders" />}
-      </main>
-    </div>
+    <LldPage
+      module="snakeladders"
+      title="Snake & Ladders"
+      icon="🐍"
+      tabs={[{ id: 'game', label: '🎮 Game' }, 'simulation', 'diagram', 'sequence', 'design']}
+    >
+      {(tab) => (
+        <>
+          <style>{styles}</style>
+          {tab === 'game' && (
+            !gameId ? (
+              <div className="setup">
+                <h2>New Game</h2>
+                {players.map((p, i) => (
+                  <div key={i} className="form-group">
+                    <label>Player {i + 1}</label>
+                    <input value={p} onChange={(e) => { const next = [...players]; next[i] = e.target.value; setPlayers(next); }} />
+                  </div>
+                ))}
+                <button className="btn-primary" onClick={async () => { const data = await createGame(players); if (!data.error) setGameId(data.id); }}>Start Game</button>
+              </div>
+            ) : (
+              <GameBoard gameId={gameId} playerNames={players} onNewGame={() => setGameId(null)} />
+            )
+          )}
+          {tab === 'simulation' && <AnimatedFlow />}
+        </>
+      )}
+    </LldPage>
   );
 }

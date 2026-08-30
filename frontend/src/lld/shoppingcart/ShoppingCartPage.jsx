@@ -258,12 +258,12 @@ export default function ShoppingCartPage() {
             Command Pattern (Undo/Redo Cart Actions) • Strategy Pattern (Multi-Payment) • Deadlock-Free Ascending Lock Ordering
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-secondary)', padding: '8px 16px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
           <label style={{ fontSize: '13px', fontWeight: '600' }}>Active Customer:</label>
           <select
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
-            style={{ padding: '6px 12px', borderRadius: '6px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', outline: 'none' }}
+            style={{ padding: '6px 12px', borderRadius: '6px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', outline: 'none' }}
           >
             {users.map(u => (
               <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
@@ -285,7 +285,7 @@ export default function ShoppingCartPage() {
       )}
 
       {/* TABS HEADER */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-primary)', marginBottom: '24px', overflowX: 'auto' }}>
         {[
           { id: 'catalog', label: '🛍️ Shop Catalog' },
           { id: 'cart', label: `🛒 Cart (${cart ? Object.keys(cart.items || {}).length : 0})` },
@@ -320,12 +320,12 @@ export default function ShoppingCartPage() {
               placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ flex: 1, minWidth: '220px', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              style={{ flex: 1, minWidth: '220px', padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
             />
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              style={{ padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+              style={{ padding: '10px 14px', borderRadius: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)' }}
             >
               <option value="">All Categories</option>
               <option value="ELECTRONICS">Electronics</option>
@@ -338,7 +338,7 @@ export default function ShoppingCartPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
             {filteredProducts.map(p => (
               <div key={p.id} style={{
-                background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-color)',
+                background: 'var(--bg-secondary)', borderRadius: '12px', padding: '20px', border: '1px solid var(--border-primary)',
                 display: 'flex', flexDirection: 'column', justifyContent: 'space-between'
               }}>
                 <div>
@@ -374,7 +374,7 @@ export default function ShoppingCartPage() {
       {/* TAB 2: CART & CHECKOUT WITH UNDO */}
       {activeTab === 'cart' && (
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
-          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h2 style={{ margin: 0, fontSize: '20px' }}>Your Shopping Cart</h2>
               <button
@@ -392,7 +392,7 @@ export default function ShoppingCartPage() {
                 {Object.values(cart.items).map(item => (
                   <div key={item.productId} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px',
-                    background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)'
+                    background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-primary)'
                   }}>
                     <div>
                       <h4 style={{ margin: 0, fontSize: '16px' }}>{item.productName}</h4>
@@ -414,7 +414,7 @@ export default function ShoppingCartPage() {
             )}
           </div>
 
-          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', height: 'fit-content' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)', height: 'fit-content' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Order Summary</h3>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '18px', fontWeight: '700' }}>
               <span>Total Amount:</span>
@@ -426,7 +426,7 @@ export default function ShoppingCartPage() {
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }}
               >
                 <option value="UPI">UPI (Google Pay / PhonePe)</option>
                 <option value="CREDIT_CARD">Credit Card</option>
@@ -453,7 +453,7 @@ export default function ShoppingCartPage() {
       {activeTab === 'orders' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {orders.map(o => (
-            <div key={o.orderId} style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div key={o.orderId} style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '18px', color: 'var(--accent-violet)' }}>Order #{o.orderId}</h3>
@@ -478,7 +478,7 @@ export default function ShoppingCartPage() {
                 </div>
               </div>
 
-              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+              <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '12px' }}>
                 {o.items.map((item, idx) => (
                   <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '4px' }}>
                     <span>{item.productName} (x{item.quantity})</span>
@@ -497,11 +497,11 @@ export default function ShoppingCartPage() {
 
       {/* TAB 4: SELLER DASHBOARD */}
       {activeTab === 'seller' && (
-        <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+        <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
           <h2 style={{ margin: '0 0 20px', fontSize: '20px' }}>Seller Order Fulfillment Panel</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {allOrders.map(o => (
-              <div key={o.orderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div key={o.orderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
                 <div>
                   <h4 style={{ margin: 0 }}>Order #{o.orderId} (Customer: {o.userId})</h4>
                   <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>Amount: ₹{o.totalAmount} | Current Status: <strong>{o.status}</strong></p>
@@ -573,7 +573,7 @@ function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError,
 
   return (
     <div>
-      <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+      <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)', marginBottom: '20px' }}>
         <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>🕹️ Interactive Checkout Concurrency Walkthrough</h2>
         <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: '13px' }}>
           Two shoppers race for a 2-unit low-stock product, then a multi-product checkout demonstrates
@@ -586,7 +586,7 @@ function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError,
 
         <div style={{
           marginTop: '20px', padding: '16px 20px', borderRadius: '10px',
-          background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+          background: 'var(--bg-primary)', border: '1px solid var(--border-primary)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap'
         }}>
           <div style={{ flex: 1, minWidth: '260px' }}>
@@ -636,19 +636,19 @@ function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError,
           </div>
 
           {/* WAREHOUSE STOCK GRID */}
-          <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-primary)', marginBottom: '20px' }}>
             <h4 style={{ margin: '0 0 14px', fontSize: '15px' }}>📦 Warehouse Stock</h4>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
               {products.map(p => {
                 const pct = Math.max(0, Math.min(100, (p.stockQuantity / (p.id === 'P101' ? 2 : Math.max(p.stockQuantity, 15))) * 100))
                 return (
-                  <div key={p.id} style={{ background: 'var(--bg-primary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div key={p.id} style={{ background: 'var(--bg-primary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
                       <span>{p.id}</span>
                       <span style={{ fontWeight: '700', color: p.stockQuantity <= 0 ? '#ef4444' : 'var(--text-primary)' }}>{p.stockQuantity} units</span>
                     </div>
                     <div style={{ fontWeight: '600', fontSize: '13px', margin: '4px 0 8px' }}>{p.name}</div>
-                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--border-color)', overflow: 'hidden' }}>
+                    <div style={{ height: '6px', borderRadius: '3px', background: 'var(--border-primary)', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, background: p.stockQuantity <= 0 ? '#ef4444' : p.stockQuantity <= 2 ? '#eab308' : '#22c55e', transition: 'width 0.4s ease' }} />
                     </div>
                   </div>
@@ -659,7 +659,7 @@ function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError,
 
           {/* LOCK ACQUISITION ORDER VISUALIZER */}
           {lastLockOrderEvent && (
-            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-primary)', marginBottom: '20px' }}>
               <h4 style={{ margin: '0 0 6px', fontSize: '15px' }}>🔒 Checkout Lock Acquisition Order</h4>
               <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--text-secondary)' }}>
                 {lastLockOrderEvent.description}
@@ -673,11 +673,11 @@ function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError,
 
           {/* ORDERS PANEL */}
           {orders.length > 0 && (
-            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+            <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-primary)', marginBottom: '20px' }}>
               <h4 style={{ margin: '0 0 14px', fontSize: '15px' }}>🧾 Orders</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {orders.map(o => (
-                  <div key={o.orderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '13px' }}>
+                  <div key={o.orderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-primary)', borderRadius: '8px', border: '1px solid var(--border-primary)', fontSize: '13px' }}>
                     <span><strong>{o.orderId}</strong> — {o.userId} — ₹{o.totalAmount.toLocaleString('en-IN')}</span>
                     <span style={{
                       padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '700',
@@ -691,7 +691,7 @@ function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError,
           )}
 
           {/* EVENT LOG STREAM */}
-          <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+          <div style={{ background: 'var(--bg-secondary)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
             <h4 style={{ margin: '0 0 12px', fontSize: '15px' }}>📜 Sandbox Event Log</h4>
             <div style={{ maxHeight: '260px', overflowY: 'auto', display: 'flex', flexDirection: 'column-reverse', gap: '6px' }}>
               {events.map(ev => {
@@ -718,7 +718,7 @@ function ShoppingCartSimulationTab({ simSnapshot, simStep, simLoading, simError,
 function HudTile({ label, value, tone }) {
   const color = tone === 'danger' ? '#ef4444' : tone === 'ok' ? '#22c55e' : 'var(--accent-violet)'
   return (
-    <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+    <div style={{ background: 'var(--bg-secondary)', padding: '14px', borderRadius: '10px', border: '1px solid var(--border-primary)', textAlign: 'center' }}>
       <div style={{ fontSize: '20px', fontWeight: '800', color }}>{value}</div>
       <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{label}</div>
     </div>
@@ -760,7 +760,7 @@ function ChipSequence({ label, ids, tone }) {
               padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', fontFamily: 'monospace',
               background: tone === 'accent' ? 'rgba(139, 92, 246, 0.18)' : 'var(--bg-primary)',
               color: tone === 'accent' ? 'var(--accent-violet)' : 'var(--text-primary)',
-              border: `1px solid ${tone === 'accent' ? 'var(--accent-violet)' : 'var(--border-color)'}`
+              border: `1px solid ${tone === 'accent' ? 'var(--accent-violet)' : 'var(--border-primary)'}`
             }}>{id}</span>
             {idx < ids.length - 1 && <span style={{ color: 'var(--text-secondary)' }}>→</span>}
           </React.Fragment>
