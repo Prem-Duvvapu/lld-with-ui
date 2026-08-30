@@ -1,10 +1,12 @@
 package com.lld.library.model;
 
 import com.lld.library.enums.NotificationType;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
 public class Notification {
     private final String id;
     private final String memberId;
@@ -20,29 +22,5 @@ public class Notification {
         this.message = message != null ? message : "";
         this.referenceId = referenceId != null ? referenceId : "";
         this.timestamp = Instant.now();
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getMemberId() {
-        return memberId;
-    }
-
-    public NotificationType getType() {
-        return type;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public String getReferenceId() {
-        return referenceId;
-    }
-
-    public Instant getTimestamp() {
-        return timestamp;
     }
 }

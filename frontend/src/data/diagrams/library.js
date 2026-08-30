@@ -9,19 +9,12 @@ export default {
       name: 'LibraryService',
       stereotype: 'singleton',
       fields: [
-        '- instance: volatile LibraryService',
-        '- booksByIsbn: ConcurrentHashMap<String, Book>',
-        '- copiesById: ConcurrentHashMap<String, BookCopy>',
-        '- membersById: ConcurrentHashMap<String, Member>',
-        '- loansById: ConcurrentHashMap<String, Loan>',
-        '- memberLoans: ConcurrentHashMap<String, List<String>>',
+        '- repository: LibraryRepository',
         '- bookLocks: ConcurrentHashMap<String, ReentrantLock>',
-        '- loanIdGen: AtomicLong',
         '- fineStrategy: FineStrategy',
         '- notifier: DueDateNotifier'
       ],
       methods: [
-        '+ getInstance(): LibraryService',
         '+ addBook(isbn, title, author, category, copies): Book',
         '+ addBookCopy(isbn, rackLocation): BookCopy',
         '+ registerMember(name, email, type): Member',
@@ -31,6 +24,25 @@ export default {
         '+ payFine(memberId, amount): void',
         '+ getActiveLoansForMember(memberId): List<Loan>',
         '+ scheduledDueDateSweep(): void',
+      ]
+    },
+    {
+      name: 'LibraryRepository',
+      fields: [
+        '- booksByIsbn: ConcurrentHashMap<String, Book>',
+        '- copiesById: ConcurrentHashMap<String, BookCopy>',
+        '- membersById: ConcurrentHashMap<String, Member>',
+        '- loansById: ConcurrentHashMap<String, Loan>',
+        '- memberLoans: ConcurrentHashMap<String, List<String>>',
+        '- loanIdGen: AtomicLong',
+        '- memberIdGen: AtomicLong'
+      ],
+      methods: [
+        '+ getOrCreateBook(isbn, supplier): Book',
+        '+ saveMember(member): void',
+        '+ saveLoan(loan): void',
+        '+ findLoanById(loanId): Loan',
+        '+ getMemberLoanIds(memberId): List<String>'
       ]
     },
     {
@@ -224,9 +236,10 @@ export default {
     },
   ],
   relationships: [
-    { from: 'LibraryService', to: 'Book', label: 'manages' },
-    { from: 'LibraryService', to: 'Member', label: 'manages' },
-    { from: 'LibraryService', to: 'Loan', label: 'manages' },
+    { from: 'LibraryService', to: 'LibraryRepository', label: 'uses' },
+    { from: 'LibraryRepository', to: 'Book', label: 'stores' },
+    { from: 'LibraryRepository', to: 'Member', label: 'stores' },
+    { from: 'LibraryRepository', to: 'Loan', label: 'stores' },
     { from: 'LibraryService', to: 'FineStrategy', label: 'uses' },
     { from: 'LibraryService', to: 'DueDateNotifier', label: 'notifies via' },
     { from: 'LibraryService', to: 'MemberFactory', label: 'creates via' },

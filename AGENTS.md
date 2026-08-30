@@ -384,16 +384,51 @@ reference bar — same audit-and-harden shape as pubsub/parkinglot.
 
 ## Library Management Module
 ### Backend
-- `LibraryService`: Singleton facade managing book catalog, multi-copy barcode tracking, loan state machine (`ACTIVE`, `RETURNED`, `OVERDUE`), member quota guards, and overdue sweeps.
-- Concurrency & Double-Borrow Prevention: Dual-level concurrency locking — per-book `ReentrantLock` preventing last-copy race conditions and per-member mutex guarding borrow limit oversubscription.
+Audited from HANDOFF.md's "unverified" list — Strategy/Factory/Observer were already genuinely
+wired up (unlike movieticket's dead-code versions of the same patterns), so this pass's real gaps
+were structural: no `repository/` package (12 maps sitting directly on the service), a dead legacy
+`getInstance()` singleton alongside proper Spring DI, non-Lombok models, and only one test file
+whose only "concurrency" test called `borrowBook` twice sequentially — no window for a real race.
+- **`LibraryRepository` (new)** — `com.lld.library.repository`: the book/copy/member/loan
+  `ConcurrentHashMap`s and both `AtomicLong` id generators, extracted out of `LibraryService`
+  wholesale. Deliberately does NOT hold the per-book `ReentrantLock`s — locking stays a
+  service-level concern coordinating a read-validate-mutate span across the repository, the same
+  split `tictactoe.service.TicTacToeService`'s `gameLocks` keeps outside `GameRepository`. The
+  isolated `/sim/*` engine now runs on a second, fully independent `LibraryRepository` instance
+  instead of six parallel `simXxx` maps — the same two-instance shape
+  `movieticket.service.MovieTicketService` uses.
+- **Dead `getInstance()` singleton removed** — a manual double-checked-locking
+  `public static LibraryService getInstance()` sat alongside the real Spring `@Service` bean with
+  constructor injection; nothing in the app, tests, or frontend ever called it. `LibraryService` is
+  a Spring-managed singleton the ordinary way — no manual singleton machinery needed.
+- Concurrency & Double-Borrow Prevention: per-book `ReentrantLock` (fair, keyed by ISBN) preventing
+  last-copy race conditions and a per-member `ReentrantLock` guarding borrow-limit oversubscription
+  — both proven with real threads now (see Tests below), not just a sequential double-call.
 - Factory Pattern: `MemberFactory` instantiating `STUDENT` (3 books / 14 days), `FACULTY` (10 books / 30 days), and `GENERAL` (5 books / 21 days) members with encapsulated `LoanPolicy`.
 - Strategy Pattern: `FineStrategy` interface with `StandardFineStrategy` calculating daily overdue late fees upon return.
 - Observer Pattern: `DueDateNotifier` broadcasting reminder events and overdue transition alerts to `LibraryNotificationObserver` instances via `@Scheduled` sweeps.
-- Custom Exceptions: `BookNotAvailableException` (409), `BorrowLimitExceededException` (409), `MemberNotFoundException` (404), `LoanNotFoundException` (404), `InvalidReturnException` (400).
+- Custom Exceptions: `BookNotAvailableException` (409), `BorrowLimitExceededException` (409), `MemberNotFoundException` (404), `LoanNotFoundException` (404), `InvalidReturnException` (400) — already correctly on the shared `DomainException` contract going into this pass (unlike movieticket's RCA-035 gap).
+- Lombok (`@Getter`, `Loan` also `@Setter` on its three mutable fields) across all 6 model classes.
+  `Book#getCopies()` (unmodifiable-view wrapper), `BookCopy#isAvailable/setAvailable` (kept
+  hand-written to avoid relying on Lombok's boolean-getter naming for a field already named
+  `isAvailable`), and `Member`'s `activeLoanCount`/`memberLock` accessors (an `AtomicInteger`
+  derived-int getter and a lock getter with a different method name than Lombok would generate)
+  stay hand-written alongside the generated accessors — the same `@Getter(AccessLevel.NONE)`
+  exclusion `atm.model.Account` uses, which was itself modeled on this class.
+- Tests (1 file -> 4): `LibraryServiceTest` (pre-existing, kept — catalog/member registration,
+  borrow/return happy path, the original sequential last-copy-race check, borrow-limit rejection,
+  fine payment, scheduled sweep, sim engine), `LibraryRepositoryTest` (new — storage behaviour,
+  `getOrCreateBook` idempotency, id-generator resets), `LibraryStrategyTest` (new —
+  `StandardFineStrategy`'s day-count math and `MemberFactory`'s type-to-policy resolution),
+  `LibraryConcurrencyTest` (new, real threads: N racers for one copy — exactly one wins; N racers
+  against a 5-book limit — exactly 5 succeed; 20 concurrent fine payments — the balance lands
+  exactly where the sum predicts, no lost update).
 
 ### Frontend
 - 6 tabs: 📚 Book Catalog & Borrow, 👤 Member Dashboard & Active Loans, 🔔 Notifications & Alerts, 🕹️ Concurrency & Loan Simulation, 📐 Class Diagram, 📋 Design Details.
 - Live searchable catalog with rack locations and copy availability chips, member active loan manager with due date countdown badges, accrued fine settlement, and interactive 2D simulation visualizer for last-copy races and accelerated sweep events.
+- `api.js`'s raw `fetch()` calls (not yet converted to the shared `apiFetch` wrapper) are a known,
+  deliberately deferred gap — see the portfolio-wide scope decision recorded in HANDOFF.md.
 
 ## Airline Management Module
 ### Backend

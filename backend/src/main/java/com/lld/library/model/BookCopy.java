@@ -1,5 +1,8 @@
 package com.lld.library.model;
 
+import lombok.Getter;
+
+@Getter
 public class BookCopy {
     private final String copyId;
     private final String isbn;
@@ -11,18 +14,6 @@ public class BookCopy {
         this.isbn = isbn;
         this.rackLocation = rackLocation != null ? rackLocation : "Rack-General";
         this.isAvailable = true;
-    }
-
-    public String getCopyId() {
-        return copyId;
-    }
-
-    public String getIsbn() {
-        return isbn;
-    }
-
-    public String getRackLocation() {
-        return rackLocation;
     }
 
     public boolean isAvailable() {

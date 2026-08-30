@@ -1,9 +1,12 @@
 package com.lld.library.model;
 
+import lombok.Getter;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+@Getter
 public class Book {
     private final String isbn;
     private final String title;
@@ -27,22 +30,7 @@ public class Book {
         this.category = category != null ? category.trim() : "General";
     }
 
-    public String getIsbn() {
-        return isbn;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public String getAuthor() {
-        return author;
-    }
-
-    public String getCategory() {
-        return category;
-    }
-
+    /** Exposed read-only — callers add copies via {@link #addCopy}, never the backing list directly. */
     public List<BookCopy> getCopies() {
         return Collections.unmodifiableList(copies);
     }

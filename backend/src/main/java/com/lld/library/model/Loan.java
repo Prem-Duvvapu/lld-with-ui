@@ -1,9 +1,12 @@
 package com.lld.library.model;
 
 import com.lld.library.enums.LoanStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDate;
 
+@Getter
 public class Loan {
     private final String loanId;
     private final String copyId;
@@ -11,8 +14,11 @@ public class Loan {
     private final String memberId;
     private final LocalDate issueDate;
     private final LocalDate dueDate;
+    @Setter
     private volatile LocalDate returnDate;
+    @Setter
     private volatile LoanStatus status;
+    @Setter
     private volatile double fineAmount;
 
     public Loan(String loanId, String copyId, String isbn, String memberId, LocalDate issueDate, LocalDate dueDate) {
@@ -27,53 +33,5 @@ public class Loan {
         this.dueDate = dueDate;
         this.status = LoanStatus.ACTIVE;
         this.fineAmount = 0.0;
-    }
-
-    public String getLoanId() {
-        return loanId;
-    }
-
-    public String getCopyId() {
-        return copyId;
-    }
-
-    public String getIsbn() {
-        return isbn;
-    }
-
-    public String getMemberId() {
-        return memberId;
-    }
-
-    public LocalDate getIssueDate() {
-        return issueDate;
-    }
-
-    public LocalDate getDueDate() {
-        return dueDate;
-    }
-
-    public LocalDate getReturnDate() {
-        return returnDate;
-    }
-
-    public void setReturnDate(LocalDate returnDate) {
-        this.returnDate = returnDate;
-    }
-
-    public LoanStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(LoanStatus status) {
-        this.status = status;
-    }
-
-    public double getFineAmount() {
-        return fineAmount;
-    }
-
-    public void setFineAmount(double fineAmount) {
-        this.fineAmount = fineAmount;
     }
 }

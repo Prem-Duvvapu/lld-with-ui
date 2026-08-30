@@ -1,7 +1,10 @@
 package com.lld.library.model;
 
+import lombok.Getter;
+
 import java.util.Map;
 
+@Getter
 public class SimEvent {
     private final long id;
     private final String timestamp;
@@ -17,29 +20,5 @@ public class SimEvent {
         this.actor = actor;
         this.description = description;
         this.data = data;
-    }
-
-    public long getId() {
-        return id;
-    }
-
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public String getActor() {
-        return actor;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public Map<String, Object> getData() {
-        return data;
     }
 }
