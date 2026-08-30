@@ -3723,3 +3723,89 @@ grep -rL "LldPage" frontend/src/lld/*/*Page.jsx | xargs grep -l "ClassDiagram\|S
    background color live. This is the second and (per that grep) now the last such module found this
    session — worth an occasional sweep after future `/new-lld` additions, since a copy-pasted
    pre-`LldPage`-era page is an easy way for this pattern to resurface.
+
+## RCA-041: Auditing the Remaining 15 Theme-Color-Flagged Modules Found Only One Real Instance — the Rest Were Illustrations, Semantic Status Colors, or Already-Correct Fallback Syntax
+
+### 1. Overview & Severity
+**Severity: Low.** RCA-037's color-conversion pass covered 5 modules (airline, library, linkedin,
+movieticket, coffeemachine); a prior broader audit had also flagged 15 more modules as unaudited for
+the same "hardcoded regardless of theme" issue: hotel, stackoverflow, splitwise, parking,
+shoppingcart, lru-cache, ludo, uber, zomato, traffic-signal, logging-framework, auction,
+digitalwallet, elevator, h2o. Auditing all 15 against the same dark-literal hex set found only
+**one** real fix needed (zomato's Telemetry HUD block, described below) — every other hit was either
+a deliberate illustration (uber's night-time city map, lru-cache's memory-rack visualization,
+zomato's own delivery-scene SVG), a semantic status/severity color that must stay fixed regardless
+of theme (logging-framework's TRACE/DEBUG/INFO/WARN/ERROR/FATAL color map), text sitting on an
+already-fixed-dark `rgba(...)` overlay (splitwise's simulation card, parking's glassmorphism HUD), or
+9 of the 15 modules (hotel, stackoverflow, shoppingcart, ludo, auction, digitalwallet, elevator, h2o,
+traffic-signal) having zero hits on the dark-literal hex set at all — they were already built
+theme-adaptive from the start.
+
+### 2. Symptoms & Error Logs
+No visible bug for 14 of the 15 modules — the flagged hex hits were either not page chrome at all, or
+(for zomato) were already resolving correctly at runtime since a defined CSS variable always wins
+over its own fallback. The only symptom that existed was latent, not observed: `var(--token, #hex)`
+syntax with a redundant fallback is harmless while the token stays defined in `theme.css`, but the
+repo-wide convention established in RCA-037 (`var(token, #hex)` → `var(token)`) exists so no page
+carries a fallback that silently masks a future accidental token removal.
+
+### 3. Root Cause
+The original broader grep that flagged these 15 modules matched on hex-literal *presence*, not on
+whether that literal was acting as always-dark page chrome — the same distinction RCA-037 had to
+learn the hard way for coffeemachine/vendingmachine. Applied more carefully here:
+- **uber**'s `.uber-flow-scene`/`.uber-road` (`#0f172a`/`#1e293b`/`#334155`/`#64748b`) is an "Enhanced
+  City Map Graphic Scene" — a night-sky gradient and asphalt-colored road illustration, confirmed by
+  its own comment.
+- **lru-cache**'s `.sim-container`/`.sim-slot`/`.sim-packet` (`#0b1329`/`#1e293b`/`#334155`/
+  `#94a3b8`/`#64748b`) is a "Server Memory Slots Grid" / "MEMORY RACK SLOTS" hardware visualization,
+  confirmed by its own UI labels.
+- **zomato**'s SVG "2D Graphic City Scene" (`#0f172a`/`#1e293b`/`#94a3b8`/`#64748b`/`#334155` used as
+  SVG `fill`/`stroke` attributes) is a "Night Sky & Background" delivery-route illustration.
+- **logging-framework**'s `LEVEL_COLORS.DEBUG: '#64748b'` is one entry in a
+  TRACE/DEBUG/INFO/WARN/ERROR/FATAL severity color map — the same category as a status badge color,
+  which RCA-037 already established should stay fixed regardless of theme.
+- **splitwise**'s `.sw-sim-card` and **parking**'s glassmorphism HUD both set their own container
+  background to a fixed `rgba(30,41,59,0.9)` / `rgba(15,23,42,0.85)` overlay — RCA-037's second
+  safety check (never convert text nested inside an already-fixed-dark `rgba(...)` container) applies
+  directly; the `#94a3b8`/`#64748b` text inside them is correctly legible against that fixed
+  background in both themes.
+- **zomato**'s Telemetry HUD block (`Order ID`/`Order Status`/`Assigned Agent`/etc. tiles) was the one
+  real, if minor, finding: every value was already `var(--bg-card, #1e293b)` / `var(--border-primary,
+  #334155)` / `var(--text-muted, #94a3b8)` — correct and already theme-adaptive at runtime, just
+  carrying the same redundant hex fallback RCA-037 established stripping elsewhere in the portfolio.
+
+### 4. Diagnostic Commands
+```bash
+# Same dark-literal sweep as RCA-037, now run across the remaining 15 flagged modules:
+grep -c "#1e293b\|#0f172a\|#334155\|#94a3b8\|#64748b\|#f8fafc\|#f9fafb" frontend/src/lld/<module>/<Module>Page.jsx
+
+# For any module with hits, before touching anything: is this inside a genuine illustration
+# (a UI label like "MEMORY RACK SLOTS" or "City Map Graphic Scene" nearby is the tell), a semantic
+# status/severity color map, or text nested inside an already rgba(...)-fixed-dark container?
+# Only a `var(--token, #hex)` occurrence with none of the above is a real fallback-stripping case.
+```
+
+### 5. Step-by-Step Resolution
+1. Ran the dark-literal grep across all 15 modules; 9 had zero hits (already fully theme-adaptive).
+2. Individually read the surrounding context for every hit in the remaining 6 modules (splitwise,
+   parking, lru-cache, uber, zomato, logging-framework) before touching anything, per the illustration
+   /semantic-color/fixed-overlay checks established in RCA-037.
+3. Stripped the redundant `, #hex` fallback from zomato's Telemetry HUD block only — the sole real
+   finding; left the other 5 modules (and the rest of zomato, including its own SVG scene)
+   byte-for-byte unchanged.
+4. Ran the frontend suite (`npx vitest run`, 304/304) and `npm run build` (entry chunk unchanged at
+   260.77 kB) to confirm no regression.
+
+### 6. Preventative Measures
+1. Same as RCA-037 #3: before converting any hex literal, check for a UI label or code comment naming
+   what it renders ("MEMORY RACK SLOTS", "Enhanced City Map Graphic Scene", "Night Sky & Background")
+   — this repo's simulation tabs regularly illustrate a physical scene, and the label is usually
+   present precisely because the author wanted the metaphor legible.
+2. A module having zero hits on a known dark-literal set is not the same claim as "this module has no
+   theme bugs" — it only means this module isn't hardcoded to *this specific* palette. It is,
+   however, reasonably strong evidence for a module built after the theming convention existed, which
+   was true for all 9 zero-hit modules here.
+3. Auditing a flagged list before touching any of it can shrink the real scope dramatically — of 15
+   modules originally flagged, only one needed an actual change, and that change was a one-line-per-
+   occurrence cosmetic cleanup, not a contrast bug. Don't assume a flagged list's size predicts the
+   size of the fix.
