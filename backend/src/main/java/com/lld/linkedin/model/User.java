@@ -1,15 +1,22 @@
 package com.lld.linkedin.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.Objects;
 
+@Getter
 public class User {
     private final String id;
     private String name;
     private final String email;
+    @Setter
     private String passwordHash;
+    @Setter
     private Profile profile;
     private final Instant createdAt;
+    @Setter
     private volatile Instant lastLoginAt;
 
     public User(String id, String name, String email, String passwordHash) {
@@ -34,48 +41,8 @@ public class User {
         this.lastLoginAt = Instant.now();
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
     public void setName(String name) {
         this.name = name != null ? name.trim() : "";
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public Profile getProfile() {
-        return profile;
-    }
-
-    public void setProfile(Profile profile) {
-        this.profile = profile;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getLastLoginAt() {
-        return lastLoginAt;
-    }
-
-    public void setLastLoginAt(Instant lastLoginAt) {
-        this.lastLoginAt = lastLoginAt;
     }
 
     public boolean validatePassword(String rawPassword) {

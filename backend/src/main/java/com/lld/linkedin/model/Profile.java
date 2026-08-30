@@ -1,10 +1,13 @@
 package com.lld.linkedin.model;
 
+import lombok.Getter;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Getter
 public class Profile {
     private final String profileId;
     private final String userId;
@@ -27,32 +30,12 @@ public class Profile {
         this.location = "";
     }
 
-    public String getProfileId() {
-        return profileId;
-    }
-
-    public String getUserId() {
-        return userId;
-    }
-
-    public String getHeadline() {
-        return headline;
-    }
-
     public void setHeadline(String headline) {
         this.headline = headline != null ? headline.trim() : "";
     }
 
-    public String getSummary() {
-        return summary;
-    }
-
     public void setSummary(String summary) {
         this.summary = summary != null ? summary.trim() : "";
-    }
-
-    public String getLocation() {
-        return location;
     }
 
     public void setLocation(String location) {

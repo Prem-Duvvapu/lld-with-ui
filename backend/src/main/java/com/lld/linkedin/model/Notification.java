@@ -1,10 +1,12 @@
 package com.lld.linkedin.model;
 
 import com.lld.linkedin.enums.NotificationType;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
 public class Notification {
     private final String id;
     private final String recipientId;
@@ -30,34 +32,6 @@ public class Notification {
         this.referenceId = referenceId != null ? referenceId : "";
         this.timestamp = Instant.now();
         this.isRead = false;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getRecipientId() {
-        return recipientId;
-    }
-
-    public String getActorId() {
-        return actorId;
-    }
-
-    public NotificationType getType() {
-        return type;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public String getReferenceId() {
-        return referenceId;
-    }
-
-    public Instant getTimestamp() {
-        return timestamp;
     }
 
     public boolean isRead() {

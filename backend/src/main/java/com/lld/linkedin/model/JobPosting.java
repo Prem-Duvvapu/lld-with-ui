@@ -2,6 +2,8 @@ package com.lld.linkedin.model;
 
 import com.lld.linkedin.enums.EmploymentType;
 import com.lld.linkedin.enums.JobStatus;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -9,6 +11,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Getter
+@Setter
 public class JobPosting {
     private final String id;
     private final String posterId;
@@ -46,54 +50,7 @@ public class JobPosting {
         }
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public String getPosterId() {
-        return posterId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getCompany() {
-        return company;
-    }
-
-    public void setCompany(String company) {
-        this.company = company;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public void setLocation(String location) {
-        this.location = location;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public EmploymentType getEmploymentType() {
-        return employmentType;
-    }
-
-    public void setEmploymentType(EmploymentType employmentType) {
-        this.employmentType = employmentType;
-    }
-
+    /** Exposed read-only — callers add via {@link #addRequiredSkill}, never the backing set directly. */
     public Set<String> getRequiredSkills() {
         return Collections.unmodifiableSet(requiredSkills);
     }
@@ -102,14 +59,6 @@ public class JobPosting {
         if (skillName != null && !skillName.trim().isEmpty()) {
             requiredSkills.add(skillName.trim().toLowerCase());
         }
-    }
-
-    public JobStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(JobStatus status) {
-        this.status = status;
     }
 
     public boolean addApplicant(String userId) {
@@ -121,11 +70,8 @@ public class JobPosting {
         return userId != null && applicantUserIds.contains(userId);
     }
 
+    /** Exposed read-only — callers apply via {@link #addApplicant}, never the backing set directly. */
     public Set<String> getApplicants() {
         return Collections.unmodifiableSet(applicantUserIds);
-    }
-
-    public Instant getPostedAt() {
-        return postedAt;
     }
 }

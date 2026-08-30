@@ -1,8 +1,11 @@
 package com.lld.linkedin.model;
 
+import lombok.Getter;
+
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
 public class Message {
     private final String id;
     private final String conversationKey;
@@ -27,30 +30,6 @@ public class Message {
         this.content = content.trim();
         this.timestamp = Instant.now();
         this.isRead = false;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public String getConversationKey() {
-        return conversationKey;
-    }
-
-    public String getSenderId() {
-        return senderId;
-    }
-
-    public String getReceiverId() {
-        return receiverId;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public Instant getTimestamp() {
-        return timestamp;
     }
 
     public boolean isRead() {

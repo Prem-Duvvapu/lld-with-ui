@@ -1,343 +1,253 @@
 // designDetails — linkedin
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// requirements/entities/designPatterns/principles/oopConcepts/extensibility rewritten from scratch
+// (2026-08-30) — they previously described a fictional social-feed clone (Post, Comment,
+// FeedService, NotificationService, FeedRankingStrategy) that does not exist anywhere in
+// com.lld.linkedin; the tldr/tradeoffs/solid sections below were already accurate and are kept.
 
 export default {
   title: 'LinkedIn Professional Network — Design Details',
   tldr: [
-    'Professional networking platform with bidirectional connections, state-machine connection lifecycles, and real-time observer alerts',
-    'Weighted search ranking algorithms evaluating candidate relevance across name match, headline tokens, skill overlap, and 1st/2nd/3rd network distance',
+    'Professional networking platform with bidirectional connections, a PENDING/ACCEPTED/REJECTED connection lifecycle, and real-time observer alerts',
+    'Weighted search ranking algorithms evaluating candidate relevance across name match, headline tokens, skill overlap, and 1st-degree network membership',
     'Observer Pattern for decoupled in-app notifications and audit logging on connection requests, messages, and job applications',
     'Fine-grained canonical pair locks (min(u1, u2) + "#" + max(u1, u2)) preventing race conditions during concurrent connection requests',
     'Direct messaging security guard enforcing 1st-degree connection status before message routing',
     'Job posting ledger with atomic applicant registration preventing duplicate applications under high concurrency'
   ],
   requirements: [
-    'User profiles with professional information: experience, education, skills, recommendations, and profile photo',
-    'Connection management — users can send, accept, reject connection requests with 1st/2nd/3rd degree connection visibility',
-    'Feed with personalized content — posts from connections, suggested posts, sponsored content ranked by relevance and recency',
-    'Post creation with text, images, and video — other users can like, comment, and share posts',
-    'Notifications for connection requests, post likes, comments, shares, and profile views',
-    'Search functionality — search for people, jobs, companies, and posts with filtering and sorting',
-    'Messaging system — real-time chat between connected users with typing indicators and read receipts',
-    'Job posting and applications — companies can post jobs, users can apply with their profile'
+    'User registration and login with a hashed password, plus a professional profile: headline, summary, location, work experience, education, and skills',
+    'Connection management — users can send, accept, or reject connection requests; only ACCEPTED connections count toward a user\'s network',
+    'Direct messaging — only between users with an ACCEPTED connection; a rejected or never-sent request must not let messages through',
+    'Notifications for connection requests, accepted connections, received messages, and job applications, delivered via a registered observer',
+    'People search ranked by name/headline/skill relevance plus a 1st-degree-connection boost',
+    'Job posting and applications — a user posts a job with required skills; other users apply once each; job search is ranked by title/skill/location/recency relevance',
+    'Thread-safe concurrent access — two users racing to connect with each other (from either direction) must produce exactly one connection, never two or a deadlock'
   ],
   entities: [
     {
-      name: 'User',
-      description: 'Core member entity with professional profile. Manages connections, posts, notifications, and privacy settings.',
+      name: 'LinkedInService',
+      description: 'Core facade orchestrating registration/login, connections, messaging, job postings, search, and notification dispatch.',
       fields: [
         {
-          name: 'id',
-          type: 'String',
-          description: 'Unique user identifier'
+          name: 'repository',
+          type: 'LinkedInRepository',
+          description: 'User/connection/message/job storage, injected via constructor'
         },
         {
-          name: 'profile',
-          type: 'Profile',
-          description: 'Professional profile with experience, education, skills'
+          name: 'connectionLocks',
+          type: 'ConcurrentHashMap<String, ReentrantLock>',
+          description: 'One lock per canonical user-pair key, guarding the whole read-validate-mutate span of sendConnectionRequest'
         },
         {
-          name: 'connections',
-          type: 'List<Connection>',
-          description: 'All accepted connections with metadata'
+          name: 'observers, inAppObserver',
+          type: 'List<NotificationObserver>, InAppNotificationObserver',
+          description: 'Every registered observer is notified on dispatch; inAppObserver is also kept directly since getNotifications reads back through it'
         },
         {
-          name: 'privacySettings',
-          type: 'PrivacySettings',
-          description: 'Profile visibility, connection request preferences'
+          name: 'userSearchStrategy, jobSearchStrategy',
+          type: 'UserSearchRankingStrategy, JobSearchRankingStrategy',
+          description: 'Injected Spring beans resolving people/job search relevance scores'
         }
       ],
       methods: [
         {
-          name: 'sendConnectionRequest(targetUser)',
-          returns: 'ConnectionRequest',
-          description: 'Initiates a connection request to another user'
-        },
-        {
-          name: 'acceptRequest(request)',
+          name: 'sendConnectionRequest(senderId, receiverId)',
           returns: 'Connection',
-          description: 'Accepts a pending connection request'
+          description: 'Locks the canonical min(u1,u2)#max(u1,u2) pair key, rejects an already-PENDING or already-ACCEPTED pair, otherwise creates a new PENDING connection'
         },
         {
-          name: 'createPost(content)',
-          returns: 'Post',
-          description: 'Creates a new post on the user\'s feed'
+          name: 'sendMessage(senderId, receiverId, content)',
+          returns: 'Message',
+          description: 'Looks up the pair\'s active connection and rejects the message unless it is ACCEPTED'
         },
         {
-          name: 'search(query, filters)',
-          returns: 'SearchResults',
-          description: 'Searches people, jobs, companies'
+          name: 'applyForJob(applicantId, jobId)',
+          returns: 'boolean',
+          description: 'Atomically records the applicant against the job (via the repository\'s Set#add), rejecting a duplicate application'
         }
+      ]
+    },
+    {
+      name: 'LinkedInRepository',
+      description: 'In-memory user/connection/message/job store. One instance backs the live API; a second, fully independent instance backs /sim/* so the demo can never touch a real user/connection/job.',
+      fields: [
+        {
+          name: 'usersById, usersByEmail',
+          type: 'ConcurrentHashMap<String, User>, ConcurrentHashMap<String, String>',
+          description: 'Users indexed by id, plus a claimed-emails index used to reject duplicate registrations'
+        },
+        {
+          name: 'connectionsById, userConnections, activeConnectionPairs',
+          type: 'ConcurrentHashMap<...>',
+          description: 'Connections by id; each user\'s set of connection ids; and the canonical pair-key -> active connection id index sendConnectionRequest checks'
+        },
+        {
+          name: 'conversations',
+          type: 'ConcurrentHashMap<String, List<Message>>',
+          description: 'Messages keyed by the same canonical pair-key convention as connections'
+        },
+        {
+          name: 'jobPostings, jobApplications',
+          type: 'ConcurrentHashMap<String, JobPosting>, ConcurrentHashMap<String, Set<String>>',
+          description: 'Jobs by id, and each job\'s applicant-id set used for the atomic duplicate-application check'
+        }
+      ],
+      methods: [
+        {
+          name: 'claimEmail(email, userId)',
+          returns: 'String',
+          description: 'Atomic putIfAbsent — returns the existing owner\'s id if the email is already registered, null on success'
+        },
+        {
+          name: 'addJobApplicant(jobId, applicantId)',
+          returns: 'boolean',
+          description: 'Atomic Set#add against the job\'s applicant set — false means this applicant already applied'
+        }
+      ]
+    },
+    {
+      name: 'User',
+      description: 'A registered member: identity, hashed password, and an attached Profile.',
+      fields: [
+        { name: 'id, name, email, passwordHash', type: 'String', description: 'Identity and credentials; email is normalized to lowercase' },
+        { name: 'profile', type: 'Profile', description: 'Created automatically alongside the user at registration' },
+        { name: 'createdAt, lastLoginAt', type: 'Instant', description: 'Account creation time and most recent successful login' }
+      ],
+      methods: [
+        { name: 'validatePassword(rawPassword)', returns: 'boolean', description: 'Compares against the stored hash (or, for this in-memory demo, the raw value directly)' }
       ]
     },
     {
       name: 'Profile',
-      description: 'Professional profile containing work history, education, skills, achievements, and recommendations.',
+      description: 'A user\'s professional profile: headline, summary, location, experience, education, and skills.',
       fields: [
-        {
-          name: 'headline',
-          type: 'String',
-          description: 'Professional headline (e.g., Software Engineer at Google)'
-        },
-        {
-          name: 'experiences',
-          type: 'List<Experience>',
-          description: 'Work history with companies, roles, dates'
-        },
-        {
-          name: 'education',
-          type: 'List<Education>',
-          description: 'Academic background with degrees and institutions'
-        },
-        {
-          name: 'skills',
-          type: 'List<Skill>',
-          description: 'Professional skills with endorsements'
-        },
-        {
-          name: 'recommendations',
-          type: 'List<Recommendation>',
-          description: 'Peer recommendations with text and author'
-        }
+        { name: 'headline, summary, location', type: 'String', description: 'Free-text fields, each trimmed to empty rather than null when unset' },
+        { name: 'experiences, educations', type: 'List<Experience>, List<Education>', description: 'Backed by CopyOnWriteArrayList; exposed as unmodifiable views' },
+        { name: 'skills', type: 'Set<Skill>', description: 'Backed by a ConcurrentHashMap key set; Skill#equals is name-based so duplicates collapse' },
+        { name: 'profileViews', type: 'AtomicLong', description: 'Counter for profile-view tracking' }
       ],
-      methods: [
-        {
-          name: 'addExperience(exp)',
-          returns: 'void',
-          description: 'Adds a new work experience entry'
-        },
-        {
-          name: 'addSkill(skill)',
-          returns: 'void',
-          description: 'Adds a skill to the profile'
-        },
-        {
-          name: 'endorseSkill(skill, endorser)',
-          returns: 'void',
-          description: 'Increments endorsement count for a skill'
-        }
-      ]
+      methods: []
     },
     {
       name: 'Connection',
-      description: 'Represents an accepted bidirectional connection between two users. Stores metadata like connected date and interaction strength.',
+      description: 'A directional request between two users that becomes a bidirectional link once ACCEPTED.',
       fields: [
-        {
-          name: 'user1',
-          type: 'User',
-          description: 'First user in the connection'
-        },
-        {
-          name: 'user2',
-          type: 'User',
-          description: 'Second user in the connection'
-        },
-        {
-          name: 'connectedAt',
-          type: 'LocalDateTime',
-          description: 'When the connection was established'
-        },
-        {
-          name: 'interactionScore',
-          type: 'double',
-          description: 'Feed ranking signal based on mutual interactions'
-        }
+        { name: 'requesterId, targetId', type: 'String', description: 'Who sent the request and who must respond to it' },
+        { name: 'status', type: 'ConnectionStatus', description: 'PENDING -> ACCEPTED or REJECTED; only the target may accept/reject' }
       ],
       methods: [
-        {
-          name: 'getConnectionDegree(currentUser)',
-          returns: 'int',
-          description: 'Returns 1st, 2nd, or 3rd degree from the given user'
-        }
+        { name: 'getOtherUser(userId)', returns: 'String', description: 'Given one side of the connection, returns the other — used to resolve a user\'s network' }
       ]
     },
     {
-      name: 'Post',
-      description: 'User-generated content with text, media attachments. Supports likes, comments, and shares with engagement tracking.',
+      name: 'Message',
+      description: 'A single direct message. Its conversationKey uses the same canonical min/max pair convention as Connection\'s lock key.',
       fields: [
-        {
-          name: 'author',
-          type: 'User',
-          description: 'User who created the post'
-        },
-        {
-          name: 'content',
-          type: 'Content',
-          description: 'Post body with text and optional media'
-        },
-        {
-          name: 'likes',
-          type: 'Set<User>',
-          description: 'Users who liked this post'
-        },
-        {
-          name: 'comments',
-          type: 'List<Comment>',
-          description: 'User comments on this post'
-        },
-        {
-          name: 'shares',
-          type: 'int',
-          description: 'Number of times the post was shared'
-        },
-        {
-          name: 'timestamp',
-          type: 'LocalDateTime',
-          description: 'When the post was created'
-        }
+        { name: 'conversationKey', type: 'String', description: 'min(senderId,receiverId) + "#" + max(...) — the same two users always land in the same conversation regardless of who sends next' },
+        { name: 'content', type: 'String', description: 'Trimmed message body' }
       ],
-      methods: [
-        {
-          name: 'addLike(user)',
-          returns: 'void',
-          description: 'Records a like from the specified user'
-        },
-        {
-          name: 'addComment(user, text)',
-          returns: 'Comment',
-          description: 'Adds a comment to this post'
-        },
-        {
-          name: 'share(user)',
-          returns: 'Post',
-          description: 'Creates a reshare of this post by the given user'
-        }
-      ]
+      methods: []
     },
     {
-      name: 'FeedService',
-      description: 'Generates personalized feed for each user. Ranks posts by relevance based on connection strength, engagement, recency, and content type.',
+      name: 'JobPosting',
+      description: 'A job listing posted by a user, with a required-skills set and an applicant-id set.',
       fields: [
-        {
-          name: 'rankingStrategy',
-          type: 'FeedRankingStrategy',
-          description: 'Algorithm for ordering feed posts'
-        }
+        { name: 'requiredSkills', type: 'Set<String>', description: 'Lowercased skill names — matched against an applicant\'s Profile skills by WeightedJobSearchStrategy' },
+        { name: 'status', type: 'JobStatus', description: 'OPEN or CLOSED; applyForJob rejects applications once CLOSED' },
+        { name: 'applicantUserIds', type: 'Set<String>', description: 'ConcurrentHashMap key set — its atomic add() is what makes duplicate-application rejection race-safe' }
       ],
-      methods: [
-        {
-          name: 'getFeed(user, page, size)',
-          returns: 'List<Post>',
-          description: 'Returns paginated personalized feed for the user'
-        },
-        {
-          name: 'rankPosts(posts, user)',
-          returns: 'List<Post>',
-          description: 'Ranks posts by relevance score for the given user'
-        }
-      ]
+      methods: []
     },
     {
-      name: 'NotificationService',
-      description: 'Manages all user notifications. Supports in-app notifications, email digests, and push notifications with preference controls.',
+      name: 'Notification',
+      description: 'A single in-app notification: who it\'s for, who triggered it, what kind, and a reference id back to the connection/message/job it concerns.',
       fields: [
-        {
-          name: 'topics',
-          type: 'Map<String, List<NotificationListener>>',
-          description: 'Subscribers per notification type'
-        }
+        { name: 'recipientId, actorId', type: 'String', description: 'Who receives it and who caused it ("SYSTEM" if actorId is null)' },
+        { name: 'type', type: 'NotificationType', description: 'CONNECTION_REQUEST, CONNECTION_ACCEPTED, MESSAGE_RECEIVED, or JOB_ALERT' }
       ],
-      methods: [
-        {
-          name: 'notify(event)',
-          returns: 'void',
-          description: 'Dispatches notification to all relevant subscribers'
-        },
-        {
-          name: 'getNotifications(user)',
-          returns: 'List<Notification>',
-          description: 'Returns unread notifications for the user'
-        }
-      ]
+      methods: []
     }
   ],
   designPatterns: [
     {
-      name: 'Observer',
+      name: 'Observer Pattern',
       used: true,
-      explanation: 'NotificationService uses the Observer pattern. When a user likes a post or sends a connection request, all relevant parties are notified without the originating service knowing about notification logic.'
+      explanation: 'NotificationObserver has two implementations: InAppNotificationObserver (stores each notification per recipient — getNotifications reads back through this exact observer, not a separate copy) and LoggingNotificationObserver (audit trail to stdout). LinkedInService#dispatchNotification fans every notification out to both without either knowing the other exists.'
     },
     {
-      name: 'Factory',
+      name: 'Strategy Pattern',
       used: true,
-      explanation: 'PostFactory creates different post types (TextPost, ImagePost, VideoPost, ArticlePost). Each has different rendering and interaction behaviors. Feed treats all posts uniformly through the Post interface.'
+      explanation: 'Two independent strategy families, each interface + one weighted implementation: UserSearchRankingStrategy (WeightedUserSearchStrategy — name/headline/skill/network-weighted scoring) and JobSearchRankingStrategy (WeightedJobSearchStrategy — title/skill/location/recency-weighted scoring). Both are constructor-injected Spring beans, so a second ranking formula could be swapped in without touching LinkedInService.'
     },
     {
-      name: 'Singleton',
+      name: 'Repository Pattern',
       used: true,
-      explanation: 'FeedService, NotificationService, and ConnectionService are singletons ensuring consistent data access and preventing duplicate notifications.'
+      explanation: 'LinkedInRepository wraps the user/connection/message/job ConcurrentHashMaps behind named accessors, isolating in-memory storage from the service\'s connection-locking and notification logic — the same split every other module in this repo uses.'
     },
     {
-      name: 'Strategy',
+      name: 'Singleton Pattern',
       used: true,
-      explanation: 'FeedRankingStrategy interface with implementations: RelevanceRanking (engagement-based), RecencyRanking (time-based), HybridRanking (combined). FeedService delegates to the configured strategy.'
-    },
-    {
-      name: 'Proxy',
-      used: false,
-      explanation: 'A ProfileProxy could control visibility based on connection degree. 2nd-degree connections see limited profile info, 3rd-degree see only name and headline.'
+      explanation: 'Spring manages LinkedInService and LinkedInRepository as singletons. (A legacy manual getInstance() double-checked-locking singleton used to sit alongside the real bean — dead code nothing ever called — and has been removed.)'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'User manages identity and connections. Profile holds professional data. FeedService handles ranking. NotificationService manages alerts. Post handles engagement. Each has one job.'
+      description: 'LinkedInService owns connection/messaging/job business rules and locking. LinkedInRepository owns storage. The two WeightedXSearchStrategy classes own relevance scoring. InAppNotificationObserver/LoggingNotificationObserver own notification delivery.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'New post types implement Post interface. New feed strategies implement FeedRankingStrategy. New notification channels implement NotificationChannel. Core classes unchanged.'
+      description: 'A new ranking formula implements UserSearchRankingStrategy or JobSearchRankingStrategy and gets constructor-injected in its predecessor\'s place — LinkedInService\'s search methods never change. A new notification channel implements NotificationObserver and calls registerObserver().'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'FeedService depends on FeedRankingStrategy abstraction. NotificationService depends on NotificationChannel interface. High-level services don\'t depend on low-level implementations.'
-    },
-    {
-      name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Connection degree calculation is centralized in Connection. Notification dispatch is in NotificationService. Feed ranking is in one strategy class per algorithm.'
+      description: 'LinkedInService depends on the UserSearchRankingStrategy/JobSearchRankingStrategy/NotificationObserver interfaces and on LinkedInRepository, never on a concrete search formula or storage detail.'
     },
     {
       name: 'Liskov Substitution (LSP)',
-      description: 'Any FeedRankingStrategy can replace another without breaking FeedService. Post subtypes are fully substitutable where Post is expected.'
+      description: 'Any NotificationObserver implementation can be registered and invoked transparently by dispatchNotification\'s loop; any UserSearchRankingStrategy/JobSearchRankingStrategy implementation is fully substitutable wherever the interface is expected.'
     }
   ],
   oopConcepts: [
     {
-      name: 'Polymorphism — Post Types',
-      description: 'Feed renders posts polymorphically. TextPost, ImagePost, VideoPost each implement render() differently. Feed code calls render() on Post interface without knowing concrete type.',
-      alternative: 'Could use a single Post class with type field and if-else rendering. Polymorphism allows adding new post types without modifying feed code.'
+      name: 'Encapsulation — Profile\'s Collections',
+      description: 'Profile#getExperiences/getEducations/getSkills return Collections.unmodifiableList/Set views; callers can only add through addExperience/addEducation/addSkill, so the backing CopyOnWriteArrayList/ConcurrentHashMap key set can never be mutated from outside.',
+      alternative: 'Returning the live mutable collections directly would let any caller add/remove entries without going through validation, and would leak the backing thread-safe collection\'s exact type as an implementation detail.'
     },
     {
       name: 'Composition over Inheritance',
-      description: 'User has-a Profile, List of Connection, List of Post. Profile has-a List of Experience, List of Education. System composes fine-grained entities rather than deep hierarchies.',
-      alternative: 'Could create RichUser extending User. Composition is chosen because profile sections vary independently and can be reused.'
+      description: 'User has-a Profile; Profile has-a List of Experience, List of Education, Set of Skill. The domain composes fine-grained value objects rather than a deep User/Profile inheritance hierarchy.',
+      alternative: 'A RichUser subclass carrying profile fields directly would tie every profile field to User\'s own lifecycle instead of letting Profile evolve (and be tested) independently.'
     },
     {
-      name: 'Encapsulation — Privacy Controls',
-      description: 'User encapsulates privacy settings. Profile visibility queries go through the User\'s access control methods. External code cannot bypass privacy checks.',
-      alternative: 'Could rely on frontend-only access control. Backend-enforced encapsulation provides security at the data layer.'
+      name: 'Value-object equality — Skill',
+      description: 'Skill#equals/hashCode compare by name only (case-normalized at construction), so adding "Java" twice to a Profile\'s Set<Skill> collapses to one entry regardless of which Skill instance created it.',
+      alternative: 'Identity-based equality (the default Object#equals) would let the same skill name appear twice under two different Skill instances, since a Set only dedupes by equals/hashCode.'
     }
   ],
   extensibility: [
     {
-      area: 'New Post Type',
-      description: 'Create a new class implementing Post interface (PollPost, EventPost). Add factory mapping. Existing feed rendering and interaction code works unchanged.',
+      area: 'A Third Search Ranking Strategy',
+      description: 'Implement UserSearchRankingStrategy or JobSearchRankingStrategy (e.g. a recency-boosted or ML-scored variant), mark it @Component, and inject it in place of the Weighted* bean — LinkedInService\'s searchUsers/searchJobs methods never change.',
       difficulty: 'Easy'
     },
     {
-      area: 'Feed Algorithm Change',
-      description: 'Implement new FeedRankingStrategy (ML-based ranking using user embeddings). Swap via configuration. No changes to FeedService or other components.',
+      area: 'Connection Degree (2nd/3rd-degree network)',
+      description: 'getConnections currently returns only 1st-degree (ACCEPTED) connections. A getExtendedNetwork(userId, maxDegree) could BFS through userConnections to surface 2nd/3rd-degree suggestions, the way real LinkedIn ranks "People You May Know".',
       difficulty: 'Medium'
     },
     {
-      area: 'Groups/Communities',
-      description: 'Add Group entity with members, posts, and admins. GroupFeedService extends feed concepts to group context. Reuses existing Post, Comment, and Notification models.',
-      difficulty: 'Medium'
+      area: 'Email/Push Notification Channels',
+      description: 'Add EmailNotificationObserver/PushNotificationObserver implementing NotificationObserver and register them alongside InAppNotificationObserver/LoggingNotificationObserver — dispatchNotification\'s fan-out loop needs no change.',
+      difficulty: 'Easy'
     },
     {
-      area: 'End-to-End Encryption for Messages',
-      description: 'Implement E2E encryption in messaging service. Messages encrypted client-side. Message entity stores encrypted content. Backend never sees plaintext.',
-      difficulty: 'Hard'
+      area: 'Message Read Receipts',
+      description: 'Message#isRead/markAsRead already exist but nothing calls markAsRead yet. A markConversationRead(userId, otherUserId) endpoint could mark every message addressed to userId in that conversation read, and getConversation could report an unread count.',
+      difficulty: 'Medium'
     }
   ],
   tradeoffs: [

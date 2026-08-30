@@ -1,10 +1,12 @@
 package com.lld.linkedin.model;
 
 import com.lld.linkedin.enums.ConnectionStatus;
+import lombok.Getter;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
 public class Connection {
     private final String id;
     private final String requesterId;
@@ -25,33 +27,9 @@ public class Connection {
         this.updatedAt = Instant.now();
     }
 
-    public String getId() {
-        return id;
-    }
-
-    public String getRequesterId() {
-        return requesterId;
-    }
-
-    public String getTargetId() {
-        return targetId;
-    }
-
-    public ConnectionStatus getStatus() {
-        return status;
-    }
-
     public void setStatus(ConnectionStatus status) {
         this.status = status;
         this.updatedAt = Instant.now();
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getUpdatedAt() {
-        return updatedAt;
     }
 
     public boolean involves(String userId) {
