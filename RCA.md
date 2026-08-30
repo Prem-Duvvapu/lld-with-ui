@@ -3809,3 +3809,84 @@ grep -c "#1e293b\|#0f172a\|#334155\|#94a3b8\|#64748b\|#f8fafc\|#f9fafb" frontend
    modules originally flagged, only one needed an actual change, and that change was a one-line-per-
    occurrence cosmetic cleanup, not a contrast bug. Don't assume a flagged list's size predicts the
    size of the fix.
+
+## RCA-042: Four Modules' Design-Details Entities Had No `fields`/`methods`, So Their Entities Tab Rendered an Empty Accordion on Expand
+
+### 1. Overview & Severity
+**Severity: Medium.** User-reported: expanding an entity on Snake & Ladders' Design Details →
+Entities tab showed no attributes or methods. `EntitiesTab.jsx` renders an entity's `fields`
+(`{name, type, description}`) and `methods` (`{name, returns, description}`) arrays; an entity
+object carrying only `{name, description}` has nothing to render once expanded — the exact same
+root cause already fixed for `tictactoe.js` earlier this session, but never swept across the rest
+of the portfolio. A file-by-file scan of every `design/*.js` found three more modules with the same
+gap: **lru-cache** (all 8 entities had no `fields`/`methods` at all), **inventory** (3 of 7:
+`StockAlertObserver`, `ReorderStrategy`, `StockAlert`), and **social-network** (1 of 7:
+`FeedObserver`).
+
+### 2. Symptoms & Error Logs
+No test failure — `designDataCoverage.test.js` checks that every module id resolves to *some*
+design data and that there are no duplicate barrel keys; it does not inspect whether an individual
+entity object carries `fields`/`methods`. Visually: clicking any affected entity to expand it shows
+an empty section where the attributes/methods table should be. Reported by the user directly for
+Snake & Ladders; the sweep below found the same shape elsewhere before anyone else hit it.
+
+### 3. Root Cause
+Same as the earlier `tictactoe.js` fix: these entities were written with only a `name` and a prose
+`description`, never filled in with the structured `fields`/`methods` arrays `EntitiesTab.jsx`
+actually renders. `lru-cache.js` was the worst case — literally every one of its 8 entities lacked
+both arrays, meaning the entire Entities tab for that module rendered empty regardless of which
+entity a visitor expanded. This is a different failure mode from RCA-002/RCA-036/RCA-038's
+duplicate-key or fabricated-content bugs: the prose descriptions here are accurate, just structurally
+incomplete for what the UI component expects.
+
+### 4. Diagnostic Commands
+```bash
+# A string-literal-aware scan of every design/*.js file's `entities` array, flagging any entity
+# object with neither a `fields` nor a `methods` key (naive regex/bracket-counting breaks on type
+# strings like 'int[]' or 'Move[]' that contain literal [ ] characters inside a string literal —
+# this script masks bracket/brace characters found inside quotes/comments to a neutral char first,
+# preserving string length so positions still map 1:1 onto the real file for extraction):
+node /tmp/scan_entities3.mjs   # see this RCA's step 5 for the script's approach if recreating it
+
+# Cross-check any real finding against a KNOWN, already-fixed module before assuming it's a bug —
+# an entity summarizing an exception hierarchy or a whole strategy family in prose only (no fields/
+# methods) is an established, intentional convention here (see TicTacToeException hierarchy,
+# LruCacheException hierarchy, SnakeLaddersException hierarchy — none of these are "one class").
+```
+
+### 5. Step-by-Step Resolution
+1. Wrote a string-literal-aware Node script scanning every `design/*.js` file's `entities` array
+   (naive regex/bracket-counting misfires on type strings containing literal `[`/`]`, e.g. `'int[]'`
+   — the script masks bracket characters found inside quotes to a neutral character first while
+   preserving string length, so the masked positions still map 1:1 onto the real file).
+2. First pass flagged `car-rental.js`/`course-registration.js` with many false positives — traced to
+   the script matching the wrong `entities:` occurrence or breaking on escaped quotes; fixed the
+   masking to also handle backslash-escaped characters inside strings, which eliminated all of them.
+3. Confirmed the four genuine findings (`snakeladders.js` — the user's original report — plus
+   `lru-cache.js`, `inventory.js`, `social-network.js`) by reading each affected class's real backend
+   source (`Game`/`Player`/`DiceRoller`/`GameRepository`/`GameState` for snakeladders;
+   `LruCache`/`Node`/`EvictionPolicy` and its three implementations/`LruCacheService` for lru-cache;
+   `StockAlertObserver`/`ReorderStrategy`/`StockAlert` for inventory; `FeedObserver` for
+   social-network) before writing any `fields`/`methods` content.
+4. Also added two entities `snakeladders.js`'s array was missing entirely — `SnakeLaddersService`
+   and `GameRepository` — since `tictactoe.js`'s already-fixed entities array includes its
+   equivalent service/repository pair and the same completeness bar should apply here.
+5. Left every `*Exception hierarchy` summary entity (in `tictactoe.js`, `lru-cache.js`,
+   `snakeladders.js`) without `fields`/`methods`, matching the convention `tictactoe.js`'s earlier
+   fix already established: an entity describing a whole exception family in prose, not one class,
+   correctly has nothing structured to render.
+6. Ran the frontend suite (`npx vitest run`, 304/304) and `npm run build` (entry chunk unchanged at
+   260.77 kB) to confirm the added content is structurally valid.
+
+### 6. Preventative Measures
+1. `designDataCoverage.test.js` verifies an id resolves to design data and that there are no
+   duplicate barrel keys — it does not, and structurally cannot easily, verify that every entity
+   object carries the `fields`/`methods` shape `EntitiesTab.jsx` needs to render something on
+   expand. A schema-level test (every `entities[]` item either has both `fields` and `methods` keys,
+   or is an allowlisted prose-only summary type) would have caught all three of these before a user
+   did.
+2. This is the second time in one session a `tictactoe.js`-shaped fix (RCA established the pattern,
+   then found the same gap elsewhere only because a user or a follow-up sweep asked) was needed —
+   once a repo establishes a required shape for one module via a real bug fix, sweep the same shape
+   requirement across every other module immediately rather than waiting for another individual
+   report per module.

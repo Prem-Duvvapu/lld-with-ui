@@ -23,27 +23,80 @@ export default {
   entities: [
     {
       name: 'LruCache<K, V>',
-      description: 'The cache engine: capacity, a Map<K, Node<K,V>> for O(1) key lookup, the active EvictionPolicy, a ReentrantLock, hit/miss/eviction counters, and a rolling operation log.'
+      description: 'The cache engine: capacity, a Map<K, Node<K,V>> for O(1) key lookup, the active EvictionPolicy, a ReentrantLock, hit/miss/eviction counters, and a rolling operation log.',
+      fields: [
+        { name: 'capacity', type: 'int', description: 'Maximum entries before an insert triggers eviction; changeable via setCapacity()' },
+        { name: 'map', type: 'Map<K, Node<K, V>>', description: 'ConcurrentHashMap giving O(1) key lookup straight to a node' },
+        { name: 'evictionPolicy', type: 'EvictionPolicy<K, V>', description: 'The active Strategy; swappable at runtime via setPolicy() without losing existing entries' },
+        { name: 'lock', type: 'ReentrantLock', description: 'Held for the whole span of every get/put/remove/clear/setCapacity/setPolicy call' },
+        { name: 'totalHits, totalMisses, totalEvictions', type: 'long', description: 'Telemetry counters surfaced by getStats()' },
+        { name: 'logs', type: 'List<Map<String, Object>>', description: 'Rolling operation log, newest first, capped at 50 entries' }
+      ],
+      methods: [
+        { name: 'get(key)', returns: 'V', description: 'Under the lock: on a hit, calls evictionPolicy.keyAccessed() to promote the node and returns its value; on a miss, records the miss and returns null' },
+        { name: 'put(key, value)', returns: 'void', description: 'Under the lock: updates and promotes an existing key, or evicts (if at capacity) and inserts a new node' },
+        { name: 'remove(key)', returns: 'boolean', description: 'Removes a key from both the map and the eviction policy\'s own bookkeeping, if present' },
+        { name: 'setCapacity(newCapacity)', returns: 'void', description: 'Throws InvalidCapacityException for a non-positive value; otherwise evicts down to the new capacity if currently over it' },
+        { name: 'setPolicy(policyType)', returns: 'void', description: 'Swaps to a new EvictionPolicy instance, replaying every currently-held node through its keyInserted() so no entry is lost on the switch' },
+        { name: 'getSnapshot()', returns: 'Map<String, Object>', description: 'capacity, size, policy name, ordered node list, stats, and the operation log — everything the UI needs in one call' }
+      ]
     },
     {
       name: 'Node<K, V>',
-      description: 'Doubly-linked-list element: key, value, prev/next references, access count, createdAt, lastAccessedAt.'
+      description: 'Doubly-linked-list element: key, value, prev/next references, access count, createdAt, lastAccessedAt.',
+      fields: [
+        { name: 'key, value', type: 'K, V', description: 'The cached entry' },
+        { name: 'prev, next', type: 'Node<K, V>', description: 'Linked-list pointers used by LRUEvictionPolicy\'s sentinel-headed list' },
+        { name: 'accessCount', type: 'int', description: 'Incremented on every access; the value LFUEvictionPolicy evicts by' },
+        { name: 'createdAt, lastAccessedAt', type: 'long', description: 'Epoch millis; the values FIFOEvictionPolicy and access-recency logic key off of' }
+      ],
+      methods: [
+        { name: 'incrementAccessCount()', returns: 'void', description: 'Bumps accessCount and refreshes lastAccessedAt' },
+        { name: 'updateLastAccessedAt()', returns: 'void', description: 'Refreshes lastAccessedAt without touching accessCount' }
+      ]
     },
     {
       name: 'EvictionPolicy<K, V>',
-      description: 'Strategy interface: keyAccessed, keyInserted, evictKey, removeKey, clear, getOrderedNodes, getType.'
+      description: 'Strategy interface: keyAccessed, keyInserted, evictKey, removeKey, clear, getOrderedNodes, getType.',
+      fields: [],
+      methods: [
+        { name: 'keyAccessed(node)', returns: 'void', description: 'Called on every cache hit — each policy updates its own bookkeeping differently (promote to head, bump count, or no-op)' },
+        { name: 'keyInserted(node)', returns: 'void', description: 'Called when a new node is added to the cache' },
+        { name: 'evictKey()', returns: 'Node<K, V>', description: 'Selects and removes the next victim from the policy\'s own bookkeeping, returning it to the caller for removal from the cache map' },
+        { name: 'getOrderedNodes()', returns: 'List<Node<K, V>>', description: 'MRU-to-LRU (or equivalent) ordering, used both for the UI and to replay nodes across a policy swap' }
+      ]
     },
     {
       name: 'LRUEvictionPolicy',
-      description: 'Maintains sentinel head (MRU) and tail (LRU) nodes so promotion-on-access and eviction are both O(1) pointer surgery, no scanning.'
+      description: 'Maintains sentinel head (MRU) and tail (LRU) nodes so promotion-on-access and eviction are both O(1) pointer surgery, no scanning.',
+      fields: [
+        { name: 'head, tail', type: 'Node<K, V>', description: 'Sentinel (keyless) nodes bookending the list — head.next is always the true MRU node, tail.prev the true LRU node' }
+      ],
+      methods: [
+        { name: 'keyAccessed(node)', returns: 'void', description: 'Unlinks the node and re-links it right after head — O(1) promotion to MRU' },
+        { name: 'evictKey()', returns: 'Node<K, V>', description: 'Removes and returns the node just before tail — the true LRU node' }
+      ]
     },
     {
       name: 'LFUEvictionPolicy',
-      description: 'Tracks per-node access count; evicts the minimum-count node, breaking ties by oldest lastAccessedAt.'
+      description: 'Tracks per-node access count; evicts the minimum-count node, breaking ties by oldest lastAccessedAt.',
+      fields: [
+        { name: 'nodes', type: 'List<Node<K, V>>', description: 'Every node currently in the cache under this policy' }
+      ],
+      methods: [
+        { name: 'evictKey()', returns: 'Node<K, V>', description: 'Scans for the minimum accessCount, breaking ties by the oldest lastAccessedAt, and removes it' }
+      ]
     },
     {
       name: 'FIFOEvictionPolicy',
-      description: 'Evicts strictly by insertion order (createdAt), ignoring access pattern entirely — an access never protects an entry from eviction under this policy.'
+      description: 'Evicts strictly by insertion order (createdAt), ignoring access pattern entirely — an access never protects an entry from eviction under this policy.',
+      fields: [
+        { name: 'queue', type: 'List<Node<K, V>>', description: 'Every node currently in the cache, in the order tracked for eviction' }
+      ],
+      methods: [
+        { name: 'evictKey()', returns: 'Node<K, V>', description: 'Removes the node with the oldest createdAt, regardless of how recently or often it was accessed' },
+        { name: 'keyAccessed(node)', returns: 'void', description: 'Refreshes lastAccessedAt for telemetry only — does not change eviction order under this policy' }
+      ]
     },
     {
       name: 'LruCacheException hierarchy',
@@ -51,7 +104,16 @@ export default {
     },
     {
       name: 'LruCacheService',
-      description: 'Spring facade the controller delegates to. Holds exactly two LruCache instances: the primary cache and a fully independent one backing /sim/*.'
+      description: 'Spring facade the controller delegates to. Holds exactly two LruCache instances: the primary cache and a fully independent one backing /sim/*.',
+      fields: [
+        { name: 'cache', type: 'LruCache<String, String>', description: 'The live, production cache instance' },
+        { name: 'simCache', type: 'LruCache<String, String>', description: 'A second, fully independent instance backing every /sim/* endpoint' }
+      ],
+      methods: [
+        { name: 'get(key) / put(key, value) / remove(key) / clear()', returns: 'various', description: 'Thin delegates to the live cache instance' },
+        { name: 'setPolicy(policyType)', returns: 'void', description: 'Delegates to the live cache\'s setPolicy(), swapping its active EvictionPolicy' },
+        { name: 'batchSimulate()', returns: 'Map<String, Object>', description: 'Runs a scripted sequence of operations against the sim cache in one call, for the guided demo walkthrough' }
+      ]
     }
   ],
   designPatterns: [

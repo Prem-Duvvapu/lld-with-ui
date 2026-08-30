@@ -46,7 +46,11 @@ export default {
     },
     {
       name: 'FeedObserver (interface)',
-      description: 'Two independent implementations subscribe to the same "a friend posted" event stream without knowing about each other: InAppFeedObserver (queryable log behind GET /feed-events, bounded to 100) and LoggingFeedObserver (writes to the server log).'
+      description: 'Two independent implementations subscribe to the same "a friend posted" event stream without knowing about each other: InAppFeedObserver (queryable log behind GET /feed-events, bounded to 100) and LoggingFeedObserver (writes to the server log).',
+      fields: [],
+      methods: [
+        { name: 'onFeedEvent(event)', returns: 'void', description: 'Called by FeedNotifier for every new post; implementations must never throw into the publisher and must never mutate social-graph state' }
+      ]
     },
     {
       name: 'User',
