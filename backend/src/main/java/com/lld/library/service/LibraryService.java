@@ -9,6 +9,7 @@ import com.lld.library.model.*;
 import com.lld.library.observer.DueDateNotifier;
 import com.lld.library.observer.InAppLibraryNotificationObserver;
 import com.lld.library.observer.LoggingLibraryNotificationObserver;
+import com.lld.library.repository.LibraryRepository;
 import com.lld.library.strategy.FineStrategy;
 import com.lld.library.strategy.StandardFineStrategy;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -28,36 +29,26 @@ import java.util.stream.Collectors;
 @Service
 public class LibraryService {
 
-    private static volatile LibraryService instance;
-
-    // Real Repositories
-    private final Map<String, Book> booksByIsbn = new ConcurrentHashMap<>();
-    private final Map<String, BookCopy> copiesById = new ConcurrentHashMap<>();
-    private final Map<String, Member> membersById = new ConcurrentHashMap<>();
-    private final Map<String, Loan> loansById = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> memberLoans = new ConcurrentHashMap<>();
+    private final LibraryRepository repository;
     private final Map<String, ReentrantLock> bookLocks = new ConcurrentHashMap<>();
-    private final AtomicLong loanIdGen = new AtomicLong(1001);
-    private final AtomicLong memberIdGen = new AtomicLong(1);
 
     private final FineStrategy fineStrategy;
     private final DueDateNotifier notifier;
     private final InAppLibraryNotificationObserver inAppObserver;
 
-    // Isolated Simulation Engine State
-    private final Map<String, Book> simBooksByIsbn = new ConcurrentHashMap<>();
-    private final Map<String, BookCopy> simCopiesById = new ConcurrentHashMap<>();
-    private final Map<String, Member> simMembersById = new ConcurrentHashMap<>();
-    private final Map<String, Loan> simLoansById = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> simMemberLoans = new ConcurrentHashMap<>();
+    // Isolated Simulation Engine State — a second, fully independent repository instance so
+    // replaying the demo can never touch a real book/member/loan, mirroring
+    // movieticket.service.MovieTicketService's simRepository shape.
+    private final LibraryRepository simRepository = new LibraryRepository();
     private final Map<String, ReentrantLock> simBookLocks = new ConcurrentHashMap<>();
     private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
     private final AtomicLong simEventIdGen = new AtomicLong(1);
     private final AtomicLong simLoanIdGen = new AtomicLong(5001);
 
-    public LibraryService(FineStrategy fineStrategy, DueDateNotifier notifier,
+    public LibraryService(LibraryRepository repository, FineStrategy fineStrategy, DueDateNotifier notifier,
                           InAppLibraryNotificationObserver inAppObserver,
                           LoggingLibraryNotificationObserver loggingObserver) {
+        this.repository = repository;
         this.fineStrategy = fineStrategy != null ? fineStrategy : new StandardFineStrategy(5.0);
         this.notifier = notifier != null ? notifier : new DueDateNotifier();
         this.inAppObserver = inAppObserver != null ? inAppObserver : new InAppLibraryNotificationObserver();
@@ -71,20 +62,6 @@ public class LibraryService {
         simReset();
     }
 
-    public static LibraryService getInstance() {
-        if (instance == null) {
-            synchronized (LibraryService.class) {
-                if (instance == null) {
-                    InAppLibraryNotificationObserver inApp = new InAppLibraryNotificationObserver();
-                    LoggingLibraryNotificationObserver logObs = new LoggingLibraryNotificationObserver();
-                    DueDateNotifier notif = new DueDateNotifier();
-                    instance = new LibraryService(new StandardFineStrategy(5.0), notif, inApp, logObs);
-                }
-            }
-        }
-        return instance;
-    }
-
     // =========================================================================
     // CATALOG & MEMBER MANAGEMENT
     // =========================================================================
@@ -94,39 +71,38 @@ public class LibraryService {
             throw new IllegalArgumentException("ISBN and Title cannot be null");
         }
         String cleanIsbn = isbn.trim();
-        Book book = booksByIsbn.computeIfAbsent(cleanIsbn, k -> new Book(cleanIsbn, title, author, category));
+        Book book = repository.getOrCreateBook(cleanIsbn, k -> new Book(cleanIsbn, title, author, category));
 
         for (int i = 1; i <= initialCopies; i++) {
             String copyId = cleanIsbn + "-C" + (book.getTotalCopies() + 1);
             BookCopy copy = new BookCopy(copyId, cleanIsbn, "Rack-" + (category != null ? category.substring(0, Math.min(3, category.length())).toUpperCase() : "GEN") + "-Shelf" + i);
             book.addCopy(copy);
-            copiesById.put(copyId, copy);
+            repository.saveCopy(copy);
         }
         return book;
     }
 
     public BookCopy addBookCopy(String isbn, String rackLocation) {
-        Book book = booksByIsbn.get(isbn);
+        Book book = repository.findBookByIsbn(isbn);
         if (book == null) {
             throw new BookNotAvailableException("Book with ISBN " + isbn + " does not exist in catalog.");
         }
         String copyId = isbn + "-C" + (book.getTotalCopies() + 1);
         BookCopy copy = new BookCopy(copyId, isbn, rackLocation);
         book.addCopy(copy);
-        copiesById.put(copyId, copy);
+        repository.saveCopy(copy);
         return copy;
     }
 
     public Member registerMember(String name, String email, MemberType type) {
-        String memberId = "mem-" + memberIdGen.getAndIncrement();
+        String memberId = repository.nextMemberId();
         Member member = MemberFactory.createMember(memberId, name, email, type);
-        membersById.put(memberId, member);
-        memberLoans.put(memberId, new CopyOnWriteArrayList<>());
+        repository.saveMember(member);
         return member;
     }
 
     public Member getMember(String memberId) {
-        Member m = membersById.get(memberId);
+        Member m = repository.findMemberById(memberId);
         if (m == null) {
             throw new MemberNotFoundException("Member not found with ID: " + memberId);
         }
@@ -134,15 +110,15 @@ public class LibraryService {
     }
 
     public List<Member> getAllMembers() {
-        return new ArrayList<>(membersById.values());
+        return repository.getAllMembers();
     }
 
     public List<Book> searchBooks(String query) {
         if (query == null || query.trim().isEmpty()) {
-            return new ArrayList<>(booksByIsbn.values());
+            return repository.getAllBooks();
         }
         String q = query.trim().toLowerCase();
-        return booksByIsbn.values().stream()
+        return repository.getAllBooks().stream()
                 .filter(b -> b.getTitle().toLowerCase().contains(q) ||
                              b.getAuthor().toLowerCase().contains(q) ||
                              b.getIsbn().toLowerCase().contains(q) ||
@@ -151,7 +127,7 @@ public class LibraryService {
     }
 
     public List<Book> getAllBooks() {
-        return new ArrayList<>(booksByIsbn.values());
+        return repository.getAllBooks();
     }
 
     // =========================================================================
@@ -160,7 +136,7 @@ public class LibraryService {
 
     public Loan borrowBook(String memberId, String isbn) {
         Member member = getMember(memberId);
-        Book book = booksByIsbn.get(isbn);
+        Book book = repository.findBookByIsbn(isbn);
         if (book == null) {
             throw new BookNotAvailableException("Book with ISBN " + isbn + " not found");
         }
@@ -201,13 +177,13 @@ public class LibraryService {
         }
 
         // 3. Register Loan
-        String loanId = "LOAN-" + loanIdGen.getAndIncrement();
+        String loanId = "LOAN-" + repository.nextLoanId();
         LocalDate issueDate = LocalDate.now();
         LocalDate dueDate = issueDate.plusDays(member.getLoanPolicy().getLoanDurationDays());
         Loan loan = new Loan(loanId, assignedCopy.getCopyId(), isbn, memberId, issueDate, dueDate);
 
-        loansById.put(loanId, loan);
-        memberLoans.computeIfAbsent(memberId, k -> new CopyOnWriteArrayList<>()).add(loanId);
+        repository.saveLoan(loan);
+        repository.addMemberLoanId(memberId, loanId);
 
         notifier.notifyObservers(memberId, NotificationType.BOOK_BORROWED,
                 String.format("Borrowed '%s' (Copy: %s). Due date: %s.", book.getTitle(), assignedCopy.getCopyId(), dueDate),
@@ -217,7 +193,7 @@ public class LibraryService {
     }
 
     public Loan returnBook(String loanId) {
-        Loan loan = loansById.get(loanId);
+        Loan loan = repository.findLoanById(loanId);
         if (loan == null) {
             throw new LoanNotFoundException("Loan record not found with ID: " + loanId);
         }
@@ -226,9 +202,9 @@ public class LibraryService {
             throw new InvalidReturnException("Book for loan " + loanId + " has already been returned.");
         }
 
-        Book book = booksByIsbn.get(loan.getIsbn());
-        BookCopy copy = copiesById.get(loan.getCopyId());
-        Member member = membersById.get(loan.getMemberId());
+        Book book = repository.findBookByIsbn(loan.getIsbn());
+        BookCopy copy = repository.findCopyById(loan.getCopyId());
+        Member member = repository.findMemberById(loan.getMemberId());
 
         LocalDate returnDate = LocalDate.now();
         loan.setReturnDate(returnDate);
@@ -287,18 +263,18 @@ public class LibraryService {
 
     public List<Loan> getActiveLoansForMember(String memberId) {
         getMember(memberId);
-        List<String> loanIds = memberLoans.getOrDefault(memberId, Collections.emptyList());
+        List<String> loanIds = repository.getMemberLoanIds(memberId);
         return loanIds.stream()
-                .map(loansById::get)
+                .map(repository::findLoanById)
                 .filter(l -> l != null && l.getStatus() != LoanStatus.RETURNED)
                 .collect(Collectors.toList());
     }
 
     public List<Loan> getLoanHistoryForMember(String memberId) {
         getMember(memberId);
-        List<String> loanIds = memberLoans.getOrDefault(memberId, Collections.emptyList());
+        List<String> loanIds = repository.getMemberLoanIds(memberId);
         return loanIds.stream()
-                .map(loansById::get)
+                .map(repository::findLoanById)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
@@ -314,10 +290,10 @@ public class LibraryService {
     @Scheduled(fixedRate = 30000)
     public void scheduledDueDateSweep() {
         LocalDate today = LocalDate.now();
-        for (Loan loan : loansById.values()) {
+        for (Loan loan : repository.getAllLoans()) {
             if (loan.getStatus() == LoanStatus.ACTIVE) {
                 long daysUntilDue = ChronoUnit.DAYS.between(today, loan.getDueDate());
-                Book book = booksByIsbn.get(loan.getIsbn());
+                Book book = repository.findBookByIsbn(loan.getIsbn());
                 String title = book != null ? book.getTitle() : loan.getIsbn();
 
                 if (today.isAfter(loan.getDueDate())) {
@@ -340,11 +316,7 @@ public class LibraryService {
 
     public synchronized void simReset() {
         simEventLog.clear();
-        simBooksByIsbn.clear();
-        simCopiesById.clear();
-        simMembersById.clear();
-        simLoansById.clear();
-        simMemberLoans.clear();
+        simRepository.clear();
         simBookLocks.clear();
 
         // 1. Seed Books
@@ -352,8 +324,8 @@ public class LibraryService {
         Book b1 = new Book("978-0132350884", "Clean Code", "Robert C. Martin", "Software");
         BookCopy b1c1 = new BookCopy("978-0132350884-C1", "978-0132350884", "Rack-A1");
         b1.addCopy(b1c1);
-        simBooksByIsbn.put(b1.getIsbn(), b1);
-        simCopiesById.put(b1c1.getCopyId(), b1c1);
+        simRepository.getOrCreateBook(b1.getIsbn(), k -> b1);
+        simRepository.saveCopy(b1c1);
 
         // Book 2: Effective Java (2 copies)
         Book b2 = new Book("978-0134685991", "Effective Java", "Joshua Bloch", "Software");
@@ -361,9 +333,9 @@ public class LibraryService {
         BookCopy b2c2 = new BookCopy("978-0134685991-C2", "978-0134685991", "Rack-A2");
         b2.addCopy(b2c1);
         b2.addCopy(b2c2);
-        simBooksByIsbn.put(b2.getIsbn(), b2);
-        simCopiesById.put(b2c1.getCopyId(), b2c1);
-        simCopiesById.put(b2c2.getCopyId(), b2c2);
+        simRepository.getOrCreateBook(b2.getIsbn(), k -> b2);
+        simRepository.saveCopy(b2c1);
+        simRepository.saveCopy(b2c2);
 
         // Book 3: Design Patterns (2 copies)
         Book b3 = new Book("978-0201633610", "Design Patterns", "Gang of Four", "Software");
@@ -371,25 +343,25 @@ public class LibraryService {
         BookCopy b3c2 = new BookCopy("978-0201633610-C2", "978-0201633610", "Rack-B1");
         b3.addCopy(b3c1);
         b3.addCopy(b3c2);
-        simBooksByIsbn.put(b3.getIsbn(), b3);
-        simCopiesById.put(b3c1.getCopyId(), b3c1);
-        simCopiesById.put(b3c2.getCopyId(), b3c2);
+        simRepository.getOrCreateBook(b3.getIsbn(), k -> b3);
+        simRepository.saveCopy(b3c1);
+        simRepository.saveCopy(b3c2);
 
         // 2. Seed Members
         Member m1 = MemberFactory.createMember("sim-mem-1", "Alice Vance (Student)", "alice@university.edu", MemberType.STUDENT); // Max 3 books
         Member m2 = MemberFactory.createMember("sim-mem-2", "Prof. Bob (Faculty)", "bob@university.edu", MemberType.FACULTY);     // Max 10 books
         Member m3 = MemberFactory.createMember("sim-mem-3", "Charlie (General)", "charlie@public.org", MemberType.GENERAL);        // Max 5 books
 
-        simMembersById.put(m1.getId(), m1);
-        simMembersById.put(m2.getId(), m2);
-        simMembersById.put(m3.getId(), m3);
+        simRepository.saveMember(m1);
+        simRepository.saveMember(m2);
+        simRepository.saveMember(m3);
 
         logSimEvent("SIM_RESET", "System", "Initialized simulation catalog (3 books, 5 total copies) and 3 typed members.", null);
     }
 
     public synchronized Map<String, Object> simBorrow(String memberId, String isbn) {
-        Member member = simMembersById.get(memberId);
-        Book book = simBooksByIsbn.get(isbn);
+        Member member = simRepository.findMemberById(memberId);
+        Book book = simRepository.findBookByIsbn(isbn);
         if (member == null || book == null) {
             logSimEvent("BORROW_FAILED", memberId, "Invalid member or book ISBN", null);
             return getSimSnapshots();
@@ -421,8 +393,8 @@ public class LibraryService {
         LocalDate dueDate = issueDate.plusDays(member.getLoanPolicy().getLoanDurationDays());
         Loan loan = new Loan(loanId, freeCopy.getCopyId(), isbn, memberId, issueDate, dueDate);
 
-        simLoansById.put(loanId, loan);
-        simMemberLoans.computeIfAbsent(memberId, k -> new CopyOnWriteArrayList<>()).add(loanId);
+        simRepository.saveLoan(loan);
+        simRepository.addMemberLoanId(memberId, loanId);
 
         logSimEvent("BORROW_SUCCESS", member.getName(),
                 String.format("Borrowed '%s' (Copy: %s). Due date: %s", book.getTitle(), freeCopy.getCopyId(), dueDate),
@@ -432,15 +404,15 @@ public class LibraryService {
     }
 
     public synchronized Map<String, Object> simReturn(String loanId) {
-        Loan loan = simLoansById.get(loanId);
+        Loan loan = simRepository.findLoanById(loanId);
         if (loan == null || loan.getStatus() == LoanStatus.RETURNED) {
             logSimEvent("RETURN_FAILED", "System", "Loan already returned or not found: " + loanId, null);
             return getSimSnapshots();
         }
 
-        BookCopy copy = simCopiesById.get(loan.getCopyId());
-        Book book = simBooksByIsbn.get(loan.getIsbn());
-        Member member = simMembersById.get(loan.getMemberId());
+        BookCopy copy = simRepository.findCopyById(loan.getCopyId());
+        Book book = simRepository.findBookByIsbn(loan.getIsbn());
+        Member member = simRepository.findMemberById(loan.getMemberId());
 
         if (copy != null) copy.setAvailable(true);
         loan.setStatus(LoanStatus.RETURNED);
@@ -470,10 +442,10 @@ public class LibraryService {
     }
 
     public synchronized Map<String, Object> simTriggerSweep(boolean makeOverdue) {
-        for (Loan loan : simLoansById.values()) {
+        for (Loan loan : simRepository.getAllLoans()) {
             if (loan.getStatus() == LoanStatus.ACTIVE) {
-                Book book = simBooksByIsbn.get(loan.getIsbn());
-                Member member = simMembersById.get(loan.getMemberId());
+                Book book = simRepository.findBookByIsbn(loan.getIsbn());
+                Member member = simRepository.findMemberById(loan.getMemberId());
                 String title = book != null ? book.getTitle() : loan.getIsbn();
 
                 if (makeOverdue) {
@@ -493,9 +465,9 @@ public class LibraryService {
 
     public Map<String, Object> getSimSnapshots() {
         Map<String, Object> res = new HashMap<>();
-        res.put("books", simBooksByIsbn.values());
-        res.put("members", simMembersById.values());
-        res.put("loans", simLoansById.values());
+        res.put("books", simRepository.getAllBooks());
+        res.put("members", simRepository.getAllMembers());
+        res.put("loans", simRepository.getAllLoans());
         res.put("events", simEventLog);
         return res;
     }

@@ -109,13 +109,72 @@ export default {
     },
     {
       name: 'LibraryService',
-      description: 'Core Spring @Service Singleton orchestrating catalog, borrow/return locks, fine strategies, and observers.',
-      fields: [],
+      description: 'Core Spring @Service orchestrating catalog, borrow/return locks, fine strategies, and observers. A legacy manual getInstance() double-checked-locking singleton used to sit alongside the real Spring-managed bean — dead code nothing ever called — and has been removed; Spring already manages this as a singleton the ordinary way.',
+      fields: [
+        {
+          name: 'repository',
+          type: 'LibraryRepository',
+          description: 'Book/copy/member/loan storage and both id generators, injected via constructor'
+        },
+        {
+          name: 'bookLocks',
+          type: 'ConcurrentHashMap<String, ReentrantLock>',
+          description: 'Fair per-ISBN lock guarding the find-available-copy-and-assign step; kept in the service, not the repository'
+        },
+        {
+          name: 'fineStrategy',
+          type: 'FineStrategy',
+          description: 'Computes overdue fines on return'
+        },
+        {
+          name: 'notifier',
+          type: 'DueDateNotifier',
+          description: 'Fans borrow/return/fine/overdue events out to every registered LibraryNotificationObserver'
+        }
+      ],
       methods: [
         {
-          name: 'borrowBook(...)',
+          name: 'borrowBook(memberId, isbn)',
           returns: 'Loan',
-          description: 'Atomic copy & quota lock checkout'
+          description: 'Locks the member to check+increment their quota, then locks the book to assign a copy — all-or-nothing with a compensating decrement if no copy is free'
+        },
+        {
+          name: 'returnBook(loanId)',
+          returns: 'Loan',
+          description: 'Marks the loan RETURNED, frees the copy under the book lock, decrements the member\'s count, and applies a fine via FineStrategy if overdue'
+        }
+      ]
+    },
+    {
+      name: 'LibraryRepository',
+      description: 'In-memory catalog/member/loan store. One instance backs the live API; a second, fully independent instance backs /sim/* so the demo can never touch a real book/member/loan.',
+      fields: [
+        {
+          name: 'booksByIsbn, copiesById, membersById, loansById',
+          type: 'ConcurrentHashMap<String, ...>',
+          description: 'One map per entity type'
+        },
+        {
+          name: 'memberLoans',
+          type: 'ConcurrentHashMap<String, List<String>>',
+          description: 'A member\'s loan ids in borrow order, for active-loan and history lookups'
+        },
+        {
+          name: 'loanIdGen, memberIdGen',
+          type: 'AtomicLong',
+          description: 'Monotonic id sequences, both reset together by clear()'
+        }
+      ],
+      methods: [
+        {
+          name: 'getOrCreateBook(isbn, supplier)',
+          returns: 'Book',
+          description: 'Atomically reuses the cataloged Book for a repeat addBook call on the same ISBN instead of replacing it'
+        },
+        {
+          name: 'clear()',
+          returns: 'void',
+          description: 'Resets every map and both id generators — what the /sim/* repository calls on simReset()'
         }
       ]
     }

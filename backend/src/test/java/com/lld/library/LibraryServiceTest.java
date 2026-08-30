@@ -11,6 +11,7 @@ import com.lld.library.model.Member;
 import com.lld.library.observer.DueDateNotifier;
 import com.lld.library.observer.InAppLibraryNotificationObserver;
 import com.lld.library.observer.LoggingLibraryNotificationObserver;
+import com.lld.library.repository.LibraryRepository;
 import com.lld.library.service.LibraryService;
 import com.lld.library.strategy.StandardFineStrategy;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +32,7 @@ public class LibraryServiceTest {
         LoggingLibraryNotificationObserver logObs = new LoggingLibraryNotificationObserver();
         DueDateNotifier notifier = new DueDateNotifier();
         StandardFineStrategy fineStrategy = new StandardFineStrategy(5.0);
-        service = new LibraryService(fineStrategy, notifier, inApp, logObs);
+        service = new LibraryService(new LibraryRepository(), fineStrategy, notifier, inApp, logObs);
     }
 
     @Test

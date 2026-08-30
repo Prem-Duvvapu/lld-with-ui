@@ -1,5 +1,8 @@
 package com.lld.library.model;
 
+import lombok.Getter;
+
+@Getter
 public class LoanPolicy {
     private final int maxBooksAllowed;
     private final int loanDurationDays;
@@ -7,13 +10,5 @@ public class LoanPolicy {
     public LoanPolicy(int maxBooksAllowed, int loanDurationDays) {
         this.maxBooksAllowed = maxBooksAllowed;
         this.loanDurationDays = loanDurationDays;
-    }
-
-    public int getMaxBooksAllowed() {
-        return maxBooksAllowed;
-    }
-
-    public int getLoanDurationDays() {
-        return loanDurationDays;
     }
 }
