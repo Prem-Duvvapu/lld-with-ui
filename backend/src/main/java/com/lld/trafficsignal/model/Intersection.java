@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * frozen — {@link #tick()} is a no-op — until {@link #resumeNormalOperation()} is called
  * explicitly. There is no automatic timeout: the original implementation spawned a one-shot
  * {@code ScheduledExecutorService} per call to auto-clear the override after a fixed delay,
- * which both leaked a thread pool per call (RCA-017) and could resume normal cycling out from
+ * which both leaked a thread pool per call (RCA-038) and could resume normal cycling out from
  * under an emergency vehicle still in the intersection. Requiring an explicit resume call is
  * simpler, leak-free, and matches how real signal preemption works: the controller (or, here,
  * the operator) ends the preemption when it is actually safe to. On resume, the overridden light

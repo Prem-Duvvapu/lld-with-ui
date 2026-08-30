@@ -3459,3 +3459,119 @@ grep -n "rgba(0,0,0\|rgba(255,255,255" frontend/src/lld/<module>/<Module>Page.js
    coffee machines, hardware panels), grep for the richer illustration-only palette this repo uses for
    such content (see Diagnostic Commands) — its presence is a strong signal that colors in that
    section carry representational meaning and must stay theme-invariant, not adaptive.
+
+## RCA-038: Restaurant's and Traffic Signal's Class Diagrams/Design Details Described Fictional Domains, and Two Source Comments Cited the Wrong RCA Number for a Real Fix
+
+### 1. Overview & Severity
+**Severity: Medium.** Continuing the class-diagram/design-details fabrication audit RCA-036 started
+for LinkedIn, a scripted class-existence sweep across all 45 modules' `diagrams/*.js` files (grep
+every `name: '...'` against the module's real backend source) flagged six modules; three were script
+false positives (a `record` declaration the grep pattern didn't match, and a nested enum
+legitimately flattened into its own diagram box), but two were real: **restaurant**'s diagram and
+design-details described a fictional `Menu`/`Table`/`Reservation`/`Chef`/`Waiter` system with a
+Singleton `RestaurantService`, and **traffic-signal**'s described a fictional
+`TrafficController`/`Road`/`TrafficSignal` system with an enum-only `SignalState` and Observer
+marked `used: false` even though Observer is real and fully wired. Separately, while reading
+`com.lld.trafficsignal`'s real source to write its replacement, two source-code javadoc comments
+were found citing `(RCA-017)` for a thread-pool-leak fix that RCA-017's actual entry in this file
+has nothing to do with (it documents an unrelated Digital Wallet ordering bug) — a documentation
+citation error unrelated to the fabrication audit but discovered by it.
+
+### 2. Symptoms & Error Logs
+No test failure for either finding — `designDataCoverage.test.js` checks structure, not truthfulness,
+exactly as RCA-036 already established. The class-existence sweep's raw output:
+```
+=== restaurant -> restaurant : MISSING: Chef Menu Restaurant Waiter
+=== traffic-signal -> trafficsignal : MISSING: SignalController Timer
+```
+(`hotel`, `social-network`, `snakeladders`, `uber` also flagged initially; `snakeladders`/`uber` were
+script false positives — the grep pattern didn't match `record` declarations — and `social-network`'s
+`FriendRequestStatus` is a legitimate flattening of `FriendRequest`'s real nested `enum Status` into
+its own diagram box, matching the same values. `hotel`'s `BookingStatus` — four values, no methods —
+turned out to be a stale pre-refactor name for the real `ReservationStatus`, which now has six values
+and a declared transition table; `hotel` is deferred to a follow-up pass since fixing it properly
+means documenting hotel's real `TariffStrategy`/`CancellationRefundStrategy` layers that the current
+diagram doesn't mention at all, a larger job than this pass's scope.)
+
+The RCA-017 citation mismatch had no symptom either — it is two doc comments, never executed, never
+tested — found only by manually reading the file the citation was in.
+
+### 3. Root Cause
+Same root cause as RCA-036: **restaurant** and **traffic-signal**'s diagram/design-details content
+was written independently of (and never checked against) the real `com.lld.restaurant`/
+`com.lld.trafficsignal` source. Concretely:
+- **restaurant**: the real module has no `Menu` aggregate (menu items are a flat
+  `ConcurrentMap<String, MenuItem>` keyed by id, each tagged with a `MenuCategory` enum), no
+  `Reservation` feature at all, and no per-item kitchen tracking (`KitchenService` transitions a
+  whole `Order` through `OrderStatus`, not individual `OrderItem`s). The one accurate part of the old
+  design file was its `Strategy` pattern entry for `BillingStrategy`/`BillingStrategyFactory.forTime()`
+  — which is real — the same "partially accurate file" trap RCA-036's Preventative Measures warned
+  about.
+- **traffic-signal**: the real module has no `Road` concept (a `TrafficLight` sits directly on an
+  `Intersection`) and models phase transitions with real `SignalState` classes
+  (`RedState`/`YellowState`/`GreenState`, each a singleton whose `next()` supplies the one legal
+  successor) rather than an enum with a `nextState()` method. The old design file's `Observer` entry
+  was marked `used: false` with speculative language ("could act as observers") despite
+  `SignalChangeNotifier`/`SignalObserver`/`InAppSignalObserver`/`LoggingSignalObserver` being real,
+  fully-wired classes that fire on every phase change — the opposite kind of error from a fabricated
+  positive: a real, working feature was described as hypothetical.
+- **RCA-017 citation**: `Intersection.java` and `ScheduledExecutorSignalTicker.java` both javadoc a
+  real historical bug (an unshut-down `ScheduledExecutorService` spawned per intersection and per
+  emergency-override call) and cite `(RCA-017)` for it. This repo's actual RCA-017 entry is titled
+  "Digital Wallet's Repository Returned Wallets in Unspecified ConcurrentHashMap Iteration Order" —
+  an unrelated module and an unrelated bug class. The thread-pool-leak fix itself is real and already
+  shipped (the current `ScheduledExecutorSignalTicker` is a single shared, explicitly-`shutdown()`'d
+  instance, not a per-call throwaway) — only the RCA number attached to it in the comments was wrong,
+  most plausibly a copy-paste of a nearby number at the time the comment was written, never caught
+  because nothing executes or tests a javadoc citation.
+
+### 4. Diagnostic Commands
+```bash
+# The class-existence sweep this RCA's findings came from (also see RCA-036 §4):
+for diagfile in frontend/src/data/diagrams/*.js; do
+  # ... map diagram filename -> backend package, then for each `name: '...'`:
+  grep -rq "class $cls\b\|interface $cls\b\|enum $cls\b\|record $cls\b\|record $cls(" \
+    "backend/src/main/java/com/lld/$pkg/" || echo "NOT FOUND: $cls"
+done
+# Note the pattern MUST include `record $cls\b` — Java records (Snake, Ladder, FareEstimate, etc.)
+# don't match a `class|interface|enum` grep and produce false positives otherwise.
+
+# Confirm an RCA citation in a source comment actually refers to what the comment claims:
+grep -n "RCA-017" backend/src/main/java/com/lld/trafficsignal/**/*.java   # find the citing comments
+grep -n "^## RCA-017" RCA.md                                              # read what that number is actually about
+```
+
+### 5. Step-by-Step Resolution
+1. Read every real class in `com.lld.restaurant` (`RestaurantService`, `RestaurantRepository`,
+   `TableAllocationService`, `KitchenService`, all nine model/enum classes, the `BillingStrategy`
+   family) before writing a replacement; rewrote `diagrams/restaurant.js` and `design/restaurant.js`
+   from scratch, keeping only the already-accurate `BillingStrategy` Strategy-pattern description.
+2. Read every real class in `com.lld.trafficsignal` (`TrafficSignalService`, `TrafficRepository`,
+   `Intersection`, `TrafficLight`, the `SignalState` hierarchy, `SignalTicker` and its two
+   implementations, the `SignalObserver`/`SignalChangeNotifier` pair) before writing a replacement;
+   rewrote `diagrams/traffic-signal.js` and `design/traffic-signal.js` from scratch.
+3. While reading `Intersection.java`'s javadoc, noticed the `(RCA-017)` citation and checked it
+   against this file — confirmed the mismatch, then corrected both source citations
+   (`Intersection.java`, `ScheduledExecutorSignalTicker.java`) to `(RCA-038)`, this entry, so the
+   citation now resolves to an entry that actually describes the leak.
+4. Deferred `hotel`'s `BookingStatus`→`ReservationStatus` staleness to a follow-up pass — fixing it
+   properly means also documenting hotel's `TariffStrategy`/`CancellationRefundStrategy` layers the
+   current diagram omits entirely, which is a larger job than a one-enum rename.
+5. Ran the frontend suite (`npx vitest run`) and `npm run build` to confirm both rewritten pairs of
+   files are structurally valid — as RCA-036 notes, this proves the files parse and register
+   correctly, not that they're accurate; that assurance comes only from step 1/2's source reading.
+
+### 6. Preventative Measures
+1. Same as RCA-036 #1–#3: `designDataCoverage.test.js` checks structure, not truthfulness; a
+   class-existence-only sweep (this RCA's diagnostic) is cheap and mechanical but still requires a
+   `record $cls\b` alternation or it false-positives on every Java record in the codebase — checked
+   here, worth keeping in mind for any future re-run of the sweep on the remaining ~41 modules.
+2. A design file being *marked* `used: false` for a pattern is not proof the pattern is actually
+   absent from the real code — traffic-signal's Observer entry shows the fabrication failure mode can
+   run in either direction (claiming a fake pattern is used, or claiming a real one is not). Verify
+   negative claims against source with the same rigor as positive ones.
+3. An RCA citation embedded in a source comment is never checked by any test or build step — it can
+   silently point at the wrong entry (or, if a number is ever reused, at someone else's incident)
+   indefinitely. There is no cheap automated guard against this today; the only defense demonstrated
+   here is a human (or agent) actually cross-referencing a cited number against this file while
+   reading the surrounding code for an unrelated reason.
