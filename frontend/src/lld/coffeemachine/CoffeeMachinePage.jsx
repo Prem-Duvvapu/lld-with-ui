@@ -868,7 +868,7 @@ function ConcurrencySimulationTab() {
                   {ev.description}
                 </div>
                 {ev.details && Object.keys(ev.details).length > 0 && (
-                  <div style={{ marginTop: 6, padding: '4px 6px', background: 'rgba(0,0,0,0.2)', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', color: '#94a3b8' }}>
+                  <div style={{ marginTop: 6, padding: '4px 6px', background: 'rgba(0,0,0,0.2)', borderRadius: 4, fontSize: 10, fontFamily: 'monospace', color: 'var(--text-secondary)' }}>
                     {JSON.stringify(ev.details)}
                   </div>
                 )}
