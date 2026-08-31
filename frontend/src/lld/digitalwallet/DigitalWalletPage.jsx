@@ -193,7 +193,15 @@ function WalletsTab() {
       ) : (
         <div className="wal-grid">
           {wallets.map(w => (
-            <div key={w.id} className={`wal-card ${selected?.id === w.id ? 'selected' : ''}`} onClick={() => selectWallet(w)}>
+            <div
+              key={w.id}
+              className={`wal-card ${selected?.id === w.id ? 'selected' : ''}`}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selected?.id === w.id}
+              onClick={() => selectWallet(w)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectWallet(w); } }}
+            >
               <div className="wal-card-top">
                 <div className="wal-avatar" style={{ background: avatarColor(w.id) }}>{initials(w.userName)}</div>
                 <div>

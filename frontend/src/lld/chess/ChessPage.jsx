@@ -75,7 +75,15 @@ function Board({ board, selected, validMoves, lastMove, onCellClick, interactive
         if (isValid && !cell) cls += ' valid-move';
         if (isLast) cls += ' last-move';
         return (
-          <div key={`${r}-${c}`} className={cls} onClick={() => interactive && onCellClick(r, c)}>
+          <div
+            key={`${r}-${c}`}
+            className={cls}
+            role={interactive ? 'button' : undefined}
+            tabIndex={interactive ? 0 : undefined}
+            aria-label={`Square row ${r + 1}, column ${c + 1}${cell ? `, ${UNICODE[cell] ? cell : ''}` : ', empty'}`}
+            onClick={() => interactive && onCellClick(r, c)}
+            onKeyDown={(e) => { if (interactive && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onCellClick(r, c); } }}
+          >
             {cell ? UNICODE[cell] || cell : ''}
           </div>
         );

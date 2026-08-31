@@ -386,7 +386,14 @@ function CacheOperationsTab({ snapshot, onUpdate, toast }) {
                 </div>
                 <div className="hashmap-grid">
                   {nodes.map(item => (
-                    <div key={item.key} className="hash-pill" onClick={() => handleGet(item.key)}>
+                    <div
+                      key={item.key}
+                      className="hash-pill"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleGet(item.key)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleGet(item.key); } }}
+                    >
                       <span style={{ color: '#3b82f6' }}>"{item.key}"</span>
                       <span>➔</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>NodePtr({item.key})</span>

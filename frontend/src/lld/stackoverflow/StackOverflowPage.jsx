@@ -203,7 +203,14 @@ function QuestionsTab({ users, currentUserId, setCurrentUserId }) {
         <div className="so-empty">No questions found.</div>
       ) : (
         questions.map((q) => (
-          <div key={q.id} className="so-card" onClick={() => setSelectedId(q.id)}>
+          <div
+            key={q.id}
+            className="so-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedId(q.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(q.id); } }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
               <h3>{q.title}</h3>
               <span className={`so-status-pill ${q.status}`}>{q.status}</span>

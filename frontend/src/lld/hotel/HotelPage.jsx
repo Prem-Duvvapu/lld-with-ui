@@ -122,7 +122,14 @@ function HotelsTab() {
           <h2 style={{ color: 'var(--info)', fontSize: 18, marginBottom: 16 }}>Select a Hotel</h2>
           <div className="hotel-grid">
             {hotels.map((h) => (
-              <div key={h.id} className="hotel-card" onClick={() => selectHotel(h)}>
+              <div
+                key={h.id}
+                className="hotel-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => selectHotel(h)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectHotel(h); } }}
+              >
                 <h3>{h.name}</h3>
                 <div className="location">{h.location}</div>
                 <div className="rating">{'⭐'.repeat(Math.round(h.rating))} {h.rating}</div>
