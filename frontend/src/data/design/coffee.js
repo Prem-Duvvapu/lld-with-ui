@@ -1,6 +1,14 @@
 // designDetails — coffee
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Fixed (2026-08-31, RCA-044) — designPatterns/principles/extensibility asserted a
+// `CoffeeRepository` class, constructor-injected into CoffeeMachineService, handling all data
+// access. No such class exists: the module has no repository package at all: state lives
+// directly on the CoffeeMachine model, constructed with `new` inside CoffeeMachineService, not
+// injected. The two patterns this module actually centers on — Decorator (CoffeeComponent/
+// CoffeeDecorator) and Factory (CoffeeFactory) — were never listed at all. Rewritten to describe
+// the real architecture.
 
 export default {
   title: 'Coffee Vending Machine — Design Details',
@@ -195,19 +203,24 @@ export default {
   ],
   designPatterns: [
     {
-      name: 'Repository Pattern',
+      name: 'Decorator Pattern',
       used: true,
-      explanation: 'CoffeeRepository abstracts all data access behind semantic methods. The service calls getBeverages(), getMachine(), addOrder() rather than manipulating maps directly. This keeps the service focused on brewing logic.'
+      explanation: 'CoffeeComponent is the shared interface for both BaseCoffee and every add-on. Each concrete decorator (CaramelSyrupDecorator, ExtraMilkDecorator, ExtraShotDecorator, OatMilkDecorator, WhippedCreamDecorator) wraps an inner CoffeeComponent and adds its own price delta and ingredient requirements — getDescription()/getPrice()/getRequiredIngredients() walk the whole chain. Customizations stack in any combination without a combinatorial explosion of subclasses.'
+    },
+    {
+      name: 'Factory Pattern',
+      used: true,
+      explanation: 'CoffeeFactory holds a CoffeeType -> CoffeeRecipe registry (seeded with the 5 defaults in its constructor, extensible at runtime via registerRecipe()) and turns a CoffeeType into a freshly-built BaseCoffee via createBaseCoffee() — the caller never constructs a CoffeeComponent directly.'
     },
     {
       name: 'Singleton Pattern',
       used: true,
-      explanation: 'Spring @Service and @Repository are singletons, ensuring a single CoffeeMachine state is shared across all requests. This is critical since the machine has exactly one physical state.'
+      explanation: 'CoffeeMachineService is a Spring @Service singleton bean, so its mainMachine field is the one shared production machine state for every request — there is exactly one physical machine, so there must be exactly one in-memory instance.'
     },
     {
       name: 'Dependency Injection (IoC)',
       used: true,
-      explanation: 'CoffeeMachineService receives CoffeeRepository via constructor injection. Spring auto-wires, enabling easy testing with mock repositories and ingredient data.'
+      explanation: 'CoffeeMachineInitializer (a CommandLineRunner) receives CoffeeMachineService via constructor injection so it can seed mainMachine\'s ingredient hoppers at boot. The machine and simulation state themselves are plain fields constructed with `new` inside the service, not injected — there is no repository layer to inject.'
     },
     {
       name: 'State Machine Pattern',
@@ -218,15 +231,15 @@ export default {
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'CoffeeMachineService handles brewing business logic (inventory check, consumption, state transitions). CoffeeRepository handles data storage. Beverage/CoffeeMachine/Order are pure data models.'
+      description: 'CoffeeMachineService orchestrates one shared machine\'s lifecycle. IngredientStore owns stock and per-ingredient locking. CoffeeFactory owns recipe lookup. CoffeeDecorator subclasses own their own price/ingredient delta. Nothing else touches the inventory maps directly.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'Adding a new beverage requires only adding an entry to the repository\'s seed data with a new recipe. The brewing logic remains unchanged. New ingredients can be added to the Ingredient enum without structural changes.'
+      description: 'Adding a new beverage requires only registering a new CoffeeRecipe with CoffeeFactory (in registerDefaultRecipes() or at runtime via registerRecipe()). The brewing logic in CoffeeMachine/CoffeeMachineService is unchanged. New ingredients can be added to the IngredientType enum without structural changes.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'Service depends on repository abstraction, not on concrete ConcurrentHashMap. Spring injects the implementation, enabling storage strategy swaps.'
+      description: 'CoffeeMachine\'s active order depends on the CoffeeComponent interface, not concrete BaseCoffee/decorator classes — any chain of decorators substitutes transparently. Each machine state depends on the CoffeeMachineState interface, not on a concrete IdleState/BrewingState/etc.'
     },
     {
       name: 'Encapsulation',
@@ -253,7 +266,7 @@ export default {
   extensibility: [
     {
       area: 'New Beverages',
-      description: 'Add a new entry to the repository constructor with ID, name, price, and recipe map. The service code handles it automatically. Frontend just needs to display it.',
+      description: 'Register a new CoffeeRecipe with CoffeeFactory (either in registerDefaultRecipes() or at runtime via registerRecipe()) with a CoffeeType, name, price, and ingredient map. The brewing code handles it automatically. Frontend just needs to display it.',
       difficulty: 'Easy'
     },
     {
@@ -278,7 +291,7 @@ export default {
     },
     {
       area: 'Multi-Machine Support',
-      description: 'Add Machine entity with ID. Repository manages Map<Long, CoffeeMachine>. Service takes machineId parameter. Frontend adds machine selector.',
+      description: 'Replace CoffeeMachineService\'s single mainMachine field with a Map<String, CoffeeMachine>. Every service method takes a machineId parameter instead of implicitly operating on the one instance. Frontend adds a machine selector.',
       difficulty: 'Hard'
     }
   ],

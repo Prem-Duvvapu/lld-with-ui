@@ -2,6 +2,10 @@
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
 // Grounded directly in com.lld.socialnetwork.{model,repository,service,observer,exception,controller}.
+//
+// Fixed (2026-08-31, RCA-044) — showed a standalone top-level `FriendRequestStatus` enum; the
+// real type is a private nested enum, `FriendRequest.Status`, with no `FriendRequestStatus` class
+// anywhere in the module.
 
 export default {
   title: 'Social Network — Class Diagram',
@@ -118,12 +122,12 @@ export default {
     {
       name: 'FriendRequest',
       stereotype: 'entity',
-      fields: ['- id: long', '- fromUserId: long', '- toUserId: long', '- status: FriendRequestStatus', '- timestamp: LocalDateTime'],
+      fields: ['- id: long', '- fromUserId: long', '- toUserId: long', '- status: FriendRequest.Status', '- timestamp: LocalDateTime'],
       methods: []
     },
     {
-      name: 'FriendRequestStatus',
-      stereotype: 'enum',
+      name: 'Status',
+      stereotype: 'private nested enum',
       fields: ['PENDING', 'ACCEPTED', 'REJECTED'],
       methods: []
     },
@@ -143,7 +147,7 @@ export default {
     { from: 'User', to: 'User', label: 'friends with (adjacency)' },
     { from: 'User', to: 'Post', label: 'authors' },
     { from: 'Post', to: 'Comment', label: 'has' },
-    { from: 'FriendRequest', to: 'FriendRequestStatus', label: 'has status' },
+    { from: 'FriendRequest', to: 'Status', label: 'has status' },
     { from: 'FriendRequest', to: 'User', label: 'from / to' },
   ]
 };

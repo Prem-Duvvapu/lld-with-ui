@@ -1,6 +1,14 @@
 // classDiagrams — musicStreaming
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Fixed (2026-08-31, RCA-044) — Song/Album/Artist/Playlist/User/Subscription all carried invented
+// methods (play(), addToPlaylist(), releaseAlbum(), shuffle(), likeSong(), activate(), etc.) and
+// embedded-object fields (Song.album, Song.artists, Playlist.owner/songs, User.playlists/
+// likedSongs, Subscription.user). Every one of these is a plain Lombok model with zero methods —
+// all mutation happens in MusicStreamingService/PlaybackService — and they reference each other
+// by id (artistId, albumId, songIds, playlistIds, likedSongIds), not by embedded object, the same
+// denormalized-id convention concert-ticket's Seat/Booking use.
 
 export default {
   title: 'Music Streaming — Class Diagram',
@@ -10,31 +18,29 @@ export default {
       fields: [
         '- id: String',
         '- title: String',
+        '- artistId: String',
+        '- artistName: String',
+        '- albumId: String',
+        '- albumTitle: String',
+        '- genre: Genre',
         '- duration: int',
-        '- album: Album',
-        '- artists: List<Artist>',
-        '- genre: String',
-        '- playCount: int'
+        '- audioUrl: String',
+        '- trackNumber: int',
+        '- playCount: long'
       ],
-      methods: [
-        '+ play(): void',
-        '+ addToPlaylist(playlist): void'
-      ]
+      methods: []
     },
     {
       name: 'Album',
       fields: [
         '- id: String',
         '- title: String',
-        '- artist: Artist',
+        '- artistId: String',
+        '- artistName: String',
         '- releaseYear: int',
-        '- songs: List<Song>',
         '- coverArt: String'
       ],
-      methods: [
-        '+ addSong(song): void',
-        '+ getDuration(): int'
-      ]
+      methods: []
     },
     {
       name: 'Artist',
@@ -42,28 +48,22 @@ export default {
         '- id: String',
         '- name: String',
         '- bio: String',
-        '- albums: List<Album>',
         '- monthlyListeners: int'
       ],
-      methods: [
-        '+ releaseAlbum(title, songs): Album',
-        '+ getTopSongs(n): List<Song>'
-      ]
+      methods: []
     },
     {
       name: 'Playlist',
       fields: [
         '- id: String',
         '- name: String',
-        '- owner: User',
-        '- songs: List<Song>',
-        '- isPublic: boolean'
+        '- ownerId: String',
+        '- songIds: List<String>',
+        '- isPublic: boolean',
+        '- collaboratorIds: List<String>',
+        '- createdAt: Instant'
       ],
-      methods: [
-        '+ addSong(song): void',
-        '+ removeSong(song): void',
-        '+ shuffle(): void'
-      ]
+      methods: []
     },
     {
       name: 'User',
@@ -72,29 +72,29 @@ export default {
         '- name: String',
         '- email: String',
         '- subscription: Subscription',
-        '- playlists: List<Playlist>',
-        '- likedSongs: List<Song>'
+        '- playlistIds: List<String>',
+        '- likedSongIds: List<String>',
+        '- listeningHistory: List<ListenEvent>',
+        '- downloadedSongIds: List<String>',
+        '- skipsUsedThisHour: int'
       ],
-      methods: [
-        '+ createPlaylist(name): Playlist',
-        '+ likeSong(song): void',
-        '+ getRecommendedSongs(): List<Song>'
-      ]
+      methods: []
     },
     {
       name: 'Subscription',
       fields: [
-        '- id: String',
-        '- user: User',
         '- plan: SubscriptionPlan',
+        '- active: boolean',
         '- startDate: LocalDate',
-        '- renewalDate: LocalDate',
-        '- isActive: boolean'
+        '- renewalDate: LocalDate'
       ],
+      methods: []
+    },
+    {
+      name: 'RecommendationService',
+      fields: [],
       methods: [
-        '+ activate(): void',
-        '+ cancel(): void',
-        '+ upgrade(newPlan): void'
+        '+ recommendFor(repository, user, limit): List<Song>'
       ]
     },
     {
@@ -197,9 +197,30 @@ export default {
       methods: [
         '+ onStreamStarted(user, song): void'
       ]
+    },
+    {
+      name: 'MusicStreamingService',
+      stereotype: 'facade',
+      fields: [
+        '- repository: MusicStreamingRepository',
+        '- playbackService: PlaybackService',
+        '- recommendationService: RecommendationService',
+        '- strategyFactory: SubscriptionStrategyFactory'
+      ],
+      methods: [
+        '+ createPlaylist(userId, name): Playlist',
+        '+ addSongToPlaylist(playlistId, songId): Playlist',
+        '+ likeSong(userId, songId): User',
+        '+ changeSubscription(userId, plan): User',
+        '+ downloadSong(userId, songId): User',
+        '+ getRecommendations(userId, limit): List<Song>'
+      ]
     }
   ],
   relationships: [
+    { from: 'MusicStreamingService', to: 'PlaybackService', label: 'starts/stops/skips streams via' },
+    { from: 'MusicStreamingService', to: 'RecommendationService', label: 'delegates ranking to' },
+    { from: 'MusicStreamingService', to: 'SubscriptionStrategyFactory', label: 'gates downloads via' },
     {
       from: 'Album',
       to: 'Song',
