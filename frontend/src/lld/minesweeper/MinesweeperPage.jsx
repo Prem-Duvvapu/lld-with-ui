@@ -149,7 +149,19 @@ function Game({ gameId, onNewGame }) {
             content = '🚩';
           }
           return (
-            <div key={`${r}-${c}`} className={cls} onClick={() => handleReveal(r, c)} onContextMenu={(e) => handleFlag(e, r, c)}>
+            <div
+              key={`${r}-${c}`}
+              className={cls}
+              role="button"
+              tabIndex={0}
+              aria-label={`Cell row ${r + 1}, column ${c + 1}${cell.flagged ? ', flagged' : cell.revealed ? ', revealed' : ', hidden'}`}
+              onClick={() => handleReveal(r, c)}
+              onContextMenu={(e) => handleFlag(e, r, c)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleReveal(r, c); }
+                else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); handleFlag(e, r, c); }
+              }}
+            >
               {content}
             </div>
           );

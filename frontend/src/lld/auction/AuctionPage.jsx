@@ -340,7 +340,14 @@ function AuctionsView() {
       {loading ? <div className="alert">Loading...</div> : auctions.length === 0 ? <div className="alert">No auctions yet. Create one above.</div> : (
         <div className="auctions-grid">
           {auctions.map((a) => (
-            <div key={a.id} className="auction-card" onClick={() => setSelectedId(selectedId === a.id ? null : a.id)}>
+            <div
+              key={a.id}
+              className="auction-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedId(selectedId === a.id ? null : a.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(selectedId === a.id ? null : a.id); } }}
+            >
               <h3>{a.itemName}</h3>
               <div className="desc" style={{ fontSize: 12, color: 'var(--text-muted)' }}>{a.description}</div>
               <div className="detail"><span className="label">Status</span><span className={`badge badge-${a.status.toLowerCase()}`}>{a.status}</span></div>

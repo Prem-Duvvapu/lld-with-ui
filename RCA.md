@@ -4343,3 +4343,107 @@ grep -n "'implements \|'extends " frontend/src/data/{diagrams,design}/*.js   # g
    future content edits to `diagrams/*.js`/`design/*.js` should be spot-checked against it, not just
    `designDataCoverage.test.js` (which only proves ids resolve and diagram edges aren't dangling —
    it has no opinion on whether the described fields/methods/classes are real).
+
+## RCA-047: A Static UI/UX Pass (No Browser Available) Found 15 Instances of Mouse-Only Interaction and 2 Dead Click Handlers Across 12 Modules
+
+### 1. Overview & Severity
+**Severity: Low-Medium (accessibility/polish, not a functional defect).** The one quality gate this
+session's status checks had never audited — "does the actual page UI hold up, not just the backend
+and docs" — was the last one requested. No screenshot/browser-automation tool is available in this
+environment, so this was scoped as a static source audit: things a screenshot isn't needed to catch
+(keyboard accessibility, dead/misleading interaction affordances, swallowed user-action errors),
+explicitly excluding visual judgment (spacing, color harmony, layout) that genuinely needs a
+rendered page. Found 15 mouse-only clickable elements with no keyboard path across 12 modules, and
+2 elements that were visually styled as clickable but did nothing when clicked.
+
+### 2. Symptoms & Error Logs
+None — same as this session's other audit passes, this predates any bug report. The tell for the
+keyboard-access gap is structural: a `<div onClick={...}>` with no `role`, `tabIndex`, or
+`onKeyDown` is invisible to Tab navigation and screen readers, but renders and behaves identically
+to a real button for a mouse user — nothing about it looks broken.
+
+### 3. Root Cause
+- **Clickable `<div>`s instead of `<button>`s for card-style selection UI.** Ten modules'
+  "pick one of these cards" pattern (auction/car-rental/digitalwallet/hotel/lru-cache/
+  social-network/splitwise ×2/stackoverflow/uber ×2) used a bare `<div onClick={...}>` for a
+  grid of selectable cards — a `<button>` wrapping the same content would have gotten focusability,
+  keyboard activation and the correct accessibility role for free, but the div-with-onClick pattern
+  (chosen for layout/styling flexibility, matching every sibling card in the same grid) doesn't.
+  Same root shape for chess's and minesweeper's board-cell grids.
+- **Copy-paste inconsistency on a decorative element.** Every module's step-progress-dot indicator
+  (chess/hotel/parking/etc.) renders a plain, non-interactive `<div>` — except `splitwise`'s, which
+  carried a stray `onClick={() => {}}` no other module's copy of the same component has. A no-op
+  handler on an element with `cursor: pointer` styling makes it *look* interactive when it never
+  was — worse than not having the handler at all, since it invites a click that does nothing.
+- **A shared component's `onClick` prop was always wired up, even where the caller had nothing for
+  it to do.** `task-management`'s `TaskCard` unconditionally attached
+  `onClick={() => onClick(task)}` and unconditionally carried `cursor: pointer` styling. Its real
+  use (the live board) always passes a working handler; its second use (the simulation tab's
+  read-only board preview) passed `onClick={() => {}}` just to satisfy the prop — so simulation-tab
+  cards looked exactly as clickable as real ones (same hover-lift, same pointer cursor) while doing
+  nothing on click, right next to a real board where clicking opens a detail view.
+
+### 4. Diagnostic Commands
+```bash
+# Mouse-only clickable divs — no role, so no keyboard path and no accessibility-tree exposure:
+grep -rn "<div[^>]*onClick" frontend/src/lld/*/*.jsx | grep -v "role="
+
+# A no-op handler on an interactive-looking element — grep for the shape, then read each hit's
+# surrounding component to see if it's genuinely meant to do nothing (rare) or a stale copy/paste:
+grep -rn "onClick={() => {}}" frontend/src/lld/*/*.jsx
+
+# Whether a user-initiated action's failure ever reaches the user (vs. a background poll/initial
+# load, which should legitimately fail silently) — read each match's surrounding function, don't
+# judge from the grep line alone:
+grep -rnE "\.catch\(\s*\(\s*[a-zA-Z_]*\s*\)\s*=>\s*\{\s*\}\s*\)|catch\s*\(?[a-zA-Z_]*\)?\s*\{\s*\}" frontend/src/lld/*/*.jsx
+```
+
+### 5. Step-by-Step Resolution
+1. **11 clickable selection cards** (`auction`, `car-rental`, `digitalwallet`, `hotel`,
+   `lru-cache`, `social-network`, `splitwise` ×2, `stackoverflow`, `uber` ×2) — added `role="button"`,
+   `tabIndex={0}`, and an `onKeyDown` firing the identical handler on Enter/Space; added
+   `aria-pressed` on the three that track a "selected" boolean.
+2. **2 board-cell grids** (`chess`, `minesweeper`) — same treatment, gated on chess's existing
+   `interactive` flag so a non-interactive board (e.g. mid-simulation) doesn't falsely announce
+   itself as focusable; added `aria-label`s describing each cell's state; minesweeper's right-click
+   flag action got a keyboard fallback (`f`/`F` while a cell is focused), reusing the exact
+   `handleFlag(e, row, col)` handler the context-menu path already calls (verified it only calls
+   `e.preventDefault()` on the event, so passing a `KeyboardEvent` instead of a `MouseEvent` is
+   safe).
+3. **`splitwise`'s dead step-dot handler** — removed `onClick={() => {}}`, matching every other
+   module's identical (and genuinely non-interactive) step-dot component.
+4. **`task-management`'s `TaskCard`** — `onClick` is now optional; the click affordance (cursor,
+   hover-lift) only applies via a new `.tm-card-clickable` class when a real handler is passed. The
+   simulation tab's read-only board preview now renders `<TaskCard ... />` with no `onClick` prop at
+   all instead of a no-op — cards there correctly look inert rather than falsely clickable.
+5. **`task-management`'s Add Task modal** — had click-outside-to-close but no Escape-key support
+   (the standard second half of that pattern). Added a `keydown` listener scoped to when the modal
+   is open.
+6. Everything else checked came back clean, not just unexamined: zero `console.log` leftovers, zero
+   raw `<img>` tags (so no missing-`alt` class of bug exists at all), and every `.catch(() => {})` /
+   empty-catch instance found across the whole `frontend/src/lld` tree was read in context and
+   confirmed to be either (a) a background poll or initial page-load fetch — correct to fail
+   silently, since a poll surfacing an error banner every few seconds would be worse UX than the
+   status quo — or (b) already surfaced to the user upstream (`task-management`'s `runAction`
+   `toast.error()`s before rethrowing; the outer `.catch(() => {})` on its callers just silences
+   the resulting unhandled-rejection warning after the user has already seen the toast) —
+   `movieticket`'s one `catch (ignored) {}` is a scripted simulation step where the rejection is the
+   deliberately-narrated demo outcome, not a swallowed real error.
+7. Verified with `npx vitest run` (304/304) and `npm run build` (entry chunk 260.79 kB, unchanged,
+   under the 500 kB gate) after every edit.
+
+### 6. Preventative Measures
+1. **A `<div>` styled and behaving like a button needs the same three things every time**: `role`,
+   `tabIndex`, and an `onKeyDown` mirroring the `onClick`. The grep in section 4
+   (`onClick` without a same-line `role=`) is cheap enough to run on any future module's page before
+   it's considered finished, rather than relying on remembering the convention per-file.
+2. **A shared component should never carry a click affordance (cursor, hover states) that isn't
+   backed by a real handler.** `TaskCard`'s bug — and `splitwise`'s step-dot bug — are the same
+   shape: an interactive-looking element with nothing behind it. Prefer making the prop optional and
+   gating both the handler *and* the styling on its presence, the way `TaskCard` now does, over
+   passing a no-op just to satisfy a required prop.
+3. **This was a source-only audit, not a visual one** — no browser/screenshot tool is available in
+   this environment, so spacing, color harmony, responsive layout, and anything else that requires
+   actually seeing the rendered page was explicitly out of scope and remains unverified. If a visual
+   UI/UX pass is ever wanted, it needs either a screenshot-capable tool added to the environment, or
+   a human doing the actual look-and-feel review with this RCA's findings as the starting checklist.

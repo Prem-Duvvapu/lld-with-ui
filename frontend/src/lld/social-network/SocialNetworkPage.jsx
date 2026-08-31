@@ -181,7 +181,14 @@ function UserOnboarding({ onUserSelect }) {
       {users.length === 0 && <div className="sn-loading">No users created yet</div>}
       <div className="sn-grid">
         {users.map((u) => (
-          <div key={u.id} className="sn-card" onClick={() => onUserSelect(u)}>
+          <div
+            key={u.id}
+            className="sn-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => onUserSelect(u)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onUserSelect(u); } }}
+          >
             <div>
               <div className="sn-card-title">👤 {u.name}</div>
               <div className="sn-card-sub">{u.email}</div>

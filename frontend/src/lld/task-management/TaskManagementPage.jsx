@@ -50,8 +50,9 @@ const CSS = `
 .tm-column-header h3 { margin: 0; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
 .tm-count { font-size: 11px; font-weight: 700; color: var(--text-muted); background: var(--bg-tertiary); padding: 2px 9px; border-radius: var(--radius-full); min-width: 20px; text-align: center; }
 
-.tm-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: var(--space-2); cursor: pointer; transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out); animation: tm-card-in var(--duration-normal) var(--ease-out); }
-.tm-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.tm-card { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: var(--space-2); transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out); animation: tm-card-in var(--duration-normal) var(--ease-out); }
+.tm-card-clickable { cursor: pointer; }
+.tm-card-clickable:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .tm-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(102,126,234,0.28); }
 .tm-card.tm-flash { animation: tm-flash 1100ms var(--ease-out); }
 .tm-card-title { font-weight: 600; font-size: 13px; color: var(--text-primary); margin-bottom: 6px; line-height: var(--leading-tight); }
@@ -139,6 +140,13 @@ function AddTaskModal({ open, boardId, onClose, onCreated }) {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const handleSubmit = async (e) => {
@@ -198,8 +206,16 @@ function AddTaskModal({ open, boardId, onClose, onCreated }) {
 // -------------------------------------------------------------------- board
 
 function TaskCard({ task, selected, flashing, onClick }) {
+  // onClick is optional — the simulation tab's read-only board preview renders these without a
+  // handler. Only apply the click affordance (cursor, hover lift) when there's something for a
+  // click to actually do; a "clickable-looking" card that silently does nothing is worse than one
+  // that's honestly inert.
+  const clickable = typeof onClick === 'function';
   return (
-    <div className={`tm-card ${selected ? 'selected' : ''} ${flashing ? 'tm-flash' : ''}`} onClick={() => onClick(task)}>
+    <div
+      className={`tm-card ${clickable ? 'tm-card-clickable' : ''} ${selected ? 'selected' : ''} ${flashing ? 'tm-flash' : ''}`}
+      onClick={clickable ? () => onClick(task) : undefined}
+    >
       <div className="tm-card-title">{task.title}</div>
       <div className="tm-card-meta">
         {priorityBadge(task.priority)}
@@ -575,7 +591,7 @@ function SimulationTab() {
                   <span className="tm-count">{inCol.length}</span>
                 </div>
                 {inCol.length === 0 ? <div className="tm-empty-col">—</div> : inCol.map((t) => (
-                  <TaskCard key={t.id} task={t} selected={false} flashing={highlightId === t.id} onClick={() => {}} />
+                  <TaskCard key={t.id} task={t} selected={false} flashing={highlightId === t.id} />
                 ))}
               </div>
             );

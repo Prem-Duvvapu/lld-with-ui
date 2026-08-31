@@ -175,7 +175,14 @@ function UserList({ onUserSelect, onUserCreated }) {
         {users.length === 0 && <div className="sw-loading">No users created yet</div>}
         <div className="sw-grid">
           {users.map((user) => (
-            <div key={user.id} className="sw-card" onClick={() => onUserSelect(user)}>
+            <div
+              key={user.id}
+              className="sw-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => onUserSelect(user)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onUserSelect(user); } }}
+            >
               <div>
                 <div className="sw-card-title">👤 {user.name}</div>
                 <div className="sw-card-sub">{user.email}</div>
@@ -246,7 +253,14 @@ function GroupList({ user, onGroupSelect, onViewBalances, onBack }) {
         {userGroups.length === 0 && <div className="sw-loading">No groups for this user yet</div>}
         <div className="sw-grid">
           {userGroups.map((group) => (
-            <div key={group.id} className="sw-card" onClick={() => onGroupSelect(group)}>
+            <div
+              key={group.id}
+              className="sw-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => onGroupSelect(group)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onGroupSelect(group); } }}
+            >
               <div>
                 <div className="sw-card-title">📁 {group.name}</div>
                 <div className="sw-card-sub">{group.members ? group.members.length : 0} members</div>
@@ -993,7 +1007,7 @@ function InteractiveSimulation() {
     <div>
       <div className="step-indicator">
         {steps.map((s, i) => (
-          <div key={i} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s.title} onClick={() => {}} />
+          <div key={i} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s.title} />
         ))}
       </div>
 

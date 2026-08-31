@@ -197,7 +197,15 @@ function ReserveTab() {
 
         <div className="cr-fleet-grid">
           {vehicles.map((v) => (
-            <div key={v.id} className={`cr-vehicle-card ${selectedVehicle?.id === v.id ? 'selected' : ''}`} onClick={() => handleSelectVehicle(v)}>
+            <div
+              key={v.id}
+              className={`cr-vehicle-card ${selectedVehicle?.id === v.id ? 'selected' : ''}`}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedVehicle?.id === v.id}
+              onClick={() => handleSelectVehicle(v)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectVehicle(v); } }}
+            >
               <strong>{v.make} {v.model}</strong>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0' }}>{v.year} · {v.licensePlate}</div>
               <span className={`cr-badge ${v.type}`} style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>{v.type}</span>{' '}

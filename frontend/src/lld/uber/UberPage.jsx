@@ -328,7 +328,15 @@ function BookRide({ onRideBooked }) {
 
               <div className="vehicle-types">
                 {VEHICLES.map((v) => (
-                  <div key={v.type} className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`} onClick={() => { setVehicleType(v.type); setEstimate(null); }}>
+                  <div
+                    key={v.type}
+                    className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={vehicleType === v.type}
+                    onClick={() => { setVehicleType(v.type); setEstimate(null); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVehicleType(v.type); setEstimate(null); } }}
+                  >
                     <div className="v-icon">{v.icon}</div>
                     <div className="v-name">{v.label}</div>
                     <div className="v-rate">{v.rate}</div>
@@ -1036,7 +1044,15 @@ function InteractiveAnimatedFlow() {
               </div>
               <div className="vehicle-types">
                 {VEHICLES.map((v) => (
-                  <div key={v.type} className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`} onClick={() => setVehicleType(v.type)}>
+                  <div
+                    key={v.type}
+                    className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={vehicleType === v.type}
+                    onClick={() => setVehicleType(v.type)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVehicleType(v.type); } }}
+                  >
                     <div className="v-icon">{v.icon}</div>
                     <div className="v-name">{v.label}</div>
                     <div className="v-rate">{v.rate}</div>
