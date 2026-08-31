@@ -1,6 +1,12 @@
 // designDetails — splitwise
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Fixed (2026-08-31, RCA-044 follow-up) — SplitwiseService's real method is getBalances(userId),
+// not "getUserBalances"; Group is a plain @Data model with no addMember() method — group
+// membership is added through SplitwiseService.addMemberToGroup(groupId, userId), never on Group
+// itself. Found by a method-level pass extending RCA-044's audit to every module, including the
+// three official reference modules.
 
 export default {
   title: 'Splitwise Expense Sharing — Design Details',
@@ -70,7 +76,12 @@ export default {
           description: 'Executes greedy Min-Cash-Flow graph algorithm reducing group debts to optimal transactions'
         },
         {
-          name: 'getUserBalances(userId)',
+          name: 'addMemberToGroup(groupId, userId)',
+          returns: 'Group',
+          description: 'Appends a user to the group\'s member list'
+        },
+        {
+          name: 'getBalances(userId)',
           returns: 'Map<String, Double>',
           description: 'Fetches pairwise net owe/owed balances for a specific user'
         },
@@ -333,13 +344,7 @@ export default {
           description: 'List of registered members in this group'
         }
       ],
-      methods: [
-        {
-          name: 'addMember(user)',
-          returns: 'void',
-          description: 'Appends a new user to the group roster'
-        }
-      ]
+      methods: []
     }
   ],
   designPatterns: [
