@@ -4,6 +4,7 @@ import ClassDiagram from '../../components/ClassDiagram'
 import SequenceDiagram from '../../components/SequenceDiagram'
 import DesignDetails from '../../components/DesignDetails'
 import StepIndicator from '../../components/ui/StepIndicator'
+import { usePolling } from '../../hooks/usePolling'
 import '../../styles/theme.css'
 
 export default function ShoppingCartPage() {
@@ -35,6 +36,12 @@ export default function ShoppingCartPage() {
       fetchUserCartAndOrders(selectedUser)
     }
   }, [selectedUser])
+
+  // Poll the catalog so another shopper's order decrementing stock shows up without a manual
+  // refresh — stock, not the user's own cart, is the shared state here.
+  usePolling(() => {
+    api.getProducts().then(setProducts).catch(() => {})
+  }, 6000, [])
 
   const fetchInitialData = async () => {
     try {

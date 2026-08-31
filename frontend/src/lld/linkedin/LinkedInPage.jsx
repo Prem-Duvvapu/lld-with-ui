@@ -28,6 +28,7 @@ import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
+import { usePolling } from '../../hooks/usePolling';
 
 export default function LinkedInPage() {
   const [activeTab, setActiveTab] = useState('network');
@@ -87,6 +88,21 @@ export default function LinkedInPage() {
       loadChat(currentUserId, selectedChatUser.id);
     }
   }, [selectedChatUser, currentUserId]);
+
+  // Poll connection requests/notifications so another (simulated) user's action — a connection
+  // request, an accept, a job posting notification — shows up without a manual refresh.
+  usePolling(() => {
+    if (!currentUserId) return;
+    getPendingRequests(currentUserId).then(p => setPendingRequests(p || [])).catch(() => {});
+    getNotifications(currentUserId).then(n => setNotifications(n || [])).catch(() => {});
+    getConnections(currentUserId).then(c => setConnections(c || [])).catch(() => {});
+  }, 5000, [currentUserId]);
+
+  // Poll the open conversation like a live chat.
+  usePolling(() => {
+    if (!selectedChatUser || !currentUserId) return;
+    getConversation(currentUserId, selectedChatUser.id).then(m => setMessages(m || [])).catch(() => {});
+  }, 3000, [selectedChatUser, currentUserId]);
 
   const showBanner = (text, type = 'info') => {
     setStatusMsg({ text, type });

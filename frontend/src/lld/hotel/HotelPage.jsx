@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import LldPage from '../../components/LldPage';
+import { usePolling } from '../../hooks/usePolling';
 import {
   getHotels, getRooms, bookRoom,
   simReset, simGetState, simGetEvents, simBookRoom, simCheckIn, simCheckOut, simCancelBooking, simRace,
@@ -88,6 +89,13 @@ function HotelsTab() {
       setRooms(data);
     } catch { setError('Failed to load rooms'); }
   };
+
+  // Poll room availability while a hotel is open so another guest's booking is reflected
+  // without a manual refresh.
+  usePolling(() => {
+    if (!selectedHotel) return;
+    getRooms(selectedHotel.id).then(setRooms).catch(() => {});
+  }, 5000, [selectedHotel]);
 
   const handleBook = async (roomId) => {
     if (!guestName || !checkIn || !checkOut) { setError('Fill all fields'); return; }

@@ -296,6 +296,9 @@ audit-and-harden shape as pubsub/atm/parkinglot.
   (tracked product stock, per-shopper cart item counts, orders placed, events logged, tracked
   order status), per-shopper cart panels, a warehouse stock grid, and a reverse-chronological event
   log all render straight from each step's real API response.
+- **`usePolling` added (RCA-044 follow-up)**: the catalog polls every 6s so another shopper's order
+  decrementing stock shows up without a manual refresh — stock, not the current user's own cart, is
+  the shared state this closes the gap on.
 
 ## Pub Sub System Module
 ### Backend
@@ -419,8 +422,11 @@ unused.
 - `api.js`'s raw `fetch()` calls were converted to the shared `apiFetch` wrapper (this also fixed a
   real bug: the old local `handleResponse` only read `err.message`, never `err.error`, so every
   backend error — which uses the shared `ErrorResponse.error` field — silently showed a generic
-  "API request failed"). The page has no polling loop, so `usePolling` doesn't apply here. The page's
-  previously-hardcoded dark-theme colors were fixed to read `theme.css` tokens (RCA-037).
+  "API request failed"). The page's previously-hardcoded dark-theme colors were fixed to read
+  `theme.css` tokens (RCA-037).
+- **`usePolling` added (RCA-044 follow-up)**: pending connection requests/notifications/connections
+  poll every 5s while a user is selected, and an open conversation polls every 3s like a live chat
+  — closing the "no polling loop" gap this section previously documented as not applying here.
 
 ### Tests (1 file -> 4)
 `LinkedInServiceTest` (pre-existing, kept — registration/login, profile management, connection
@@ -480,8 +486,12 @@ whose only "concurrency" test called `borrowBook` twice sequentially — no wind
 - `api.js`'s raw `fetch()` calls were converted to the shared `apiFetch` wrapper (this also fixed a
   real bug: the old local `handleResponse` only read `err.message`, never `err.error`, so every
   backend error — which uses the shared `ErrorResponse.error` field — silently showed a generic
-  "API request failed"). The page has no polling loop, so `usePolling` doesn't apply here. The page's
-  previously-hardcoded dark-theme colors were fixed to read `theme.css` tokens (RCA-037).
+  "API request failed"). The page's previously-hardcoded dark-theme colors were fixed to read
+  `theme.css` tokens (RCA-037).
+- **`usePolling` added (RCA-044 follow-up)**: book availability polls every 6s (skipped while a
+  search filter is active, so a background refresh can't silently clobber search results back to
+  the full catalog) and the selected member's notifications poll every 6s — closing the "no polling
+  loop" gap this section previously documented as not applying here.
 
 ## Airline Management Module
 ### Backend
@@ -497,6 +507,7 @@ whose only "concurrency" test called `borrowBook` twice sequentially — no wind
 ### Frontend
 - 6 tabs: 🛫 Flight Search & Seat Map, 🎫 My Bookings & Refunds, 🕹️ Concurrency Simulation, 📐 Class Diagram, 🔀 Sequence Diagram, 📋 Design Details.
 - Interactive 2D aircraft cabin layout with seat classes, window/aisle indicators, hold countdown timer (`⏱ 04:59`), multi-passenger booking checkout with a FLEXIBLE/BASIC fare selector, and an 8-step guided simulation walkthrough (reset → view seeded cabin → hold → collision → FLEXIBLE booking → BASIC booking → fare-aware cancellation comparison → TTL expiry) with a live telemetry HUD (available/held/booked seat counts, collisions blocked, total events, last event) plus the underlying manual sandbox controls for free-form experimentation.
+- **`usePolling` added (RCA-044 follow-up)**: the selected flight's seat map polls every 4s so another customer's hold/booking shows up without a manual refresh — mirrors `movieticket`/`concert-ticket`'s seat-map polling.
 
 ## Concert Ticket Booking Module
 ### Backend
@@ -970,6 +981,9 @@ tests, no patterns) to the reference bar — see RCA.md for the one non-trivial 
 - New Sequence Diagram tab (`data/sequences/social-network.js`): the concurrent friend-request race
   showing exactly when the pair lock is acquired relative to the "already friends"/"already pending"
   reads, and the post-publish → Observer fan-out hop.
+- **`usePolling` added (RCA-044 follow-up)**: the timeline feed and the friends/pending-requests
+  list both poll every 5s, so a friend's new post/like/comment and an incoming friend request show
+  up without a manual refresh.
 
 ## Ludo Module
 ### Backend
@@ -1162,6 +1176,8 @@ has, and its diagram/design docs had gone stale across the refactor that added a
   stay (exercises `WeekendTariffStrategy`) → a 5-guest concurrency race on a second room → check-in →
   check-out → a second, non-weekend stay (exercises `StandardTariffStrategy`) → cancel it (exercises
   `CancellationRefundStrategy`) → final snapshot.
+- **`usePolling` added (RCA-044 follow-up)**: the selected hotel's room grid polls every 5s so
+  another guest's booking shows up without a manual refresh.
 
 ### Diagrams & Design Details (RCA-039)
 `diagrams/hotel.js` and `design/hotel.js` documented a pre-refactor version of the module — a

@@ -23,6 +23,7 @@ import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
+import { usePolling } from '../../hooks/usePolling';
 
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState('catalog');
@@ -74,6 +75,20 @@ export default function LibraryPage() {
       loadMemberDetails(selectedMemberId);
     }
   }, [selectedMemberId]);
+
+  // Poll book availability so another member's borrow/return shows up without a manual refresh.
+  // Skipped while a search filter is active — books also holds search results, and clobbering
+  // them with the full catalog every few seconds would silently undo the user's search.
+  usePolling(() => {
+    if (searchQuery) return;
+    getBooks().then(list => { if (Array.isArray(list)) setBooks(list); }).catch(() => {});
+  }, 6000, [searchQuery]);
+
+  // Poll the current member's notifications (overdue reminders, etc.).
+  usePolling(() => {
+    if (!selectedMemberId) return;
+    getNotifications(selectedMemberId).then(n => setNotifications(n || [])).catch(() => {});
+  }, 6000, [selectedMemberId]);
 
   const showBanner = (text, type = 'info') => {
     setStatusMsg({ text, type });
