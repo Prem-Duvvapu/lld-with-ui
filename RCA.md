@@ -4447,3 +4447,100 @@ grep -rnE "\.catch\(\s*\(\s*[a-zA-Z_]*\s*\)\s*=>\s*\{\s*\}\s*\)|catch\s*\(?[a-zA
    actually seeing the rendered page was explicitly out of scope and remains unverified. If a visual
    UI/UX pass is ever wanted, it needs either a screenshot-capable tool added to the environment, or
    a human doing the actual look-and-feel review with this RCA's findings as the starting checklist.
+
+## RCA-048: 13 of 45 README "Project Details" Sections Were Never Written, and 3 Table Links (Including 2 Pre-Existing Ones) Pointed at the Wrong Anchor
+
+### 1. Overview & Severity
+**Severity: Low (documentation completeness, not a defect in the product itself).** A user question —
+"why do some LLD questions have links in the README and others don't" — surfaced that the
+"Projects Overview" table's per-row link isn't cosmetic: it points at a `### N. Name` deep-dive
+section (Key Features + API Endpoints) further down the README, and 13 of the 45 modules never had
+that section written at all, so there was nothing to link to. A 14th case (Chess) had the opposite
+problem — the section existed but the table row was plain text, never wired to it. Verifying every
+link's anchor against its actual heading (not just "is there a link") turned up 2 more,
+**pre-existing**, silently broken links unrelated to the missing-section problem.
+
+### 2. Symptoms & Error Logs
+None runtime — a broken or absent Markdown anchor link doesn't error, it just does nothing (GitHub
+scrolls to the top of the page, or nowhere, depending on renderer). The only way to see the defect
+was to check, for all 45 table rows, that a real matching `###` heading exists and that the link's
+`#anchor` text is byte-identical to what that heading actually slugifies to.
+
+### 3. Root Cause
+- **The README's per-module deep-dive section was authored progressively, not backfilled.** As
+  modules were raised to the reference bar over many sessions, most got a `### N. Name` write-up
+  added to the README at the same time. 13 didn't: `Hotel Management` (12), `Logging Framework`
+  (22), `Traffic Signal` (23), `Restaurant Management` (30), and all 9 concurrency primitives
+  (37–45) — every one of them fully real and reference-bar-verified as of this session's earlier
+  RCA-044/045/046 passes, just never written up in this specific document.
+- **Chess's link was dropped independently of the missing-section problem** — its section
+  (`### 16. Chess`) exists and is complete; the table row simply was never turned into a link when
+  the row was added, unlike its neighbors.
+- **Two more table links (`Elevator`, `Movie Ticket Booking`) were already broken before this
+  session touched the file** — each links to a *shortened* anchor (`#9-elevator`,
+  `#11-movie-ticket-booking`) that drops the qualifying suffix (` System`, ` (BookMyShow)`) the real
+  heading actually has (`### 9. Elevator System`, `### 11. Movie Ticket Booking (BookMyShow)`).
+  Both were only found by mechanically slugifying every heading and diffing it against every link's
+  anchor text — eyeballing the table (both look like reasonable trimmed labels) doesn't surface it.
+
+### 4. Diagnostic Commands
+```bash
+# Every table row's link target vs. every section heading's real GitHub-slugified anchor, checked
+# programmatically rather than by eye (GitHub's slugger: lowercase, strip everything but word
+# chars/hyphens/spaces, spaces -> hyphens, NO collapsing of repeated hyphens):
+python3 - <<'PY'
+import re
+text = open("README.md", encoding="utf-8").read()
+def slugify(h):
+    s = re.sub(r'[^\w\- ]+', '', h.lower())
+    return s.replace(' ', '-')
+headings = {m.group(1): slugify(f"{m.group(1)}. {m.group(2)}")
+            for m in re.finditer(r'^### (\d+)\. (.+)$', text, re.M)}
+for num, label, anchor in re.findall(r'\|\s*(\d+)\s*\|\s*\[([^\]]+)\]\(#([^)]+)\)', text):
+    real = headings.get(num)
+    if real != anchor:
+        print(f"row {num} ({label}): links to #{anchor}, real anchor is #{real}")
+PY
+
+# Every table row with no link at all, and every N with no matching section:
+grep -oE '^\| [0-9]+ \| [^\[|]' README.md            # unlinked rows (plain text, no `[`)
+comm -3 <(seq 1 45) <(grep -oE '^### [0-9]+' README.md | grep -oE '[0-9]+' | sort -n)  # missing sections
+```
+
+### 5. Step-by-Step Resolution
+1. Wrote the 13 missing `### N. Name` sections (Key Features + API Endpoints, matching every
+   existing entry's exact format), grounded in real source for each:
+   - `Hotel Management`, `Logging Framework` — condensed from their existing, already-verified
+     `AGENTS.md` sections.
+   - `Traffic Signal`, `Restaurant Management` — grounded in their `frontend/src/data/design/*.js`
+     files (rewritten from real source and independently audited earlier this session).
+   - All 9 concurrency primitives — grounded directly in their real synchronization-primitive
+     fields (verified by `grep`, e.g. confirming `FooBarPrinter`'s two `Semaphore` fields,
+     `H2OBonder`'s `Semaphore`s + 3-party `CyclicBarrier`, `StripedHashMap`'s per-segment
+     `ReentrantLock[]`) and each controller's real single `POST /api/concurrency/{name}/run`
+     endpoint (confirmed via `grep @PostMapping` — every one of the 9 has exactly one real HTTP
+     endpoint, matching their "synchronous trace-returning run" architecture established in
+     RCA-045).
+2. Inserted each in numeric position among the existing sections (Hotel between 11/13, Logging
+   Framework + Traffic Signal between 21/24, Restaurant Management between 29/31, the 9 primitives
+   appended after 36 — continuing the file's existing "appended later, out of strict order" pattern
+   already used for sections 15/16/17/20/26).
+3. Linked all 13 new sections' table rows, plus Chess's pre-existing section, plus fixed the 2
+   silently-broken pre-existing links (`Elevator` → `#9-elevator-system`, `Movie Ticket Booking` →
+   `#11-movie-ticket-booking-bookmyshow`).
+4. Verified programmatically (not by eye) that all 45 table rows now link to a real, byte-identical
+   anchor, all 45 `### N.` sections exist exactly once each numbered 1–45 with no duplicates or
+   gaps, and re-ran `npx vitest run` (304/304 — expected no change, since this is a Markdown-only
+   edit with no code path touching it).
+
+### 6. Preventative Measures
+1. **A documentation "table of links" is a real cross-reference, not decoration — verify it the
+   same way code cross-references get verified.** The same discipline RCA-044's audit scripts
+   applied to `diagrams/*.js`/`design/*.js` (does the referenced thing actually exist, byte for
+   byte) applies here: eyeballing "does this row have a `[...]`" would have caught the 13 missing
+   sections and Chess, but would never have caught the 2 pre-existing broken anchors, which look
+   completely normal without slugifying both sides and diffing.
+2. **A README's per-module section list should be added in the same commit that raises that module
+   to the bar**, not treated as separate documentation debt — 13 modules going fully real without a
+   corresponding README write-up is exactly the kind of gap that compounds silently until a user
+   notices the table looks inconsistent.

@@ -16,43 +16,43 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | Dice Strategy, Per-Game Lock, Exact-Count Win Rule, Isolated Sim Engine |
 | 7 | [ATM](#7-atm) | Banking ATM | State Machine, Denomination Strategy, ReentrantLock, Lockout |
 | 8 | [Splitwise](#8-splitwise) | Expense sharing | Split Strategies (Equal/Percentage/Exact), Graph Debt Simplification |
-| 9 | [Elevator](#9-elevator) | Elevator control | SCAN Scheduling Strategy, Proximity Scoring, ReentrantLock |
+| 9 | [Elevator](#9-elevator-system) | Elevator control | SCAN Scheduling Strategy, Proximity Scoring, ReentrantLock |
 | 10 | [Library Management](#10-library-management) | Book Catalog & Loans | Strategy (fines), Factory (members), Observer (due date), Per-Book ReentrantLock |
-| 11 | [Movie Ticket Booking](#11-movie-ticket-booking) | Cinema seats & shows | Per-Seat ReentrantLock, Hold TTL, Strategy, Observer |
-| 12 | Hotel Management | Room reservation | State Machine, Strategy, Factory |
+| 11 | [Movie Ticket Booking](#11-movie-ticket-booking-bookmyshow) | Cinema seats & shows | Per-Seat ReentrantLock, Hold TTL, Strategy, Observer |
+| 12 | [Hotel Management](#12-hotel-management) | Room reservation | State Machine, Strategy, Factory |
 | 13 | [Airline Reservation](#13-airline-reservation) | Flight booking & seats | State Machine (holds/bookings), Strategy (pricing/refunds), Per-Seat ReentrantLock |
 | 14 | [Coffee Machine](#14-coffee-machine) | Ingredient & brew engine | State Pattern, Factory (Recipes), Decorator (Customizations), Deadlock-Safe Multi-Ingredient Locking |
 | 15 | [Digital Wallet](#15-digital-wallet) | Payment & ledger | Command Pattern, Per-Wallet ReentrantLock, Ascending Lock Ordering |
-| 16 | Chess | 2-Player strategy game | Command, State, Strategy |
+| 16 | [Chess](#16-chess) | 2-Player strategy game | Command, State, Strategy |
 | 17 | [Ludo](#17-ludo) | Multiplayer board game | Token-Lifecycle State Machine, Dice Strategy, Exact-Count Home Entry, Per-Game Lock, Isolated Sim Engine |
 | 18 | [Inventory Management](#18-inventory-management) | Stock & warehouse | Observer, Strategy + Factory (reorder policies), Per-Product ReentrantLock |
 | 19 | [Shopping Cart](#19-online-shopping-system-shopping-cart) | E-commerce & checkout | Command (Undo), Strategy (Payment), Ascending Lock Ordering |
 | 20 | [Minesweeper](#20-minesweeper) | Grid mine game | Strategy (mine placement), First-Click-Safe Policy, Recursive Flood-Fill, Per-Game Lock |
 | 21 | [Vending Machine](#21-vending-machine) | State-based dispenser | State Pattern (Idle/Selection/Money/Dispensing), Chain of Responsibility Change Hopper |
-| 22 | Logging Framework | Log sink engine | Chain of Responsibility, Singleton |
-| 23 | Traffic Signal | Signal timing engine | State Pattern, Observer |
+| 22 | [Logging Framework](#22-logging-framework) | Log sink engine | Chain of Responsibility, Singleton |
+| 23 | [Traffic Signal](#23-traffic-signal) | Signal timing engine | State Pattern, Observer |
 | 24 | [Task Management System](#24-task-management-system) | Task workflow | State Pattern, Strategy + Factory (board ordering), Per-Task ReentrantLock |
 | 25 | [LinkedIn](#25-linkedin) | Professional network | Graph Model, Strategy (ranking), Observer (alerts), Pair Locking |
 | 26 | [LRU Cache](#26-lru-cache) | In-memory cache | Strategy (LRU/LFU/FIFO eviction), Doubly Linked List + HashMap, Isolated Sim Engine |
 | 27 | [Pub Sub System](#27-pubsub-system-message-broker) | Message broker | Observer, Dedicated Per-Subscriber FIFO Worker Threads |
 | 28 | [Car Rental System](#28-car-rental-system) | Vehicle fleet & booking | Overlapping-Interval Per-Vehicle Lock, Strategy + Factory (tiered pricing), State Machine |
 | 29 | [Online Auction System](#29-online-auction-system) | Bidding engine | Observer, Strategy + Factory (bid increment), Per-Auction ReentrantLock |
-| 30 | Restaurant Management | Order & kitchen workflow | State Machine, Factory |
+| 30 | [Restaurant Management](#30-restaurant-management) | Order & kitchen workflow | State Machine, Factory |
 | 31 | [Social Network](#31-social-network) | Posts & feeds | Observer (feed fan-out), Canonical Pair Locking, Isolated Sim Engine |
 | 32 | [Concert Ticket Booking](#32-concert-ticket-booking) | Event seats & reservation | Per-Seat ReentrantLock, Hold TTL, Strategy (refund policy) |
 | 33 | [CricInfo](#33-cricinfo) | Live cricket scorecard | Observer Pattern (ball-by-ball fan-out), Live Scorecard Projection, Per-Match Lock |
 | 34 | [Course Registration System](#34-course-registration-system) | Student enrollment | Facade, Repository, Per-Section ReentrantLock + FIFO Waitlist, Prerequisite & Schedule-Conflict Checks |
 | 35 | [Stock Brokerage Platform](#35-stock-brokerage-platform) | Trading & portfolio | Order Book (Price-Time Priority), Strategy+Factory (Market/Limit), Self-Trade Prevention, Observer Quotes |
 | 36 | [Music Streaming Service](#36-music-streaming-service) | Audio catalog & playlists | Strategy (subscription tiers), Factory, Observer, Per-User ReentrantLock |
-| 37 | FooBar Alternately | Multithreading concurrency | Two-Semaphore Strict Alternation, real backend trace replay |
-| 38 | Zero Even Odd | Multithreading concurrency | Three-Semaphore Coordinated Handoff, real backend trace replay |
-| 39 | Fizz Buzz Multithreaded | Multithreading concurrency | ReentrantLock + Condition (4-thread monitor), real backend trace replay |
-| 40 | Building H2O | Multithreading concurrency | Semaphore-Bounded CyclicBarrier, real backend trace replay |
-| 41 | Thread-Safe TTL Cache | Concurrent caching | Scheduled Executor, ConcurrentHashMap |
-| 42 | Concurrent HashMap | Concurrent data structure | Striped-Lock Segments (from scratch), real backend trace replay |
-| 43 | Blocking Queue | Concurrent queue | Producer-Consumer, ReentrantLock + Condition |
-| 44 | Concurrent Bloom Filter | Probabilistic structure | BitSet + Kirsch–Mitzenmacher Double Hashing, real backend trace replay |
-| 45 | Multi-threaded Merge Sort | Parallel sorting | ForkJoinPool / RecursiveAction, real backend trace replay |
+| 37 | [FooBar Alternately](#37-foobar-alternately) | Multithreading concurrency | Two-Semaphore Strict Alternation, real backend trace replay |
+| 38 | [Zero Even Odd](#38-zero-even-odd) | Multithreading concurrency | Three-Semaphore Coordinated Handoff, real backend trace replay |
+| 39 | [Fizz Buzz Multithreaded](#39-fizz-buzz-multithreaded) | Multithreading concurrency | ReentrantLock + Condition (4-thread monitor), real backend trace replay |
+| 40 | [Building H2O](#40-building-h2o) | Multithreading concurrency | Semaphore-Bounded CyclicBarrier, real backend trace replay |
+| 41 | [Thread-Safe TTL Cache](#41-thread-safe-ttl-cache) | Concurrent caching | Scheduled Executor, ConcurrentHashMap |
+| 42 | [Concurrent HashMap](#42-concurrent-hashmap) | Concurrent data structure | Striped-Lock Segments (from scratch), real backend trace replay |
+| 43 | [Blocking Queue](#43-blocking-queue) | Concurrent queue | Producer-Consumer, ReentrantLock + Condition |
+| 44 | [Concurrent Bloom Filter](#44-concurrent-bloom-filter) | Probabilistic structure | BitSet + Kirsch–Mitzenmacher Double Hashing, real backend trace replay |
+| 45 | [Multi-threaded Merge Sort](#45-multi-threaded-merge-sort) | Parallel sorting | ForkJoinPool / RecursiveAction, real backend trace replay |
 
 ---
 
@@ -461,6 +461,37 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 ---
 
+### 12. Hotel Management
+
+#### Key Features
+- **Per-Room Overlap-Aware Locking**: `RoomBookingService` holds a per-room `ReentrantLock` and answers "is this room free" from `Booking#overlaps()` against the room's active reservations — never a room-wide status flag (`RoomStatus` only distinguishes `AVAILABLE`/`MAINTENANCE`).
+- **Tariff Strategy**: `TariffStrategyFactory` resolves `WeekendTariffStrategy` (1.25× surcharge on any Friday/Saturday night touched) vs. `StandardTariffStrategy` purely from the requested date range.
+- **Cancellation Refund Strategy**: `CancellationRefundStrategyFactory` resolves `FullRefundStrategy` (3+ days notice), `PartialRefundStrategy` (50%, under 3 days), or `NoRefundStrategy` (on/after check-in, or a no-show) purely from days-until-check-in.
+- **Reservation State Machine**: `PENDING → CONFIRMED → CHECKED_IN → CHECKED_OUT`, with `CANCELLED`/`NO_SHOW` reachable per their own declared transition table.
+- **Isolated Simulation Sandbox**: a second `HotelRepository`/`RoomBookingService` pair backs an 8-step guided walkthrough, including a `simRace` endpoint that fires N guests at the same room/dates via a `CountDownLatch`-released `ExecutorService` to prove the per-room lock lets exactly one win.
+
+#### API Endpoints
+- `GET /api/hotel/hotels`
+- `GET /api/hotel/hotels/{id}`
+- `GET /api/hotel/hotels/{hotelId}/rooms`
+- `GET /api/hotel/hotels/{hotelId}/rooms/available`
+- `POST /api/hotel/bookings`
+- `POST /api/hotel/bookings/{id}/check-in`
+- `POST /api/hotel/bookings/{id}/check-out`
+- `POST /api/hotel/bookings/{id}/cancel`
+- `GET /api/hotel/bookings/{id}`
+- `GET /api/hotel/bookings/active`
+- `POST /api/hotel/sim/reset`
+- `GET /api/hotel/sim/state`
+- `GET /api/hotel/sim/events`
+- `POST /api/hotel/sim/book`
+- `POST /api/hotel/sim/bookings/{id}/check-in`
+- `POST /api/hotel/sim/bookings/{id}/check-out`
+- `POST /api/hotel/sim/bookings/{id}/cancel`
+- `POST /api/hotel/sim/race`
+
+---
+
 ### 13. Airline Reservation
 
 #### Key Features
@@ -618,6 +649,63 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 ---
 
+### 22. Logging Framework
+
+#### Key Features
+- **Chain of Responsibility**: a `LogHandler` pipeline (`Trace → Debug → Info → Warn → Error → Fatal`) assembled via `LogHandlerChainBuilder`.
+- **Strategy Formatters**: `LogFormatter` interface with `SimpleTextFormatter`, `JsonFormatter`, and `PatternFormatter` (token interpolation), resolved via `LogFormatterFactory`.
+- **Observer + Strategy Appenders**: `LogAppender` contract with `ConsoleAppender`, `FileAppender` (simulated file rotation and byte limits), `DatabaseAppender` (SQL inserts), and `ElasticsearchAppender` (JSON document PUTs).
+- **Async Dispatch**: `AsyncLogDispatcher` backed by a bounded `ArrayBlockingQueue` and a dedicated background worker thread, with dropped-log telemetry when the queue is full.
+- **Hierarchical Loggers**: `Logger` supports parent-child level inheritance and MDC context tags (e.g. `traceId`/`userId`), managed by a `LogManager` registry.
+
+#### API Endpoints
+- `POST /api/logging/configure`
+- `POST /api/logging/logger-level`
+- `POST /api/logging/formatter`
+- `POST /api/logging/appender/toggle`
+- `POST /api/logging/async`
+- `POST /api/logging/log`
+- `GET /api/logging/logs`
+- `GET /api/logging/config`
+- `GET /api/logging/appenders/{type}/logs`
+- `POST /api/logging/burst`
+- `POST /api/logging/clear`
+- `POST /api/logging/sim/reset`
+- `POST /api/logging/sim/log`
+- `GET /api/logging/sim/logs`
+- `GET /api/logging/sim/telemetry`
+- `GET /api/logging/sim/appenders/{type}/logs`
+
+---
+
+### 23. Traffic Signal
+
+#### Key Features
+- **State Pattern**: one class per phase (`RedState`/`YellowState`/`GreenState`) drives each `TrafficLight`'s automatic cycling (`RED 10s → GREEN 8s → YELLOW 3s → RED`), rejecting a manual transition that isn't that light's one legal next phase.
+- **Deterministic Ticking**: real-time cycling is abstracted behind a `SignalTicker` interface — `ScheduledExecutorSignalTicker` in production, `ManualSignalTicker` in tests, so phase timing is testable without sleeping.
+- **Observer Notifications**: `SignalChangeNotifier` fans every transition (automatic, manual, or emergency) out to `InAppSignalObserver` and `LoggingSignalObserver`.
+- **Emergency Override**: forces exactly one light to `GREEN` and every other to `RED` immediately, freezing normal cycling until `resumeNormalOperation()` is called explicitly; a second override while one is active is rejected, not queued.
+- **Multi-Intersection Support**: `TrafficRepository` stores any number of independently-ticking `Intersection` instances.
+
+#### API Endpoints
+- `GET /api/traffic/intersections`
+- `GET /api/traffic/intersections/{id}`
+- `GET /api/traffic/status`
+- `POST /api/traffic/intersections/{id}/emergency`
+- `POST /api/traffic/intersections/{id}/resume`
+- `PUT /api/traffic/intersections/{id}/lights/{lightId}`
+- `POST /api/traffic/transition`
+- `POST /api/traffic/emergency`
+- `POST /api/traffic/sim/reset`
+- `POST /api/traffic/sim/tick`
+- `POST /api/traffic/sim/emergency`
+- `POST /api/traffic/sim/resume`
+- `POST /api/traffic/sim/manual-transition`
+- `GET /api/traffic/sim/events`
+- `GET /api/traffic/sim/snapshot`
+
+---
+
 ### 24. Task Management System
 
 #### Key Features
@@ -757,6 +845,44 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/auction/sim/close`
 - `POST /api/auction/sim/race`
 - `GET /api/auction/sim/events`
+
+---
+
+### 30. Restaurant Management
+
+#### Key Features
+- **Per-Table Locking**: `TableAllocationService` holds a per-table `ReentrantLock` so two waiters racing to seat different parties at the same table produce exactly one winner.
+- **Order Lifecycle State Machine**: `PLACED → PREPARING → READY → SERVED → BILLED`, with `CANCELLED` reachable only from `PLACED`/`PREPARING` — every other transition is rejected by `OrderStatus`'s own transition table.
+- **Order-Level Kitchen Workflow**: `KitchenService` moves an order as a whole through `PREPARING`/`READY`/`SERVED` — there is no per-item kitchen tracking.
+- **Time-of-Day Billing Strategy**: `generateBill()` requires the order to be `SERVED`, then prices the subtotal through whichever `BillingStrategy` matches the current time of day (standard vs. happy-hour).
+- **Isolated Simulation Sandbox**: a second table/order/kitchen/billing stack backs an 8-step guided walkthrough, including a `simRace` endpoint proving the per-table lock.
+
+#### API Endpoints
+- `GET /api/restaurant/tables`
+- `GET /api/restaurant/menu`
+- `POST /api/restaurant/tables/{tableId}/seat`
+- `POST /api/restaurant/orders`
+- `GET /api/restaurant/orders`
+- `GET /api/restaurant/orders/{orderId}`
+- `POST /api/restaurant/orders/{orderId}/cancel`
+- `GET /api/restaurant/kitchen/pending`
+- `POST /api/restaurant/kitchen/{orderId}/prepare`
+- `POST /api/restaurant/kitchen/{orderId}/ready`
+- `POST /api/restaurant/kitchen/{orderId}/serve`
+- `POST /api/restaurant/orders/{orderId}/bill`
+- `POST /api/restaurant/bills/{billId}/pay`
+- `POST /api/restaurant/sim/reset`
+- `GET /api/restaurant/sim/state`
+- `POST /api/restaurant/sim/seat`
+- `POST /api/restaurant/sim/order`
+- `POST /api/restaurant/sim/prepare`
+- `POST /api/restaurant/sim/ready`
+- `POST /api/restaurant/sim/serve`
+- `POST /api/restaurant/sim/bill`
+- `POST /api/restaurant/sim/pay`
+- `POST /api/restaurant/sim/cancel`
+- `POST /api/restaurant/sim/race`
+- `GET /api/restaurant/sim/events`
 
 ---
 
@@ -1022,6 +1148,117 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/lrucache/get/{key}`, `POST /api/lrucache/put`, `DELETE /api/lrucache/remove/{key}`, `POST /api/lrucache/clear`
 - `POST /api/lrucache/capacity`, `POST /api/lrucache/policy`, `POST /api/lrucache/batch-simulate`
 - `GET /api/lrucache/sim/snapshot`, `GET /api/lrucache/sim/get/{key}`, `POST /api/lrucache/sim/put`, `DELETE /api/lrucache/sim/remove/{key}`, `POST /api/lrucache/sim/clear`, `POST /api/lrucache/sim/capacity`, `POST /api/lrucache/sim/policy`, `POST /api/lrucache/sim/batch-simulate`
+
+---
+
+### 37. FooBar Alternately
+
+#### Key Features
+- **Two-Semaphore Strict Alternation**: `fooSemaphore` starts permitted (1), `barSemaphore` starts blocked (0) — each thread acquires its own semaphore before printing and releases the other's, so "foo"/"bar" can never interleave or repeat out of order.
+- **Real Thread Trace, Not an Animation**: every attempt/print is recorded with a timestamp, elapsed nanos, and real thread identity, and the frontend replays that genuine trace rather than a scripted keyframe sequence.
+- **Bounded, HTTP-Synchronous Run**: a run completes in seconds and returns its full trace in one response, so the demo needs no polling or WebSocket.
+
+#### API Endpoints
+- `POST /api/concurrency/foo-bar/run`
+
+---
+
+### 38. Zero Even Odd
+
+#### Key Features
+- **Three-Semaphore Coordinated Handoff**: `zeroSemaphore` starts permitted, `oddSemaphore`/`evenSemaphore` start blocked — the zero thread always fires immediately before every number, then hands off to whichever parity thread is next, producing the exact `0 1 0 2 0 3 ...` interleave.
+- **Real Thread Trace, Not an Animation**: every attempt/print is recorded with a timestamp and real thread identity for genuine replay.
+- **Bounded, HTTP-Synchronous Run**: the full trace returns in one response.
+
+#### API Endpoints
+- `POST /api/concurrency/zero-even-odd/run`
+
+---
+
+### 39. Fizz Buzz Multithreaded
+
+#### Key Features
+- **`ReentrantLock` + `Condition` Monitor**: four dedicated threads (number/fizz/buzz/fizzbuzz) coordinate through one lock and condition rather than semaphores — each thread wakes, checks whether the current count belongs to it, and either prints or waits.
+- **No Skips, No Duplicates**: the monitor guarantees every number from 1..n is handled by exactly one of the four threads.
+- **Real Thread Trace, Not an Animation**: every attempt/print is recorded with a timestamp and real thread identity.
+
+#### API Endpoints
+- `POST /api/concurrency/fizz-buzz/run`
+
+---
+
+### 40. Building H2O
+
+#### Key Features
+- **Semaphore-Bounded `CyclicBarrier`**: `hydrogenSemaphore` permits 2 concurrent H threads, `oxygenSemaphore` permits 1 O thread, and a 3-party `CyclicBarrier` releases all three together into a `bond()` action — enforcing the 2:1 ratio structurally, not by a pre-shuffled input sequence.
+- **Correct Under Randomized Load**: holds for any thread start order and any number of atoms, not just a convenient interleaving.
+- **Real Thread Trace, Not an Animation**: every attempt/acquire/depart/bond event is recorded with a timestamp and real thread identity.
+
+#### API Endpoints
+- `POST /api/concurrency/h2o/run`
+
+---
+
+### 41. Thread-Safe TTL Cache
+
+#### Key Features
+- **Lazy + Proactive Expiry**: `get(key)` never returns an expired value even if the background sweep hasn't run yet, and a `ScheduledExecutorService` sweeper proactively reclaims expired entries so memory isn't held forever.
+- **Miss Reason Is Observable**: the trace distinguishes "never existed" from "existed but expired," even though both return empty to the caller.
+- **Real Thread Trace, Not an Animation**: every put/hit/miss/background-eviction event is recorded with a timestamp and responsible thread.
+
+#### API Endpoints
+- `POST /api/concurrency/ttl-cache/run`
+
+---
+
+### 42. Concurrent HashMap
+
+#### Key Features
+- **Striped-Lock Segments, Built From Scratch**: `StripedHashMap` partitions the key space across N independent `ReentrantLock`-guarded segments so unrelated keys never contend — not a wrapped `java.util.concurrent.ConcurrentHashMap`.
+- **Atomic Compound Operations**: `merge()` is a single atomic read-modify-write with no lost updates; `computeIfAbsent()` invokes its function at most once per key even under a race.
+- **No Lock-Ordering Deadlock Possible**: no operation ever holds more than one segment lock at a time.
+- **Real Thread Trace, Not an Animation**: every lock acquire/release and put/get/remove/merge/compute outcome is recorded with a timestamp, thread identity, and segment index.
+
+#### API Endpoints
+- `POST /api/concurrency/concurrent-hashmap/run`
+
+---
+
+### 43. Blocking Queue
+
+#### Key Features
+- **`ReentrantLock` + Two `Condition`s**: a genuine hand-built monitor (`notFull`/`notEmpty`), not a wrapped `LinkedBlockingQueue` — `put()` blocks while full, `take()` blocks while empty, each waking the other side on completion.
+- **Spurious-Wakeup Safe**: every wait re-checks its predicate in a loop rather than assuming a wakeup means the condition holds.
+- **Real Thread Trace, Not an Animation**: every attempt/success/blocked/full/empty event is recorded with a timestamp and real thread identity.
+
+#### API Endpoints
+- `POST /api/concurrency/blocking-queue/run`
+
+---
+
+### 44. Concurrent Bloom Filter
+
+#### Key Features
+- **`BitSet` + Kirsch–Mitzenmacher Double Hashing**: two independent hash functions (Java's specified `String.hashCode()` and a hand-written FNV-1a) combine to derive `k` bit positions deterministically, so a discovered false positive reliably reproduces.
+- **Genuine False-Positive Search**: `mightContain()` never returns a false negative; the demo's false-positive query is a real traced search against the live filter, not a canned answer.
+- **Thread-Safe Concurrent `add()`**: a single lock guards every read/write of the shared bit array.
+- **Real Thread Trace, Not an Animation**: every attempt, per-bit set/collision, and query outcome is recorded with a timestamp and real thread identity.
+
+#### API Endpoints
+- `POST /api/concurrency/bloom-filter/run`
+
+---
+
+### 45. Multi-threaded Merge Sort
+
+#### Key Features
+- **Real Fork/Join Parallelism**: `ParallelMergeSorter` submits one root `SortTask` (a `RecursiveAction`) to a purpose-built `ForkJoinPool`, forking the right half onto the pool and sorting the left half on the current thread — genuinely different worker threads, not a simulated split.
+- **Sequential Threshold**: small subranges sort without the overhead of forking a task per element.
+- **Non-Mutating & Reproducible**: the original input array is never mutated, and parallelism degree is an explicit pool size, not the shared common pool.
+- **Real Thread Trace, Not an Animation**: every partition/fork/merge-start/merge-write/merge-complete event is recorded with a timestamp and real thread identity, letting the frontend draw the actual recursion tree.
+
+#### API Endpoints
+- `POST /api/concurrency/merge-sort/run`
 
 ---
 
