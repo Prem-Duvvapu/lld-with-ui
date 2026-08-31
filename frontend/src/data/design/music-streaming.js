@@ -55,6 +55,11 @@ export default {
       ],
       methods: [
         {
+          name: 'search(query)',
+          returns: 'Map<String, Object>',
+          description: 'Case-insensitive substring match across song title/artist name, artist name, album title, and public playlist names — returns one map keyed "songs"/"artists"/"albums"/"playlists"'
+        },
+        {
           name: 'createPlaylist(userId, name) / addSongToPlaylist / removeSongFromPlaylist / reorderPlaylist',
           returns: 'Playlist',
           description: 'All playlist mutation lives here, not on the Playlist model'

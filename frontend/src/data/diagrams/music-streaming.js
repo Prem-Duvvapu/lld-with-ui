@@ -208,6 +208,7 @@ export default {
         '- strategyFactory: SubscriptionStrategyFactory'
       ],
       methods: [
+        '+ search(query): Map<String, Object>',
         '+ createPlaylist(userId, name): Playlist',
         '+ addSongToPlaylist(playlistId, songId): Playlist',
         '+ likeSong(userId, songId): User',
