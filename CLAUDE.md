@@ -160,10 +160,6 @@ serialization bug, environment discrepancy), add a structured entry to `RCA.md` 
 sections: Overview & Severity, Symptoms & Error Logs, Root Cause, Diagnostic Commands,
 Step-by-Step Resolution, Preventative Measures.
 
-`HANDOFF.md` is temporary scaffolding holding delegation prompts for the remaining build-out
-phases. **Delete it (`git rm HANDOFF.md`) once Phases 2–4 land** — its durable content belongs in
-`AGENTS.md`, `README.md` and `RCA.md`.
-
 ## Known troubleshooting
 
 A single hard javac error aborts Lombok's annotation processing, producing a flood of spurious

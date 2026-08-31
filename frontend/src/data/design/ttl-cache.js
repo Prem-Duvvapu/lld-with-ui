@@ -73,7 +73,7 @@ export default {
       name: 'TtlCacheService',
       description: 'Orchestrates one run: builds a fresh TtlCache, executes a scripted list of puts synchronously at time zero, then runs a dedicated driver thread that genuinely sleeps in real time and issues each scripted get at its scheduled offset — all while the cache\'s own sweeper runs independently in the background.',
       fields: [
-        { name: 'MIN/MAX_SWEEP_INTERVAL_MILLIS, MAX_TTL_MILLIS, MAX_OBSERVE_MILLIS', type: 'long', description: 'Safety ceilings so a run always finishes in seconds, not longer' },
+        { name: 'MIN_SWEEP_INTERVAL_MILLIS/MAX_SWEEP_INTERVAL_MILLIS, MAX_TTL_MILLIS, MAX_OBSERVE_MILLIS', type: 'long', description: 'Safety ceilings so a run always finishes in seconds, not longer' },
         { name: 'RUN_TIMEOUT_SECONDS', type: 'long', description: 'Upper bound the service waits on the driver thread before treating the run as a server-side fault' }
       ],
       methods: [

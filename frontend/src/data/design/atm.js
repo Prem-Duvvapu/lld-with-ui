@@ -87,9 +87,14 @@ export default {
           description: 'Fair lock synchronizing physical note dispensing'
         },
         {
-          name: 'dispenseStrategy',
-          type: 'DenominationDispenseStrategy',
-          description: 'Strategy calculating note breakdown'
+          name: 'strategyFactory',
+          type: 'DenominationDispenseStrategyFactory',
+          description: 'Resolves the DispenseMode to a concrete DenominationDispenseStrategy fresh on every dispenseCash(amount, mode) call — not a strategy pre-resolved and held on the field'
+        },
+        {
+          name: 'defaultMode',
+          type: 'DispenseMode',
+          description: 'Mode used when dispenseCash(amount) is called without an explicit mode'
         }
       ],
       methods: [

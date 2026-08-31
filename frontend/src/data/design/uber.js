@@ -34,27 +34,12 @@ export default {
           type: 'PaymentProcessor',
           description: 'Payment gateway service'
         },
-        {
-          name: 'RATE_GO',
-          type: 'double',
-          description: 'Per km rate for UBER_GO (12.0)'
-        },
-        {
-          name: 'RATE_XL',
-          type: 'double',
-          description: 'Per km rate for UBER_XL (18.0)'
-        },
-        {
-          name: 'RATE_PREMIUM',
-          type: 'double',
-          description: 'Per km rate for UBER_PREMIUM (25.0)'
-        }
       ],
       methods: [
         {
           name: 'estimate(...)',
           returns: 'FareEstimate',
-          description: 'Computes distance, estimated duration, and fare price'
+          description: 'Computes distance, estimated duration, and fare price — BASE_FARE + distance * VehicleType.getPerKmRate(), the per-km rate living on the enum rather than as constants on the service'
         },
         {
           name: 'requestRide(...)',
@@ -204,6 +189,24 @@ export default {
           name: 'verifyOtp(input)',
           returns: 'boolean',
           description: 'Checks if provided OTP matches ride secret OTP'
+        }
+      ]
+    },
+    {
+      name: 'VehicleType',
+      description: 'Enum carrying each vehicle class\'s own per-km rate and seat count as constructor arguments — adding a class is one enum constant, not a new branch in every place that prices or capacity-checks a ride.',
+      fields: [
+        {
+          name: 'UBER_GO / UBER_XL / UBER_PREMIUM',
+          type: 'VehicleType',
+          description: 'perKmRate 12.0 / 18.0 / 25.0, seats 4 / 6 / 4'
+        }
+      ],
+      methods: [
+        {
+          name: 'getPerKmRate() / getSeats()',
+          returns: 'double / int',
+          description: 'The only two accessors — UberService.estimate() and capacity checks call these, never a switch on the constant itself'
         }
       ]
     }

@@ -4236,3 +4236,110 @@ doesn't apply here") in the `linkedin` and `library` sections that were accurate
    grep for the phrase "doesn't apply" or "not yet" across `AGENTS.md` (the same technique RCA-043's
    preventative measure #1 recommended for source comments) is worth running whenever a
    previously-scoped-out capability gets added to a module, to catch exactly this class of drift.
+
+## RCA-046: A Fourth Audit Pass (Field-Level) Found 4 More Modules With Fabricated Fields, and Its Own First Draft Produced 379 False Positives From Three Regex Gaps
+
+### 1. Overview & Severity
+**Severity: Low-Medium.** RCA-044/045 closed the two gaps an earlier status check had flagged as
+open (systematic content-accuracy audit, `usePolling` adoption); this entry is the deeper follow-up
+that same status check named as the next lowest-confidence area: "field/method-type-level accuracy
+beyond what's been checked." RCA-044's three passes verify that a *name* (class, prose-mentioned
+role, method) exists in the real source; none of them checks whether a *field* attributed to a real
+class is itself real. A fourth pass closing that gap found genuine fabrications in 4 modules —
+**atm** (a field describing a resolved strategy instance where the real code holds a factory and
+resolves fresh per call), **uber** (three rate constants invented on `UberService` that actually
+live on the `VehicleType` enum, entirely undocumented as an entity), **logging-framework** (one
+field misnamed), plus two prose-shorthand ambiguities in **cricinfo**/**ttl-cache** tightened for
+precision. It also produced 379 raw flags across 37 modules on its first run, of which all but the
+4 real ones and 2 minor prose fixes were the script's own bugs, not the content's.
+
+### 2. Symptoms & Error Logs
+None — same as RCA-044/045, this was never a runtime defect. The tell was purely
+`grep -c EventType\|RunResult\|TraceEvent` returning near-universal false positives across every
+concurrency-primitive module on the first run, which is what triggered debugging the script itself
+rather than trusting its output.
+
+### 3. Root Cause
+Three independent gaps in the pass-4 field-extraction script, each large enough on its own to make
+the raw output unusable without a fix:
+1. **Java `record` components aren't field declarations.** `public record TraceEvent(long sequence,
+   String threadName, ...)` declares its fields in the type header, not as `private Type name;`
+   statements in the body — the regex built for pass 1's class-existence check (and reused
+   unmodified for field extraction) never looks there. Every concurrency primitive's `TraceEvent`/
+   `RunResult`/`RunRequest`/`PutSpec`/`GetSpec` records are real classes built this way, so this one
+   gap alone produced roughly 150 of the 379 flags.
+2. **Javadoc comments between enum constants break naive comma-splitting.** `enum EventType {
+   /** doc */ NUMBER_ATTEMPT, /** doc */ NUMBER_PRINTED }` — splitting the captured `{...}` body on
+   `,` and taking each token's first whitespace-separated word grabs `/**` (part of the previous
+   constant's trailing comment) instead of the next constant's real name, whenever a constant has a
+   javadoc comment before it. Comments were never stripped before parsing.
+3. **`"implements X"` / `"extends X"` entries in a `fields[]` array document inheritance, not a data
+   field** — e.g. `'implements TariffStrategy'` on a concrete strategy class. The first draft
+   stripped the `implements `/`extends ` prefix and then treated the remaining interface name as a
+   field to verify, which of course fails (it's a class name pass 1 already checked, not a field).
+   This alone produced ~40 flags across every module using the `implements X` field-array
+   convention (hotel, splitwise, movieticket, parking, restaurant, shoppingcart, stockbroker,
+   traffic-signal, linkedin, pubsub).
+
+After fixing all three (strip comments before parsing; parse record-header components as fields;
+skip `implements`/`extends` entries entirely rather than mis-parse them), the raw flag count dropped
+from 379 across 37 modules to 36 across 13 — the actually-worth-triaging set.
+
+### 4. Diagnostic Commands
+```bash
+# Field-level check: does every field on entities[]/classes[] exist in the module's real source
+# (as a declared field, a record component, or an enum constant)?
+node audit4.mjs   # see session transcript / RCA history for the full script
+
+# The three bugs that inflated the first run's output, in isolation:
+grep -n "record\s" backend/src/main/java/com/lld/**/model/*.java   # gap 1: record components
+grep -n "/\*\*" backend/src/main/java/com/lld/**/model/*.java      # gap 2: javadoc'd enum constants
+grep -n "'implements \|'extends " frontend/src/data/{diagrams,design}/*.js   # gap 3: inheritance-as-field
+```
+
+### 5. Step-by-Step Resolution
+1. **atm** — `CashDispenser`'s documented `dispenseStrategy: DenominationDispenseStrategy` field
+   (implying one pre-resolved strategy held on the instance) replaced with the real
+   `strategyFactory: DenominationDispenseStrategyFactory` (resolved fresh per `dispenseCash(amount,
+   mode)` call via `strategyFactory.forMode(mode)`) plus the previously-undocumented `defaultMode:
+   DispenseMode` field.
+2. **uber** — removed three fabricated constants (`RATE_GO`/`RATE_XL`/`RATE_PREMIUM`) from
+   `UberService`'s fields; the real per-km rates (12.0/18.0/25.0) live on the `VehicleType` enum's
+   constructor arguments, resolved via `getPerKmRate()` — added `VehicleType` as its own design
+   entity (it existed in the class diagram already, just not in design details prose) and corrected
+   `estimate()`'s description to name the real source.
+3. **logging-framework** — `FileAppender.maxBytes` → `maxBytesPerFile`, its real field name.
+4. **cricinfo/ttl-cache** — two prose-shorthand field-name entries tightened from ambiguous
+   contractions (`strikerName/Runs/Balls, bowlerName/Figures`; `MIN/MAX_SWEEP_INTERVAL_MILLIS`) to
+   their unambiguous real names, since the shorthand form doesn't textually contain any single real
+   field name.
+5. Everything else across the remaining 25 flags (bloom-filter, chess, inventory, minesweeper,
+   shoppingcart, stackoverflow, task-management, tictactoe, ttl-cache's `CacheEntry`) was manually
+   confirmed real and left unchanged: package-private `static final` constants/fields (no visibility
+   modifier — a fourth script gap identified but not worth fixing, since every instance was already
+   individually verified by hand), 2D-array fields (`Type[][] name` — the field regex's optional
+   `(?:\[\])?` only matches a single bracket pair), and one intentional documentation pattern
+   (`shoppingcart`'s `CartCommand` entity uses its `fields[]` array to summarize each of its three
+   implementations' `undo()` behavior rather than list data fields — unconventional but not
+   inaccurate).
+6. Verified with `npx vitest run` (304/304) and `npm run build` (entry chunk 260.79 kB, unchanged,
+   under the 500 kB gate).
+
+### 6. Preventative Measures
+1. **A verification script's own bugs can outnumber the real findings by two orders of magnitude**
+   — 379 raw flags, 4 real ones. The fix was the same discipline RCA-044 itself argued for: never
+   trust a scan's raw output as a verdict, triage every flag against the actual source before
+   acting on it. Here that triage revealed the script needed fixing, not the content — a useful
+   reminder that a high flag count is a signal to debug the *tool* first, not to start editing
+   content to match it.
+2. **A regex built for one purpose (class-name existence) silently under-serves a related but
+   different purpose (field existence)** when reused unmodified — `record` components, javadoc'd
+   enum bodies, and `implements`/`extends` field-array entries are all edge cases pass 1 never had
+   to handle (it only checked type *names*, never their internals). Each new audit layer needs its
+   own edge-case pass over a representative sample before trusting it across all 45 modules, not
+   just a copy-paste of the previous pass's extraction logic.
+3. The now-4-pass audit script (name existence → prose role-suffix → method existence → field
+   existence) is the complete reusable toolkit for this class of documentation-accuracy issue;
+   future content edits to `diagrams/*.js`/`design/*.js` should be spot-checked against it, not just
+   `designDataCoverage.test.js` (which only proves ids resolve and diagram edges aren't dangling —
+   it has no opinion on whether the described fields/methods/classes are real).

@@ -29,7 +29,8 @@ export default {
       fields: [
         '- noteInventory: ConcurrentHashMap<NoteDenomination, Integer>',
         '- dispenserLock: ReentrantLock',
-        '- dispenseStrategy: DenominationDispenseStrategy'
+        '- strategyFactory: DenominationDispenseStrategyFactory',
+        '- defaultMode: DispenseMode'
       ],
       methods: [
         '+ getTotalCashAvailable(): int',
