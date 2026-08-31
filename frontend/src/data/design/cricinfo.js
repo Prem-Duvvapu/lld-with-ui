@@ -1,6 +1,17 @@
 // designDetails — cricinfo
 // Single source of truth for this module. One file per module: duplicate keys in a
 // shared object literal previously let JavaScript silently discard the richer entry.
+//
+// Rewritten from scratch (2026-08-31, RCA-044) — the previous version invented a 3-service
+// architecture (MatchService / ScoringService / CommentaryService) and put behavior directly on
+// Match/Innings/Ball/Player (startInnings(), addBall(), updateCareerStats(), getBattingAverage()
+// on Player) that doesn't exist in the real source — Innings/Ball/Player are plain Lombok models
+// with no methods at all (career-average math lives on CareerStats, not Player). None of this
+// module's own — already-accurate — class diagram was consulted while writing it: the real
+// architecture is one facade (CricinfoService) delegating ball recording to BallRecordingEngine,
+// which publishes each ball through MatchPublisher to four BallEventObserver implementations
+// (ScorecardProjectionObserver, PlayerCareerStatsObserver, CommentaryObserver,
+// BallEventAuditObserver) — Observer, not three invented services.
 
 export default {
   title: 'CricInfo — Design Details',
@@ -10,325 +21,136 @@ export default {
     'Live scoring — track each ball: runs scored, extras, wickets, boundaries, overs',
     'Innings management — each match has 1 or 2 innings per team; track batting order, fall of wickets, extras',
     'Scorecard generation — batting stats (runs, balls, 4s, 6s, SR) and bowling stats (overs, maidens, runs, wickets, economy)',
-    'Commentary — ball-by-ball text commentary describing each delivery with over summary',
+    'Commentary — ball-by-ball text commentary describing each delivery',
     'Match states: UPCOMING, LIVE, INNINGS_BREAK, COMPLETED, ABANDONED',
-    'Statistics and rankings — player career stats, series standings, team rankings updated after each match'
+    'Statistics — player career stats (batting/bowling average, strike rate, economy) updated after each ball, not just at match end'
   ],
   entities: [
     {
-      name: 'MatchService',
-      description: 'Core orchestrator managing match lifecycle — creation, scoring, innings transitions, and result determination.',
+      name: 'CricinfoService',
+      description: 'Facade the controller delegates to wholesale. Owns match/team lookups and lifecycle transitions (toss, start, abandon, innings advancement) directly; ball recording itself is delegated entirely to BallRecordingEngine.',
       fields: [
         {
-          name: 'matchRepo',
-          type: 'Repository<Match>',
-          description: 'Data store for all matches'
+          name: 'repository',
+          type: 'CricinfoRepository',
+          description: 'Team/match storage'
         },
         {
-          name: 'scoringService',
-          type: 'ScoringService',
-          description: 'Handles ball-by-ball scoring logic'
+          name: 'publisher',
+          type: 'MatchPublisher',
+          description: 'The Observer subject every BallEventObserver subscribes to'
         },
         {
-          name: 'commentaryService',
-          type: 'CommentaryService',
-          description: 'Manages ball-by-ball commentary'
+          name: 'engine',
+          type: 'BallRecordingEngine',
+          description: 'Owns the per-match lock around recording a ball — the service never appends to Innings.balls directly'
         }
       ],
       methods: [
         {
-          name: 'createMatch(teamA, teamB, venue, date, format)',
+          name: 'createMatch(teamAId, teamBId, venue, format, date)',
           returns: 'Match',
           description: 'Creates a new match in UPCOMING state'
         },
         {
+          name: 'performToss(matchId, winnerTeamId, choice)',
+          returns: 'Match',
+          description: 'Records the toss result and choice'
+        },
+        {
           name: 'startMatch(matchId)',
-          returns: 'void',
-          description: 'Transitions match to LIVE, begins first innings'
+          returns: 'Match',
+          description: 'Transitions to LIVE, begins the first innings'
         },
         {
-          name: 'recordBall(matchId, ballData)',
+          name: 'recordBall(matchId, request)',
           returns: 'Ball',
-          description: 'Records a ball — runs, wicket, extras. Updates score and commentary.'
+          description: 'Thin delegate to BallRecordingEngine.recordBall(); also runs innings/match completion bookkeeping afterward'
         },
         {
-          name: 'endInnings(matchId)',
-          returns: 'void',
-          description: 'Ends current innings, transitions to INNINGS_BREAK or starts second innings'
-        },
-        {
-          name: 'completeMatch(matchId)',
-          returns: 'MatchResult',
-          description: 'Determines winner based on scores, updates stats'
-        }
-      ]
-    },
-    {
-      name: 'Match',
-      description: 'A cricket match between two teams. Manages innings, current score, match state, and result.',
-      fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique match identifier'
-        },
-        {
-          name: 'teams',
-          type: 'List<Team>',
-          description: 'Two competing teams'
-        },
-        {
-          name: 'venue',
-          type: 'String',
-          description: 'Stadium/city where match is played'
-        },
-        {
-          name: 'format',
-          type: 'MatchFormat',
-          description: 'ODI (50 overs), T20 (20 overs), TEST (unlimited)'
-        },
-        {
-          name: 'status',
-          type: 'MatchStatus',
-          description: 'UPCOMING, LIVE, INNINGS_BREAK, COMPLETED, ABANDONED'
-        },
-        {
-          name: 'innings',
-          type: 'List<Innings>',
-          description: 'Completed and current innings'
-        },
-        {
-          name: 'currentInnings',
-          type: 'Innings',
-          description: 'Innings currently in progress (null during breaks)'
-        },
-        {
-          name: 'tossWinner',
-          type: 'Team',
-          description: 'Team that won the toss'
-        },
-        {
-          name: 'tossChoice',
-          type: 'String',
-          description: 'BAT or FIELD — elected by toss winner'
-        }
-      ],
-      methods: [
-        {
-          name: 'startInnings(battingTeam, bowlingTeam)',
+          name: 'startNextInnings(matchId)',
           returns: 'Innings',
-          description: 'Begins a new innings'
+          description: 'Begins the second innings, carrying the target score forward for a run-chase'
         },
         {
-          name: 'addBall(ball)',
-          returns: 'void',
-          description: 'Records a ball in the current innings'
-        },
-        {
-          name: 'getCurrentScore()',
-          returns: 'Score',
-          description: 'Returns current match score summary'
+          name: 'getScorecard(matchId)',
+          returns: 'Scorecard',
+          description: 'Reads the live projection ScorecardProjectionObserver has been folding the ball stream into — not recomputed from Innings on every call'
         }
       ]
     },
     {
-      name: 'Innings',
-      description: 'One team\'s batting innings. Tracks runs, wickets, overs, extras, batting/bowling stats, and fall of wickets.',
+      name: 'BallRecordingEngine',
+      description: 'Owns the one compound operation this module\'s thread safety hinges on: "append this ball to the innings, then fold it into the live scorecard" must be atomic per match. A per-match ReentrantLock (looked up via matchId, same shape as zomato\'s per-agent lock / uber\'s per-driver lock) serializes numbering the ball, appending it, and publishing to every observer — different matches never contend with each other.',
       fields: [
         {
-          name: 'battingTeam',
-          type: 'Team',
-          description: 'Team currently batting'
+          name: 'matchLocks',
+          type: 'Map<String, ReentrantLock>',
+          description: 'One lock per matchId, created lazily via computeIfAbsent'
         },
         {
-          name: 'bowlingTeam',
-          type: 'Team',
-          description: 'Team currently bowling'
-        },
-        {
-          name: 'totalRuns',
-          type: 'int',
-          description: 'Total runs scored in this innings'
-        },
-        {
-          name: 'wicketsLost',
-          type: 'int',
-          description: 'Number of wickets fallen'
-        },
-        {
-          name: 'totalOvers',
-          type: 'double',
-          description: 'Overs bowled (e.g., 47.3 = 47 overs + 3 balls)'
-        },
-        {
-          name: 'balls',
-          type: 'List<Ball>',
-          description: 'All balls bowled in this innings'
-        },
-        {
-          name: 'battingStats',
-          type: 'Map<Player, BattingStat>',
-          description: 'Batting statistics per player'
-        },
-        {
-          name: 'bowlingStats',
-          type: 'Map<Player, BowlingStat>',
-          description: 'Bowling statistics per player'
-        },
-        {
-          name: 'extras',
-          type: 'Extras',
-          description: 'Byes, leg byes, wides, no balls, penalties'
-        },
-        {
-          name: 'fallOfWickets',
-          type: 'List<Wicket>',
-          description: 'Each wicket with score, over, and dismissal type'
+          name: 'publisher',
+          type: 'MatchPublisher',
+          description: 'Fan-out target for every recorded ball'
         }
       ],
       methods: [
         {
-          name: 'addBall(ball)',
-          returns: 'void',
-          description: 'Records a ball and updates all stats'
-        },
-        {
-          name: 'isInningsComplete()',
-          returns: 'boolean',
-          description: 'Checks if innings is over (all out or overs exhausted)'
+          name: 'recordBall(matchId, request)',
+          returns: 'Ball',
+          description: 'Under the match\'s lock: validates the delivery, appends it to the current Innings, publishes a BallEvent to every subscribed observer'
         }
       ]
     },
     {
-      name: 'Ball',
-      description: 'A single delivery bowled. Records runs, wicket type (if any), extras, and which batsman faced it.',
+      name: 'MatchPublisher',
+      description: 'The Observer subject. A CopyOnWriteArrayList of observers (same choice as logging\'s Logger / pubsub\'s Topic) so publish() always sees a stable snapshot — a concurrent subscribe/unsubscribe never throws or is missed mid-fan-out.',
       fields: [
         {
-          name: 'overNumber',
-          type: 'int',
-          description: 'Over number (1-indexed)'
-        },
-        {
-          name: 'ballNumber',
-          type: 'int',
-          description: 'Ball number within the over (1-6)'
-        },
-        {
-          name: 'bowler',
-          type: 'Player',
-          description: 'Player who bowled this delivery'
-        },
-        {
-          name: 'batsman',
-          type: 'Player',
-          description: 'Player who faced this delivery'
-        },
-        {
-          name: 'runs',
-          type: 'int',
-          description: 'Runs scored off the bat (0-6)'
-        },
-        {
-          name: 'extras',
-          type: 'ExtraType',
-          description: 'WIDE, NO_BALL, BYE, LEG_BYE, PENALTY — null if none'
-        },
-        {
-          name: 'wicket',
-          type: 'WicketType',
-          description: 'BOWLED, CAUGHT, LBW, RUN_OUT, STUMPED — null if no wicket'
-        },
-        {
-          name: 'isFour',
-          type: 'boolean',
-          description: 'True if the ball was hit for 4 runs'
-        },
-        {
-          name: 'isSix',
-          type: 'boolean',
-          description: 'True if the ball was hit for 6 runs'
-        }
-      ],
-      methods: []
-    },
-    {
-      name: 'Player',
-      description: 'Cricket player with personal info and roles. Accumulates career statistics across all matches.',
-      fields: [
-        {
-          name: 'id',
-          type: 'String',
-          description: 'Unique player identifier'
-        },
-        {
-          name: 'name',
-          type: 'String',
-          description: 'Full name'
-        },
-        {
-          name: 'role',
-          type: 'PlayerRole',
-          description: 'BATSMAN, BOWLER, ALL_ROUNDER, WICKETKEEPER'
-        },
-        {
-          name: 'battingStyle',
-          type: 'String',
-          description: 'RIGHT_HANDED or LEFT_HANDED'
-        },
-        {
-          name: 'bowlingStyle',
-          type: 'String',
-          description: 'FAST, MEDIUM, SPIN'
-        },
-        {
-          name: 'careerStats',
-          type: 'CareerStats',
-          description: 'Aggregate batting and bowling stats across all matches'
+          name: 'observers',
+          type: 'List<BallEventObserver>',
+          description: 'Every subscribed observer, shared across all matches — BallEvent itself carries the match, so one publisher instance is enough'
         }
       ],
       methods: [
         {
-          name: 'updateCareerStats(matchStats)',
+          name: 'subscribe(observer) / unsubscribe(observer)',
           returns: 'void',
-          description: 'Updates career aggregates with match performance'
+          description: 'Toggle a view on/off at runtime, e.g. muting commentary without touching scoring'
         },
         {
-          name: 'getBattingAverage()',
-          returns: 'double',
-          description: 'Returns career batting average (runs / dismissals)'
-        },
-        {
-          name: 'getBowlingAverage()',
-          returns: 'double',
-          description: 'Returns career bowling average (runs conceded / wickets)'
+          name: 'publish(event)',
+          returns: 'void',
+          description: 'Notifies every subscribed observer\'s onBallBowled(event) in turn'
         }
       ]
     },
     {
-      name: 'CommentaryService',
-      description: 'Generates and manages ball-by-ball text commentary. Provides over summaries and key event highlights.',
-      fields: [
-        {
-          name: 'comments',
-          type: 'Map<String, List<Comment>>',
-          description: 'Commentary entries grouped by match and innings'
-        }
-      ],
+      name: 'BallEventObserver (+ 4 implementations)',
+      description: 'ScorecardProjectionObserver folds each ball into Innings totals and the live Scorecard read-model. PlayerCareerStatsObserver independently updates Player.careerStats from the same stream. CommentaryObserver derives ball-by-ball text. BallEventAuditObserver appends every ball to a sequence-numbered event log for the /sim telemetry HUD. None of the four know about each other — the publisher fans one BallEvent out to all of them.',
+      fields: [],
       methods: [
         {
-          name: 'addComment(matchId, ball, text)',
+          name: 'onBallBowled(event)',
           returns: 'void',
-          description: 'Adds commentary text for a specific ball'
+          description: 'Each implementation folds the same raw ball into its own derived view'
         },
         {
-          name: 'getOverSummary(matchId, overNumber)',
+          name: 'getObserverName()',
           returns: 'String',
-          description: 'Returns summary text for a completed over'
-        },
+          description: 'Stable name used by the toggle API and the /sim telemetry HUD'
+        }
+      ]
+    },
+    {
+      name: 'Match / Team / Player / Innings / Ball / CareerStats',
+      description: 'Plain Lombok models — Innings, Ball and Player carry no business methods at all; every mutation happens externally under BallRecordingEngine\'s lock or inside an observer. Match is the one model with a little real behavior (currentInnings(), teamTotalRuns()) since those are pure reads with no concurrency concern. Batting/bowling-average and economy math lives on CareerStats, not Player.',
+      fields: [],
+      methods: [
         {
-          name: 'getBallByBall(matchId)',
-          returns: 'List<Comment>',
-          description: 'Returns full ball-by-ball commentary for the match'
+          name: 'Match.currentInnings() / Match.teamTotalRuns(teamId)',
+          returns: 'Innings / int',
+          description: 'The only two real methods on any of these models'
         }
       ]
     }
@@ -337,87 +159,87 @@ export default {
     {
       name: 'Observer',
       used: true,
-      explanation: 'ScoringService observes Ball events. When a ball is bowled, it updates Innings stats, player stats, and triggers commentary. Multiple observers update different views without Ball knowing about them.'
+      explanation: 'MatchPublisher is the subject; ScorecardProjectionObserver, PlayerCareerStatsObserver, CommentaryObserver and BallEventAuditObserver each fold the same BallEvent stream into a different derived view, independently of each other and without BallRecordingEngine knowing which views exist.'
     },
     {
       name: 'Singleton',
       used: true,
-      explanation: 'MatchService and ScoringService are singletons ensuring single source of truth for live match state. Prevents conflicting score updates.'
+      explanation: 'CricinfoService, MatchPublisher and every BallEventObserver are Spring-managed singleton beans, so a ball recorded through the real controller is always seen by the same set of observers.'
     },
     {
       name: 'State',
       used: true,
-      explanation: 'MatchStatus enum (UPCOMING to LIVE to INNINGS_BREAK to LIVE to COMPLETED) implements State pattern. State determines valid operations for each match phase.'
+      explanation: 'MatchStatus (UPCOMING → LIVE → INNINGS_BREAK → LIVE → COMPLETED, or → ABANDONED) has a declared transition table checked before every lifecycle mutation — not a bare enum field anyone can overwrite.'
     },
     {
       name: 'Strategy',
       used: false,
-      explanation: 'Different match formats could use FormatStrategy defining max overs, follow-on rules, and draw conditions. Match would delegate to strategy instead of if-else on format type.'
+      explanation: 'Different match formats could use a FormatStrategy defining max overs, follow-on rules, and draw conditions. Match would delegate to the strategy instead of an if-else on format type.'
     },
     {
       name: 'Command',
       used: false,
-      explanation: 'Each ball could be a Command object encapsulating delivery data. Enables undo (score correction), replay, and DRS (review system) by reverting and reapplying balls.'
+      explanation: 'Each ball could be a Command object encapsulating delivery data. Would enable undo (score correction), replay, and a DRS-style review system by reverting and reapplying balls.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility (SRP)',
-      description: 'Match manages match-level state. Innings tracks one team\'s batting. Ball records a single delivery. Player has career stats. CommentaryService generates text.'
+      description: 'BallRecordingEngine only owns atomically appending a ball and publishing it. MatchPublisher only owns fan-out. Each BallEventObserver owns exactly one derived view. CricinfoService only orchestrates match-lifecycle calls.'
     },
     {
       name: 'Open/Closed (OCP)',
-      description: 'New match formats add a constant. New ball event types extend Ball model. New statistics computed from existing data. Core scoring and match flow unchanged.'
+      description: 'A new derived view (e.g. a win-probability model) is a new BallEventObserver subscribed to MatchPublisher — BallRecordingEngine and every existing observer are untouched. New match formats add an enum constant.'
     },
     {
       name: 'Dependency Inversion (DIP)',
-      description: 'MatchService depends on ScoringService and CommentaryService abstractions. Match depends on Innings. Innings depends on Ball. Workflow doesn\'t depend on stat computation details.'
+      description: 'MatchPublisher depends on the BallEventObserver abstraction, not on any of its four concrete implementations — it can fan out to any number of observers registered at construction time without knowing what they do.'
     },
     {
       name: 'DRY (Don\'t Repeat Yourself)',
-      description: 'Stat computation (batting average, economy, strike rate) centralized in Player and Innings. Commentary follows templates — not hand-written per ball.'
+      description: 'Batting/bowling-average and economy math is centralized once on CareerStats, not duplicated per caller. Per-match locking logic is centralized once in BallRecordingEngine, not repeated at every call site that touches an Innings.'
     },
     {
       name: 'KISS (Keep It Simple)',
-      description: 'Cricket scoring: balls to runs/wickets to innings total to match result. Model follows natural flow. Each entity maps to real cricket concept.'
+      description: 'Cricket scoring: a ball goes to BallRecordingEngine, gets appended, gets published. Every downstream view is a passive subscriber reacting to that one stream — no view pulls or polls another.'
     }
   ],
   oopConcepts: [
     {
       name: 'Composition over Inheritance',
-      description: 'Match has-a List of Innings, List of Team. Innings has-a List of Ball, Map of stats. Player has-a CareerStats. Cricket domain is a natural composition hierarchy.',
-      alternative: 'Could create MatchWithInnings extending Match. Matches can have varying innings (ODI=2, Test=4), making fixed inheritance impractical.'
+      description: 'Match has-a List<Innings> and two Teams. Team has-a List<Player>. Player has-a CareerStats. Nothing in this module uses class inheritance for the domain model.',
+      alternative: 'Could create a MatchWithInnings subclass per format. Matches vary in innings count (limited-overs = 2, Test = up to 4), making fixed inheritance impractical — composition handles any count.'
     },
     {
-      name: 'Encapsulation — Stat Updates',
-      description: 'Innings.addBall() encapsulates all stat updates — runs, wickets, batting/bowling stats, fall of wickets, extras, overs. External code just submits a Ball.',
-      alternative: 'Could let external services update each stat separately. Encapsulation guarantees consistency — every ball updates ALL relevant stats atomically.'
+      name: 'Encapsulation — One Lock Owns the Write Path',
+      description: 'Every mutation of an Innings\' balls/stats happens inside BallRecordingEngine\'s per-match lock. No other class writes to Innings directly, which is what makes "never lose or double-count a ball" provable rather than assumed.',
+      alternative: 'Could let CricinfoService or the controller mutate Innings directly. Funneling every write through one lock-owning class is what CricinfoConcurrencyTest actually verifies.'
     },
     {
-      name: 'Polymorphism — Dismissal Types',
-      description: 'WicketType enum drives different match events. Bowled affects bowler stats, Caught affects fielder, RunOut affects multiple fielders. Each has polymorphic behavior for stat updates.',
-      alternative: 'Could use string field with if-else. Enum-based polymorphism captures distinct rules per dismissal type.'
+      name: 'Polymorphism — Observer Fan-Out',
+      description: 'MatchPublisher.publish() calls onBallBowled() on every subscribed BallEventObserver without knowing which concrete view (scorecard, stats, commentary, audit) it\'s talking to.',
+      alternative: 'Could hardcode four separate calls (updateScorecard(), updateStats(), addCommentary(), audit()) inside BallRecordingEngine. Observer keeps the engine ignorant of how many views exist or what they do.'
     }
   ],
   extensibility: [
     {
       area: 'New Match Format',
-      description: 'Add TheHundred (100-ball) as format constant. Define max balls per innings. Existing Innings and Ball models handle all formats.',
+      description: 'Add a format constant (e.g. THE_HUNDRED) and its max-balls-per-innings rule. The existing Innings/Ball models and BallRecordingEngine handle any format unchanged.',
       difficulty: 'Easy'
     },
     {
       area: 'Live Score WebSocket',
-      description: 'Push ball-by-ball updates to clients via WebSocket. CommentaryService publishes events for WebSocketHandler. Frontend updates in real-time without polling.',
+      description: 'Add a WebSocketPushObserver implementing BallEventObserver, subscribed to MatchPublisher alongside the existing four — MatchPublisher.publish()\'s fan-out loop needs no change.',
       difficulty: 'Medium'
     },
     {
       area: 'Points Table / Series',
-      description: 'Add Series entity with matches between teams. Points table with wins, losses, net run rate. Match results update series standings automatically.',
+      description: 'Add a Series entity grouping matches between teams, with a points table computed from Match.result after each COMPLETED transition.',
       difficulty: 'Medium'
     },
     {
       area: 'DRS / Review System',
-      description: 'Add Review entity for umpire reviews. Each ball can have review with type, ball tracking data, outcome. Command pattern for balls enables reverting reviews.',
+      description: 'Add a Review entity for umpire reviews. Reverting/reapplying a ball would need BallRecordingEngine to support an explicit undo of the last recorded Ball under the same per-match lock.',
       difficulty: 'Hard'
     }
   ]

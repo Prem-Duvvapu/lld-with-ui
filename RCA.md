@@ -3989,3 +3989,148 @@ grep -n "@ResponseStatus" backend/src/main/java/com/lld/<module>/exception/*.jav
    exception reach the handler passes both suites while still returning the wrong status code on
    every request. `ErrorContractIntegrationTest`'s MockMvc-based approach is the right template to
    extend per-module if this class of bug needs a systematic guard rather than a per-report fix.
+
+## RCA-044: A Systematic 45-Module Content-Accuracy Sweep Found Five More Modules Whose Design Docs Described an Architecture That Doesn't Exist
+
+### 1. Overview & Severity
+**Severity: Medium-High.** Every prior fabrication fix this cycle (RCA-036, -038, -039, -040) was
+found opportunistically — while working on something else in that specific module. This time the
+same class-name-existence technique that closed out RCA-030/031/034 for sequence diagrams was
+generalized into a repeatable script and run against all 45 modules' `diagrams/{module}.js` +
+`design/{module}.js` at once, rather than waiting for the next accidental discovery. It found five
+more real defects, two of them (**cricinfo**, **music-streaming**) as severe as the original
+restaurant/traffic-signal fabrications: entire invented service layers (`MatchService`/
+`ScoringService`/`CommentaryService`; `StreamingService`/`RecommendationEngine`/`DownloadManager`)
+that contradict those same modules' own — already-accurate — class diagrams, plus behavior
+(`addBall()`, `likeSong()`, `shuffle()`, `activate()`) invented directly on plain Lombok models
+that carry zero methods in the real source. **concert-ticket** and its own class diagram had the
+identical bug (a `BookingService` that doesn't exist, methods invented on `Event`/`Seat`/`Booking`)
+independently of cricinfo/music-streaming — three separate authors/passes apparently reached for
+the same "put the logic on the model, not the service" generic-LLD-template shape without checking
+this repo's actual convention. **coffee** and **social-network** were narrower: one invented
+`CoffeeRepository`/DI class in an otherwise-accurate file, and one misnamed a real nested enum.
+
+### 2. Symptoms & Error Logs
+No test failure, no user report — `designDataCoverage.test.js` passed the whole time, because it
+only proves every id resolves to *some* data and every diagram edge points at a *declared* class;
+it has no way to know whether that class or its fields/methods are real. The only way to see the
+defect was to read the module's actual `.java` source side by side with its design data — exactly
+what the systematic sweep automated.
+
+### 3. Root Cause
+- **The check that would have caught this never ran at portfolio scale.** RCA-030/031/034 built
+  and used a class-name-existence technique for sequence diagrams across all 45 files; RCA-036/038/
+  039/040 applied the equivalent idea to class diagrams/design details, but only for the specific
+  module a person happened to already be reading. Nothing had ever run the same check against
+  `diagrams/*.js` + `design/*.js` for all 45 modules in one pass.
+- **A naive first pass under-catches by design.** Checking only the declared `classes[].name` /
+  `entities[].name` arrays against real filenames caught the concert-ticket/cricinfo/music-streaming
+  entity lists, but missed fabricated names hiding inside free-text `patterns`/`principles`/
+  `oopConcepts`/`extensibility` prose (e.g. cricinfo's `ScoringService` was only ever mentioned in a
+  sentence, never given its own `entities[]` row) and, independently, missed **method-level**
+  fabrication entirely — concert-ticket's and cricinfo's own class *diagrams* passed the name check
+  because `Event`/`Seat`/`Booking`/`Match`/`Innings`/`Ball` are real class names; the fabrication was
+  in what methods got attributed to them, not whether the names existed.
+- **Cross-module comparisons are legitimate and look identical to a real bug on a naive prose scan.**
+  Sentences like *"same idiom as uber's `DriverAssignmentService`"* or *"could add a
+  `SeasonalTariffStrategy`"* (an explicit, marked hypothetical in an Extensibility section) name a
+  class that is real elsewhere, or deliberately doesn't exist yet — a role-suffix-name scan has to
+  cross-check against the *entire* backend's type registry and treat clearly-hypothetical language
+  (`could`, `would`, `add a`) differently from an assertion, or it drowns the five real defects in
+  ~30 false positives.
+
+### 4. Diagnostic Commands
+```bash
+# Pass 1 — every entities[]/classes[] name in every module, checked (incl. nested types found by
+# scanning file contents, not just filenames) against that module's own real .java source:
+node audit.mjs   # see RCA.md history / session transcript for the full script
+
+# Pass 2 — every architectural-role-suffixed identifier (...Service, ...Engine, ...Strategy, etc.)
+# anywhere in the file TEXT (catches fabrications hiding in prose, not just entities[]), checked
+# against a GLOBAL registry of every real type name across all 45 modules (so a legitimate
+# cross-module comparison isn't flagged), with JDK/Spring types and "could add"/"would let"
+# hypothetical language excluded:
+node audit2.mjs
+
+# Any survivor from both passes needs a manual read: grep the flagged name across
+# frontend/src/data/{diagrams,design}/<module>.js for context, then read the real backend
+# service/model files it's supposed to describe.
+```
+
+### 5. Step-by-Step Resolution
+1. **concert-ticket** — full rewrite of both `diagrams/concert-ticket.js` and
+   `design/concert-ticket.js` from real source. Replaced the invented `BookingService` (with
+   `eventRepo`/`bookingRepo`/`seatLock`/`paymentGateway` fields and a fabricated `ETicket` return
+   type) with the real `ConcertTicketService` + `SeatLockManager` + `PaymentProcessor` +
+   `CancellationPolicyFactory` split, and stripped invented methods
+   (`Event.bookSeats()`/`Seat.book()`/`Booking.confirm()`/`User.bookEvent()`) off models that are
+   plain `@Data` POJOs with zero methods in the real source.
+2. **cricinfo** — full rewrite of `design/cricinfo.js` only (its `diagrams/cricinfo.js` was already
+   accurate and needed no change). Replaced the invented `MatchService`/`ScoringService`/
+   `CommentaryService` 3-service split with the real single-facade + Observer architecture
+   (`CricinfoService` → `BallRecordingEngine` → `MatchPublisher` → `ScorecardProjectionObserver`/
+   `PlayerCareerStatsObserver`/`CommentaryObserver`/`BallEventAuditObserver`), and corrected that
+   `Innings`/`Ball`/`Player` carry no methods at all (batting/bowling-average math lives on
+   `CareerStats`, not `Player`).
+3. **music-streaming** — targeted rewrite of the `entities[]` sections of both files (their
+   `designPatterns` sections were already accurate and left untouched) plus the handful of
+   `principles`/`oopConcepts`/`extensibility` lines that named `RecommendationStrategy`/
+   `SubscriptionPlan-as-interface`, which don't exist. Replaced `StreamingService`/
+   `RecommendationEngine`/`DownloadManager`/`SubscriptionManager` with the real
+   `MusicStreamingService`/`RecommendationService`/`SubscriptionStrategy` family, and corrected
+   every model (`User`/`Song`/`Playlist`/`Subscription`) to its real id-referencing, zero-method
+   shape (e.g. `Song.artistId`/`albumId`, not embedded `Artist`/`Album` objects). Added a
+   `MusicStreamingService` facade node to the class diagram, which had never shown it at all.
+4. **coffee** — targeted fix. Replaced a fabricated `CoffeeRepository` (asserted real,
+   constructor-injected, with `getBeverages()`/`getMachine()`/`addOrder()`) — the module has no
+   repository package; state lives directly on the `CoffeeMachine` model, constructed with `new`
+   inside `CoffeeMachineService` — with the two patterns the module actually centers on and had
+   never listed: Decorator (`CoffeeComponent`/`CoffeeDecorator`) and Factory (`CoffeeFactory`).
+5. **social-network** — one-line fix. `diagrams/social-network.js` declared a standalone
+   `FriendRequestStatus` enum class; the real type is `FriendRequest`'s private nested `Status`
+   enum. Renamed to match, following the same bare-name + `stereotype: 'private nested ...'`
+   convention `ttl-cache`'s `CacheEntry` already uses for a private nested class.
+6. Verified with both audit scripts (all five modules clean; remaining flags are the same
+   already-triaged nested-type false positives: `CacheEntry`, `PaymentStatus`,
+   `StockMovementType`, `FareEstimate`, `SortTask`, plus each fixed file's own historical fix-note
+   comment naming the old fabricated term) and `npx vitest run` (304/304, including
+   `designDataCoverage.test.js`'s 291 cases — no dangling diagram edges, no duplicate barrel keys).
+
+### 6. Preventative Measures
+1. **The two-pass audit script is now the reusable tool for this class of bug** — run it after any
+   future bulk content pass, not just when a report or accidental read surfaces one instance. Pass 1
+   (structured `entities[]`/`classes[]` names, nested types included) and Pass 2 (role-suffixed
+   identifiers in prose, checked against a *global* cross-module type registry, hypothetical
+   language excluded) are complementary — each catches defects the other misses, as concert-ticket's
+   fabricated `Booking`-model *methods* (invisible to a class-name check, since `Booking` is a real
+   class name) versus cricinfo's `ScoringService` (invisible to a structured check, since it only
+   ever appeared in prose) demonstrate.
+2. **A module's class diagram and its design details are two independently-written documents that
+   can silently diverge** — cricinfo's and concert-ticket's diagrams described (in cricinfo's case,
+   correctly) a different architecture than their own design-details prose, and nothing ever
+   cross-checked the two against each other. Whoever authors design-details prose for a module
+   should read that module's own `diagrams/{module}.js` first, not just the Java source — it is
+   often already correct and is the faster ground truth to check against.
+3. A file can be **mostly accurate with one fabricated class stitched in** (coffee's real
+   Decorator/Factory/State entities plus one invented `CoffeeRepository`) just as easily as it can
+   be wholesale fabricated (cricinfo, music-streaming, concert-ticket) — "most of this module's
+   design doc checks out" is not evidence the rest does; the automated sweep has to check every
+   entity, not stop once the first few resolve correctly.
+
+### Addendum (same day) — a third audit pass caught 2 more, in a reference module
+Preventative measure #3 above was tested immediately: a third pass was added to the audit script,
+checking whether every method attributed to an entity/class in `diagrams/*.js` + `design/*.js`
+actually appears anywhere in that module's real `.java` source — not just whether the class name
+exists, which is what let concert-ticket's/cricinfo's fabricated model methods slip past pass 1.
+Run across all 45 modules, it flagged exactly two real findings, both in **splitwise** — one of the
+three official reference modules everything else is told to match:
+- `design/splitwise.js` called `SplitwiseService`'s balance-lookup method `getUserBalances(userId)`;
+  the real method is `getBalances(userId)`.
+- `Group` (a plain `@Data` model) was documented with an `addMember(user)` method that doesn't
+  exist — group membership is added through `SplitwiseService.addMemberToGroup(groupId, userId)`,
+  which the design doc never mentioned at all. Fixed both, and added the missing method to
+  `SplitwiseService`'s own entry rather than just deleting the wrong one.
+
+Confirms preventative measure #3: even the reference module used as the standard for every other
+module's "did you actually check the source" review had gone unchecked itself. The method-level
+pass is now the standing third stage of this audit, alongside the two from the main entry above.
