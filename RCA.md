@@ -4116,3 +4116,21 @@ node audit2.mjs
    be wholesale fabricated (cricinfo, music-streaming, concert-ticket) — "most of this module's
    design doc checks out" is not evidence the rest does; the automated sweep has to check every
    entity, not stop once the first few resolve correctly.
+
+### Addendum (same day) — a third audit pass caught 2 more, in a reference module
+Preventative measure #3 above was tested immediately: a third pass was added to the audit script,
+checking whether every method attributed to an entity/class in `diagrams/*.js` + `design/*.js`
+actually appears anywhere in that module's real `.java` source — not just whether the class name
+exists, which is what let concert-ticket's/cricinfo's fabricated model methods slip past pass 1.
+Run across all 45 modules, it flagged exactly two real findings, both in **splitwise** — one of the
+three official reference modules everything else is told to match:
+- `design/splitwise.js` called `SplitwiseService`'s balance-lookup method `getUserBalances(userId)`;
+  the real method is `getBalances(userId)`.
+- `Group` (a plain `@Data` model) was documented with an `addMember(user)` method that doesn't
+  exist — group membership is added through `SplitwiseService.addMemberToGroup(groupId, userId)`,
+  which the design doc never mentioned at all. Fixed both, and added the missing method to
+  `SplitwiseService`'s own entry rather than just deleting the wrong one.
+
+Confirms preventative measure #3: even the reference module used as the standard for every other
+module's "did you actually check the source" review had gone unchecked itself. The method-level
+pass is now the standing third stage of this audit, alongside the two from the main entry above.
