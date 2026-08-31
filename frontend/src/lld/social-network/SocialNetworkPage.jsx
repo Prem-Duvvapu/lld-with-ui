@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import LldPage from '../../components/LldPage';
+import { usePolling } from '../../hooks/usePolling';
 import {
   createUser,
   getAllUsers,
@@ -213,6 +214,13 @@ function FeedView({ user, users }) {
     loadFeed().finally(() => setLoading(false));
   }, [loadFeed]);
 
+  // Poll the timeline so a friend's new post/like/comment shows up without a manual refresh —
+  // silent (no loading spinner, no error banner) since it's a background refresh, not a
+  // user-initiated action.
+  usePolling(() => {
+    getFeed(user.id).then(setPosts).catch(() => {});
+  }, 5000, [user.id]);
+
   const handleCreatePost = async (e) => {
     e.preventDefault();
     if (!newText.trim()) return;
@@ -330,6 +338,13 @@ function FriendsView({ user, users, onFriendsChanged }) {
     setLoading(true);
     load().finally(() => setLoading(false));
   }, [load]);
+
+  // Poll for an incoming friend request landing while this tab is open.
+  usePolling(() => {
+    Promise.all([getFriends(user.id), getPendingRequests(user.id)])
+      .then(([f, p]) => { setFriends(f); setPending(p); })
+      .catch(() => {});
+  }, 5000, [user.id]);
 
   const friendIds = new Set(friends.map((f) => f.id));
   const otherUsers = users.filter((u) => u.id !== user.id && !friendIds.has(u.id));

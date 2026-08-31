@@ -4134,3 +4134,105 @@ three official reference modules everything else is told to match:
 Confirms preventative measure #3: even the reference module used as the standard for every other
 module's "did you actually check the source" review had gone unchecked itself. The method-level
 pass is now the standing third stage of this audit, alongside the two from the main entry above.
+
+## RCA-045: The `usePolling` Adoption Gap Was Closed by Auditing Which of the 21 Missing Modules Actually Have Shared Live State, Not by Adding It to All 21
+
+### 1. Overview & Severity
+**Severity: Low (documentation/completeness gap, not a defect).** A 30 Aug audit found only
+13/45 pages used the shared `usePolling` hook and scoped the gap out of "full completion" as a
+separate future pass; a 31 Aug follow-up found the number had drifted to 24/45 incidentally (a
+side effect of PR #58's `fetch()` → `apiFetch` cleanup, not a dedicated pass). This entry is that
+dedicated pass. Rather than mechanically adding `usePolling` to the remaining 21 pages, each was
+checked for whether it actually has state another (simulated) actor can mutate while the page sits
+open — the same "does this pattern claim have real supporting evidence" discipline RCA-044 applied
+to design docs. 6 of the 21 did; the other 15 legitimately don't, and adding polling to them would
+have been dead weight, not progress.
+
+### 2. Symptoms & Error Logs
+None — this was never a bug. The symptom was purely a documentation/completeness gap: a module
+whose booking/feed/catalog state can change from another user's action had no way to reflect that
+change without a manual page reload, unlike its sibling modules (`movieticket`, `parking`,
+`concert-ticket`, etc.) that already poll.
+
+### 3. Root Cause
+`usePolling` adoption had only ever grown as an incidental side effect of other work (new modules
+being built with it from the start, or an unrelated cleanup pass happening to touch a page that
+already needed it) — no pass had ever gone through the specific list of pages missing it and asked,
+module by module, "does this one actually need it." Without that check, the two obvious wrong moves
+are equally available: leaving a real gap unclosed (an airline seat map that never reflects another
+customer's hold) or mechanically wrapping every remaining page in a 5-second poll regardless of
+whether it has any shared state to observe (a concurrency primitive's one-shot trace replay, a
+single-browser two-player board game, an ATM session against the user's own account).
+
+### 4. Diagnostic Commands
+```bash
+# Which pages already use the hook:
+grep -rl "usePolling" frontend/src/lld/*/*Page.jsx | wc -l   # was 24
+
+# For each page WITHOUT it, is there a GET endpoint returning state another actor could have
+# just mutated (seat/room/spot availability, a feed, pending requests, stock levels) — as
+# opposed to a page whose only state changes are triggered by the current user's own request/
+# response cycle?
+grep -L "usePolling" frontend/src/lld/*/*Page.jsx
+```
+
+### 5. Step-by-Step Resolution
+Categorized the 21 pages missing `usePolling`:
+
+- **6 genuine gaps, closed:**
+  - `airline` — seat map polls every 4s (mirrors `movieticket`/`concert-ticket`); deliberately
+    doesn't touch `selectedSeats` on each poll tick, so a background refresh can't clear what the
+    current user has mid-selected.
+  - `hotel` — the selected hotel's room grid polls every 5s.
+  - `linkedin` — pending connection requests/notifications/connections poll every 5s; an open
+    conversation polls every 3s like a live chat.
+  - `library` — book availability polls every 6s, **skipped while a search filter is active** (the
+    same `books` state array holds both the full catalog and search results — polling through a
+    search would have silently reverted it to the unfiltered catalog every few seconds); the
+    selected member's notifications poll every 6s.
+  - `shoppingcart` — the catalog polls every 6s (stock, not the user's own cart, is the shared
+    state here).
+  - `social-network` — the timeline feed and the friends/pending-requests view both poll every 5s.
+- **15 correctly left alone, N/A:**
+  - The 9 concurrency primitives (`blocking-queue`, `bloom-filter`, `concurrent-hashmap`,
+    `fizz-buzz`, `foo-bar`, `h2o`, `merge-sort`, `ttl-cache`, `zero-even-odd`) — each is a
+    synchronous `POST /run` returning a complete trace immediately; there is no ongoing server-side
+    state between requests to poll.
+  - The 5 board/puzzle games (`chess`, `ludo`, `minesweeper`, `snakeladders`, `tictactoe`) —
+    single-browser session, every state change is triggered by the current user's own move; no
+    other actor mutates shared state this browser needs to observe passively.
+  - `atm` — a single session against the current user's own account; nothing else mutates it while
+    the page is open (the concurrent-withdrawal race lives entirely in the isolated `/sim/*` tab,
+    which already drives its own step-by-step UI, not a background poll).
+
+Every added `usePolling` call follows the existing convention exactly: a plain closure (not
+threading the hook's `AbortSignal` through to `apiFetch`, since no existing call site does either),
+`.then(setState).catch(() => {})` with no error surfaced to the banner (a poll failing silently is
+correct — the page already loaded once via its normal `useEffect`), and a `deps` array scoped to
+whatever selection the poll target depends on. Verified with `npx vitest run` (304/304, unchanged —
+this is pure additive frontend wiring, no new component logic under test) and `npm run build`
+(entry chunk 260.79 kB, unchanged, still under the 500 kB gate).
+
+Updated `AGENTS.md`: fixed two now-stale claims ("the page has no polling loop, so `usePolling`
+doesn't apply here") in the `linkedin` and `library` sections that were accurate when written
+(RCA-037, 30 Aug) but no longer are, plus added one-line notes to `airline`/`hotel`/`shoppingcart`/
+`social-network`'s Frontend sections.
+
+### 6. Preventative Measures
+1. **A "should X apply to every module" gap is closed by auditing each candidate, not by
+   mechanically applying X everywhere.** 6 real fixes plus 15 correctly-excluded modules is a
+   complete, defensible answer; blanket-adding polling to concurrency primitives and local games
+   would have been strictly worse than leaving the gap open, since it adds runtime cost and false
+   affordance (a refresh cadence implying live shared state that doesn't exist) for zero benefit.
+2. **A naive "wrap the existing fetch in `usePolling`" refactor can silently break a page that
+   reuses one state variable for two purposes.** `library`'s `books` state holds both the full
+   catalog and search results from the same setter; a poll with no guard would have fought the
+   user's own search every few seconds. Any future polling addition should check whether the
+   state it's about to refresh is exclusively owned by the "background" data path before wiring a
+   poll to it.
+3. `AGENTS.md`'s per-module notes are precise enough to describe the absence of a capability
+   ("the page has no polling loop, so `usePolling` doesn't apply here") — which is good, specific
+   documentation right up until the capability is added and the note becomes silently wrong. A
+   grep for the phrase "doesn't apply" or "not yet" across `AGENTS.md` (the same technique RCA-043's
+   preventative measure #1 recommended for source comments) is worth running whenever a
+   previously-scoped-out capability gets added to a module, to catch exactly this class of drift.

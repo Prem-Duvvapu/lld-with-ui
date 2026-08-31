@@ -19,6 +19,7 @@ import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import ThemeToggle from '../../components/ThemeToggle';
+import { usePolling } from '../../hooks/usePolling';
 
 const SIM_STEPS = [
   { label: 'Reset sandbox', hint: 'Seed flight AI202 (DEL→BOM) with only 12A, 12B, 12C free in Economy.' },
@@ -78,6 +79,17 @@ export default function AirlinePage() {
       loadFlightSeats(selectedFlight.flightId);
     }
   }, [selectedFlight]);
+
+  // Poll the seat map so another customer's hold/booking shows up without a manual refresh —
+  // deliberately doesn't touch selectedSeats, unlike loadFlightSeats, so a poll mid-selection
+  // never clears what the current user has picked.
+  const pollSeats = () => {
+    if (!selectedFlight) return;
+    getFlightSeats(selectedFlight.flightId)
+      .then(seatList => setSeats(seatList || []))
+      .catch(() => {});
+  };
+  usePolling(pollSeats, 4000, [selectedFlight]);
 
   useEffect(() => {
     if (currentUserId) {
