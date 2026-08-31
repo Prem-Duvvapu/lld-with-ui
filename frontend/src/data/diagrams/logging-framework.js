@@ -101,7 +101,7 @@ export default {
       name: 'FileAppender',
       fields: [
         '- filePath: String',
-        '- maxBytes: long',
+        '- maxBytesPerFile: long',
         '- rotatedFiles: List<List<String>>'
       ],
       methods: [

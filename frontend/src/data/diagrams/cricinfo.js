@@ -83,7 +83,7 @@ export default {
       fields: [
         '- matchId, inningsIndex',
         '- totalRuns, wickets, oversDisplay, runRate',
-        '- strikerName/Runs/Balls, bowlerName/Figures',
+        '- strikerName/strikerRuns/strikerBalls, currentBowlerName/currentBowlerFigures',
         '- recentBalls: List<String>',
         '- fallOfWickets, battingStats, bowlingStats'
       ],
