@@ -29,9 +29,12 @@ npm run build                             # entry chunk must stay under 500 kB (
 
 **Never start the servers.** The user runs `mvn spring-boot:run` / `npm run dev` (or `./start.sh`)
 manually and controls their lifecycle. Building, packaging and testing are fine; starting a process
-that binds port 9190 or 3000 is not.
+that binds port 59190 or 53000 is not.
 
-Backend on 9190, frontend on 3000. Swagger at `http://localhost:9190/swagger-ui.html`.
+Backend on 59190, frontend on 53000 — both overridable via `BACKEND_PORT` / `FRONTEND_PORT`
+env vars (application.properties, vite.config.js, docker-compose.yml, and start.sh all read
+them; defaults live in the IANA dynamic/private range so they don't collide with common dev
+ports). Swagger at `http://localhost:59190/swagger-ui.html`.
 
 ## Architecture
 

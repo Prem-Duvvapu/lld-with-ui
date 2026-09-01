@@ -9,9 +9,15 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM EXIT
 
+# Override with BACKEND_PORT / FRONTEND_PORT env vars, e.g.:
+#   BACKEND_PORT=8081 FRONTEND_PORT=8080 ./start.sh
+: "${BACKEND_PORT:=59190}"
+: "${FRONTEND_PORT:=53000}"
+export BACKEND_PORT FRONTEND_PORT
+
 echo "========================================="
-echo " Starting Backend (Spring Boot: 9190)   "
-echo " Starting Frontend (Vite: 3000)         "
+echo " Starting Backend (Spring Boot: $BACKEND_PORT)"
+echo " Starting Frontend (Vite: $FRONTEND_PORT)"
 echo " Press Ctrl+C to stop both              "
 echo "========================================="
 

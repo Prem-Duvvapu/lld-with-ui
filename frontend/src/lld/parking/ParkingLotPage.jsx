@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { vehicleEntry, getGates, scanVehicleExit, payVehicleExit, getFloors, getActiveTickets, simReset, simEntry, simScan, simPay } from './api';
+import { BACKEND_PORT } from '../../utils/api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -522,7 +523,7 @@ function AnimatedFlow() {
         setSimError('');
       })
       .catch(() => {
-        setSimError('⚠️ Backend server not reachable on port 9190');
+        setSimError(`⚠️ Backend server not reachable on port ${BACKEND_PORT}`);
       });
   }, []);
 

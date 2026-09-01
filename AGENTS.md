@@ -1,8 +1,8 @@
 # LLD-with-UI — Context
 
 ## Architecture
-- **Backend**: Java 17 + Spring Boot 3.2 (port 9190). Single JAR, all modules under `com.lld.*`
-- **Swagger / OpenAPI**: SpringDoc UI at `http://localhost:9190/swagger-ui.html` and JSON at `/v3/api-docs`
+- **Backend**: Java 17 + Spring Boot 3.2 (port 59190, override with `BACKEND_PORT`). Single JAR, all modules under `com.lld.*`
+- **Swagger / OpenAPI**: SpringDoc UI at `http://localhost:59190/swagger-ui.html` and JSON at `/v3/api-docs`
 - **Frontend**: React 19 + Vite + React Router 7. Single SPA, dynamically loads LLD pages
 - **Data**: In-memory only (no DB). State resets on restart.
 
@@ -1194,8 +1194,8 @@ it proposed had, by the time this was read, already shipped as `TariffStrategy`.
 
 ## Running
 ```bash
-cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 9190
-cd frontend && npm run dev                                                 # port 3000
+cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
+cd frontend && npm run dev                                                 # port 53000 (or $FRONTEND_PORT)
 ```
 The Vite dev proxy and the Docker nginx config both forward `/api`, `/swagger-ui`, `/swagger-ui.html`
 and `/v3/api-docs` to the backend, so the in-app Swagger link works on either origin.

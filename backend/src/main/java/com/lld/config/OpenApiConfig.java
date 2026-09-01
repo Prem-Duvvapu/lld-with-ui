@@ -5,6 +5,7 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,7 +15,7 @@ import java.util.List;
 public class OpenApiConfig {
 
     @Bean
-    public OpenAPI lldOpenAPI() {
+    public OpenAPI lldOpenAPI(@Value("${server.port}") String serverPort) {
         return new OpenAPI()
                 .info(new Info()
                         .title("LLD with UI — Interactive API Documentation")
@@ -27,7 +28,7 @@ public class OpenApiConfig {
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))
                 .servers(List.of(
-                        new Server().url("http://localhost:9190").description("Local Spring Boot Server")
+                        new Server().url("http://localhost:" + serverPort).description("Local Spring Boot Server")
                 ));
     }
 }

@@ -1,5 +1,11 @@
 const BASE_URL = '/api';
 
+// Resolved at build/dev-server time from the BACKEND_PORT env var (see
+// vite.config.js), falling back to the repo default. Used only for the
+// human-readable "backend not reachable on port N" banners — the actual
+// requests always go through the same-origin /api proxy above.
+export const BACKEND_PORT = import.meta.env.VITE_BACKEND_PORT || '59190';
+
 export class ApiError extends Error {
   constructor(status, message, body) {
     super(message);
