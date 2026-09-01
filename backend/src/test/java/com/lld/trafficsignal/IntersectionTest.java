@@ -193,6 +193,31 @@ class IntersectionTest {
     }
 
     @Test
+    @DisplayName("forceAdvancePhase completes the active light's current phase on a single call, regardless of remaining countdown")
+    void forceAdvancePhaseSkipsRemainingCountdown() {
+        TrafficLight active = intersection.getLights().get(0);
+        assertTrue(active.getTimer() > 1, "fixture should start with more than one second on the clock");
+
+        intersection.forceAdvancePhase(); // GREEN -> YELLOW, in one call
+        assertEquals(LightState.YELLOW, active.getCurrentState());
+        assertEquals(0, intersection.getActiveIndex());
+
+        intersection.forceAdvancePhase(); // YELLOW -> RED, GREEN handed to light 1
+        assertEquals(LightState.RED, active.getCurrentState());
+        assertEquals(1, intersection.getActiveIndex());
+        assertEquals(LightState.GREEN, intersection.getLights().get(1).getCurrentState());
+    }
+
+    @Test
+    @DisplayName("forceAdvancePhase is a no-op while an emergency override is active, matching tick()")
+    void forceAdvancePhaseIsNoOpDuringEmergencyOverride() {
+        intersection.requestEmergencyOverride(2);
+        for (int i = 0; i < 5; i++) intersection.forceAdvancePhase();
+        assertEquals(LightState.GREEN, intersection.getLights().get(2).getCurrentState());
+        assertTrue(intersection.isEmergencyActive());
+    }
+
+    @Test
     @DisplayName("Constructing with no lights is rejected")
     void constructingWithNoLightsIsRejected() {
         assertThrows(IllegalArgumentException.class,

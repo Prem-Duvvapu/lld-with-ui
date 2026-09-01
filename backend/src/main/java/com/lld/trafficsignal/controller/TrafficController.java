@@ -57,10 +57,15 @@ public class TrafficController {
         return ResponseEntity.ok(service.manualTransition(id, lightId, target));
     }
 
-    /** Back-compat: forces the main intersection's overdue phase to advance immediately. */
+    /**
+     * Back-compat: forces the main intersection's active light to complete its current phase and
+     * advance immediately, regardless of remaining countdown — backs the "Cycle" / "Next Signal
+     * Phase Cycle" demo controls. (Previously called {@code tick()} here, which only decrements
+     * one simulated second and rarely produced a visible change on a single click — see RCA-049.)
+     */
     @PostMapping("/transition")
     public ResponseEntity<Intersection> transition() {
-        service.getMainIntersection().tick();
+        service.getMainIntersection().forceAdvancePhase();
         return ResponseEntity.ok(service.getMainIntersection());
     }
 

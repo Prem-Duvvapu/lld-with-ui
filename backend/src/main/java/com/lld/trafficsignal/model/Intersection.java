@@ -1,5 +1,6 @@
 package com.lld.trafficsignal.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.lld.trafficsignal.exception.InvalidOverrideException;
 import com.lld.trafficsignal.exception.SignalNotFoundException;
 import com.lld.trafficsignal.observer.SignalChangeEvent;
@@ -88,6 +89,11 @@ public class Intersection {
         return activeIndex;
     }
 
+    /** Internal wiring for {@link Intersection#tick} et al. to publish phase-change events —
+     *  not domain state, and {@link SignalChangeNotifier} has no bean-visible properties for
+     *  Jackson to serialize (it would throw {@code InvalidDefinitionException} on every endpoint
+     *  returning an {@code Intersection} otherwise). */
+    @JsonIgnore
     public SignalChangeNotifier getNotifier() {
         return notifier;
     }
@@ -107,6 +113,28 @@ public class Intersection {
             if (active.decrementAndCheckExpired()) {
                 advance(active);
             }
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Forces the active light to complete its current phase immediately — GREEN -&gt; YELLOW on
+     * the same light, or YELLOW -&gt; RED with GREEN handed to the next light in rotation —
+     * regardless of how much of its countdown remains. Unlike {@link #tick()} (one simulated
+     * second, only flips phase if that second happens to be the light's last), this is the
+     * primitive behind the "Cycle" / "Next Signal Phase Cycle" demo controls, which are meant to
+     * demonstrate a phase transition on demand rather than requiring the caller to click through
+     * the full real-time countdown. A no-op while an emergency override is active, matching
+     * {@link #tick()}'s guard.
+     */
+    public void forceAdvancePhase() {
+        lock.lock();
+        try {
+            if (emergencyActive) {
+                return;
+            }
+            advance(lights.get(activeIndex));
         } finally {
             lock.unlock();
         }
