@@ -1,5 +1,6 @@
 package com.lld.library.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.lld.library.enums.MemberType;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -68,6 +69,7 @@ public class Member {
         }
     }
 
+    @JsonIgnore
     public ReentrantLock getLock() {
         return memberLock;
     }

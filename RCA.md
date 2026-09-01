@@ -4686,3 +4686,41 @@ clock's use, and nothing forced a second look when it got reused for a different
 differently-intended UI control. When a demo/manual control and an automatic background process
 end up calling the identical method, that is itself worth a second look at whether they actually
 want the same semantics.
+### Addendum 2 (same day) — executing on this entry's own Preventative Measures found two more live instances, one of each kind
+RCA-049's Preventative Measures #1 and #3 above were both acted on immediately rather than left as
+advice:
+
+**#1, checked directly:** grepped every module for a domain object exposing an internal
+locking/wiring primitive via a public getter — the exact shape that broke traffic-signal. Found two
+more, live:
+- `Elevator.getLock()` (`ReentrantLock`) — not `@JsonIgnore`'d, and `GET /api/elevator/elevators`
+  returns `List<Elevator>` directly, so every response leaked the lock's raw concurrency state
+  (`locked`, `fair`, `queueLength`, `heldByCurrentThread`) into the JSON body.
+- `Member.getLock()` (library) — same: not `@JsonIgnore`'d, 3 endpoints return `Member` directly.
+- Notably, `Account` (atm), `Product` (shoppingcart), and `Account` (stockbroker) already
+  `@JsonIgnore` their own lock getters — so this exact fix was already known and applied in three
+  modules and simply missed in these two. `VendingMachine`/`CoffeeMachine` also have un-ignored
+  lock getters but are never returned by any controller today, so they're dormant risk, not active
+  leaks — left alone.
+- Unlike `SignalChangeNotifier` (zero bean-visible properties, so Jackson threw),
+  `ReentrantLock` has real bean-style getters (`isLocked()`, `isFair()`, `getQueueLength()`, etc.),
+  so this variant doesn't 500 — it silently leaks internal concurrency state to every client
+  instead. Fixed both with `@JsonIgnore`, each covered by a new
+  `{Elevator,Library}ControllerIntegrationTest` asserting the `lock` field is absent from the
+  response — the first controller-level test either module has ever had.
+
+**#3, applied:** `apiFetch` (`frontend/src/utils/api.js`) read `body.error || body.message`. For
+`GlobalExceptionHandler`'s `ErrorResponse` shape (`DomainException` etc.), `error` *is* the real,
+specific reason and there is no `message` field, so this was correct there. But for any exception
+nothing catches, Spring's default `/error` handler always fills `error` with the generic HTTP
+reason phrase and puts the actual detail in `message` — exactly what happened here (RCA-049's main
+entry: the browser only ever showed "Internal Server Error", never the real Jackson exception).
+Flipped the precedence to `body.message || body.error`: `ErrorResponse` bodies have no `message`
+field, so they fall through to `error` exactly as before; unhandled-exception bodies now surface
+the actually-useful field. Verified against every hand-built `Map.of(...)` error/success body in
+the backend (coffeemachine, vendingmachine, concertticket, movieticket, etc.) — none of them
+regress under the new precedence, since none mix both keys in a way the old order depended on.
+
+Confirms the pattern from the main entry's Preventative Measures: acting on "here's what else is
+probably wrong" immediately, rather than filing it as a someday-list item, is what turned two of
+three predicted gaps into actually-fixed code the same day.
