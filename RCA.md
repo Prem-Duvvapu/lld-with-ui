@@ -4544,3 +4544,145 @@ comm -3 <(seq 1 45) <(grep -oE '^### [0-9]+' README.md | grep -oE '[0-9]+' | sor
    to the bar**, not treated as separate documentation debt — 13 modules going fully real without a
    corresponding README write-up is exactly the kind of gap that compounds silently until a user
    notices the table looks inconsistent.
+## RCA-049: Every Traffic Signal Endpoint Returned HTTP 500 — `Intersection` Exposed a Bean-Property-Less Field to Jackson, and No Test in the Suite Serializes a Response Body
+
+### 1. Overview & Severity
+**Severity: High (every production `traffic-signal` endpoint was unusable — a live-demo-breaking
+defect, though scoped to one module).** Loading the module's "App" tab surfaced a generic
+`⚠ Internal Server Error` banner with a Retry button that only ever retried into the same failure.
+`GET /api/traffic/status` — and, by the same code path, every other endpoint that returns an
+`Intersection` (`/intersections`, `/intersections/{id}`, the emergency/resume/manual-transition
+endpoints, and the `/sim/*` snapshot) — threw during Jackson serialization of the response body,
+after the handler method itself had already run successfully. `mvn test`'s full 1657-test green
+suite gave no signal that this module was broken, because nothing in it exercises an HTTP response
+body through real JSON serialization.
+
+### 2. Symptoms & Error Logs
+Curling the running backend directly (the frontend only ever saw the generic `Internal Server
+Error` reason phrase, not the real cause — see Preventative Measures):
+```
+$ curl -s http://localhost:59190/api/traffic/status
+{"timestamp":"2026-09-01T20:01:21.176+00:00","status":500,"error":"Internal Server Error",
+ "message":"Type definition error: [simple type, class com.lld.trafficsignal.observer.SignalChangeNotifier]",
+ "path":"/api/traffic/status"}
+```
+This is Jackson's `InvalidDefinitionException` — "no serializer found ... and no properties
+discovered to create BeanSerializer" — thrown *after* `TrafficController.getStatus()` returned
+normally, when Spring MVC tries to write the `Intersection` object to the response body.
+
+### 3. Root Cause
+`Intersection.getNotifier()` is a public getter returning `SignalChangeNotifier` — internal
+Observer-pattern wiring used only so `Intersection.tick()`/`manualTransition()`/
+`requestEmergencyOverride()` can publish phase-change events to `TrafficSignalService`'s observer
+list. `SignalChangeNotifier` itself has exactly one field (`observers`, a `CopyOnWriteArrayList`,
+private, no getter) and one method that looks like a getter but isn't named like one
+(`observerCount()`, not `getObserverCount()`). Jackson's default bean introspection finds *zero*
+serializable properties on it and refuses to guess — by design, since silently emitting `{}` for
+an object with real (if inaccessible) state is its own kind of misleading.
+
+Because `getNotifier()` was a plain public getter with no `@JsonIgnore`, every `Intersection`
+serialized in a response body — which is every non-void `traffic-signal` endpoint — carried this
+field into Jackson's reach and failed. The getter exists purely for `TrafficSignalService` to wire
+`registerObserver()` on the sim sandbox's fresh notifier after `simReset()`; it was never meant to
+leave the service layer, but nothing marked that boundary.
+
+**Why the test suite didn't catch it — the actual gap:** every `trafficsignal` test
+(`IntersectionTest`, `TrafficSignalServiceTest`, `TrafficSignalConcurrencyTest`,
+`TrafficRepositoryTest`, `SignalStateTest`, `SignalTickerTest`) calls service/domain methods
+directly in-process and asserts on the returned Java objects — none of them go through Spring MVC
+or Jackson at all, so a getter that is perfectly valid Java and perfectly reachable in a unit test
+is invisible to them. The one place in the whole backend that does exercise a real HTTP round trip,
+`ErrorContractIntegrationTest` (`@SpringBootTest` + `MockMvc`), only asserts the *error* path
+(a handful of 404s, for airline/stockbroker/library) — never a 200 OK happy-path body, for any
+module, traffic-signal included. Checking across all 45 modules: **zero** `*ControllerTest.java`
+files exist, and MockMvc is used nowhere else in the suite. The project's mandated "four test
+flavours" (service, strategy, repository, concurrency — see `/lld-tests`) simply has no fifth
+flavour that would round-trip a response body through the same Jackson `ObjectMapper` Spring uses
+in production. This isn't unique to traffic-signal: any module whose domain object exposes a
+bean-property-less nested field the same way has the identical blind spot today.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly against a running backend (bypasses the frontend's misleading banner text):
+curl -s http://localhost:59190/api/traffic/status | python3 -m json.tool
+
+# Confirm no controller test exists anywhere in the suite:
+find backend/src/test -iname "*ControllerTest.java"        # -> (nothing)
+grep -rl "MockMvc" backend/src/test/java                   # -> only ErrorContractIntegrationTest
+
+# Confirm every trafficsignal test stays in-process, never touching Jackson/MVC:
+grep -n "MockMvc\|ObjectMapper\|@SpringBootTest" backend/src/test/java/com/lld/trafficsignal/*.java
+                                                             # -> no matches
+```
+
+### 5. Step-by-Step Resolution
+1. Reproduced the 500 with a direct `curl` against the already-running backend (the user's browser
+   only showed the generic reason phrase), which surfaced Jackson's real exception message —
+   `Type definition error: [simple type, class ... SignalChangeNotifier]` — immediately naming the
+   offending getter.
+2. Confirmed `getNotifier()` is called only from `TrafficSignalService` (constructor wiring and
+   `simReset()`), never from any test or controller code that needs it serialized — safe to hide
+   from Jackson without touching any caller.
+3. Annotated `Intersection.getNotifier()` with `@JsonIgnore` (`com.fasterxml.jackson.annotation`,
+   already on the classpath via `spring-boot-starter-web`) and documented on the getter why: the
+   notifier is wiring, not domain state, and has no Jackson-visible properties in the first place.
+4. Recompiled (`mvn -o -q compile`) and re-ran the module's existing suite — passes unchanged,
+   since none of it touches serialization; the real regression check is the `curl` round trip
+   above, which now returns the intersection's actual `lights`/`activeIndex`/`emergencyActive`
+   state instead of a stack trace.
+
+### 6. Preventative Measures
+1. **A green `mvn test` proves the domain logic works; it says nothing about whether the response
+   body can be serialized.** Any module whose only tests are service/repository/domain-object unit
+   tests has this exact blind spot for its entire public API surface. The fix here is local
+   (one `@JsonIgnore`), but the gap is structural — worth a fifth test flavour (a thin
+   `@SpringBootTest @AutoConfigureMockMvc` happy-path smoke test per module, asserting `status()
+   .isOk()` plus a couple of `jsonPath` checks on the real production endpoints) rather than
+   trusting `ErrorContractIntegrationTest`'s hand-picked error-path coverage to generalize.
+2. **A getter that exists only for same-package/same-layer wiring should say so.** `getNotifier()`
+   had no doc comment distinguishing "internal plumbing" from "domain state safe to expose" — the
+   two look identical in Java. `@JsonIgnore` plus a javadoc note (added here) makes that boundary
+   explicit at the declaration site instead of relying on every future caller to notice.
+3. **The frontend's own error banner hid the actionable message.** `apiFetch` reads
+   `body.error || body.message`; for an exception the `GlobalExceptionHandler` doesn't catch (this
+   one wasn't a `DomainException`), Spring's default `/error` handler always populates `error` with
+   the generic HTTP reason phrase ("Internal Server Error") and puts the real detail in `message` —
+   so the banner showed the least useful of the two fields. `curl`-ing the endpoint directly, not
+   the browser banner, is what actually diagnosed this; a broad `RuntimeException` handler is
+   explicitly avoided per `CLAUDE.md` (it would swallow Spring's own request-parsing exceptions),
+   so the fix is diagnostic habit, not a code change: for an unlabeled "Internal Server Error" with
+   no other clue, `curl` the endpoint directly before trusting the UI's own error text.
+### Addendum (same day) — the same investigation surfaced a second, unrelated bug in the same endpoint
+Once `/api/traffic/status` was serializing again, a follow-up question ("what is the Cycle button
+in the App tab expected to do?") turned up a second, independent defect one layer up in the same
+`POST /api/traffic/transition` endpoint the Cycle button calls.
+
+**Symptom:** the button is labeled "Cycle" (App tab) / "🔄 Next Signal Phase Cycle" (Simulation
+tab — same backend call), and the endpoint's own doc comment claimed it "forces the main
+intersection's overdue phase to advance immediately." The actual implementation just called
+`Intersection.tick()` — a single one-simulated-second decrement, which only flips the light's
+phase if that happens to be its last remaining second. With GREEN/RED holding for 8s and YELLOW
+for its own fixed duration, the overwhelming majority of clicks produced no visible change
+whatsoever, directly contradicting both the button's label and the endpoint's documented intent.
+
+**Root cause:** `tick()` is the correct primitive for the *automatic* one-second production clock
+(`ScheduledExecutorSignalTicker` already calls it every real second in the background) but was
+reused, unchanged, for the *manual, on-demand* "skip to the next phase" control — two genuinely
+different operations (advance by one second vs. force-complete the current phase) sharing one
+method because nothing else existed yet.
+
+**Fix:** added `Intersection.forceAdvancePhase()` — same locking discipline as `tick()`, same
+emergency-override no-op guard, but calls the existing private `advance()` transition logic
+directly instead of going through the countdown check. `TrafficController.transition()` now calls
+this instead of `tick()`; `tick()` itself is untouched and still drives the real background clock.
+Covered by two new `IntersectionTest` cases (immediate two-step GREEN→YELLOW→RED+next-GREEN
+advance in two calls regardless of starting countdown; no-op during an emergency override) and a
+new `TrafficControllerIntegrationTest` case asserting a single `POST /transition` changes the
+active light's serialized phase.
+
+**Preventative measure:** a method's name and its actual behavior drifting apart is easy to miss
+when the method still "type-checks" — `tick()` was a perfectly reasonable name for the background
+clock's use, and nothing forced a second look when it got reused for a differently-labeled,
+differently-intended UI control. When a demo/manual control and an automatic background process
+end up calling the identical method, that is itself worth a second look at whether they actually
+want the same semantics.
