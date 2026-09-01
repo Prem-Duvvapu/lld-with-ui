@@ -1,5 +1,6 @@
 package com.lld.elevator.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.lld.elevator.exception.IllegalElevatorStateTransitionException;
 import com.lld.elevator.state.ElevatorLifecycleStates;
 
@@ -240,6 +241,7 @@ public class Elevator {
         return downStops;
     }
 
+    @JsonIgnore
     public ReentrantLock getLock() {
         return elevatorLock;
     }

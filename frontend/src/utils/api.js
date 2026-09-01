@@ -36,8 +36,14 @@ export async function apiFetch(path, options = {}) {
         body = null;
       }
     }
-    const message = (typeof body === 'object' && body !== null && (body.error || body.message))
-      ? (body.error || body.message)
+    // `message` is checked first: for a DomainException, GlobalExceptionHandler's ErrorResponse
+    // only ever has `error` (the real, specific reason) and no `message` field at all, so this
+    // falls through to `error` exactly as before. But for an exception nothing catches, Spring's
+    // default /error handler always fills `error` with the generic HTTP reason phrase ("Internal
+    // Server Error") and puts the actual exception detail in `message` — preferring `error` there
+    // silently threw away the one field that said what actually broke (RCA-049).
+    const message = (typeof body === 'object' && body !== null && (body.message || body.error))
+      ? (body.message || body.error)
       : (typeof body === 'string' && body.length > 0 ? body : `HTTP ${res.status} ${res.statusText}`);
     
     throw new ApiError(res.status, message, body);
