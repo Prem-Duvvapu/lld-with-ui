@@ -24,6 +24,7 @@ import {
   simGetSnapshots,
   simGetEvents,
 } from './api';
+import { BACKEND_PORT } from '../../utils/api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
@@ -122,7 +123,7 @@ export default function LinkedInPage() {
       if (Array.isArray(jobList)) setJobs(jobList);
     } catch (err) {
       console.error(err);
-      showBanner('Failed to connect to backend on port 9190. Make sure Spring Boot is running.', 'error');
+      showBanner(`Failed to connect to backend on port ${BACKEND_PORT}. Make sure Spring Boot is running.`, 'error');
     }
   };
 

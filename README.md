@@ -60,7 +60,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 
 ```
 lld-with-ui/
-├── backend/                     ← Spring Boot app, single JAR (Port 9190)
+├── backend/                     ← Spring Boot app, single JAR (Port 59190)
 │   └── src/main/java/com/lld/
 │       ├── config/              ← CORS, OpenAPI, and the shared error contract
 │       │   ├── DomainException      ← base class for every module's exceptions
@@ -79,7 +79,7 @@ lld-with-ui/
 │       + a package per design pattern it actually uses
 │         (strategy/ factory/ observer/ state/ command/ decorator/ chain/)
 │
-├── frontend/                    ← React 19 + Vite SPA (Port 3000)
+├── frontend/                    ← React 19 + Vite SPA (Port 53000)
 │   └── src/
 │       ├── components/          ← ClassDiagram, DesignDetails, ThemeToggle, ui/
 │       ├── data/
@@ -101,19 +101,35 @@ lld-with-ui/
 ## Quick Start
 
 ```bash
-# Terminal 1 — Start Java Spring Boot Backend (Port 9190)
+# Terminal 1 — Start Java Spring Boot Backend (Port 59190)
 cd backend && mvn spring-boot:run
 
-# Terminal 2 — Start React + Vite Frontend (Port 3000)
+# Terminal 2 — Start React + Vite Frontend (Port 53000)
 cd frontend && npm run dev
 ```
 
-Open **http://localhost:3000** to access the portfolio dashboard.
-(`vite.config.js` pins port 3000; `start.sh` and `docker-compose.yml` both agree.)
+Open **http://localhost:53000** to access the portfolio dashboard.
+(`vite.config.js` pins port 53000; `start.sh` and `docker-compose.yml` both agree.)
+
+**Ports are configurable.** Both default to the IANA dynamic/private range (53000 / 59190) so
+they don't collide with common dev-tool ports, but either can be overridden with an env var if
+something else already owns them:
+
+```bash
+BACKEND_PORT=8081 FRONTEND_PORT=8080 ./start.sh
+# or per-terminal:
+BACKEND_PORT=8081 mvn -f backend/pom.xml spring-boot:run
+BACKEND_PORT=8081 FRONTEND_PORT=8080 npm --prefix frontend run dev
+# Docker Compose — only remaps the host-side port, container internals are unchanged:
+BACKEND_PORT=8081 FRONTEND_PORT=8080 docker compose up
+```
+
+The frontend dev server reads `BACKEND_PORT` to point its `/api` proxy at the right place
+automatically; pass a full `VITE_BACKEND_URL` instead if the backend lives on another host.
 
 ### ⚡ Interactive Swagger API Documentation
-- **Swagger UI Console**: [http://localhost:9190/swagger-ui.html](http://localhost:9190/swagger-ui.html) *(or `/swagger-ui/index.html`)*
-- **OpenAPI 3.0 JSON Specification**: [http://localhost:9190/v3/api-docs](http://localhost:9190/v3/api-docs)
+- **Swagger UI Console**: [http://localhost:59190/swagger-ui.html](http://localhost:59190/swagger-ui.html) *(or `/swagger-ui/index.html`)*
+- **OpenAPI 3.0 JSON Specification**: [http://localhost:59190/v3/api-docs](http://localhost:59190/v3/api-docs)
 - The in-app **⚡ Swagger API** button resolves on whatever origin you are on: the Vite dev
   server and the Docker nginx both proxy `/swagger-ui` and `/v3/api-docs` to the backend.
   Override with `VITE_SWAGGER_URL` if the backend lives elsewhere.
@@ -1264,5 +1280,5 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 ## Tech Stack
 
-- **Backend**: Java 17, Spring Boot 3.2, Maven (Single Spring Boot JAR, Port 9190)
-- **Frontend**: React 19, Vite 6, React Router 7 (Single SPA, Port 3000, route-level code splitting)
+- **Backend**: Java 17, Spring Boot 3.2, Maven (Single Spring Boot JAR, Port 59190)
+- **Frontend**: React 19, Vite 6, React Router 7 (Single SPA, Port 53000, route-level code splitting)

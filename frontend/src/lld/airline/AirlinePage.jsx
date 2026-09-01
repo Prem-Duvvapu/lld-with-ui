@@ -15,6 +15,7 @@ import {
   simGetSnapshots,
   simGetEvents,
 } from './api';
+import { BACKEND_PORT } from '../../utils/api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import SequenceDiagram from '../../components/SequenceDiagram';
@@ -128,7 +129,7 @@ export default function AirlinePage() {
       }
     } catch (err) {
       console.error(err);
-      showBanner('Failed to connect to backend on port 9190.', 'error');
+      showBanner(`Failed to connect to backend on port ${BACKEND_PORT}.`, 'error');
     }
   };
 

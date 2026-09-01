@@ -1,5 +1,9 @@
 version: '3.8'
 
+# BACKEND_PORT / FRONTEND_PORT override only the *host*-side port each
+# container is published on (e.g. `BACKEND_PORT=8081 docker compose up`) —
+# container-internal ports stay fixed at the app defaults, so nginx's
+# proxy_pass to the backend container never needs to change.
 services:
   backend:
     build:
@@ -7,7 +11,7 @@ services:
       dockerfile: Dockerfile
     container_name: lld-backend
     ports:
-      - "9190:9190"
+      - "${BACKEND_PORT:-59190}:59190"
     restart: unless-stopped
 
   frontend:
@@ -16,7 +20,7 @@ services:
       dockerfile: Dockerfile
     container_name: lld-frontend
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-53000}:80"
     depends_on:
       - backend
     restart: unless-stopped

@@ -12,6 +12,7 @@ import {
   simPlaceOrder,
   simCancelOrder,
 } from './api';
+import { BACKEND_PORT } from '../../utils/api';
 import { usePolling } from '../../hooks/usePolling';
 import './StockBrokeragePage.css';
 
@@ -65,7 +66,7 @@ function AppTab() {
       if (list && list.length && !list.find((s) => s.symbol === selectedSymbol)) {
         setSelectedSymbol(list[0].symbol);
       }
-    }).catch((err) => showBanner(`Failed to reach backend on port 9190: ${err.message}`, 'error'));
+    }).catch((err) => showBanner(`Failed to reach backend on port ${BACKEND_PORT}: ${err.message}`, 'error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

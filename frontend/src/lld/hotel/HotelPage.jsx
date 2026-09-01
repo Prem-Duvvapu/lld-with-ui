@@ -5,6 +5,7 @@ import {
   getHotels, getRooms, bookRoom,
   simReset, simGetState, simGetEvents, simBookRoom, simCheckIn, simCheckOut, simCancelBooking, simRace,
 } from './api';
+import { BACKEND_PORT } from '../../utils/api';
 
 // This page used to be a fully standalone document (its own header/back-link/nav, manually
 // mounted ClassDiagram/SequenceDiagram/DesignDetails) with a "Simulation" tab that called the
@@ -114,7 +115,7 @@ function HotelsTab() {
     <div>
       {error && (
         <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', marginBottom: 16, fontSize: 14 }}>
-          ⚠️ {error}. Ensure the Java Spring Boot backend is running on port 9190 (<code>cd backend && mvn spring-boot:run</code>).
+          ⚠️ {error}. Ensure the Java Spring Boot backend is running on port {BACKEND_PORT} (<code>cd backend && mvn spring-boot:run</code>).
         </div>
       )}
       {!selectedHotel ? (
