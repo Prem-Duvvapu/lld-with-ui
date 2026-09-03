@@ -110,6 +110,8 @@ const ALL_LLDS = [
     desc: 'Probabilistic set membership with thread-safe bit operations' },
   { title: 'Multi-threaded Merge Sort', icon: '🔀', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Parallel divide-and-conquer sort using ForkJoinPool for efficient multi-core sorting' },
+  { title: 'Meeting Scheduler', icon: '📅', difficulty: 'Medium', category: 'Core',
+    desc: 'Room booking with room- and attendee-level conflict detection across overlapping time ranges' },
 ]
 
 const routeMap = {
@@ -133,6 +135,7 @@ const routeMap = {
   'Thread-Safe TTL Cache': 'ttl-cache', 'Concurrent HashMap': 'concurrent-hashmap',
   'Blocking Queue': 'blocking-queue', 'Concurrent Bloom Filter': 'bloom-filter',
   'Multi-threaded Merge Sort': 'merge-sort',
+  'Meeting Scheduler': 'meeting-scheduler',
 }
 
 export default function Home() {

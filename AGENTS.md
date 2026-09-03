@@ -1192,6 +1192,59 @@ it proposed had, by the time this was read, already shipped as `TariffStrategy`.
 `simBook` pricing/logging, the check-in/check-out lifecycle, `simCancel`'s refund resolution,
 `simRace`'s exactly-one-winner guarantee and its guest-count clamping).
 
+## Meeting Scheduler Module
+### Backend
+- `MeetingSchedulerInitializer`: 3 rooms (Falcon cap 8, Griffin cap 4, Phoenix cap 12) and two demo
+  meetings booked through the real `MeetingSchedulerService.bookMeeting()` path (not written
+  straight into the repository), so first load exercises the same conflict-checking a real client
+  would — same discipline as `CarRentalInitializer`'s seed reservations.
+- `MeetingSchedulerService`: Facade over `bookMeeting`, `cancelMeeting`, `getAvailability`,
+  `getMeetingsForPerson`, `getAllRooms`/`getRoom`, plus isolated sim methods (`simSeedRoom`,
+  `simBookMeeting`, `simCancelMeeting`, `simGetRooms`, `simGetMeetings`) against a second
+  `MeetingSchedulerRepository`/`ConflictDetectionService` pair — same shape as `CarRentalService`'s
+  `simRepository`/`simLockService`.
+- **Single Module-Wide Lock, Not Per-Room (the concurrency centerpiece, and a deliberate departure
+  from `carrental`'s precedent)**: a meeting has TWO conflict dimensions that don't share a lockable
+  key — the room, and every participant's calendar, which spans any number of *other* rooms. A
+  per-room `ReentrantLock` (the `ReservationLockService`/`DriverAssignmentService` idiom used
+  everywhere else in this repo) cannot make attendee-conflict checking safe: two threads booking the
+  same person into two *different* rooms would each acquire a *different* room's lock, each read
+  that person's calendar clean, and both succeed — a real double-booking despite every individual
+  lock being respected correctly. `ConflictDetectionService` uses one fair `ReentrantLock` for the
+  entire module instead, checking the room's calendar and then every participant's calendar (via
+  `Meeting.allParticipants()`, which is organizerId + attendeeIds) inside a single critical section.
+  This trades booking throughput (only one booking validated at a time, module-wide) for actual
+  correctness across both dimensions — the right call, since booking volume here is nowhere near
+  contended enough for throughput to matter.
+- `MeetingStatus` (`SCHEDULED`, `CANCELLED`) is the smallest state machine in the repo — just
+  `blocksCalendar()`, no transition table, since the only legal move is SCHEDULED→CANCELLED and
+  there is no reschedule operation (cancel-then-rebook instead).
+- Half-open interval overlap (`s1 < e2 && s2 < e1`) — a meeting ending exactly when another starts
+  is not a conflict, same convention as `carrental`'s date-range overlap check.
+- Exception hierarchy: `MeetingSchedulerException extends com.lld.config.DomainException` with
+  `RoomNotFoundException`/`MeetingNotFoundException` (404), `RoomConflictException`/
+  `AttendeeConflictException` (409), `InvalidMeetingTimeException` (400, end not after start).
+- Tests: `MeetingSchedulerServiceTest` (facade validation, availability/person lookups, sim/live
+  isolation), `ConflictDetectionServiceTest` (single-threaded room- and attendee-conflict
+  correctness, back-to-back non-overlap, cancellation freeing both dimensions),
+  `MeetingSchedulerRepositoryTest` (storage, id generation, organizer-or-attendee lookup),
+  `MeetingSchedulerConcurrencyTest` (the room-level race, the cross-room attendee-level race that a
+  per-room lock would have missed, a 200-round repeated cross-room race, 20 concurrent
+  non-conflicting bookings across different rooms all succeeding despite the single lock), and
+  `MeetingSchedulerControllerIntegrationTest` — a real MockMvc round trip proving the response body
+  actually serializes (the gap RCA-049 found the rest of this repo has almost everywhere) and that
+  no returned model leaks an internal lock the way `Elevator`/`Member` briefly did.
+
+### Frontend
+- 5 tabs: App, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design Details.
+- App tab: book a meeting into any room with comma-separated attendee ids, see a live "Scheduled
+  Meetings" list (polled every 5s), cancel a meeting.
+- 8-step interactive simulation against isolated `/api/meetingscheduler/sim/*` endpoints — seeds two
+  rooms, books two non-conflicting meetings, then fires a real room-conflict rejection and a real
+  cross-room attendee-conflict rejection, then a non-overlapping booking, a cancellation, and a
+  re-booking of the freed slot — rendered as two per-room day timelines (9:00–18:00) plus a live
+  event log, so every rejection is a real backend 409, not a scripted animation.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
