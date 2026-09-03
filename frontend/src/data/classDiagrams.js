@@ -8,6 +8,7 @@ import _auction from './diagrams/auction.js';
 import _blockingQueue from './diagrams/blocking-queue.js';
 import _bloomFilter from './diagrams/bloom-filter.js';
 import _carRental from './diagrams/car-rental.js';
+import _meetingScheduler from './diagrams/meeting-scheduler.js';
 import _chess from './diagrams/chess.js';
 import _circuitBreaker from './diagrams/circuit-breaker.js';
 import _coffee from './diagrams/coffee.js';
@@ -56,6 +57,7 @@ const classDiagrams = {
   blockingQueue: _blockingQueue,
   bloomFilter: _bloomFilter,
   carRental: _carRental,
+  meetingScheduler: _meetingScheduler,
   chess: _chess,
   circuitBreaker: _circuitBreaker,
   coffee: _coffee,
