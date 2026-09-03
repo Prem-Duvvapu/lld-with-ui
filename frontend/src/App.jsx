@@ -77,6 +77,7 @@ const LLD_ROUTES = [
   { path: 'blocking-queue', title: 'Blocking Queue', module: './lld/blocking-queue/BlockingQueuePage.jsx' },
   { path: 'bloom-filter', title: 'Concurrent Bloom Filter', module: './lld/bloom-filter/BloomFilterPage.jsx' },
   { path: 'merge-sort', title: 'Multi-threaded Merge Sort', module: './lld/merge-sort/MergeSortPage.jsx' },
+  { path: 'meeting-scheduler', title: 'Meeting Scheduler', module: './lld/meeting-scheduler/MeetingSchedulerPage.jsx' },
 ]
 
 function Layout({ children }) {

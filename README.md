@@ -53,6 +53,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 43 | [Blocking Queue](#43-blocking-queue) | Concurrent queue | Producer-Consumer, ReentrantLock + Condition |
 | 44 | [Concurrent Bloom Filter](#44-concurrent-bloom-filter) | Probabilistic structure | BitSet + Kirsch–Mitzenmacher Double Hashing, real backend trace replay |
 | 45 | [Multi-threaded Merge Sort](#45-multi-threaded-merge-sort) | Parallel sorting | ForkJoinPool / RecursiveAction, real backend trace replay |
+| 48 | [Meeting Scheduler](#48-meeting-scheduler) | Room booking | Facade, Repository, single module-wide lock guarding room- AND attendee-level conflict checks |
 
 ---
 
@@ -1275,6 +1276,25 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 #### API Endpoints
 - `POST /api/concurrency/merge-sort/run`
+
+---
+
+### 48. Meeting Scheduler
+
+#### Key Features
+- **Two-Dimensional Conflict Detection**: a booking is rejected if the room has an overlapping meeting OR if the organizer/any attendee already has an overlapping meeting **in any other room** — not just a room-availability check.
+- **Single Module-Wide Lock, Deliberately**: `ConflictDetectionService` uses one `ReentrantLock` for the whole module rather than a per-room lock, because an attendee conflict spans rooms — a per-room lock cannot see it. Documented tradeoff: less throughput, but correctness across both conflict dimensions.
+- **Cancellation Frees Both Dimensions**: cancelling a meeting immediately frees its room and every participant's calendar for that slot.
+- **Isolated `/sim/*` Sandbox**: the interactive demo runs against its own `MeetingSchedulerRepository` + `ConflictDetectionService` pair, so it can race a real room conflict and a real cross-room attendee conflict without touching live bookings.
+
+#### API Endpoints
+- `GET /api/meetingscheduler/rooms`
+- `GET /api/meetingscheduler/rooms/{roomId}`
+- `GET /api/meetingscheduler/rooms/{roomId}/availability?date=...`
+- `POST /api/meetingscheduler/rooms/{roomId}/book`
+- `GET /api/meetingscheduler/meetings`
+- `GET /api/meetingscheduler/meetings/{meetingId}`
+- `DELETE /api/meetingscheduler/meetings/{meetingId}`
 
 ---
 

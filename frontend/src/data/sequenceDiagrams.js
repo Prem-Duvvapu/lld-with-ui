@@ -9,6 +9,7 @@ import _auction from './sequences/auction.js';
 import _blockingQueue from './sequences/blocking-queue.js';
 import _bloomFilter from './sequences/bloom-filter.js';
 import _carRental from './sequences/car-rental.js';
+import _meetingScheduler from './sequences/meeting-scheduler.js';
 import _chess from './sequences/chess.js';
 import _coffee from './sequences/coffee.js';
 import _concertTicket from './sequences/concert-ticket.js';
@@ -56,6 +57,7 @@ const sequenceDiagrams = {
   blockingQueue: _blockingQueue,
   bloomFilter: _bloomFilter,
   carRental: _carRental,
+  meetingScheduler: _meetingScheduler,
   chess: _chess,
   coffee: _coffee,
   concertTicket: _concertTicket,

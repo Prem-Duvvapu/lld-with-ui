@@ -8,6 +8,7 @@ import _auction from './design/auction.js';
 import _blockingQueue from './design/blocking-queue.js';
 import _bloomFilter from './design/bloom-filter.js';
 import _carRental from './design/car-rental.js';
+import _meetingScheduler from './design/meeting-scheduler.js';
 import _chess from './design/chess.js';
 import _coffee from './design/coffee.js';
 import _concertTicket from './design/concert-ticket.js';
@@ -55,6 +56,7 @@ const designDetails = {
   blockingQueue: _blockingQueue,
   bloomFilter: _bloomFilter,
   carRental: _carRental,
+  meetingScheduler: _meetingScheduler,
   chess: _chess,
   coffee: _coffee,
   concertTicket: _concertTicket,
