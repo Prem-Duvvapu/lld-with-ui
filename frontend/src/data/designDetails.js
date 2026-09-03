@@ -9,6 +9,7 @@ import _blockingQueue from './design/blocking-queue.js';
 import _bloomFilter from './design/bloom-filter.js';
 import _carRental from './design/car-rental.js';
 import _chess from './design/chess.js';
+import _circuitBreaker from './design/circuit-breaker.js';
 import _coffee from './design/coffee.js';
 import _concertTicket from './design/concert-ticket.js';
 import _concurrentHashmap from './design/concurrent-hashmap.js';
@@ -56,6 +57,7 @@ const designDetails = {
   bloomFilter: _bloomFilter,
   carRental: _carRental,
   chess: _chess,
+  circuitBreaker: _circuitBreaker,
   coffee: _coffee,
   concertTicket: _concertTicket,
   concurrentHashmap: _concurrentHashmap,

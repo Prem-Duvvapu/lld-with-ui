@@ -53,6 +53,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 43 | [Blocking Queue](#43-blocking-queue) | Concurrent queue | Producer-Consumer, ReentrantLock + Condition |
 | 44 | [Concurrent Bloom Filter](#44-concurrent-bloom-filter) | Probabilistic structure | BitSet + Kirsch–Mitzenmacher Double Hashing, real backend trace replay |
 | 45 | [Multi-threaded Merge Sort](#45-multi-threaded-merge-sort) | Parallel sorting | ForkJoinPool / RecursiveAction, real backend trace replay |
+| 47 | [Circuit Breaker](#47-circuit-breaker) | Resilience pattern | State (Closed/Open/Half-Open), Strategy (trip policies), per-service ReentrantLock |
 
 ---
 
@@ -1275,6 +1276,28 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 #### API Endpoints
 - `POST /api/concurrency/merge-sort/run`
+
+---
+
+### 47. Circuit Breaker
+
+#### Key Features
+- **State Pattern (Closed/Open/Half-Open)**: `CircuitBreaker` delegates its phase to a `CircuitState` singleton (`ClosedState`/`OpenState`/`HalfOpenState`); each state actively drives its own transition (`onSuccess()`/`onFailure()`) rather than the context branching on an enum.
+- **Pluggable Trip Policies (Strategy)**: `ConsecutiveFailureTripPolicy` (N failures in a row) and `FailureRateTripPolicy` (a rolling-window failure rate, gated by a minimum-calls floor) — three live demo services are seeded mixing both, so the pluggability is exercised, not just declared.
+- **Exactly-One Half-Open Trial**: `attemptCall()` holds one lock for the entire operation, guaranteeing a second caller arriving mid-trial blocks until the first has already resolved the breaker to `CLOSED` or back to `OPEN` — never two concurrent "trial" calls.
+- **Deterministic Cooldown via a Clock Abstraction**: `SystemClock` in production, `ManualClock` in tests and the `/sim/*` sandbox, so a cooldown-elapsed test never sleeps for real time.
+- **Isolated Simulation Sandbox**: `/api/circuitbreaker/sim/*` runs an 8-step guided demo — cold boot, a run of failures tripping the breaker, a rejected call while `OPEN`, and recovery through `HALF_OPEN` — on a completely separate registry from the three live demo services.
+
+#### API Endpoints
+- `GET /api/circuitbreaker/services`
+- `GET /api/circuitbreaker/{serviceName}/state`
+- `POST /api/circuitbreaker/{serviceName}/call`
+- `POST /api/circuitbreaker/{serviceName}/reset`
+- `POST /api/circuitbreaker/sim/reset`
+- `POST /api/circuitbreaker/sim/call`
+- `POST /api/circuitbreaker/sim/advance-clock`
+- `GET /api/circuitbreaker/sim/events`
+- `GET /api/circuitbreaker/sim/snapshot`
 
 ---
 

@@ -9,6 +9,7 @@ import _blockingQueue from './diagrams/blocking-queue.js';
 import _bloomFilter from './diagrams/bloom-filter.js';
 import _carRental from './diagrams/car-rental.js';
 import _chess from './diagrams/chess.js';
+import _circuitBreaker from './diagrams/circuit-breaker.js';
 import _coffee from './diagrams/coffee.js';
 import _concertTicket from './diagrams/concert-ticket.js';
 import _concurrentHashmap from './diagrams/concurrent-hashmap.js';
@@ -56,6 +57,7 @@ const classDiagrams = {
   bloomFilter: _bloomFilter,
   carRental: _carRental,
   chess: _chess,
+  circuitBreaker: _circuitBreaker,
   coffee: _coffee,
   concertTicket: _concertTicket,
   concurrentHashmap: _concurrentHashmap,

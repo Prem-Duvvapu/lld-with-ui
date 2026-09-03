@@ -27,6 +27,7 @@ class DomainExceptionContractTest {
             "AtmException",
             "CarRentalException",
             "ChessException",
+            "CircuitBreakerException",
             "CoffeeMachineException",
             "ConcertTicketException",
             "CourseRegistrationException",

@@ -1192,6 +1192,23 @@ it proposed had, by the time this was read, already shipped as `TariffStrategy`.
 `simBook` pricing/logging, the check-in/check-out lifecycle, `simCancel`'s refund resolution,
 `simRace`'s exactly-one-winner guarantee and its guest-count clamping).
 
+## Circuit Breaker Module
+Brand-new module (not an upgrade of a pre-existing frontend shell).
+
+### Backend
+- `com.lld.circuitbreaker`: `controller / service / model / state / strategy / repository / exception / config / clock` packages.
+- `CircuitBreaker` (model): one named breaker, delegates its phase to a `CircuitState` (State pattern — `ClosedState`/`OpenState`/`HalfOpenState`, same idiom as `trafficsignal.state.SignalState`, except here each state actively drives the transition via `onSuccess()`/`onFailure()` rather than the context reading a fixed `next()` chain, since the reaction genuinely depends on the call's outcome). `attemptCall(simulateSuccess)` holds one `ReentrantLock` for the whole operation, including any state transition — deliberately, since that is what guarantees exactly one `HALF_OPEN` trial call is ever in flight (see the class javadoc).
+- **Strategy Pattern** — `TripPolicy` (`ConsecutiveFailureTripPolicy`, `FailureRateTripPolicy` with a minimum-calls-in-window floor so an early single failure can't read as a 100% rate). `CircuitBreakerInitializer` seeds three live demo services deliberately mixing both: `payment-service` (consecutive, threshold 3), `inventory-service` (failure-rate, 50%/4 calls), `notification-service` (consecutive, threshold 5).
+- **Clock abstraction** (`SystemClock`/`ManualClock`), the same purpose as `trafficsignal.clock.SignalTicker` — measures a breaker's cooldown without ever sleeping in a test. `CircuitBreakerRegistry` (repository) holds one breaker per service name in a `ConcurrentHashMap`; `get()` throws `UnknownServiceException` (404) rather than silently auto-creating a breaker for an undeclared dependency.
+- **Exception hierarchy**: `CircuitBreakerException` (abstract base) `extends com.lld.config.DomainException`, with `CircuitOpenException` (409 — a rejected call; not 5xx, since the breaker is doing its job, not failing) and `UnknownServiceException` (404).
+- Isolated `/api/circuitbreaker/sim/*` engine: a completely separate `CircuitBreakerRegistry` + `ManualClock`, rebuilt from scratch on every `simReset()`, seeding one `payment-gateway` breaker (`ConsecutiveFailureTripPolicy(3)`, 5s cooldown). `simCall`/`simAdvanceClock` let a demo jump straight past the cooldown instead of waiting on real time; a rejected `simCall` is caught and logged as a `CALL_REJECTED` event rather than thrown to the caller.
+- Tests (5 files): `CircuitBreakerTest` (state-machine unit test against a `ManualClock` — trip, rejection during cooldown, half-open success/failure, rolling-window cap), `TripPolicyTest` (both strategies), `CircuitBreakerRegistryTest`, `CircuitBreakerConcurrencyTest` (30 threads racing failing calls against a threshold-5 breaker trip exactly once, at exactly the threshold — proves the lock, not just asserts a happy path), `CircuitBreakerServiceTest`, plus `CircuitBreakerControllerIntegrationTest` (MockMvc — the RCA-049 lesson: no other test here goes through real Jackson serialization, and this module's `CircuitBreaker.lock`/`.clock` fields are asserted absent from every response body).
+
+### Frontend
+- 5 tabs: Services, Simulation, Class Diagram, Sequence Diagram, Design Details.
+- Services tab: polls `GET /services` every 3s, one card per live breaker (phase pill, consecutive failures, failure rate, cooldown countdown while `OPEN`), with Simulate Success/Failure/Reset buttons per card.
+- Simulation tab: 8-step guided demo against `/sim/*` — cold boot, two sub-threshold failures, the trip-triggering third failure, a rejected call while `OPEN`, a clock-advance-then-failing-trial step (reopens), a clock-advance-then-succeeding-trial step (closes), and a final review — with a caller → breaker-gauge → downstream flow diagram (color/pulse per phase) and a reverse-chronological event log.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)

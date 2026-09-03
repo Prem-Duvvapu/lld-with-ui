@@ -54,6 +54,7 @@ const LLD_ROUTES = [
   { path: 'vending-machine', title: 'Vending Machine', module: './lld/vendingmachine/VendingMachinePage.jsx' },
   { path: 'logging-framework', title: 'Logging Framework', module: './lld/logging-framework/LoggingFrameworkPage.jsx' },
   { path: 'traffic-signal', title: 'Traffic Signal', module: './lld/traffic-signal/TrafficSignalPage.jsx' },
+  { path: 'circuit-breaker', title: 'Circuit Breaker', module: './lld/circuit-breaker/CircuitBreakerPage.jsx' },
   { path: 'task-management', title: 'Task Management', module: './lld/task-management/TaskManagementPage.jsx' },
   { path: 'linkedin', title: 'LinkedIn', module: './lld/linkedin/LinkedInPage.jsx' },
   { path: 'lru-cache', title: 'LRU Cache', module: './lld/lru-cache/LruCachePage.jsx' },
