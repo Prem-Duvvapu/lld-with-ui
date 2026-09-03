@@ -54,6 +54,7 @@ const LLD_ROUTES = [
   { path: 'vending-machine', title: 'Vending Machine', module: './lld/vendingmachine/VendingMachinePage.jsx' },
   { path: 'logging-framework', title: 'Logging Framework', module: './lld/logging-framework/LoggingFrameworkPage.jsx' },
   { path: 'traffic-signal', title: 'Traffic Signal', module: './lld/traffic-signal/TrafficSignalPage.jsx' },
+  { path: 'circuit-breaker', title: 'Circuit Breaker', module: './lld/circuit-breaker/CircuitBreakerPage.jsx' },
   { path: 'task-management', title: 'Task Management', module: './lld/task-management/TaskManagementPage.jsx' },
   { path: 'linkedin', title: 'LinkedIn', module: './lld/linkedin/LinkedInPage.jsx' },
   { path: 'lru-cache', title: 'LRU Cache', module: './lld/lru-cache/LruCachePage.jsx' },
@@ -78,6 +79,7 @@ const LLD_ROUTES = [
   { path: 'bloom-filter', title: 'Concurrent Bloom Filter', module: './lld/bloom-filter/BloomFilterPage.jsx' },
   { path: 'merge-sort', title: 'Multi-threaded Merge Sort', module: './lld/merge-sort/MergeSortPage.jsx' },
   { path: 'rate-limiter', title: 'Rate Limiter', module: './lld/rate-limiter/RateLimiterPage.jsx' },
+  { path: 'meeting-scheduler', title: 'Meeting Scheduler', module: './lld/meeting-scheduler/MeetingSchedulerPage.jsx' },
 ]
 
 function Layout({ children }) {

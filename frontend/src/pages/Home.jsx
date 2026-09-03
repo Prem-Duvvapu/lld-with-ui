@@ -66,6 +66,8 @@ const ALL_LLDS = [
     desc: 'Pluggable logging levels, appenders, formatted output, singleton logger' },
   { title: 'Traffic Signal', icon: '🚦', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'State machine for traffic lights with timer-based transitions, emergency override' },
+  { title: 'Circuit Breaker', icon: '🔌', difficulty: 'Medium', category: 'Design Patterns & Systems',
+    desc: 'Closed/Open/Half-Open state machine guarding calls, pluggable trip policies, cooldown recovery' },
   { title: 'Task Management', icon: '✅', difficulty: 'Easy', category: 'Design Patterns & Systems',
     desc: 'Kanban-style board with status workflow, priority levels, user assignment' },
   { title: 'Pub Sub System', icon: '📡', difficulty: 'Medium', category: 'Design Patterns & Systems',
@@ -112,6 +114,8 @@ const ALL_LLDS = [
     desc: 'Parallel divide-and-conquer sort using ForkJoinPool for efficient multi-core sorting' },
   { title: 'Rate Limiter', icon: '🚧', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Per-client throttling with Token Bucket and Sliding Window Counter strategies' },
+  { title: 'Meeting Scheduler', icon: '📅', difficulty: 'Medium', category: 'Core',
+    desc: 'Room booking with room- and attendee-level conflict detection across overlapping time ranges' }
 ]
 
 const routeMap = {
@@ -124,6 +128,7 @@ const routeMap = {
   'CricInfo': 'cricinfo', 'Music Streaming': 'music-streaming',
   'Course Registration': 'course-registration', 'Stock Brokerage': 'stock-brokerage',
   'Logging Framework': 'logging-framework', 'Traffic Signal': 'traffic-signal',
+  'Circuit Breaker': 'circuit-breaker',
   'Task Management': 'task-management', 'Pub Sub System': 'pub-sub', 'LRU Cache': 'lru-cache',
   'Snake & Ladders': 'snakeladders', 'Tic Tac Toe': 'tictactoe', 'Chess': 'chess',
   'Ludo': 'ludo', 'Minesweeper': 'minesweeper',
@@ -134,7 +139,9 @@ const routeMap = {
   'Fizz Buzz Multithreaded': 'fizz-buzz', 'Building H2O': 'h2o',
   'Thread-Safe TTL Cache': 'ttl-cache', 'Concurrent HashMap': 'concurrent-hashmap',
   'Blocking Queue': 'blocking-queue', 'Concurrent Bloom Filter': 'bloom-filter',
-  'Multi-threaded Merge Sort': 'merge-sort', 'Rate Limiter': 'rate-limiter',
+  'Multi-threaded Merge Sort': 'merge-sort',
+  'Rate Limiter': 'rate-limiter',
+  'Meeting Scheduler': 'meeting-scheduler',
 }
 
 export default function Home() {

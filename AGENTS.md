@@ -1247,6 +1247,76 @@ New module (portfolio position #46). Package `com.lld.ratelimiter`.
   code that actually exists in this module; no exception classes or sim plumbing in the class
   diagram, per the project's documented class-diagram scope rule.
 
+## Circuit Breaker Module
+Brand-new module (not an upgrade of a pre-existing frontend shell).
+
+### Backend
+- `com.lld.circuitbreaker`: `controller / service / model / state / strategy / repository / exception / config / clock` packages.
+- `CircuitBreaker` (model): one named breaker, delegates its phase to a `CircuitState` (State pattern — `ClosedState`/`OpenState`/`HalfOpenState`, same idiom as `trafficsignal.state.SignalState`, except here each state actively drives the transition via `onSuccess()`/`onFailure()` rather than the context reading a fixed `next()` chain, since the reaction genuinely depends on the call's outcome). `attemptCall(simulateSuccess)` holds one `ReentrantLock` for the whole operation, including any state transition — deliberately, since that is what guarantees exactly one `HALF_OPEN` trial call is ever in flight (see the class javadoc).
+- **Strategy Pattern** — `TripPolicy` (`ConsecutiveFailureTripPolicy`, `FailureRateTripPolicy` with a minimum-calls-in-window floor so an early single failure can't read as a 100% rate). `CircuitBreakerInitializer` seeds three live demo services deliberately mixing both: `payment-service` (consecutive, threshold 3), `inventory-service` (failure-rate, 50%/4 calls), `notification-service` (consecutive, threshold 5).
+- **Clock abstraction** (`SystemClock`/`ManualClock`), the same purpose as `trafficsignal.clock.SignalTicker` — measures a breaker's cooldown without ever sleeping in a test. `CircuitBreakerRegistry` (repository) holds one breaker per service name in a `ConcurrentHashMap`; `get()` throws `UnknownServiceException` (404) rather than silently auto-creating a breaker for an undeclared dependency.
+- **Exception hierarchy**: `CircuitBreakerException` (abstract base) `extends com.lld.config.DomainException`, with `CircuitOpenException` (409 — a rejected call; not 5xx, since the breaker is doing its job, not failing) and `UnknownServiceException` (404).
+- Isolated `/api/circuitbreaker/sim/*` engine: a completely separate `CircuitBreakerRegistry` + `ManualClock`, rebuilt from scratch on every `simReset()`, seeding one `payment-gateway` breaker (`ConsecutiveFailureTripPolicy(3)`, 5s cooldown). `simCall`/`simAdvanceClock` let a demo jump straight past the cooldown instead of waiting on real time; a rejected `simCall` is caught and logged as a `CALL_REJECTED` event rather than thrown to the caller.
+- Tests (5 files): `CircuitBreakerTest` (state-machine unit test against a `ManualClock` — trip, rejection during cooldown, half-open success/failure, rolling-window cap), `TripPolicyTest` (both strategies), `CircuitBreakerRegistryTest`, `CircuitBreakerConcurrencyTest` (30 threads racing failing calls against a threshold-5 breaker trip exactly once, at exactly the threshold — proves the lock, not just asserts a happy path), `CircuitBreakerServiceTest`, plus `CircuitBreakerControllerIntegrationTest` (MockMvc — the RCA-049 lesson: no other test here goes through real Jackson serialization, and this module's `CircuitBreaker.lock`/`.clock` fields are asserted absent from every response body).
+
+### Frontend
+- 5 tabs: Services, Simulation, Class Diagram, Sequence Diagram, Design Details.
+- Services tab: polls `GET /services` every 3s, one card per live breaker (phase pill, consecutive failures, failure rate, cooldown countdown while `OPEN`), with Simulate Success/Failure/Reset buttons per card.
+- Simulation tab: 8-step guided demo against `/sim/*` — cold boot, two sub-threshold failures, the trip-triggering third failure, a rejected call while `OPEN`, a clock-advance-then-failing-trial step (reopens), a clock-advance-then-succeeding-trial step (closes), and a final review — with a caller → breaker-gauge → downstream flow diagram (color/pulse per phase) and a reverse-chronological event log.
+
+## Meeting Scheduler Module
+### Backend
+- `MeetingSchedulerInitializer`: 3 rooms (Falcon cap 8, Griffin cap 4, Phoenix cap 12) and two demo
+  meetings booked through the real `MeetingSchedulerService.bookMeeting()` path (not written
+  straight into the repository), so first load exercises the same conflict-checking a real client
+  would — same discipline as `CarRentalInitializer`'s seed reservations.
+- `MeetingSchedulerService`: Facade over `bookMeeting`, `cancelMeeting`, `getAvailability`,
+  `getMeetingsForPerson`, `getAllRooms`/`getRoom`, plus isolated sim methods (`simSeedRoom`,
+  `simBookMeeting`, `simCancelMeeting`, `simGetRooms`, `simGetMeetings`) against a second
+  `MeetingSchedulerRepository`/`ConflictDetectionService` pair — same shape as `CarRentalService`'s
+  `simRepository`/`simLockService`.
+- **Single Module-Wide Lock, Not Per-Room (the concurrency centerpiece, and a deliberate departure
+  from `carrental`'s precedent)**: a meeting has TWO conflict dimensions that don't share a lockable
+  key — the room, and every participant's calendar, which spans any number of *other* rooms. A
+  per-room `ReentrantLock` (the `ReservationLockService`/`DriverAssignmentService` idiom used
+  everywhere else in this repo) cannot make attendee-conflict checking safe: two threads booking the
+  same person into two *different* rooms would each acquire a *different* room's lock, each read
+  that person's calendar clean, and both succeed — a real double-booking despite every individual
+  lock being respected correctly. `ConflictDetectionService` uses one fair `ReentrantLock` for the
+  entire module instead, checking the room's calendar and then every participant's calendar (via
+  `Meeting.allParticipants()`, which is organizerId + attendeeIds) inside a single critical section.
+  This trades booking throughput (only one booking validated at a time, module-wide) for actual
+  correctness across both dimensions — the right call, since booking volume here is nowhere near
+  contended enough for throughput to matter.
+- `MeetingStatus` (`SCHEDULED`, `CANCELLED`) is the smallest state machine in the repo — just
+  `blocksCalendar()`, no transition table, since the only legal move is SCHEDULED→CANCELLED and
+  there is no reschedule operation (cancel-then-rebook instead).
+- Half-open interval overlap (`s1 < e2 && s2 < e1`) — a meeting ending exactly when another starts
+  is not a conflict, same convention as `carrental`'s date-range overlap check.
+- Exception hierarchy: `MeetingSchedulerException extends com.lld.config.DomainException` with
+  `RoomNotFoundException`/`MeetingNotFoundException` (404), `RoomConflictException`/
+  `AttendeeConflictException` (409), `InvalidMeetingTimeException` (400, end not after start).
+- Tests: `MeetingSchedulerServiceTest` (facade validation, availability/person lookups, sim/live
+  isolation), `ConflictDetectionServiceTest` (single-threaded room- and attendee-conflict
+  correctness, back-to-back non-overlap, cancellation freeing both dimensions),
+  `MeetingSchedulerRepositoryTest` (storage, id generation, organizer-or-attendee lookup),
+  `MeetingSchedulerConcurrencyTest` (the room-level race, the cross-room attendee-level race that a
+  per-room lock would have missed, a 200-round repeated cross-room race, 20 concurrent
+  non-conflicting bookings across different rooms all succeeding despite the single lock), and
+  `MeetingSchedulerControllerIntegrationTest` — a real MockMvc round trip proving the response body
+  actually serializes (the gap RCA-049 found the rest of this repo has almost everywhere) and that
+  no returned model leaks an internal lock the way `Elevator`/`Member` briefly did.
+
+### Frontend
+- 5 tabs: App, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design Details.
+- App tab: book a meeting into any room with comma-separated attendee ids, see a live "Scheduled
+  Meetings" list (polled every 5s), cancel a meeting.
+- 8-step interactive simulation against isolated `/api/meetingscheduler/sim/*` endpoints — seeds two
+  rooms, books two non-conflicting meetings, then fires a real room-conflict rejection and a real
+  cross-room attendee-conflict rejection, then a non-overlapping booking, a cancellation, and a
+  re-booking of the freed slot — rendered as two per-room day timelines (9:00–18:00) plus a live
+  event log, so every rejection is a real backend 409, not a scripted animation.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)

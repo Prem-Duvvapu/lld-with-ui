@@ -24,7 +24,7 @@ const cards = [...homeSrc.matchAll(/\{\s*title:\s*'([^']+)',\s*icon:/g)].map((m)
 describe('routing', () => {
   it('parses routes and home cards', () => {
     expect(routes.length).toBeGreaterThan(45);
-    expect(cards.length).toBe(46);
+    expect(cards.length).toBe(48);
   });
 
   // Snake & Ladders shipped broken this way: the card linked to /snakeladders
