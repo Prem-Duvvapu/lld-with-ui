@@ -4724,3 +4724,91 @@ regress under the new precedence, since none mix both keys in a way the old orde
 Confirms the pattern from the main entry's Preventative Measures: acting on "here's what else is
 probably wrong" immediately, rather than filing it as a someday-list item, is what turned two of
 three predicted gaps into actually-fixed code the same day.
+## RCA-050: `backend/Dockerfile` Still Declared `EXPOSE 9190` After the Default Port Moved to 59190 — the Docker Path Was Never Actually Exercised to Catch It
+
+### 1. Overview & Severity
+**Severity: Low (metadata drift, not a live break).** The port-migration work (#71) moved the
+backend's default port from `9190` to `59190` and updated `application.properties`,
+`OpenApiConfig`, `vite.config.js`, `docker-compose.yml`, `nginx.conf`, `start.sh`, six frontend
+error banners, and every doc reference — eight distinct file categories, all caught by an explicit
+grep sweep at the time. `backend/Dockerfile`'s `EXPOSE 9190` line was not one of them; it was
+never grepped because the sweep's file-extension filter (`--include="*.properties" --include="*.yml"
+--include="*.js" ... --include="*.conf" --include="*.sh"`) has no entry for a file literally named
+`Dockerfile`, which has no extension at all.
+
+### 2. Symptoms & Error Logs
+None observable through normal use. `EXPOSE` is Docker image metadata — it does not bind a port or
+affect `docker-compose.yml`'s explicit `"${BACKEND_PORT:-59190}:59190"` mapping, which works
+regardless of what the image declares. The only visible consequences are `docker inspect`, showing
+port `9190/tcp` as exposed when the process inside actually listens on `59190`, and `docker run -P`
+(Docker's "auto-publish every exposed port to a random host port" convenience flag) publishing the
+wrong container port, mapping traffic to a port nothing is listening on.
+
+### 3. Root Cause
+The original port-migration sweep (#71) found every place a port number was hardcoded via:
+```bash
+grep -rln "9190" --include="*.properties" --include="*.yml" --include="*.yaml" --include="*.js" \
+  --include="*.jsx" --include="*.json" --include="*.md" --include="*.sh" .
+```
+`Dockerfile` (both `backend/Dockerfile` and `frontend/Dockerfile`) matches none of those
+`--include` patterns, since it's an extensionless filename, not a `*.something` pattern. The sweep
+was thorough for every file type it was told to look at and silently blind to the one file type it
+wasn't. `frontend/Dockerfile` happened to be unaffected only because it never hardcoded a port
+number in the first place (`EXPOSE 80`, the nginx container's fixed internal port, deliberately
+never changes per `docker-compose.yml`'s own documented design). `backend/Dockerfile`, which does
+hardcode the backend's port, was not so lucky.
+
+Compounding this: nothing in CI or local verification ever builds or runs the Docker images.
+`ci.yml` runs `mvn test` and `npx vitest run` + `npm run build` directly on the host — never
+`docker build` or `docker compose up`. So even after the miss, nothing would have caught it; the
+Docker path is simply never exercised by anything in this repository's automation.
+
+### 4. Diagnostic Commands
+```bash
+# The original sweep's blind spot, reproduced: Dockerfile matches no --include pattern used
+grep -rln "9190" --include="*.properties" --include="*.yml" --include="*.js" --include="*.sh" .
+# -> does not list backend/Dockerfile even though it contains "9190"
+
+# The actual stale line:
+grep -n "EXPOSE" backend/Dockerfile frontend/Dockerfile
+# -> backend/Dockerfile:20:EXPOSE 9190        (stale)
+# -> frontend/Dockerfile:16:EXPOSE 80         (correct — never changes by design)
+
+# Confirms Docker itself isn't reachable from this WSL shell to verify a build directly:
+docker version
+# -> "The command 'docker' could not be found in this WSL 2 distro. ... activate the WSL
+#     integration in Docker Desktop settings." (a one-time host machine setting, not a repo fix)
+```
+
+### 5. Step-by-Step Resolution
+1. While reviewing "what else is unverified" after the RCA-049 line of fixes, re-examined
+   `docker-compose.yml`, both `Dockerfile`s, and `nginx.conf` by eye (the same files touched by
+   #71) rather than re-trusting the earlier grep's completeness.
+2. Found `backend/Dockerfile:20` still reading `EXPOSE 9190` against every other file's `59190`.
+3. Confirmed via a final grep pass across all four Docker-related files that this was the only
+   remaining stale reference — `nginx.conf`'s two `proxy_pass` lines and `docker-compose.yml`'s two
+   port mappings already correctly say `59190`/`53000`.
+4. Fixed to `EXPOSE 59190`. Attempted to verify with an actual `docker build`, but Docker is not
+   reachable from this WSL distro (`docker version` fails — WSL integration isn't enabled in Docker
+   Desktop's settings, a host-machine configuration outside this repo's control). Verification is
+   therefore static (byte-for-byte matching every other file's declared port) rather than a real
+   build — flagged explicitly rather than claimed as tested.
+
+### 6. Preventative Measures
+1. **A file-extension `--include` filter is only as complete as its list of extensions — files with
+   no extension at all (`Dockerfile`, `Makefile`, `Jenkinsfile`, `Procfile`) silently fall outside
+   every pattern unless explicitly named.** A "find every place X is hardcoded" sweep should either
+   grep every tracked file (`git grep`, `grep -r` with no `--include` filter at all, then exclude
+   known-noisy paths like `node_modules`/`target`) or explicitly enumerate extensionless
+   config-shaped filenames alongside the extension list. Filtering by extension is convenient but
+   is exactly the kind of "was thorough for what it checked, blind to what it didn't think to
+   check" gap that keeps recurring across this file's own history (RCA-046's regex gaps,
+   RCA-048's un-slugified anchor comparison).
+2. **The Docker deployment path has zero automated verification anywhere in this repository** —
+   not in CI, not in any test, not in this session. `docker-compose.yml` and both `Dockerfile`s
+   have been edited multiple times (#71, this entry) purely by static review of file contents,
+   never confirmed against an actual `docker build`/`docker compose up`. This is a standing,
+   undocumented gap: if Docker is ever made reachable in an environment doing this kind of review,
+   an actual build-and-smoke-test pass over the compose stack would be worth doing at least once,
+   rather than continuing to trust "the files look internally consistent" as a proxy for "this
+   deploys."
