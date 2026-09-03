@@ -31,6 +31,7 @@ import _movieticket from './design/movieticket.js';
 import _musicStreaming from './design/music-streaming.js';
 import _parking from './design/parking.js';
 import _pubsub from './design/pubsub.js';
+import _rateLimiter from './design/rate-limiter.js';
 import _restaurant from './design/restaurant.js';
 import _shoppingcart from './design/shoppingcart.js';
 import _snakeladders from './design/snakeladders.js';
@@ -78,6 +79,7 @@ const designDetails = {
   musicStreaming: _musicStreaming,
   parking: _parking,
   pubsub: _pubsub,
+  rateLimiter: _rateLimiter,
   restaurant: _restaurant,
   shoppingcart: _shoppingcart,
   snakeladders: _snakeladders,

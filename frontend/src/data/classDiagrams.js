@@ -31,6 +31,7 @@ import _movieticket from './diagrams/movieticket.js';
 import _musicStreaming from './diagrams/music-streaming.js';
 import _parking from './diagrams/parking.js';
 import _pubsub from './diagrams/pubsub.js';
+import _rateLimiter from './diagrams/rate-limiter.js';
 import _restaurant from './diagrams/restaurant.js';
 import _shoppingcart from './diagrams/shoppingcart.js';
 import _snakeladders from './diagrams/snakeladders.js';
@@ -78,6 +79,7 @@ const classDiagrams = {
   musicStreaming: _musicStreaming,
   parking: _parking,
   pubsub: _pubsub,
+  rateLimiter: _rateLimiter,
   restaurant: _restaurant,
   shoppingcart: _shoppingcart,
   snakeladders: _snakeladders,

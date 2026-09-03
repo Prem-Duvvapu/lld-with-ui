@@ -1192,6 +1192,61 @@ it proposed had, by the time this was read, already shipped as `TariffStrategy`.
 `simBook` pricing/logging, the check-in/check-out lifecycle, `simCancel`'s refund resolution,
 `simRace`'s exactly-one-winner guarantee and its guest-count clamping).
 
+## Rate Limiter Module
+### Backend
+New module (portfolio position #46). Package `com.lld.ratelimiter`.
+- **Strategy + Factory**: `RateLimiter` interface with two real implementations —
+  `TokenBucketRateLimiter` (continuous refill, capacity-capped, `double tokens` so a fractional
+  refill rate accumulates correctly) and `SlidingWindowCounterRateLimiter` (weighted
+  `currentWindowCount + previousWindowCount * decayingWeight` estimate, O(1) window rollover
+  with no unbounded loop even across a large simulated time jump). `RateLimiterFactory` builds a
+  fresh, stateful instance per client — unlike a registry-of-singletons factory
+  (`SplitStrategyFactory`'s shape), each client's bucket/window state is unique, so the factory
+  must construct, not look up.
+- **Deterministic virtual clock**: every `RateLimiter` method takes `now` (epoch millis) as an
+  explicit parameter instead of reading `System.currentTimeMillis()` internally — the same
+  injectable-clock idiom as `trafficsignal.clock.SignalTicker`. This is what makes
+  `RateLimiterConcurrencyTest` fully deterministic (every thread calls `tryAcquire` with the
+  identical frozen timestamp, eliminating refill/rollover as a race variable) and lets the
+  `/sim/*` engine advance time only when a demo step asks it to.
+- **Per-client locking, no global lock**: `RateLimiterRepository` (`@Repository`,
+  `ConcurrentHashMap<String, RateLimiter>`) uses `computeIfAbsent` for atomic first-touch client
+  creation; each `RateLimiter` instance then guards its own state with its own `ReentrantLock`,
+  so unrelated clients never contend.
+- **RCA-049-safe by construction**: every endpoint returns a plain DTO (`RateLimitDecision` /
+  `ClientStatus`) assembled by `RateLimiterService`, never the `RateLimiter` strategy object or
+  its lock — there is nothing for Jackson to fail on or leak, by design rather than by an
+  after-the-fact `@JsonIgnore`.
+- Exception hierarchy: `RateLimiterException` (abstract, excluded from
+  `DomainExceptionContractTest`'s scan) with `ClientNotFoundException` (404) and
+  `InvalidRateLimitConfigException` (400, thrown by `RateLimiterFactory.create` for a
+  non-positive `capacityOrLimit`/`refillPerSecondOrWindowSeconds`).
+- `RateLimiterInitializer` seeds two demo clients on boot: `mobile-app` (TOKEN_BUCKET, capacity
+  10, refill 2/s) and `partner-api` (SLIDING_WINDOW_COUNTER, limit 5 per 10s window).
+- Isolated `/api/ratelimiter/sim/*` engine: a second, plain (non-bean) `RateLimiterRepository`
+  plus a manually-advanced virtual clock (`simClockMillis`, starts at 0 on every `simReset()`),
+  seeded with one `sim-client` (TOKEN_BUCKET, capacity 3, refill 1/s) — never touches the two
+  production demo clients.
+- Tests: `TokenBucketRateLimiterTest`/`SlidingWindowCounterRateLimiterTest` (strategy/unit —
+  capacity cap, continuous refill, window rollover and decay, `peek()` never mutating),
+  `RateLimiterRepositoryTest` (atomic `findOrCreate`, `configure` replacing state),
+  `RateLimiterServiceTest` (facade behaviour, both exceptions, sim/production isolation),
+  `RateLimiterConcurrencyTest` (the load-bearing race: N threads against a frozen timestamp,
+  asserting exactly capacity/limit requests are admitted for **both** algorithms — 5 repeats
+  each), and `RateLimiterControllerIntegrationTest` (`@SpringBootTest` + `MockMvc` — the fifth
+  test flavour RCA-049 found missing everywhere in this backend: a real HTTP + Jackson round
+  trip, not just a service-layer call, proving the DTO-only response design actually holds).
+
+### Frontend
+- `RateLimiterPage.jsx`/`api.js` — App tab lists the seeded clients with live remaining/allowed/
+  denied counters (polled) and a "Send Request" button per client; Simulation tab is an 8-step
+  token-bucket walkthrough (reset → drain 3 tokens → 1 throttled request → advance the clock 2s →
+  1 allowed request again → summary) with a bucket-fill visual and a telemetry HUD, entirely
+  driven by `/api/ratelimiter/sim/*` — no client-side faked state.
+- `frontend/src/data/design/rate-limiter.js` / `diagrams/rate-limiter.js` — grounded only in
+  code that actually exists in this module; no exception classes or sim plumbing in the class
+  diagram, per the project's documented class-diagram scope rule.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)

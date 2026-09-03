@@ -53,6 +53,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **45 LLD projects**
 | 43 | [Blocking Queue](#43-blocking-queue) | Concurrent queue | Producer-Consumer, ReentrantLock + Condition |
 | 44 | [Concurrent Bloom Filter](#44-concurrent-bloom-filter) | Probabilistic structure | BitSet + Kirsch–Mitzenmacher Double Hashing, real backend trace replay |
 | 45 | [Multi-threaded Merge Sort](#45-multi-threaded-merge-sort) | Parallel sorting | ForkJoinPool / RecursiveAction, real backend trace replay |
+| 46 | [Rate Limiter](#46-rate-limiter) | API request throttling | Strategy (Token Bucket / Sliding Window Counter), Factory, per-client ReentrantLock |
 
 ---
 
@@ -1275,6 +1276,28 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 #### API Endpoints
 - `POST /api/concurrency/merge-sort/run`
+
+---
+
+### 46. Rate Limiter
+
+#### Key Features
+- **Two Real, Interchangeable Algorithms**: `TokenBucketRateLimiter` (continuous refill, capacity-capped, fractional-token accurate) and `SlidingWindowCounterRateLimiter` (weighted current+previous window estimate), both behind one `RateLimiter` Strategy interface and built by `RateLimiterFactory`.
+- **True Per-Client Isolation**: one `RateLimiter` instance per client id, each guarded by its own `ReentrantLock` — unrelated clients never contend, and `ConcurrentHashMap.computeIfAbsent` makes first-touch client creation atomic without a global lock.
+- **Deterministic Virtual Clock**: every algorithm call takes `now` as an explicit parameter instead of reading `System.currentTimeMillis()` internally, making both the concurrency race test and the `/sim/*` demo fully reproducible.
+- **Isolated Simulation Sandbox**: a dedicated `/sim/*` client, repository, and manually-advanced virtual clock demonstrate throttling and refill without ever touching the two production demo clients seeded on boot.
+- **RCA-049-Safe by Design**: every endpoint returns a plain, flat DTO (`RateLimitDecision` / `ClientStatus`) — never the `RateLimiter` or its internal lock — so there is nothing for Jackson to leak or fail on.
+
+#### API Endpoints
+- `POST /api/ratelimiter/clients/{clientId}/request`
+- `GET /api/ratelimiter/clients/{clientId}/status`
+- `GET /api/ratelimiter/clients`
+- `PUT /api/ratelimiter/clients/{clientId}/config`
+- `POST /api/ratelimiter/sim/reset`
+- `POST /api/ratelimiter/sim/request`
+- `POST /api/ratelimiter/sim/advance`
+- `GET /api/ratelimiter/sim/events`
+- `GET /api/ratelimiter/sim/snapshot`
 
 ---
 

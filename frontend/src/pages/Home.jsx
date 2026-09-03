@@ -110,6 +110,8 @@ const ALL_LLDS = [
     desc: 'Probabilistic set membership with thread-safe bit operations' },
   { title: 'Multi-threaded Merge Sort', icon: '🔀', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Parallel divide-and-conquer sort using ForkJoinPool for efficient multi-core sorting' },
+  { title: 'Rate Limiter', icon: '🚧', difficulty: 'Medium', category: 'Concurrency',
+    desc: 'Per-client throttling with Token Bucket and Sliding Window Counter strategies' },
 ]
 
 const routeMap = {
@@ -132,7 +134,7 @@ const routeMap = {
   'Fizz Buzz Multithreaded': 'fizz-buzz', 'Building H2O': 'h2o',
   'Thread-Safe TTL Cache': 'ttl-cache', 'Concurrent HashMap': 'concurrent-hashmap',
   'Blocking Queue': 'blocking-queue', 'Concurrent Bloom Filter': 'bloom-filter',
-  'Multi-threaded Merge Sort': 'merge-sort',
+  'Multi-threaded Merge Sort': 'merge-sort', 'Rate Limiter': 'rate-limiter',
 }
 
 export default function Home() {
