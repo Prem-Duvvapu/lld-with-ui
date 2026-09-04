@@ -50,6 +50,7 @@ import _vendingmachine from './sequences/vendingmachine.js';
 import _wallet from './sequences/wallet.js';
 import _zeroEvenOdd from './sequences/zero-even-odd.js';
 import _zomato from './sequences/zomato.js';
+import _threadPool from './sequences/thread-pool.js';
 
 const sequenceDiagrams = {
   airline: _airline,
@@ -100,6 +101,7 @@ const sequenceDiagrams = {
   wallet: _wallet,
   zeroEvenOdd: _zeroEvenOdd,
   zomato: _zomato,
+  threadPool: _threadPool,
 };
 
 export default sequenceDiagrams;

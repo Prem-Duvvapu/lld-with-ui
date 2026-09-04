@@ -43,6 +43,7 @@ class DomainExceptionContractTest {
             "RestaurantException",
             "StackOverflowException",
             "StockBrokerException",
+            "ThreadPoolException",
             "TrafficSignalException",
             "UberException",
             "VendingMachineException",

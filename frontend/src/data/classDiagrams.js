@@ -50,6 +50,7 @@ import _vendingmachine from './diagrams/vendingmachine.js';
 import _wallet from './diagrams/wallet.js';
 import _zeroEvenOdd from './diagrams/zero-even-odd.js';
 import _zomato from './diagrams/zomato.js';
+import _threadPool from './diagrams/thread-pool.js';
 
 const classDiagrams = {
   airline: _airline,
@@ -100,6 +101,7 @@ const classDiagrams = {
   wallet: _wallet,
   zeroEvenOdd: _zeroEvenOdd,
   zomato: _zomato,
+  threadPool: _threadPool,
 };
 
 export default classDiagrams;

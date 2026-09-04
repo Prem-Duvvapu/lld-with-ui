@@ -80,6 +80,7 @@ const LLD_ROUTES = [
   { path: 'merge-sort', title: 'Multi-threaded Merge Sort', module: './lld/merge-sort/MergeSortPage.jsx' },
   { path: 'rate-limiter', title: 'Rate Limiter', module: './lld/rate-limiter/RateLimiterPage.jsx' },
   { path: 'meeting-scheduler', title: 'Meeting Scheduler', module: './lld/meeting-scheduler/MeetingSchedulerPage.jsx' },
+  { path: 'thread-pool', title: 'Thread Pool', module: './lld/thread-pool/ThreadPoolPage.jsx' },
 ]
 
 function Layout({ children }) {
