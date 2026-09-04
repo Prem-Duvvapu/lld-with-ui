@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **48 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **49 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -56,6 +56,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **48 LLD projects**
 | 46 | [Rate Limiter](#46-rate-limiter) | API request throttling | Strategy (Token Bucket / Sliding Window Counter), Factory, per-client ReentrantLock |
 | 47 | [Circuit Breaker](#47-circuit-breaker) | Resilience pattern | State (Closed/Open/Half-Open), Strategy (trip policies), per-service ReentrantLock |
 | 48 | [Meeting Scheduler](#48-meeting-scheduler) | Room booking | Facade, Repository, single module-wide lock guarding room- AND attendee-level conflict checks |
+| 49 | [Thread Pool](#49-thread-pool) | Custom worker pool | Strategy (rejection policies), Producer-Consumer, from-scratch bounded queue + real worker threads |
 
 ---
 
@@ -1341,6 +1342,30 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `GET /api/meetingscheduler/meetings`
 - `GET /api/meetingscheduler/meetings/{meetingId}`
 - `DELETE /api/meetingscheduler/meetings/{meetingId}`
+
+---
+
+### 49. Thread Pool
+
+#### Key Features
+- **Built From Scratch**: real `Thread`-backed `Worker` objects pulling from a real bounded queue — not a wrapper around `java.util.concurrent.ThreadPoolExecutor`.
+- **Faithful Core/Queue/Max Algorithm**: mirrors `ThreadPoolExecutor`'s exact decision order — fewer than `corePoolSize` workers spawns a core worker; queue has room enqueues; fewer than `maxPoolSize` workers spawns an extra worker; otherwise the pool is saturated and the configured `RejectionPolicy` decides.
+- **Four Rejection Policies (Strategy)**: `AbortPolicy` (throws), `CallerRunsPolicy` (runs on the submitting thread), `DiscardPolicy` (silently drops), `DiscardOldestPolicy` (evicts the oldest queued task) — two live demo pools seed different policies.
+- **A Freshly-Spawned Worker Bypasses the Queue Entirely**: a worker created specifically for a task is handed that task directly rather than through the shared queue — an earlier version routed every task through the queue and had a real, test-caught race where a not-yet-scheduled new worker's own task made `queueSize()` transiently overcount.
+- **Isolated Simulation Sandbox**: `/api/threadpool/sim/*` gates every task on its own `CountDownLatch` instead of a real sleep, so an 8-step guided demo backed by genuinely concurrent worker threads is exactly reproducible regardless of click speed.
+
+#### API Endpoints
+- `GET /api/threadpool/pools`
+- `GET /api/threadpool/{poolId}/stats`
+- `POST /api/threadpool/{poolId}/submit`
+- `POST /api/threadpool/{poolId}/resize`
+- `POST /api/threadpool/{poolId}/shutdown`
+- `POST /api/threadpool/sim/reset`
+- `POST /api/threadpool/sim/submit`
+- `POST /api/threadpool/sim/release`
+- `POST /api/threadpool/sim/shutdown`
+- `GET /api/threadpool/sim/events`
+- `GET /api/threadpool/sim/snapshot`
 
 ---
 

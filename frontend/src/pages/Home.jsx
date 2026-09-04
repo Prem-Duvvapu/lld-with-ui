@@ -115,7 +115,9 @@ const ALL_LLDS = [
   { title: 'Rate Limiter', icon: '🚧', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Per-client throttling with Token Bucket and Sliding Window Counter strategies' },
   { title: 'Meeting Scheduler', icon: '📅', difficulty: 'Medium', category: 'Core',
-    desc: 'Room booking with room- and attendee-level conflict detection across overlapping time ranges' }
+    desc: 'Room booking with room- and attendee-level conflict detection across overlapping time ranges' },
+  { title: 'Thread Pool', icon: '🧵', difficulty: 'Hard', category: 'Concurrency',
+    desc: 'Custom-built worker pool with core/max sizing, bounded queue, and pluggable rejection policies' }
 ]
 
 const routeMap = {
@@ -142,6 +144,7 @@ const routeMap = {
   'Multi-threaded Merge Sort': 'merge-sort',
   'Rate Limiter': 'rate-limiter',
   'Meeting Scheduler': 'meeting-scheduler',
+  'Thread Pool': 'thread-pool',
 }
 
 export default function Home() {

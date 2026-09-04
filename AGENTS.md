@@ -1317,6 +1317,62 @@ Brand-new module (not an upgrade of a pre-existing frontend shell).
   re-booking of the freed slot — rendered as two per-room day timelines (9:00–18:00) plus a live
   event log, so every rejection is a real backend 409, not a scripted animation.
 
+## Thread Pool Module
+Brand-new module (portfolio position #49). Package `com.lld.threadpool`.
+
+### Backend
+- `com.lld.threadpool`: `controller / service / model / strategy / exception / repository / config`
+  packages. Built from scratch — real `Thread`-backed `Worker` objects pulling from a real
+  `ArrayDeque<PoolTask>` guarded by one `ReentrantLock` + `Condition`, not a wrapper around
+  `java.util.concurrent.ThreadPoolExecutor`.
+- `CustomThreadPool.submit()` mirrors `ThreadPoolExecutor`'s exact decision order, checked under
+  lock: fewer than `corePoolSize` workers → spawn a core worker; the queue has room → enqueue;
+  fewer than `maxPoolSize` workers → spawn an extra worker; otherwise saturated → ask the
+  configured `RejectionPolicy`. A worker execute its task *outside* the lock, so one slow task
+  never blocks submission or its sibling workers.
+- **Real, test-caught concurrency bug during development**: the first version routed a task
+  through `queue` even when a worker was being spawned specifically for it. Since that new
+  worker's thread needs a moment of OS scheduling before its first `takeTask()` call actually
+  dequeues its own task, a `submit()` racing in during that window saw `queue.size()` transiently
+  overcounting — corrupting the very core/queue/max decision the method exists to make correctly.
+  Fixed by giving `Worker` a `firstTask` field: a worker spawned for a specific task is handed it
+  directly, bypassing the queue entirely — the queue now only ever holds tasks waiting for an
+  *existing* worker, matching `addWorker(firstTask, core)` in the real JDK implementation.
+- **Strategy** — `RejectionPolicy` (`AbortPolicy`/`CallerRunsPolicy`/`DiscardPolicy`/
+  `DiscardOldestPolicy`, each a stateless singleton, same idiom as `trafficsignal.state.SignalState`).
+  `ThreadPoolInitializer` seeds two live demo pools mixing policies: `web-server-pool`
+  (core=2, max=4, queue=3, `AbortPolicy`), `batch-worker-pool` (core=1, max=2, queue=2,
+  `CallerRunsPolicy`).
+- Exception hierarchy: `ThreadPoolException extends com.lld.config.DomainException` with
+  `PoolNotFoundException` (404), `TaskRejectedException` (429 — the pool is doing exactly what
+  it's configured to do, not failing), `PoolShutdownException` (400, always fires post-shutdown
+  regardless of policy — a deliberate simplification vs. the JDK), `InvalidPoolConfigException` (400).
+- Isolated `/api/threadpool/sim/*` engine: a completely separate `CustomThreadPool`, rebuilt from
+  scratch on every `simReset()`. Every sim task is a real `Runnable` parked on its own dedicated
+  `CountDownLatch` (tracked FIFO in `ThreadPoolService.simGates`) instead of a real
+  `Thread.sleep` — `simReleaseOldest()` releases the oldest pending one explicitly, which is what
+  makes an 8-step guided demo backed by genuinely concurrent worker threads reproducible
+  regardless of how fast a person clicks through it (a real-sleep-based task would finish on its
+  own schedule and silently change which step spawns a worker vs. rejects).
+- Tests (6 files): `CustomThreadPoolTest` (core/queue/max assignment, all four rejection
+  policies, shutdown/shutdownNow/resize — every task gated on its own `CountDownLatch` for
+  determinism), `RejectionPolicyTest`, `ThreadPoolRepositoryTest`, `ThreadPoolServiceTest`
+  (not-found translation plus the sim engine's fixed 8-step narrative asserted end to end),
+  `ThreadPoolConcurrencyTest` (200 threads racing one pool's `submit()`, asserting exactly
+  `maxPoolSize + queueCapacity` are accepted and workers never exceed max — fails reliably against
+  the queue-bypass bug above), `ThreadPoolControllerIntegrationTest` (MockMvc — confirms
+  `PoolStats`/`SubmitResult` never leak the pool's internal `lock`/`queue`/`workers`).
+
+### Frontend
+- 5 tabs: App, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design Details.
+- App tab: polls `GET /pools` every 2s, one card per live pool (policy badge, worker/queue/counter
+  stats), with Submit Task / Shutdown buttons per card.
+- Simulation tab: 8-step guided demo against `/sim/*` — cold boot, two core workers spin up, a
+  task queues, a fourth spins up an extra worker, a fifth is rejected once saturated, releasing the
+  oldest frees a worker that immediately picks up the queued task, then shutdown — rendered as a
+  row of worker slots (solid border = core, dashed = extra) that light up when busy, a queue-slot
+  row, and a reverse-chronological event log.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)

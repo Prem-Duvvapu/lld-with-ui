@@ -50,6 +50,7 @@ import _vendingmachine from './design/vendingmachine.js';
 import _wallet from './design/wallet.js';
 import _zeroEvenOdd from './design/zero-even-odd.js';
 import _zomato from './design/zomato.js';
+import _threadPool from './design/thread-pool.js';
 
 const designDetails = {
   airline: _airline,
@@ -100,6 +101,7 @@ const designDetails = {
   wallet: _wallet,
   zeroEvenOdd: _zeroEvenOdd,
   zomato: _zomato,
+  threadPool: _threadPool,
 };
 
 export const ATM_DETAILS = designDetails.atm;
