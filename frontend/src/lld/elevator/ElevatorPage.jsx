@@ -15,31 +15,48 @@ const styles = `
 .el-policy select { padding: 5px 8px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 12px; font-weight: 600; }
 
 .el-building { background: var(--bg-card, #fff); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; border: 1px solid var(--border-primary); }
-.el-building-header { background: #1a1a2e; color: #fff; padding: 12px 20px; font-weight: 700; font-size: 15px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
-.el-floor-row { display: flex; align-items: center; min-height: 52px; border-bottom: 1px solid var(--border-primary); padding: 0 12px; transition: background 0.2s; }
+.el-building-header { background: #1a1a2e; color: #fff; padding: 12px 20px; font-weight: 700; font-size: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+.el-live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #4caf50; margin-right: 7px; vertical-align: middle; animation: el-live-pulse 1.6s ease-in-out infinite; }
+.el-floor-row { display: flex; align-items: center; min-height: 58px; border-bottom: 1px solid var(--border-primary); padding: 0 12px; transition: background 0.2s; }
 .el-floor-row:last-child { border-bottom: none; }
+.el-floor-row.lobby { background: rgba(102,126,234,0.05); }
 .el-floor-row.arrived { background: rgba(76,175,80,0.08); }
-.el-floor-num { width: 46px; font-weight: 700; font-size: 14px; color: var(--text-primary); }
+.el-floor-num { width: 46px; font-weight: 700; font-size: 14px; color: var(--text-primary); display: flex; flex-direction: column; line-height: 1.15; }
+.el-floor-num .lobby-tag { font-size: 8.5px; font-weight: 700; color: var(--text-muted, #999); text-transform: uppercase; letter-spacing: 0.4px; }
 .el-floor-buttons { width: 56px; display: flex; gap: 4px; }
-.el-floor-btn { width: 26px; height: 26px; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 700; transition: transform 0.15s; }
-.el-floor-btn:hover { transform: scale(1.15); }
+.el-floor-btn { width: 26px; height: 26px; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 700; transition: transform 0.15s, box-shadow 0.15s; }
+.el-floor-btn:hover:not(:disabled) { transform: scale(1.15); }
 .el-floor-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
 .el-floor-btn-up { background: #4caf50; color: #fff; }
 .el-floor-btn-down { background: #ff9800; color: #fff; }
-.el-shafts { flex: 1; display: flex; gap: 6px; justify-content: center; position: relative; height: 52px; }
+.el-floor-btn.pending { animation: el-pending-pulse 1.1s ease-in-out infinite; }
+.el-shafts { flex: 1; display: flex; gap: 6px; justify-content: center; position: relative; height: 58px; }
 .el-shaft { width: 56px; position: relative; border-left: 1px solid var(--border-primary); border-right: 1px solid var(--border-primary); background: rgba(128,128,128,0.04); }
-.el-car { position: absolute; left: 3px; right: 3px; height: 26px; top: 50%; transform: translateY(-50%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.3); overflow: hidden; }
+.el-car { position: absolute; left: 3px; right: 3px; height: 34px; top: 50%; transform: translateY(-50%); border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.3); overflow: visible; }
 .el-car.idle { background: linear-gradient(135deg, #667eea, #5568d3); }
 .el-car.moving { background: linear-gradient(135deg, #f093fb, #f5576c); }
 .el-car.door-open { background: linear-gradient(135deg, #4caf50, #2e9c44); }
 .el-car.maintenance { background: linear-gradient(135deg, #888, #555); }
-.el-car .door-l, .el-car .door-r { position: absolute; top: 0; width: 50%; height: 100%; background: rgba(0,0,0,0.35); transition: transform 0.3s; }
-.el-car .door-l { left: 0; }
-.el-car .door-r { right: 0; }
+.el-car.tracked { box-shadow: 0 0 0 3px #ffc107, 0 0 14px rgba(255,193,7,0.6); }
+.el-car.arrived-flash { animation: el-arrive-flash 0.9s ease-out; }
+.el-car-face { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; position: relative; z-index: 3; pointer-events: none; }
+.el-car-floor { font-size: 13px; font-weight: 800; }
+.el-car-name { font-size: 6.5px; opacity: 0.9; letter-spacing: 0.3px; text-transform: uppercase; }
+.el-dir-chevron { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 900; z-index: 4; animation: el-chevron-bounce 0.6s ease-in-out infinite; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4)); }
+.el-dir-chevron.up { color: #4caf50; }
+.el-dir-chevron.down { color: #ff9800; }
+.el-car .door-l, .el-car .door-r { position: absolute; top: 0; width: 50%; height: 100%; background: rgba(0,0,0,0.35); transition: transform 0.3s; overflow: hidden; }
+.el-car .door-l { left: 0; border-radius: 5px 0 0 5px; }
+.el-car .door-r { right: 0; border-radius: 0 5px 5px 0; }
 .el-car.door-open .door-l { transform: translateX(-100%); }
 .el-car.door-open .door-r { transform: translateX(100%); }
-.el-load-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: rgba(0,0,0,0.2); width: 100%; }
-.el-load-fill { height: 100%; background: #fff; opacity: 0.8; }
+.el-load-bar { position: absolute; bottom: 0; left: 0; height: 4px; background: rgba(0,0,0,0.25); width: 100%; overflow: hidden; border-radius: 0 0 5px 5px; }
+.el-load-fill { height: 100%; transition: width 0.4s ease, background-color 0.4s ease; }
+
+@keyframes el-live-pulse { 0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(76,175,80,0.6); } 50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(76,175,80,0); } }
+@keyframes el-pending-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,193,7,0.7); } 50% { box-shadow: 0 0 0 6px rgba(255,193,7,0); } }
+@keyframes el-arrive-flash { 0% { box-shadow: 0 0 0 0 rgba(76,175,80,0.7), 0 2px 6px rgba(0,0,0,0.3); } 70% { box-shadow: 0 0 0 14px rgba(76,175,80,0), 0 2px 6px rgba(0,0,0,0.3); } 100% { box-shadow: 0 0 0 0 rgba(76,175,80,0), 0 2px 6px rgba(0,0,0,0.3); } }
+@keyframes el-chevron-bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-3px); } }
 
 .el-panel-grid { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
 .el-panel { flex: 1; min-width: 220px; background: var(--bg-card, #fff); border-radius: 12px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid var(--border-primary); }
@@ -86,7 +103,7 @@ const styles = `
 `;
 
 const TOTAL_FLOORS = 10;
-const FLOOR_HEIGHT = 52;
+const FLOOR_HEIGHT = 58;
 
 const STATUS_LABEL = { IDLE: 'idle', MOVING: 'moving', DOOR_OPEN: 'door-open', STOPPED: 'idle', OUT_OF_ORDER: 'out-of-order' };
 const CAR_CLASS = { IDLE: 'idle', MOVING: 'moving', DOOR_OPEN: 'door-open', STOPPED: 'idle', OUT_OF_ORDER: 'maintenance' };
@@ -97,27 +114,65 @@ function directionArrow(direction) {
   return '—';
 }
 
+/** A short, visually distinct car label: the sim sandbox names cars "Elevator Alpha (E1)" etc,
+ * where splitting on whitespace collapses every car down to the same "Elevator" — pull the
+ * parenthesized short code out instead so each car actually reads as distinct. */
+function shortLabel(name) {
+  if (!name) return '?';
+  const paren = name.match(/\(([^)]+)\)/);
+  if (paren) return paren[1];
+  const first = name.trim().split(/\s+/)[0];
+  return first.length <= 3 ? first : first[0];
+}
+
+function loadColor(pct) {
+  if (pct >= 90) return '#f44336';
+  if (pct >= 60) return '#ffc107';
+  return '#e8f5e9';
+}
+
 /** Shared shaft/car visualization for both the live building and the isolated simulation — cars
  * are absolutely positioned by floor so they can smoothly slide between floor rows, with a real
- * door-open animation driven entirely by the backend's ElevatorStatus (no client-side guessing). */
-function ShaftOverlay({ elevators, floors = TOTAL_FLOORS }) {
+ * door-open animation driven entirely by the backend's ElevatorStatus (no client-side guessing).
+ * Movement duration is proportional to floors travelled (not a fixed clip) so a 1-floor hop and a
+ * 5-floor traverse actually feel different, the way a real elevator does — tracked via a ref map
+ * of each car's previous floor/state across polls, since the backend only reports position, not
+ * how far it just moved. */
+function ShaftOverlay({ elevators, floors = TOTAL_FLOORS, trackedId = null }) {
+  const prevRef = useRef(new Map());
+
   return (
     <div style={{ display: 'flex', gap: 6, justifyContent: 'center', position: 'relative', height: floors * FLOOR_HEIGHT }}>
       {elevators.map((el) => {
         const bottom = (el.currentFloor - 1) * FLOOR_HEIGHT;
         const cls = CAR_CLASS[el.status] || 'idle';
         const pct = el.capacity > 0 ? Math.min(100, (el.currentLoad ?? el.occupancy ?? 0) / el.capacity * 100) : 0;
+
+        const prev = prevRef.current.get(el.id);
+        const floorsMoved = prev ? Math.abs(el.currentFloor - prev.floor) : 0;
+        const duration = floorsMoved > 0 ? Math.min(2.4, Math.max(0.45, floorsMoved * 0.5)) : 0.5;
+        const justArrived = cls === 'door-open' && prev?.cls !== 'door-open';
+        prevRef.current.set(el.id, { floor: el.currentFloor, cls });
+
         return (
           <div key={el.id} style={{ width: 56, position: 'relative', height: '100%' }}>
             <div
-              className={`el-car ${cls}`}
-              style={{ bottom, transition: 'bottom 0.8s cubic-bezier(0.4,0,0.2,1)' }}
+              className={`el-car ${cls} ${justArrived ? 'arrived-flash' : ''} ${el.id === trackedId ? 'tracked' : ''}`}
+              style={{ bottom, transition: `bottom ${duration}s cubic-bezier(0.65,0,0.35,1)` }}
               title={`${el.name} — F${el.currentFloor} — ${el.status}`}
             >
-              <span style={{ position: 'relative', zIndex: 3 }}>{el.name?.split(' ')[0] || el.name}</span>
+              {cls === 'moving' && (
+                <span className={`el-dir-chevron ${el.direction === 'DOWN' ? 'down' : 'up'}`}>
+                  {el.direction === 'DOWN' ? '▼' : '▲'}
+                </span>
+              )}
+              <div className="el-car-face">
+                <span className="el-car-floor">{el.currentFloor}</span>
+                <span className="el-car-name">{shortLabel(el.name)}</span>
+              </div>
               <div className="door-l" />
               <div className="door-r" />
-              <div className="el-load-bar"><div className="el-load-fill" style={{ width: `${pct}%` }} /></div>
+              <div className="el-load-bar"><div className="el-load-fill" style={{ width: `${pct}%`, background: loadColor(pct) }} /></div>
             </div>
           </div>
         );
@@ -175,6 +230,9 @@ function AppTab() {
 
   const floors = Array.from({ length: TOTAL_FLOORS }, (_, i) => TOTAL_FLOORS - i);
 
+  const isPending = (floor, dir) => requests.some((r) =>
+    r.sourceFloor === floor && r.direction === dir && r.status !== 'COMPLETED');
+
   return (
     <div>
       <div className="el-toolbar">
@@ -192,7 +250,7 @@ function AppTab() {
 
       <div className="el-building" style={{ position: 'relative' }}>
         <div className="el-building-header">
-          <span>Building Status</span>
+          <span><span className="el-live-dot" />Building Status</span>
           <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.9 }}>
             {elevators.length} cars &middot; {elevators.filter((e) => e.status === 'MOVING').length} moving &middot;{' '}
             {elevators.filter((e) => e.status === 'DOOR_OPEN').length} doors open
@@ -201,14 +259,27 @@ function AppTab() {
         <div style={{ display: 'flex' }}>
           <div style={{ width: 220 }}>
             {floors.map((floor) => (
-              <div key={floor} className="el-floor-row" style={{ height: FLOOR_HEIGHT, minHeight: FLOOR_HEIGHT }}>
-                <div className="el-floor-num">F{floor}</div>
+              <div key={floor} className={`el-floor-row ${floor === 1 ? 'lobby' : ''}`} style={{ height: FLOOR_HEIGHT, minHeight: FLOOR_HEIGHT }}>
+                <div className="el-floor-num">
+                  F{floor}
+                  {floor === 1 && <span className="lobby-tag">Lobby</span>}
+                </div>
                 <div className="el-floor-buttons">
                   {floor < TOTAL_FLOORS && (
-                    <button className="el-floor-btn el-floor-btn-up" onClick={() => handleCall(floor, floor + 1)} title={`Call up from F${floor}`}>&#9650;</button>
+                    <button
+                      className={`el-floor-btn el-floor-btn-up ${isPending(floor, 'UP') ? 'pending' : ''}`}
+                      onClick={() => handleCall(floor, floor + 1)}
+                      title={`Call up from F${floor}`}
+                      aria-label={`Call elevator going up from floor ${floor}`}
+                    >&#9650;</button>
                   )}
                   {floor > 1 && (
-                    <button className="el-floor-btn el-floor-btn-down" onClick={() => handleCall(floor, floor - 1)} title={`Call down from F${floor}`}>&#9660;</button>
+                    <button
+                      className={`el-floor-btn el-floor-btn-down ${isPending(floor, 'DOWN') ? 'pending' : ''}`}
+                      onClick={() => handleCall(floor, floor - 1)}
+                      title={`Call down from F${floor}`}
+                      aria-label={`Call elevator going down from floor ${floor}`}
+                    >&#9660;</button>
                   )}
                 </div>
               </div>
@@ -373,7 +444,7 @@ function SimulationTab() {
                   : e.state === 'DOOR_OPEN' ? 'DOOR_OPEN'
                   : e.state === 'MAINTENANCE' ? 'OUT_OF_ORDER' : 'STOPPED',
                 direction: e.direction, capacity: e.capacity, currentLoad: e.occupancy,
-              }))} />
+              }))} trackedId={assignedId} />
             </div>
           </div>
 
