@@ -30,6 +30,7 @@ import _lru_cache from './diagrams/lru-cache.js';
 import _ludo from './diagrams/ludo.js';
 import _mergeSort from './diagrams/merge-sort.js';
 import _minesweeper from './diagrams/minesweeper.js';
+import _notification from './diagrams/notification.js';
 import _movieticket from './diagrams/movieticket.js';
 import _musicStreaming from './diagrams/music-streaming.js';
 import _parking from './diagrams/parking.js';
@@ -82,6 +83,7 @@ const classDiagrams = {
   ludo: _ludo,
   mergeSort: _mergeSort,
   minesweeper: _minesweeper,
+  notification: _notification,
   movieticket: _movieticket,
   musicStreaming: _musicStreaming,
   parking: _parking,

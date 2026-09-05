@@ -4999,3 +4999,119 @@ mvn -o test -Dtest='com.lld.uber.UberConcurrencyTest#oneRideManyDrivers_bindsToO
    acquired before any driver-specific state is touched); the lesson is to update that comment
    the moment a second lock is actually introduced, not to trust a lock-ordering plan written
    before the second lock existed.
+## RCA-053: Notification Service Enqueued the Same Duplicate Notification Once Per Racing Caller, Even Though the Idempotency Key Correctly Deduplicated the Notification Itself
+
+**Overview & Severity** — High. `NotificationService.send()` closes the classic check-then-act
+race on an idempotency key with a per-key `ReentrantLock`, and correctly guarantees that N
+concurrent callers sharing the same key all resolve to the same `Notification` object. But a
+separate defect meant every one of those N callers could still push that *same* notification onto
+the shared dispatch queue — so a duplicate request, even though correctly recognized as a
+duplicate, could still cause the same notification to be delivered multiple times in production.
+
+**Symptoms & Error Logs** — A new concurrency test (`NotificationIdempotencyConcurrencyTest
+.repeatedConcurrentSendWithSameKeyNeverDoubleDispatches`, 12 threads racing `send()` with one
+shared idempotency key, 200 repeated rounds) failed on round 0:
+```
+org.opentest4j.AssertionFailedError: round 0: exactly one notification may ever be enqueued
+for this key ==> expected: <1> but was: <12>
+```
+The test's other assertion — that all 12 threads resolve to the same notification id — passed.
+Only the enqueue count was wrong.
+
+**Root Cause** — `send()` decided whether to enqueue based solely on the returned notification's
+status:
+```java
+Notification n = createAndClaim(...);
+if (n.getStatus() == NotificationStatus.PENDING) {
+    pendingQueue.add(n);
+}
+```
+`createAndClaim`'s per-key lock correctly ensures only the *first* caller creates a new
+notification; every other caller's `index.get(key)` hit returns the same existing instance via
+`repo.findById(existingId)`. But that returned instance is *also* still `PENDING` — it hasn't been
+dispatched yet — so every one of the 11 duplicate callers passed the `status == PENDING` check
+and called `pendingQueue.add(n)` too, all with a reference to the identical `Notification` object.
+The idempotency lock closed the "create a second notification" race perfectly; it did nothing to
+close the completely separate "enqueue this notification twice" race, because enqueue eligibility
+was inferred from a field (`status`) that a duplicate-resolution path shares with the original.
+
+**Diagnostic Commands**
+```bash
+mvn test -Dtest='com.lld.notification.NotificationIdempotencyConcurrencyTest#repeatedConcurrentSendWithSameKeyNeverDoubleDispatches'
+```
+Reading `createAndClaim`'s two exit paths side by side (the `existingId != null` early return vs.
+the newly-created-and-saved path) made it clear both return a `PENDING` notification, so nothing
+downstream could distinguish "I made this" from "I found this."
+
+**Step-by-Step Resolution** — Added an explicit `AtomicBoolean isNewOut` output parameter to
+`createAndClaim`, set to `true` only on the path that actually creates and persists a new
+notification, `false` on the duplicate-resolution path. `send()` now gates the enqueue on
+`isNew.get() && status == PENDING` instead of `status == PENDING` alone — only the caller that
+actually created the notification may ever enqueue it. All other `createAndClaim` call sites (the
+five `/sim/*` methods, which dispatch synchronously and never touch the shared queue) pass `null`
+for the new parameter, since they don't need the distinction.
+
+**Preventative Measures** — When a check-then-act lock correctly deduplicates *which record* two
+racing callers agree on, that is a different guarantee from deduplicating *which caller gets to
+act on it afterward* — a downstream decision based on the record's mutable state (here, `status`)
+can still be made redundantly by every caller unless the "did I just create this" fact is threaded
+through explicitly. Any method that both claims (dedup) and acts (enqueues/dispatches) in one call
+needs to gate the "act" step on ownership of the claim, not merely on the claimed object's current
+state — the object's state alone can't tell a creator apart from an observer.
+
+## RCA-054: `NotificationChannelFactory` and `NotificationService` Each Declared Two Public Constructors With Neither Marked `@Autowired`, So Spring's ApplicationContext Failed to Start With "No Default Constructor Found"
+
+**Overview & Severity** — High (blocks every integration test and the live app entirely).
+`NotificationChannelFactory` and `NotificationService` are both `@Component`/`@Service` beans with
+two constructors apiece — one for Spring's production wiring, one for tests and the `/sim/*`
+sandbox to inject test doubles or a non-default worker count. Neither constructor on either class
+was annotated `@Autowired`, and neither class had a genuine no-argument constructor, so Spring
+could not determine which constructor to use for dependency injection.
+
+**Symptoms & Error Logs**
+```
+org.springframework.beans.factory.BeanCreationException: Error creating bean with name
+'notificationChannelFactory' ... Failed to instantiate
+[com.lld.notification.channel.NotificationChannelFactory]: No default constructor found
+Caused by: java.lang.NoSuchMethodException:
+com.lld.notification.channel.NotificationChannelFactory.<init>()
+```
+Every `@SpringBootTest` in the module failed to load its `ApplicationContext` (`
+NotificationControllerIntegrationTest`'s eight test methods all failed with the same underlying
+cause, reported repeatedly as "ApplicationContext failure threshold (1) exceeded").
+
+**Root Cause** — Spring's constructor-resolution algorithm requires an unambiguous choice: exactly
+one constructor annotated `@Autowired`, or exactly one constructor total, or a genuine no-arg
+constructor as a fallback. `NotificationChannelFactory` had a 4-arg constructor (the four channel
+beans) and a `Map`-based constructor (for tests); `NotificationService` had a 3-arg and a 4-arg
+constructor (the 3-arg delegating to the 4-arg with a default worker count). With none of those
+annotated and no no-arg constructor on either class, Spring couldn't resolve either bean's
+constructor — the "no default constructor found" message is misleading; the real problem is
+ambiguity, not a missing bare constructor, but that's the exception Spring throws in this exact
+shape of failure. (This differs from the module's four `NotificationChannel` implementations —
+`EmailChannel`, `SmsChannel`, `PushChannel`, `WhatsAppChannel` — each of which *does* have a
+genuine no-arg constructor alongside its test-only 2-arg one, so Spring's fallback rule resolved
+those without needing `@Autowired` at all.)
+
+**Diagnostic Commands**
+```bash
+mvn test -Dtest='com.lld.notification.NotificationControllerIntegrationTest' 2>&1 | grep -A5 'Caused by'
+```
+The nested `Caused by:` chain (`BeanCreationException` → `BeanInstantiationException` →
+`NoSuchMethodException: <init>()`) names the exact bean and the exact (nonexistent) no-arg
+constructor Spring went looking for — the fix is almost always "give it a no-arg constructor, or
+tell it which constructor to use," and here the latter was correct since a real no-arg constructor
+would have meant the production channel beans could never actually be wired in.
+
+**Step-by-Step Resolution** — Added `@Autowired` to `NotificationChannelFactory`'s 4-arg
+production constructor and to `NotificationService`'s 3-arg constructor (the one that delegates to
+the 4-arg internally), leaving both classes' secondary constructors as plain, unannotated
+constructors for direct (test/sim) instantiation only.
+
+**Preventative Measures** — Any `@Component`/`@Service`/`@Repository` class with more than one
+public constructor and no genuine no-arg constructor needs exactly one of them marked `@Autowired`
+— this is easy to miss when the "test convenience" constructor is added after the "production"
+one already works, since a single-constructor class needs no annotation at all and the bug only
+surfaces once a second constructor appears. When adding a second constructor to an existing Spring
+bean for test convenience, immediately check whether the class still resolves via
+`@SpringBootTest` rather than assuming the original constructor still "wins."

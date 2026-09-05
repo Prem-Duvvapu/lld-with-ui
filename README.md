@@ -58,6 +58,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **49 LLD projects**
 | 48 | [Meeting Scheduler](#48-meeting-scheduler) | Room booking | Facade, Repository, single module-wide lock guarding room- AND attendee-level conflict checks |
 | 49 | [Thread Pool](#49-thread-pool) | Custom worker pool | Strategy (rejection policies), Producer-Consumer, from-scratch bounded queue + real worker threads |
 | 50 | [Feature Flag](#50-feature-flag) | Feature flag targeting service | Composite (rule tree), Factory (rule builder), atomic volatile swap for race-free concurrent evaluation |
+| 51 | [Notification System](#51-notification-system) | Multi-channel notification dispatch | Strategy (channels, retry policy), Factory, idempotent per-key locking, priority-ordered dispatch |
 
 ---
 
@@ -1394,6 +1395,34 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/featureflag/sim/concurrent-demo`
 - `GET /api/featureflag/sim/events`
 - `GET /api/featureflag/sim/snapshot`
+
+---
+
+### 51. Notification System
+
+#### Key Features
+- **Idempotent Sends**: two concurrent `send()` calls carrying the same idempotency key resolve to exactly one dispatched notification — closed by a per-key `ReentrantLock` guarding the check-then-act race, verified by a 200-round repeated concurrency test.
+- **Priority-Ordered Dispatch**: a `PriorityBlockingQueue` ordered by `Priority` (HIGH sorts first — every Java enum is `Comparable` by ordinal) then `createdAt`, drained by a small fixed worker pool.
+- **Preference-Based Suppression**: a recipient's per-(type, channel) opt-out is checked at send time; a suppressed notification transitions straight to `SUPPRESSED` without ever touching a channel.
+- **Retry With Exponential Backoff**: a failed delivery attempt retries with a doubling delay up to a configurable attempt budget, then a terminal `FAILED` status.
+- **Four Channels Behind One Strategy**: Email, SMS, Push and WhatsApp, resolved by a `NotificationChannelFactory` — no if/else at any call site.
+
+#### API Endpoints
+- `POST /api/notification/notifications`
+- `GET /api/notification/notifications`
+- `GET /api/notification/notifications/{id}`
+- `PUT /api/notification/preferences/{userId}`
+- `GET /api/notification/preferences/{userId}`
+- `GET /api/notification/recipients`
+- `POST /api/notification/sim/reset`
+- `POST /api/notification/sim/send-otp`
+- `POST /api/notification/sim/send-promo-opted-out`
+- `POST /api/notification/sim/send-forced-failure`
+- `POST /api/notification/sim/retry-outcome`
+- `POST /api/notification/sim/send-duplicate`
+- `POST /api/notification/sim/concurrent-duplicate-race`
+- `GET /api/notification/sim/events`
+- `GET /api/notification/sim/snapshot`
 
 ---
 

@@ -1414,6 +1414,45 @@ Brand-new module (portfolio position #50). Package `com.lld.featureflag`.
   India user (matches) and a US user (does not), a live concurrent read/write race demo, and a
   final snapshot with the full event log.
 
+## Notification System Module
+Brand-new module (portfolio position #50). Package `com.lld.notification`.
+
+### Backend
+- `com.lld.notification`: `controller / service / model / channel / retry / exception /
+  repository / config` packages.
+- **The idempotency guarantee — this module's centerpiece race**: two concurrent `send()` calls
+  carrying the same `idempotencyKey` must resolve to exactly one dispatched notification. A per-key
+  `ReentrantLock` (lazily created via `computeIfAbsent` into a `ConcurrentHashMap`) guards the whole
+  check-and-record as one atomic step inside `createAndClaim`, and only the caller that actually
+  created the notification (not one that resolved to an existing duplicate) is allowed to enqueue
+  it — see RCA (below) for the real bug this closes.
+- **Priority dispatch**: a `PriorityBlockingQueue` ordered by `Priority` (every enum is
+  `Comparable` by ordinal, so `HIGH.compareTo(LOW) < 0` for free) then `createdAt`, drained by a
+  small fixed pool of background worker threads; `drainOnce()` is the test/inspection hook that
+  performs exactly one dequeue-and-attempt.
+- **Strategy** — `NotificationChannel` (`EmailChannel`/`SmsChannel`/`PushChannel`/
+  `WhatsAppChannel`, each simulating delivery with a configurable failure probability), resolved by
+  `NotificationChannelFactory`; `RetryPolicy` (`ExponentialBackoffRetryPolicy`) for retry timing.
+- Exception hierarchy: `NotificationException extends com.lld.config.DomainException` with
+  `NotificationNotFoundException` (404), `RecipientNotFoundException` (404),
+  `UnsupportedChannelException` (400).
+- Isolated `/api/notification/sim/*` engine: a completely separate repository, channel factory
+  (PUSH forced to always fail so the retry/backoff steps are deterministic) and idempotency
+  locks/index.
+- Tests (8 files): `ExponentialBackoffRetryPolicyTest`, `NotificationChannelTest`,
+  `NotificationRepositoryTest`, `NotificationServiceTest`, `NotificationStatusTest`,
+  `NotificationPriorityQueueTest`, `NotificationIdempotencyConcurrencyTest` (200 rounds, 12 threads
+  racing `send()` with one shared key — the test that caught the enqueue-overcounting bug below),
+  `NotificationControllerIntegrationTest` (MockMvc — confirms no leaked lock objects).
+
+### Frontend
+- 4 tabs: App, Interactive 2D Simulation, Class Diagram, Design Details.
+- App tab: send a notification to a seeded recipient over any channel/type, and watch its status
+  update as it dispatches.
+- Simulation tab: 8-step guided demo — reset, a HIGH-priority OTP that delivers immediately, a
+  promotional send suppressed by preference, a forced PUSH failure, the retry sequence resolving,
+  a duplicate idempotency key demo, a live concurrent-race demo, and a final snapshot.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
