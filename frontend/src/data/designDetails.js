@@ -17,6 +17,7 @@ import _concurrentHashmap from './design/concurrent-hashmap.js';
 import _courseRegistration from './design/course-registration.js';
 import _cricinfo from './design/cricinfo.js';
 import _elevator from './design/elevator.js';
+import _featureflag from './design/featureflag.js';
 import _fizzBuzz from './design/fizz-buzz.js';
 import _fooBar from './design/foo-bar.js';
 import _h2o from './design/h2o.js';
@@ -68,6 +69,7 @@ const designDetails = {
   courseRegistration: _courseRegistration,
   cricinfo: _cricinfo,
   elevator: _elevator,
+  featureflag: _featureflag,
   fizzBuzz: _fizzBuzz,
   fooBar: _fooBar,
   h2o: _h2o,

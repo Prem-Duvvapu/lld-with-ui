@@ -1374,6 +1374,46 @@ Brand-new module (portfolio position #49). Package `com.lld.threadpool`.
   row of worker slots (solid border = core, dashed = extra) that light up when busy, a queue-slot
   row, and a reverse-chronological event log.
 
+## Feature Flag Module
+Brand-new module (portfolio position #50). Package `com.lld.featureflag`.
+
+### Backend
+- `com.lld.featureflag`: `controller / service / model / condition / exception / repository / config`
+  packages. `condition/` holds the Composite pattern: `Condition` interface, four leaves
+  (`CountryCondition`, `UserIdCondition`, `AttributeEqualsCondition`, `PercentageRolloutCondition`)
+  and three composites (`AndCondition`, `OrCondition`, `NotCondition`), plus `ConditionTreeBuilder`
+  (a Factory resolving the wire-format `RuleNodeDto` tree to real `Condition` instances).
+- **The concurrency guarantee**: `FeatureFlag.rule` is `volatile`, and `FeatureFlagService
+  .updateRules` always builds an entirely new tree and reassigns that one field — it never
+  mutates an existing node's children. A single volatile write is atomic, so a concurrent
+  `evaluate()` always sees either the fully-old or fully-new tree, never a torn mix, regardless of
+  how many times `updateRules` races against it. `FeatureFlagConcurrencyTest` proves this with a
+  250-round repeated read/write race (per this repo's RCA-052 lesson: a single-shot race reliably
+  passes by luck — the unguarded window is nanoseconds wide).
+  Each condition leaf and composite is itself immutable once built (children copied into an
+  unmodifiable list at construction), which is what makes concurrent evaluation race-free without
+  any lock on the read path at all.
+- Exception hierarchy: `FeatureFlagException extends com.lld.config.DomainException` with
+  `FlagNotFoundException` (404), `DuplicateFlagKeyException` (409), `InvalidRuleException` (400).
+- Isolated `/api/featureflag/sim/*` engine: a completely separate `FeatureFlagRepository`. The
+  centerpiece step (`simConcurrentUpdateDemo`) runs a live 300-round reader/writer race in-process
+  and reports whether it survived cleanly — the same guarantee `FeatureFlagConcurrencyTest` proves
+  with an assertion, here as a visible demo.
+- Tests (5 files): `ConditionTest` (every leaf/composite condition in isolation, including
+  short-circuit and "AndCondition never short-circuits" behavior), `ConditionTreeBuilderTest`
+  (every rule node type, every rejection), `FeatureFlagRepositoryTest`, `FeatureFlagServiceTest`,
+  `FeatureFlagConcurrencyTest` (200 rounds of concurrent evaluate/updateRules never throw; 250
+  rounds proving no torn-generation read — this is the test that caught a genuine in-place-mutation
+  regression during development, per its own javadoc).
+
+### Frontend
+- 4 tabs: App, Interactive 2D Simulation, Class Diagram, Design Details.
+- App tab: create a flag, toggle its kill switch, set a country-targeting rule, and evaluate it
+  against an arbitrary user id/country — shows the full human-readable explanation string.
+- Simulation tab: 8-step guided demo — reset, create (disabled), enable, target India, evaluate an
+  India user (matches) and a US user (does not), a live concurrent read/write race demo, and a
+  final snapshot with the full event log.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)

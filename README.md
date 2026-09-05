@@ -57,6 +57,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **49 LLD projects**
 | 47 | [Circuit Breaker](#47-circuit-breaker) | Resilience pattern | State (Closed/Open/Half-Open), Strategy (trip policies), per-service ReentrantLock |
 | 48 | [Meeting Scheduler](#48-meeting-scheduler) | Room booking | Facade, Repository, single module-wide lock guarding room- AND attendee-level conflict checks |
 | 49 | [Thread Pool](#49-thread-pool) | Custom worker pool | Strategy (rejection policies), Producer-Consumer, from-scratch bounded queue + real worker threads |
+| 50 | [Feature Flag](#50-feature-flag) | Feature flag targeting service | Composite (rule tree), Factory (rule builder), atomic volatile swap for race-free concurrent evaluation |
 
 ---
 
@@ -1366,6 +1367,33 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/threadpool/sim/shutdown`
 - `GET /api/threadpool/sim/events`
 - `GET /api/threadpool/sim/snapshot`
+
+---
+
+### 50. Feature Flag
+
+#### Key Features
+- **Composite Targeting Rules**: four leaf conditions (country, user id, attribute equals, percentage rollout) and three composites (AND/OR/NOT) share one `Condition` interface, so an arbitrarily nested rule tree evaluates through one recursive call.
+- **Race-Free Concurrent Evaluation**: `FeatureFlag.rule` is `volatile` and `updateRules` always swaps in a brand-new tree rather than mutating an existing one — a single volatile write is atomic, so a concurrent `evaluate()` always sees either the fully-old or fully-new rule generation, never a torn mix. Proven with a 250-round repeated concurrency test.
+- **Kill Switch**: a disabled flag always evaluates to `false` regardless of its configured targeting rule — no rule tree needs to be discarded to turn a feature off.
+- **Deterministic Percentage Rollout**: a hash-bucketed rollout, stable per user id, rather than a fresh coin-flip on every call.
+- **`ConditionTreeBuilder` Factory**: turns a loosely-typed wire format into a validated, immutable `Condition` tree, rejecting every malformed shape as a readable `InvalidRuleException` rather than a 500.
+
+#### API Endpoints
+- `POST /api/featureflag/flags`
+- `GET /api/featureflag/flags`
+- `GET /api/featureflag/flags/{key}`
+- `PUT /api/featureflag/flags/{key}/enabled`
+- `PUT /api/featureflag/flags/{key}/rules`
+- `POST /api/featureflag/flags/{key}/evaluate`
+- `POST /api/featureflag/sim/reset`
+- `POST /api/featureflag/sim/create`
+- `POST /api/featureflag/sim/enabled`
+- `POST /api/featureflag/sim/rule`
+- `POST /api/featureflag/sim/evaluate`
+- `POST /api/featureflag/sim/concurrent-demo`
+- `GET /api/featureflag/sim/events`
+- `GET /api/featureflag/sim/snapshot`
 
 ---
 
