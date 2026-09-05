@@ -13,16 +13,17 @@ edit — goes through a branch, a PR, and green CI.
 CI should confirm, not discover. Run everything before pushing:
 
 ```bash
-cd backend  && mvn test        # baseline: 203 tests, 30 classes
-cd frontend && npx vitest run  # baseline: 250 tests, 3 files
+cd backend  && mvn test        # baseline: 1836 tests, 208 classes
+cd frontend && npx vitest run  # baseline: 328 tests, 3 files
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
 All three must pass. **Report the real numbers.** If a suite fails, say so with the output and
 stop — do not push and hope.
 
-Note: the baselines above may be stale relative to the current branch. Compare against what the
-suites actually print, not against these numbers.
+Note: the baselines above drift every time a module or test is added — they were last confirmed
+correct on 2026-09-05. Compare against what the suites actually print, not against these numbers;
+treat any "baseline" comment anywhere in this repo the same way.
 
 ## 2. Branch
 
@@ -53,10 +54,9 @@ Body: what changed and **why**. If the work is incomplete, say which part in the
 an honest "the sim engine and tests are still to come" is worth more than a clean-sounding
 message that misleads the next reader.
 
-End every commit message with:
-```
-Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
-```
+End every commit message with the `Co-Authored-By:` (and, if given, `Claude-Session:`) line your
+current session's attribution instructions specify — the exact model name changes over time and
+across sessions, so do not hardcode one here; use whatever this session has been told to use.
 
 ## 4. Push and open the PR
 
@@ -70,8 +70,9 @@ End the PR body with:
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-**If `gh` is not installed** — it currently is not on this machine — do not fail silently. Push
-the branch and give the user the compare URL to click:
+**If `gh` is not installed** (verify with `which gh` — as of 2026-09-05 it is installed on this
+machine, but do not assume that holds forever) — do not fail silently. Push the branch and give
+the user the compare URL to click:
 `https://github.com/<owner>/<repo>/compare/main...<branch>?expand=1`
 
 ## 5. CI must be green before merge
@@ -84,17 +85,26 @@ the branch and give the user the compare URL to click:
 | `Frontend — vitest + build` | `npm ci`, `npx vitest run`, `npm run build`, entry-chunk size gate |
 
 Those two job names are the required status checks on `main` and must match `ci.yml` exactly.
-A red build never merges. Watch with `gh pr checks --watch` if `gh` is available.
+A red build never merges. Watch with `gh pr checks --watch` if `gh` is available — prefer that
+built-in flag over a hand-rolled polling loop. **`jq` is not installed in this environment**;
+a `gh pr checks --json ... | jq ...` script will silently fail with "command not found" on every
+iteration and never detect completion — confirmed the hard way in this session (a coordinating
+agent trusted such a loop for several minutes before noticing it had never actually parsed a
+result). If you need to parse `gh`'s JSON output yourself, check `which jq` first, or just poll
+`gh pr checks <n>`'s plain-text output and grep for the literal words `pending`/`fail`/`pass`.
 
 Merge only once every check passes, then delete the branch.
 
 ## Stacked branches
 
-Some work depends on an unmerged branch — `feat/uber-module-depth` is stacked on
-`fix/phase0-1-stabilize-and-harden` because Uber's exceptions need `com.lld.config.DomainException`,
-which exists only there. When stacking, target the PR at the parent branch, or say plainly in
-the PR body that it must merge after its parent. Do not rebase someone else's pushed branch
-without asking.
+Some work may depend on an unmerged parent branch — e.g. a module's exceptions needing a shared
+base class that only exists on another still-open PR. When stacking, target the PR at the parent
+branch, or say plainly in the PR body that it must merge after its parent. Do not rebase someone
+else's pushed branch without asking. (Two long-abandoned example branches once documented here,
+`feat/uber-module-depth` and `fix/phase0-1-stabilize-and-harden`, are stale artifacts from early
+in this project's history — `com.lld.config.DomainException` has been a stable, long-merged part
+of the shared contract for a long time now. Don't use old branch names as evidence of current
+repo state; check `git branch -a` and each branch's actual last-commit date instead.)
 
 ## Confirm before acting
 

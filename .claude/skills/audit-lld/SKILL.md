@@ -103,11 +103,15 @@ check-then-act race outranks a missing Lombok annotation every time.
 
 ## Known baseline
 
-30 of 45 modules have backends. These have none: the 9 concurrency primitives
-(`blocking-queue`, `bloom-filter`, `concurrent-hashmap`, `fizz-buzz`, `foo-bar`, `h2o`,
-`merge-sort`, `ttl-cache`, `zero-even-odd`) plus `car-rental`, `concert-ticket`,
-`course-registration`, `cricinfo`, `music-streaming`, `restaurant`. For those, criteria 1–9 and
-12–13 fail by definition — say so once and move on rather than listing ten failures.
+All 49 modules now have real backends — the last frontend-only shells (the 9 concurrency
+primitives, plus `car-rental`, `concert-ticket`, `course-registration`, `cricinfo`,
+`music-streaming`, `restaurant`) graduated during earlier upgrade passes. Do not assume any module
+still lacks a backend — verify with `ls backend/src/main/java/com/lld/<key>/` before reporting
+criteria 1–9 as failing by definition; that used to be a safe shortcut and no longer is.
 
 `splitwise`, `logging` and `uber` are the reference bar. If an audit finds one of them failing a
 criterion, that is a real regression worth flagging loudly.
+
+This baseline drifts every time a new module ships — re-derive the module count from
+`find frontend/src/lld -maxdepth 2 -iname "*Page.jsx" | wc -l` rather than trusting a number
+written here, the same way `ship`'s test-count baselines are self-flagged as approximate.

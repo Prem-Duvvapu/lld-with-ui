@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 `AGENTS.md` is the other half of this context and is **authoritative for per-module behaviour** —
-what each of the 45 modules seeds, which service methods exist, which patterns it demonstrates.
+what each of the 49 modules seeds, which service methods exist, which patterns it demonstrates.
 Read the relevant module section there before changing a module. This file covers the commands and
 the cross-cutting structure that no single module file reveals.
 
@@ -13,7 +13,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # full suite — 1657 tests, 180 classes
+mvn test                                  # full suite — 1836 tests, 208 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -21,7 +21,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # full suite — 286 tests, 3 files
+npx vitest run                            # full suite — 328 tests, 3 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -49,9 +49,9 @@ enforces — if the UI needs a decision, it calls an endpoint.
 ### Backend layout
 
 `backend/src/main/java/com/lld/{module}/` with `controller / service / model / repository /
-strategy / exception / config` sub-packages. `LldApplication` boots all 37 module packages at once
-(`concurrency` nests six primitive sub-packages of its own: `blockingqueue`, `ttlcache`,
-`foobar`, `zeroevenodd`, `fizzbuzz`, `h2o`).
+strategy / exception / config` sub-packages. `LldApplication` boots all 41 module packages at once
+(`concurrency` nests nine primitive sub-packages of its own: `blockingqueue`, `bloomfilter`,
+`concurrenthashmap`, `fizzbuzz`, `foobar`, `h2o`, `mergesort`, `ttlcache`, `zeroevenodd`).
 Each module typically has a `{Module}Initializer` (`@PostConstruct` seed data) and a facade
 `{Module}Service` that the controller delegates to wholesale.
 
@@ -105,7 +105,7 @@ diagram walking a `/sim/*` request is fine, since sequence diagrams are about fl
 
 ### Module maturity is uneven
 
-All 45 modules now have backends — the last three concurrency primitives (`bloom-filter`,
+All 49 modules now have backends — the last three concurrency primitives (`bloom-filter`,
 `concurrent-hashmap`, `merge-sort`) graduated from frontend-only fake animations to real Java
 backends with genuine threads; `designDataCoverage.test.js`'s `PENDING_DESIGN_CONTENT` allowlist is
 now empty. **splitwise**, **logging** and **uber** are the reference implementations — match their
