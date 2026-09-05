@@ -119,7 +119,9 @@ const ALL_LLDS = [
   { title: 'Thread Pool', icon: '🧵', difficulty: 'Hard', category: 'Concurrency',
     desc: 'Custom-built worker pool with core/max sizing, bounded queue, and pluggable rejection policies' },
   { title: 'Feature Flag', icon: '🚩', difficulty: 'Medium', category: 'Design Patterns & Systems',
-    desc: 'Composite targeting rules (country, user id, attribute, percentage rollout) with a race-free atomic rule swap' }
+    desc: 'Composite targeting rules (country, user id, attribute, percentage rollout) with a race-free atomic rule swap' },
+  { title: 'Notification System', icon: '🔔', difficulty: 'Medium', category: 'Design Patterns & Systems',
+    desc: 'Priority-ordered multi-channel dispatch with idempotent sends, preference-based suppression, and retry with backoff' }
 ]
 
 const routeMap = {
@@ -148,6 +150,7 @@ const routeMap = {
   'Meeting Scheduler': 'meeting-scheduler',
   'Thread Pool': 'thread-pool',
   'Feature Flag': 'featureflag',
+  'Notification System': 'notification',
 }
 
 export default function Home() {

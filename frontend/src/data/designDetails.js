@@ -30,6 +30,7 @@ import _lru_cache from './design/lru-cache.js';
 import _ludo from './design/ludo.js';
 import _mergeSort from './design/merge-sort.js';
 import _minesweeper from './design/minesweeper.js';
+import _notification from './design/notification.js';
 import _movieticket from './design/movieticket.js';
 import _musicStreaming from './design/music-streaming.js';
 import _parking from './design/parking.js';
@@ -82,6 +83,7 @@ const designDetails = {
   ludo: _ludo,
   mergeSort: _mergeSort,
   minesweeper: _minesweeper,
+  notification: _notification,
   movieticket: _movieticket,
   musicStreaming: _musicStreaming,
   parking: _parking,

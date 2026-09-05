@@ -82,6 +82,7 @@ const LLD_ROUTES = [
   { path: 'meeting-scheduler', title: 'Meeting Scheduler', module: './lld/meeting-scheduler/MeetingSchedulerPage.jsx' },
   { path: 'thread-pool', title: 'Thread Pool', module: './lld/thread-pool/ThreadPoolPage.jsx' },
   { path: 'featureflag', title: 'Feature Flag', module: './lld/featureflag/FeatureFlagPage.jsx' },
+  { path: 'notification', title: 'Notification System', module: './lld/notification/NotificationPage.jsx' },
 ]
 
 function Layout({ children }) {
