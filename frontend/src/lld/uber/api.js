@@ -89,3 +89,41 @@ export function updateDriverStatus(id, status) {
 export function getRiders() {
   return apiFetch('/uber/riders');
 }
+
+// ---- /sim/* : isolated sandbox for the Simulation tab — never touches the live rides/drivers above ----
+
+export function simReset() {
+  return apiFetch('/uber/sim/reset', { method: 'POST' });
+}
+
+export function simEstimate(step) {
+  return apiFetch('/uber/sim/estimate', { method: 'POST', body: JSON.stringify({ step }) });
+}
+
+export function simRequest(step) {
+  return apiFetch('/uber/sim/request', { method: 'POST', body: JSON.stringify({ step }) });
+}
+
+export function simRace(step) {
+  return apiFetch('/uber/sim/race', { method: 'POST', body: JSON.stringify({ step }) });
+}
+
+export function simVerifyOtp(otp, step) {
+  return apiFetch('/uber/sim/verify-otp', { method: 'POST', body: JSON.stringify({ otp, step }) });
+}
+
+export function simArrive(step) {
+  return apiFetch('/uber/sim/arrive', { method: 'POST', body: JSON.stringify({ step }) });
+}
+
+export function simComplete(step) {
+  return apiFetch('/uber/sim/complete', { method: 'POST', body: JSON.stringify({ step }) });
+}
+
+export function simGetEvents() {
+  return apiFetch('/uber/sim/events');
+}
+
+export function simGetSnapshot() {
+  return apiFetch('/uber/sim/snapshot');
+}

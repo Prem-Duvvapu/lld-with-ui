@@ -4812,3 +4812,86 @@ docker version
    an actual build-and-smoke-test pass over the compose stack would be worth doing at least once,
    rather than continuing to trust "the files look internally consistent" as a proxy for "this
    deploys."
+## RCA-051: The New Uber `/sim/*` Engine Threw `NullPointerException` Instead of a Domain 404 When a Step Was Called Out of Order
+
+### 1. Overview & Severity
+**Severity: Low (caught before merge by the module's own test suite, never reached a real user).**
+While building the isolated `/api/uber/sim/*` simulation engine (the fix for the audit finding that
+Uber's Simulation tab was a frontend-only fake animation with no backend behind it), every
+mutating sim endpoint (`simRace`, `simVerifyOtp`, `simArrive`, `simComplete`) looked up the current
+sim ride the same way the rest of the codebase does: `simRepository.getRide(simRideId)`, followed
+by `if (ride == null) throw new RideNotFoundException(...)`. That null check never ran — calling
+any of these four endpoints before `simRequest` (which is what actually assigns `simRideId`)
+produced a raw `NullPointerException` and a generic 500, not the intended domain 404.
+
+### 2. Symptoms & Error Logs
+`UberSimEngineTest.actingBeforeRequestThrowsDomainException` and
+`UberControllerIntegrationTest.actingOutOfOrderIsADomainError` both failed on first run:
+```
+org.opentest4j.AssertionFailedError: Unexpected exception type thrown, expected:
+<com.lld.uber.exception.RideNotFoundException> but was: <java.lang.NullPointerException>
+	at com.lld.uber.UberSimEngineTest.actingBeforeRequestThrowsDomainException(UberSimEngineTest.java:197)
+Caused by: java.lang.NullPointerException: Cannot invoke "Object.hashCode()" because "key" is null
+	at java.util.concurrent.ConcurrentHashMap.get(ConcurrentHashMap.java:936)
+	at com.lld.uber.repository.UberRepository.getRide(UberRepository.java:84)
+	at com.lld.uber.service.UberService.simRace(UberService.java:356)
+```
+The MockMvc integration test showed the same failure as a raw `500` with a `jakarta.servlet.
+ServletException` wrapper instead of the `404` + `ErrorResponse` body every other domain error in
+this codebase produces.
+
+### 3. Root Cause
+`java.util.concurrent.ConcurrentHashMap` — unlike `HashMap` — throws `NullPointerException` from
+`get(null)` rather than returning `null`, because `ConcurrentHashMap` disallows null keys entirely
+and treats a null argument as a programming error, not a valid "not found" query. `UberRepository`
+is backed by a `ConcurrentHashMap<String, Ride>`. Before `simRequest` runs, the sim engine's
+`simRideId` field is `null` (set in `simReset()`). Every downstream sim method called
+`simRepository.getRide(simRideId)` unconditionally, which for a `null` id call site actually
+executes `map.get(null)` — the NPE fires *inside* the repository call, before the calling method
+ever reaches its own `if (ride == null)` guard. The guard was correct for the case "the id exists in
+memory but maps to no ride"; it did not protect against "the id itself doesn't exist yet."
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly against the service, no HTTP layer needed:
+mvn -o test -Dtest='com.lld.uber.UberSimEngineTest#actingBeforeRequestThrowsDomainException'
+# -> AssertionFailedError: expected RideNotFoundException but was NullPointerException
+
+# Confirm ConcurrentHashMap's null-key behavior in isolation (not this repo's bug, but the
+# standard-library contract that made the existing null-check pattern insufficient here):
+jshell -q <<'EOF'
+var m = new java.util.concurrent.ConcurrentHashMap<String, String>();
+System.out.println(m.get(null));
+EOF
+# -> throws NullPointerException, confirming get(null) never returns null, it throws
+```
+
+### 5. Step-by-Step Resolution
+1. Wrote `UberSimEngineTest` and `UberControllerIntegrationTest` to cover the sim engine's happy
+   path and its "acted out of order" path, per this repo's standing rule that a new module (or in
+   this case a new endpoint family) ships with real test coverage of its error paths, not just its
+   success paths.
+2. `mvn test` surfaced the NPE immediately — the tests did their job before any PR was opened.
+3. Root-caused to `ConcurrentHashMap.get(null)`'s throw-not-return-null contract, traced through
+   `UberRepository.getRide` → four sim methods that all shared the same unguarded call shape.
+4. Added a single `requireSimRide()` helper in `UberService` that checks `simRideId != null` *before*
+   calling into the repository, then checks the returned `Ride` for null, throwing
+   `RideNotFoundException` from either branch — replacing four duplicated, individually-buggy
+   inline checks with one correct one.
+5. Re-ran the full `com.lld.uber.*Test` suite to confirm both tests now pass and nothing else
+   regressed.
+
+### 6. Preventative Measures
+1. **A `ConcurrentHashMap`-backed repository's `get(id)` is not a safe method to call with a
+   possibly-null id, ever — `get(null)` throws instead of returning `null`.** Any lookup keyed by a
+   value that might not be set yet (a "current active X" id field, not a value from a validated
+   path variable) must be null-checked *before* the map call, not after. `LldPage`/`Repository`
+   `get*` methods across other modules take request-derived ids that Spring has already guaranteed
+   non-null via `@PathVariable`; the sim engine's `simRideId` was different in kind — an
+   internally-tracked "have we requested a ride yet" flag — and that difference is exactly what
+   made the usual pattern unsafe here.
+2. **Writing the "acted out of order" test case before opening the PR is what caught this** — it
+   would have been a real, if minor, regression in the shipped module otherwise (a generic 500
+   instead of the documented 404 contract every other domain error follows). New `/sim/*` endpoint
+   families should get this same "call step N before step N-1" test as a standing checklist item,
+   the same way `ErrorContractIntegrationTest`-style coverage is standing for controllers generally.

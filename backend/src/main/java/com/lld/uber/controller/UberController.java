@@ -147,4 +147,60 @@ public class UberController {
         }
         return service.getAllRides();
     }
+
+    // =========================================================================
+    // ISOLATED SIMULATION ENDPOINTS — separate sandbox, never touches live rides/drivers
+    // =========================================================================
+
+    @PostMapping("/sim/reset")
+    public ResponseEntity<?> simReset() {
+        return ResponseEntity.ok(service.simReset());
+    }
+
+    @PostMapping("/sim/estimate")
+    public ResponseEntity<?> simEstimate(@RequestBody(required = false) Map<String, Object> body) {
+        int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 1;
+        return ResponseEntity.ok(service.simEstimate(step));
+    }
+
+    @PostMapping("/sim/request")
+    public ResponseEntity<?> simRequest(@RequestBody(required = false) Map<String, Object> body) {
+        int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 2;
+        return ResponseEntity.ok(service.simRequest(step));
+    }
+
+    @PostMapping("/sim/race")
+    public ResponseEntity<?> simRace(@RequestBody(required = false) Map<String, Object> body) {
+        int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 3;
+        return ResponseEntity.ok(service.simRace(step));
+    }
+
+    @PostMapping("/sim/verify-otp")
+    public ResponseEntity<?> simVerifyOtp(@RequestBody Map<String, Object> body) {
+        int step = body.containsKey("step") ? ((Number) body.get("step")).intValue() : 4;
+        String otp = String.valueOf(body.get("otp"));
+        return ResponseEntity.ok(service.simVerifyOtp(step, otp));
+    }
+
+    @PostMapping("/sim/arrive")
+    public ResponseEntity<?> simArrive(@RequestBody(required = false) Map<String, Object> body) {
+        int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 5;
+        return ResponseEntity.ok(service.simArrive(step));
+    }
+
+    @PostMapping("/sim/complete")
+    public ResponseEntity<?> simComplete(@RequestBody(required = false) Map<String, Object> body) {
+        int step = body != null && body.containsKey("step") ? ((Number) body.get("step")).intValue() : 6;
+        return ResponseEntity.ok(service.simComplete(step));
+    }
+
+    @GetMapping("/sim/events")
+    public ResponseEntity<List<SimEvent>> simGetEvents() {
+        return ResponseEntity.ok(service.simGetEvents());
+    }
+
+    @GetMapping("/sim/snapshot")
+    public ResponseEntity<?> simGetSnapshot() {
+        return ResponseEntity.ok(service.getSimSnapshot());
+    }
 }
