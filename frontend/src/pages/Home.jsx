@@ -121,7 +121,9 @@ const ALL_LLDS = [
   { title: 'Feature Flag', icon: '🚩', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'Composite targeting rules (country, user id, attribute, percentage rollout) with a race-free atomic rule swap' },
   { title: 'Notification System', icon: '🔔', difficulty: 'Medium', category: 'Design Patterns & Systems',
-    desc: 'Priority-ordered multi-channel dispatch with idempotent sends, preference-based suppression, and retry with backoff' }
+    desc: 'Priority-ordered multi-channel dispatch with idempotent sends, preference-based suppression, and retry with backoff' },
+  { title: 'Job Scheduler', icon: '⏰', difficulty: 'Hard', category: 'Design Patterns & Systems',
+    desc: 'Cron-expression parsing, priority-queue dispatch, and misfire policies with a race-free cancel/dispatch guard' }
 ]
 
 const routeMap = {
@@ -151,6 +153,7 @@ const routeMap = {
   'Thread Pool': 'thread-pool',
   'Feature Flag': 'featureflag',
   'Notification System': 'notification',
+  'Job Scheduler': 'jobscheduler',
 }
 
 export default function Home() {

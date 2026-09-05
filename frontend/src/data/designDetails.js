@@ -23,6 +23,7 @@ import _fooBar from './design/foo-bar.js';
 import _h2o from './design/h2o.js';
 import _hotel from './design/hotel.js';
 import _inventory from './design/inventory.js';
+import _jobscheduler from './design/jobscheduler.js';
 import _library from './design/library.js';
 import _linkedin from './design/linkedin.js';
 import _loggingFramework from './design/logging-framework.js';
@@ -76,6 +77,7 @@ const designDetails = {
   h2o: _h2o,
   hotel: _hotel,
   inventory: _inventory,
+  jobscheduler: _jobscheduler,
   library: _library,
   linkedin: _linkedin,
   loggingFramework: _loggingFramework,

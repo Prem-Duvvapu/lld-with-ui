@@ -59,6 +59,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **49 LLD projects**
 | 49 | [Thread Pool](#49-thread-pool) | Custom worker pool | Strategy (rejection policies), Producer-Consumer, from-scratch bounded queue + real worker threads |
 | 50 | [Feature Flag](#50-feature-flag) | Feature flag targeting service | Composite (rule tree), Factory (rule builder), atomic volatile swap for race-free concurrent evaluation |
 | 51 | [Notification System](#51-notification-system) | Multi-channel notification dispatch | Strategy (channels, retry policy), Factory, idempotent per-key locking, priority-ordered dispatch |
+| 52 | [Job Scheduler](#52-job-scheduler) | Cron/interval job scheduler | Strategy (schedule, misfire policy), Factory, priority-queue dispatch, race-free cancel/dispatch guard |
 
 ---
 
@@ -1423,6 +1424,34 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/notification/sim/concurrent-duplicate-race`
 - `GET /api/notification/sim/events`
 - `GET /api/notification/sim/snapshot`
+
+---
+
+### 52. Job Scheduler
+
+#### Key Features
+- **A Real Cron Parser**: a genuine 5-field Unix cron expression parser and next-fire-time walker (`*`, a single number, comma lists, step values), not a stubbed lookup table.
+- **Three Schedule Strategies**: one-time, fixed-rate (self-correcting so it never drifts under load), and cron — all behind one `Schedule` interface, resolved by a `ScheduleFactory`.
+- **Race-Free Cancel/Dispatch**: cancelling a job and a worker dispatching it serialize on the same per-job `ReentrantLock`, with `cancelled` re-checked inside that lock — proven with a 200-round repeated concurrency test, not a single lucky pass.
+- **Two Misfire Policies**: Fire Immediately (catches up every missed occurrence in a burst) and Skip to Next Occurrence (drops the backlog, jumps to the future) — genuinely different real-world behavior behind one `MisfirePolicy` interface.
+- **Deterministic Testability**: a `Clock` abstraction (`SystemClock` live, `ManualClock` for the sandbox and every test) means every scheduling and misfire computation is exercisable without sleeping for real wall-clock time.
+
+#### API Endpoints
+- `POST /api/jobscheduler/jobs`
+- `GET /api/jobscheduler/jobs`
+- `GET /api/jobscheduler/jobs/{id}`
+- `POST /api/jobscheduler/jobs/{id}/cancel`
+- `GET /api/jobscheduler/jobs/{id}/history`
+- `POST /api/jobscheduler/preview`
+- `POST /api/jobscheduler/sim/reset`
+- `POST /api/jobscheduler/sim/schedule-one-time`
+- `POST /api/jobscheduler/sim/schedule-cron`
+- `POST /api/jobscheduler/sim/advance-clock`
+- `POST /api/jobscheduler/sim/trigger-misfire`
+- `POST /api/jobscheduler/sim/cancel-job`
+- `POST /api/jobscheduler/sim/race`
+- `GET /api/jobscheduler/sim/events`
+- `GET /api/jobscheduler/sim/snapshot`
 
 ---
 

@@ -35,6 +35,7 @@ class DomainExceptionContractTest {
             "FeatureFlagException",
             "HotelException",
             "InventoryException",
+            "JobSchedulerException",
             "LibraryException",
             "LinkedInException",
             "MeetingSchedulerException",
