@@ -17,6 +17,7 @@ import _concurrentHashmap from './diagrams/concurrent-hashmap.js';
 import _courseRegistration from './diagrams/course-registration.js';
 import _cricinfo from './diagrams/cricinfo.js';
 import _elevator from './diagrams/elevator.js';
+import _featureflag from './diagrams/featureflag.js';
 import _fizzBuzz from './diagrams/fizz-buzz.js';
 import _fooBar from './diagrams/foo-bar.js';
 import _h2o from './diagrams/h2o.js';
@@ -68,6 +69,7 @@ const classDiagrams = {
   courseRegistration: _courseRegistration,
   cricinfo: _cricinfo,
   elevator: _elevator,
+  featureflag: _featureflag,
   fizzBuzz: _fizzBuzz,
   fooBar: _fooBar,
   h2o: _h2o,

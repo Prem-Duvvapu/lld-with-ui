@@ -117,7 +117,9 @@ const ALL_LLDS = [
   { title: 'Meeting Scheduler', icon: '📅', difficulty: 'Medium', category: 'Core',
     desc: 'Room booking with room- and attendee-level conflict detection across overlapping time ranges' },
   { title: 'Thread Pool', icon: '🧵', difficulty: 'Hard', category: 'Concurrency',
-    desc: 'Custom-built worker pool with core/max sizing, bounded queue, and pluggable rejection policies' }
+    desc: 'Custom-built worker pool with core/max sizing, bounded queue, and pluggable rejection policies' },
+  { title: 'Feature Flag', icon: '🚩', difficulty: 'Medium', category: 'Design Patterns & Systems',
+    desc: 'Composite targeting rules (country, user id, attribute, percentage rollout) with a race-free atomic rule swap' }
 ]
 
 const routeMap = {
@@ -145,6 +147,7 @@ const routeMap = {
   'Rate Limiter': 'rate-limiter',
   'Meeting Scheduler': 'meeting-scheduler',
   'Thread Pool': 'thread-pool',
+  'Feature Flag': 'featureflag',
 }
 
 export default function Home() {

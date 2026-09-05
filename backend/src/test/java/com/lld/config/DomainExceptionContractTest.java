@@ -32,6 +32,7 @@ class DomainExceptionContractTest {
             "ConcertTicketException",
             "CourseRegistrationException",
             "CricinfoException",
+            "FeatureFlagException",
             "HotelException",
             "InventoryException",
             "LibraryException",
