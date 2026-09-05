@@ -89,7 +89,18 @@ void twoRidersRacingForOneDriver_onlyOneWins() throws Exception {
 - Always bound the wait (`await(5, TimeUnit.SECONDS)`) and assert it returned true, so a
   deadlock fails the test instead of hanging CI.
 - Use enough threads to make the window real — 10+ for balance races, 2 is enough for a
-  binary claim.
+  binary claim (winner vs. loser).
+- **A single run of even a correctly-shaped 2-thread race is not a reliable regression guard —
+  repeat it.** RCA-052 is the proof: a brand-new `/sim/*` engine test looped a two-different-
+  drivers-one-ride race 25 times and caught a genuine, previously-shipped bug (a lock keyed on
+  the wrong entity) on round 24 — the *existing* single-shot test for the identical scenario
+  (`oneRideManyDrivers_bindsToOneDriver`) had been exercising that exact bug the whole time and
+  never once reported it, because the unguarded window is nanoseconds wide and a lone attempt
+  usually just doesn't land in it. Default every race test to a 100–300 round repeated form
+  (see `UberConcurrencyTest.repeatedRaceNeverProducesTwoWinners` /
+  `repeatedTwoDriverRaceForOneRideNeverProducesTwoWinners` for the pattern — fresh service/repo
+  instances each round, latch-released together, assert the invariant every round) unless there's
+  a specific, stated reason a single run suffices.
 - `Thread.sleep` to "make the race happen" is a smell; latches are deterministic, sleeps are not.
 
 The bug class this repo keeps producing is **check-then-act**: a read of state and a write that

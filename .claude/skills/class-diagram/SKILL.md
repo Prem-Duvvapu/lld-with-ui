@@ -64,6 +64,14 @@ must reflect the code that exists, not the code the README describes.
   `AtomicInteger`. They are the interesting part of most of these designs and are exactly what an
   interviewer asks about.
 - 8–14 classes is the readable range. Beyond that the graph layout gets crowded.
+- **Show the domain design only.** No exception classes (no `XxxException` entries, no
+  `throws`/`extends DomainException` relationships) and no simulation plumbing (no
+  `SimEvent`/`{Module}SimService` classes, no `sim*`-prefixed fields or methods, no `/sim/*`
+  labels on relationships) — per `CLAUDE.md`. The class diagram is about structure; the
+  simulation tab already exists to show flow, and cluttering the diagram with exception types or
+  sim-only wiring makes the actual design harder to read (issues #47, #48 both flagged this).
+  Sequence diagrams (`src/data/sequences/<key>.js`) are the right place for a `/sim/*` walkthrough
+  — a sequence diagram is about flow, not structure, so that exclusion does not apply there.
 
 ## Relationship labels
 

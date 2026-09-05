@@ -14,17 +14,15 @@ Run the `audit-lld` skill first, or do its checklist inline. Do not start editin
 which of the 17 criteria fail — the work is different for a frontend-only shell than for a
 module that just lacks tests.
 
-**Three common starting states:**
+**Two common starting states — the "frontend-only shell" state no longer exists:** every one of
+the 49 current modules has a real backend now (the 9 concurrency primitives and the other six
+modules once listed here all graduated). Verify with `ls backend/src/main/java/com/lld/<key>/`
+rather than assuming from this table.
 
 | State | What is missing | Where to start |
 |---|---|---|
-| Frontend-only page (15 of them, incl. all 9 concurrency primitives) | The entire backend | Build backend first, then rewrite the page as a real API client |
 | Backend exists, thin | Patterns, sim engine, exception hierarchy, tests | Backend depth, then the simulation tab |
 | Complete but shallow | Tests, design data, docs | Tests and content |
-
-`car-rental`, `concert-ticket`, `course-registration`, `cricinfo`, `music-streaming`,
-`restaurant` and the 9 primitives (`blocking-queue`, `bloom-filter`, `concurrent-hashmap`,
-`fizz-buzz`, `foo-bar`, `h2o`, `merge-sort`, `ttl-cache`, `zero-even-odd`) have no backend.
 
 ## Rules that make an upgrade different from a rewrite
 

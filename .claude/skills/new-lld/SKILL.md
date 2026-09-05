@@ -12,9 +12,10 @@ inventing a new one.
 ## Before writing anything
 
 1. **Confirm the module does not already exist.** `ls backend/src/main/java/com/lld/` and
-   `ls frontend/src/lld/`. 30 modules have backends; 15 pages are frontend-only shells. If a
-   frontend-only page exists, this is an **upgrade**, not a new module — use the `upgrade-lld`
-   skill instead.
+   `ls frontend/src/lld/`. All 49 current modules have real backends — there are no frontend-only
+   shells left, so a matching folder in either directory means the module already exists. If a
+   page exists but seems thin or shallow rather than genuinely new, this is an **upgrade**, not a
+   new module — use the `upgrade-lld` skill instead.
 2. **Pick the canonical key.** One lowercase slug used everywhere: backend package
    `com.lld.<key>`, API base `/api/<key>`, frontend folder `src/lld/<key>/`, data files
    `src/data/design/<key>.js` and `src/data/diagrams/<key>.js`. If the URL path differs from the
