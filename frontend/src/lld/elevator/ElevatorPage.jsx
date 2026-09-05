@@ -30,18 +30,26 @@ const styles = `
 .el-floor-btn-up { background: #4caf50; color: #fff; }
 .el-floor-btn-down { background: #ff9800; color: #fff; }
 .el-floor-btn.pending { animation: el-pending-pulse 1.1s ease-in-out infinite; }
+.el-shaft-headers { display: flex; gap: 6px; justify-content: center; margin-bottom: 3px; }
+.el-shaft-header { width: 56px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; border-radius: 6px 6px 0 0; background: var(--bg-primary); border: 1px solid var(--border-primary); border-bottom: none; }
+.el-shaft-header.tracked { box-shadow: 0 0 0 2px #ffc107 inset; }
+.el-shaft-header-name { font-size: 12px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.3px; }
+.el-shaft-header-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.el-shaft-header-dot.idle { background: #667eea; }
+.el-shaft-header-dot.moving { background: #f5576c; animation: el-live-pulse 1s ease-in-out infinite; }
+.el-shaft-header-dot.door-open { background: #4caf50; }
+.el-shaft-header-dot.maintenance { background: #888; }
 .el-shafts { flex: 1; display: flex; gap: 6px; justify-content: center; position: relative; height: 58px; }
 .el-shaft { width: 56px; position: relative; border-left: 1px solid var(--border-primary); border-right: 1px solid var(--border-primary); background: rgba(128,128,128,0.04); }
-.el-car { position: absolute; left: 3px; right: 3px; height: 34px; top: 50%; transform: translateY(-50%); border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.3); overflow: visible; }
+.el-car { position: absolute; left: 3px; right: 3px; height: 36px; top: 50%; transform: translateY(-50%); border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.3); overflow: visible; }
 .el-car.idle { background: linear-gradient(135deg, #667eea, #5568d3); }
 .el-car.moving { background: linear-gradient(135deg, #f093fb, #f5576c); }
 .el-car.door-open { background: linear-gradient(135deg, #4caf50, #2e9c44); }
 .el-car.maintenance { background: linear-gradient(135deg, #888, #555); }
 .el-car.tracked { box-shadow: 0 0 0 3px #ffc107, 0 0 14px rgba(255,193,7,0.6); }
 .el-car.arrived-flash { animation: el-arrive-flash 0.9s ease-out; }
-.el-car-face { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05; position: relative; z-index: 3; pointer-events: none; }
-.el-car-floor { font-size: 13px; font-weight: 800; }
-.el-car-name { font-size: 6.5px; opacity: 0.9; letter-spacing: 0.3px; text-transform: uppercase; }
+.el-car-face { display: flex; align-items: center; justify-content: center; line-height: 1; position: relative; z-index: 3; pointer-events: none; }
+.el-car-floor { font-size: 16px; font-weight: 800; }
 .el-dir-chevron { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 900; z-index: 4; animation: el-chevron-bounce 0.6s ease-in-out infinite; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4)); }
 .el-dir-chevron.up { color: #4caf50; }
 .el-dir-chevron.down { color: #ff9800; }
@@ -138,6 +146,22 @@ function loadColor(pct) {
  * 5-floor traverse actually feel different, the way a real elevator does — tracked via a ref map
  * of each car's previous floor/state across polls, since the backend only reports position, not
  * how far it just moved. */
+/** Sits above the shaft, one chip per car, so the identity a rider needs ("which column is
+ * Car A?") is stated once, clearly — rather than repeated in tiny text inside every moving
+ * car, which is what made a bank of 4 cars read as an illegible "1 A 1 B 5 C 8 D". */
+function ShaftHeaderRow({ elevators, trackedId = null }) {
+  return (
+    <div className="el-shaft-headers">
+      {elevators.map((el) => (
+        <div key={el.id} className={`el-shaft-header ${el.id === trackedId ? 'tracked' : ''}`}>
+          <span className={`el-shaft-header-dot ${CAR_CLASS[el.status] || 'idle'}`} />
+          <span className="el-shaft-header-name">{shortLabel(el.name)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ShaftOverlay({ elevators, floors = TOTAL_FLOORS, trackedId = null }) {
   const prevRef = useRef(new Map());
 
@@ -168,7 +192,6 @@ function ShaftOverlay({ elevators, floors = TOTAL_FLOORS, trackedId = null }) {
               )}
               <div className="el-car-face">
                 <span className="el-car-floor">{el.currentFloor}</span>
-                <span className="el-car-name">{shortLabel(el.name)}</span>
               </div>
               <div className="door-l" />
               <div className="door-r" />
@@ -286,6 +309,7 @@ function AppTab() {
             ))}
           </div>
           <div style={{ flex: 1, padding: '0 12px' }}>
+            <ShaftHeaderRow elevators={elevators} />
             <ShaftOverlay elevators={elevators} />
           </div>
         </div>
@@ -438,13 +462,21 @@ function SimulationTab() {
               </span>
             </div>
             <div style={{ padding: '12px 16px' }}>
-              <ShaftOverlay elevators={elevatorsList.map((e) => ({
-                id: e.id, name: e.name, currentFloor: e.currentFloor,
-                status: e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN' ? 'MOVING'
-                  : e.state === 'DOOR_OPEN' ? 'DOOR_OPEN'
-                  : e.state === 'MAINTENANCE' ? 'OUT_OF_ORDER' : 'STOPPED',
-                direction: e.direction, capacity: e.capacity, currentLoad: e.occupancy,
-              }))} trackedId={assignedId} />
+              {(() => {
+                const shaftCars = elevatorsList.map((e) => ({
+                  id: e.id, name: e.name, currentFloor: e.currentFloor,
+                  status: e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN' ? 'MOVING'
+                    : e.state === 'DOOR_OPEN' ? 'DOOR_OPEN'
+                    : e.state === 'MAINTENANCE' ? 'OUT_OF_ORDER' : 'STOPPED',
+                  direction: e.direction, capacity: e.capacity, currentLoad: e.occupancy,
+                }));
+                return (
+                  <>
+                    <ShaftHeaderRow elevators={shaftCars} trackedId={assignedId} />
+                    <ShaftOverlay elevators={shaftCars} trackedId={assignedId} />
+                  </>
+                );
+              })()}
             </div>
           </div>
 
