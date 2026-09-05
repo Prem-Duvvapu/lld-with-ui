@@ -1453,6 +1453,43 @@ Brand-new module (portfolio position #50). Package `com.lld.notification`.
   promotional send suppressed by preference, a forced PUSH failure, the retry sequence resolving,
   a duplicate idempotency key demo, a live concurrent-race demo, and a final snapshot.
 
+## Job Scheduler Module
+Brand-new module (portfolio position #50). Package `com.lld.jobscheduler`.
+
+### Backend
+- `com.lld.jobscheduler`: `controller / service / model / schedule / misfire / clock / exception /
+  repository / config` packages.
+- **The cancel/dispatch race — this module's centerpiece**: `JobScheduler` holds a per-job-id
+  `ReentrantLock` map. `cancel()` and `dispatchIfDue()`/`dispatchDueNow()` both acquire the same
+  job's lock before reading or writing `cancelled`/`status`, so a job popped for execution the
+  instant it is cancelled is provably never run. `JobSchedulerConcurrencyTest` proves this with a
+  200-round repeated race (per this repo's RCA-052 lesson — a single-shot race reliably passes by
+  luck).
+- **Strategy** — `Schedule` (`OneTimeSchedule`/`FixedRateSchedule`/`CronSchedule`, resolved by
+  `ScheduleFactory`) and `MisfirePolicy` (`FireImmediatelyMisfirePolicy`/
+  `SkipToNextOccurrenceMisfirePolicy`, resolved by `MisfirePolicyFactory`).
+  `CronSchedule` is a real 5-field parser and minute-by-minute next-fire walker, capped at ~4
+  simulated years to avoid looping forever on an impossible expression (e.g. day 31 of February).
+- **Clock abstraction**: `SystemClock` for the live engine, `ManualClock` for the isolated
+  `/sim/*` sandbox and every test — the same idiom as `circuitbreaker.clock.Clock`.
+- Exception hierarchy: `JobSchedulerException extends com.lld.config.DomainException` with
+  `JobNotFoundException` (404), `InvalidScheduleException` (400), `InvalidCronExpressionException`
+  (400), `InvalidJobTransitionException` (400).
+- Isolated `/api/jobscheduler/sim/*` engine: a completely separate `JobScheduler` on a
+  `ManualClock`, so the clock only ever advances when the demo's "advance clock" step is clicked.
+- Tests (10 files): `CronScheduleTest`, `FixedRateScheduleTest`, `OneTimeScheduleTest`,
+  `ScheduleFactoryTest`, `MisfirePolicyTest`, `JobStatusTest`, `JobSchedulerRepositoryTest`,
+  `JobSchedulerServiceTest`, `JobSchedulerConcurrencyTest` (200-round cancel/dispatch race),
+  `JobSchedulerControllerIntegrationTest` (MockMvc — confirms no leaked lock objects).
+
+### Frontend
+- 4 tabs: App, Interactive 2D Simulation, Class Diagram, Design Details.
+- App tab: create a one-time or cron job, preview its next fire times, cancel a job, and review
+  its execution history.
+- Simulation tab: 8-step guided demo — reset, schedule a one-time job, schedule a cron job, advance
+  the clock so jobs actually fire, trigger a forced misfire, cancel a job, a live cancel/dispatch
+  race demo, and a final snapshot with the full event log.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)

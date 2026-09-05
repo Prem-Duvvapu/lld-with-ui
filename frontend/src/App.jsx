@@ -83,6 +83,7 @@ const LLD_ROUTES = [
   { path: 'thread-pool', title: 'Thread Pool', module: './lld/thread-pool/ThreadPoolPage.jsx' },
   { path: 'featureflag', title: 'Feature Flag', module: './lld/featureflag/FeatureFlagPage.jsx' },
   { path: 'notification', title: 'Notification System', module: './lld/notification/NotificationPage.jsx' },
+  { path: 'jobscheduler', title: 'Job Scheduler', module: './lld/jobscheduler/JobSchedulerPage.jsx' },
 ]
 
 function Layout({ children }) {
