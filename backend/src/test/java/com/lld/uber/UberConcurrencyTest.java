@@ -335,6 +335,65 @@ class UberConcurrencyTest {
     }
 
     @Test
+    @DisplayName("RCA-052: two different drivers racing for one ride, repeated 300 times: never two winners")
+    void repeatedTwoDriverRaceForOneRideNeverProducesTwoWinners() throws InterruptedException {
+        // oneRideManyDrivers_bindsToOneDriver above races 10 *different* drivers for one ride,
+        // but only once — a single run of a race this narrow reliably passes by luck, which is
+        // exactly how RCA-052's bug (the per-driver lock never covering two different drivers
+        // targeting the same ride) went undetected until this repeated version was added.
+        int rounds = 300;
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        try {
+            for (int round = 0; round < rounds; round++) {
+                UberRepository repo = new UberRepository();
+                StandardFarePricingStrategy standard = new StandardFarePricingStrategy();
+                DriverAssignmentService localAssignment = new DriverAssignmentService(repo);
+                UberService localService = new UberService(repo, new PaymentProcessor(),
+                        new FarePricingStrategyFactory(standard, new SurgeFarePricingStrategy(standard)),
+                        localAssignment);
+
+                Driver d1 = new Driver("D1", "Driver D1", "9000000000", VehicleType.UBER_GO, "KA-01-D1", pickup);
+                d1.setStatus(DriverStatus.AVAILABLE);
+                Driver d2 = new Driver("D2", "Driver D2", "9000000000", VehicleType.UBER_GO, "KA-01-D2", pickup);
+                d2.setStatus(DriverStatus.AVAILABLE);
+                repo.registerDriver(d1);
+                repo.registerDriver(d2);
+
+                Ride ride = localService.requestRide("alice", "12.9716", "77.5946", "MG Road",
+                        "12.9352", "77.6245", "Koramangala", "UBER_GO", null, null);
+
+                CountDownLatch start = new CountDownLatch(1);
+                CountDownLatch done = new CountDownLatch(2);
+                AtomicInteger wins = new AtomicInteger();
+
+                for (String driverId : List.of("D1", "D2")) {
+                    pool.submit(() -> {
+                        try {
+                            start.await();
+                            localService.assignDriver(ride.getId(), driverId);
+                            wins.incrementAndGet();
+                        } catch (DriverUnavailableException expected) {
+                            // lost the race
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            done.countDown();
+                        }
+                    });
+                }
+
+                start.countDown();
+                assertTrue(done.await(5, TimeUnit.SECONDS), "round " + round + " did not finish");
+                assertEquals(1, wins.get(), "round " + round + " handed one ride to two drivers");
+            }
+        } finally {
+            pool.shutdown();
+            assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS), "pool did not shut down");
+        }
+    }
+
+    @Test
     @DisplayName("Releasing an unknown or null driver is a no-op, not a crash")
     void releaseIsNullSafe() {
         assertDoesNotThrow(() -> assignment.release(null, dropoff));

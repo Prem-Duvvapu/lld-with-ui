@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getEstimate, requestRide, getAllRides, startTrip, arriveAtDestination, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide, verifyOtp, getUserRides } from './api';
+import { getEstimate, requestRide, getAllRides, startTrip, arriveAtDestination, completeTrip, cancelTrip, getDrivers, updateDriverStatus, getDriverRequests, acceptRide, declineRide, verifyOtp, getUserRides, simReset, simEstimate, simRequest, simRace, simVerifyOtp, simArrive, simComplete, simGetSnapshot } from './api';
 import LldPage from '../../components/LldPage';
 import { Card, CardHeader, CardBody } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -156,6 +156,16 @@ const UBER_CSS = `
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
+.uber-flow-marker.driver-nearby { background: rgba(99, 102, 241, 0.9); border: 1px solid #818cf8; }
+.uber-flow-marker.driver-won { background: rgba(34, 197, 94, 0.95); border: 1px solid #4ade80; box-shadow: 0 0 0 3px rgba(74,222,128,0.35); }
+.uber-flow-marker.driver-lost { background: rgba(239, 68, 68, 0.55); border: 1px solid #f87171; text-decoration: line-through; opacity: 0.8; }
+.uber-sim-panel { padding: 16px; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border-primary); color: var(--text-primary); }
+.uber-otp-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.uber-event-log { max-height: 150px; overflow-y: auto; background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; padding: 8px 10px; font-size: 11.5px; margin-top: 12px; }
+.uber-event-row { padding: 4px 0; border-bottom: 1px dashed var(--border-primary); color: var(--text-secondary); }
+.uber-event-row:last-child { border-bottom: none; }
+.uber-event-row.status-WARNING { color: #b45309; font-weight: 600; }
+.uber-event-row.status-ERROR { color: #dc2626; font-weight: 600; }
 `;
 
 const USER_ID = 'RIDER-001';
@@ -775,174 +785,124 @@ function TripHistory() {
   );
 }
 
-function InteractiveAnimatedFlow() {
+/** Drives the real, isolated `/api/uber/sim/*` sandbox — every number and status here came back
+ * from a genuine UberService call against sim-only riders/drivers, never the live rides tab. */
+function UberSimulation() {
   const toast = useToast();
-  const [step, setStep] = useState(0); // 0 to 7
-  const [pickupLabel, setPickupLabel] = useState(LOCATIONS[0].label);
-  const [dropoffLabel, setDropoffLabel] = useState(LOCATIONS[1].label);
-  const [vehicleType, setVehicleType] = useState('UBER_GO');
+  const [step, setStep] = useState(0); // 0..7
+  const [busy, setBusy] = useState(false);
+  const [snapshot, setSnapshot] = useState(null); // { rider, drivers, ride, events }
   const [estimate, setEstimate] = useState(null);
+  const [broadcastTo, setBroadcastTo] = useState([]);
+  const [raceResult, setRaceResult] = useState(null); // { ride, winnerDriverId, loserDriverId, outcomes }
+  const [otpAttempt, setOtpAttempt] = useState(null); // { ride, accepted }
   const [ride, setRide] = useState(null);
-  const [driver, setDriver] = useState(null);
-  const [etaMinutes, setEtaMinutes] = useState(7);
-  const [driverDistance, setDriverDistance] = useState(2.4);
-  const [inputOtp, setInputOtp] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('UPI');
-  const [isRejected, setIsRejected] = useState(false);
   const [carLeft, setCarLeft] = useState(50);
 
   const steps = [
-    '1. Route & Fare',
-    '2. Request Ride',
-    '3. Driver Accept/Reject',
-    '4. Driver En Route (ETA)',
+    '1. Reset Sandbox',
+    '2. Estimate Fare',
+    '3. Request & Broadcast',
+    '4. Two Drivers Race',
     '5. Verify OTP',
-    '6. Ride Ongoing',
-    '7. Destination Reached',
-    '8. Payment Complete'
+    '6. Arrive at Destination',
+    '7. Complete & Pay',
+    '8. Final Snapshot',
   ];
 
-  const locMap = Object.fromEntries(LOCATIONS.map((l) => [l.label, l]));
+  const carLeftForStep = [50, 50, 300, 480, 480, 650, 800, 800];
 
-  // Step 1: Calculate Fare & Estimate
-  const handleStep1Estimate = async () => {
-    const p = locMap[pickupLabel]; const d = locMap[dropoffLabel];
-    if (!p || !d || pickupLabel === dropoffLabel) {
-      toast.error('Pickup and Dropoff locations must be different');
-      return;
-    }
-    try {
-      const data = await getEstimate(p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType);
-      setEstimate(data);
-      setStep(1);
-    } catch (err) {
-      toast.error(err.message || 'Failed to estimate fare');
-    }
+  const drivers = snapshot?.drivers || [];
+  const events = snapshot?.events || [];
+  const winnerDriver = raceResult ? drivers.find((d) => d.id === raceResult.winnerDriverId) : null;
+  const loserDriver = raceResult ? drivers.find((d) => d.id === raceResult.loserDriverId) : null;
+
+  const withBusy = async (fn) => {
+    setBusy(true);
+    try { await fn(); } finally { setBusy(false); }
   };
 
-  // Step 2: Request Ride
-  const handleStep2Request = async () => {
-    const p = locMap[pickupLabel]; const d = locMap[dropoffLabel];
-    try {
-      const data = await requestRide(USER_ID, p.lat, p.lng, p.label, d.lat, d.lng, d.label, vehicleType, estimate?.fare, estimate?.distanceKm);
-      setRide(data);
-      setInputOtp(data.otp || '4829');
-      // Assign mock driver info for simulation
-      const mockDriver = { id: 'D-001', name: 'Rajesh Kumar', vehicleNumber: 'KA-01-AB-1234', vehicleType };
-      setDriver(mockDriver);
-      setStep(2);
-      toast.success(`Ride requested! OTP generated: ${data.otp || '4829'}`);
-    } catch (err) {
-      toast.error(err.message || 'Failed to request ride');
-    }
-  };
-
-  // Step 3: Driver Accept or Reject
-  const handleStep3Accept = async () => {
-    if (!ride) return;
-    try {
-      const updated = await acceptRide(ride.id, 'D-001');
-      setRide(updated);
-      setIsRejected(false);
-      const dist = 2.4;
-      const eta = Math.ceil(dist * 3); // 3 mins per km
-      setDriverDistance(dist);
-      setEtaMinutes(eta);
-      setCarLeft(150);
-      setStep(3);
-      toast.success(`Driver ${updated.driverName || 'Rajesh'} accepted the ride!`);
-    } catch (err) {
-      toast.error(err.message || 'Failed to accept ride');
-    }
-  };
-
-  const handleStep3Reject = async () => {
-    if (!ride) return;
-    try {
-      await declineRide(ride.id, 'D-001');
-      setIsRejected(true);
-      toast.info('Driver rejected the ride request. Step 3 reached (Final step for rejected ride).');
-    } catch (err) {
-      toast.error(err.message || 'Failed to reject ride');
-    }
-  };
-
-  // Step 4: Driver Reached Pickup
-  const handleStep4DriverArrived = () => {
-    setCarLeft(300);
-    setStep(4);
-    toast.success('Driver arrived at Pickup location! Share secret OTP with driver.');
-  };
-
-  // Step 5: Verify OTP & Start Ride
-  const handleStep5VerifyOtp = async () => {
-    if (!ride) return;
-    const cleanInput = inputOtp.trim();
-    const expectedOtp = (ride.otp || '4829').trim();
-
-    if (!cleanInput) {
-      toast.error('Please enter the 4-digit secret OTP shown above.');
-      return;
-    }
-
-    if (cleanInput !== expectedOtp) {
-      toast.error(`❌ Invalid OTP "${cleanInput}"! Please enter the correct 4-digit secret OTP (${expectedOtp}).`);
-      return;
-    }
-
-    try {
-      const res = await verifyOtp(ride.id, cleanInput);
-      setRide(res);
-      setCarLeft(500);
-      setStep(5);
-      toast.success('✅ OTP verified successfully! Ride status: ONGOING');
-    } catch (err) {
-      const msg = typeof err === 'object' && err !== null ? (err.message || 'Invalid OTP! Verification failed.') : String(err);
-      toast.error(`❌ ${msg}`);
-    }
-  };
-
-  // Step 6: Driver Reached Destination
-  const handleStep6ReachedDestination = () => {
-    setCarLeft(750);
-    setStep(6);
-    toast.info('Destination reached! Driver updating status to COMPLETED...');
-  };
-
-  // Step 7: Complete Trip & Ask Payment
-  const handleStep7CompleteAndAskPayment = async () => {
-    if (!ride) return;
-    try {
-      const res = await completeTrip(ride.id, paymentMethod);
-      setRide(res);
-      setStep(7);
-      toast.success('Trip status set to COMPLETED! Payment requested from rider.');
-    } catch (err) {
-      toast.error(err.message || 'Failed to complete trip');
-    }
-  };
-
-  // Reset Flow
-  const handleReset = () => {
-    setStep(0);
-    setEstimate(null);
+  const handleReset = () => withBusy(async () => {
+    const snap = await simReset();
+    setSnapshot(snap);
     setRide(null);
-    setDriver(null);
-    setIsRejected(false);
-    setCarLeft(50);
-    setInputOtp('');
-  };
+    setEstimate(null);
+    setBroadcastTo([]);
+    setRaceResult(null);
+    setOtpAttempt(null);
+    setCarLeft(carLeftForStep[0]);
+    setStep(0);
+    toast.success('Sandbox reset — 1 rider, 3 drivers seeded (isolated from live rides).');
+  });
+
+  const handleEstimate = () => withBusy(async () => {
+    const res = await simEstimate(1);
+    setEstimate(res.estimate);
+    setCarLeft(carLeftForStep[1]);
+    setStep(1);
+  });
+
+  const handleRequest = () => withBusy(async () => {
+    const res = await simRequest(2);
+    setRide(res.ride);
+    setBroadcastTo(res.broadcastTo);
+    setCarLeft(carLeftForStep[2]);
+    setStep(2);
+    toast.success(`Broadcast to ${res.broadcastTo.length} nearby UBER_GO driver(s).`);
+  });
+
+  const handleRace = () => withBusy(async () => {
+    const res = await simRace(3);
+    setRide(res.ride);
+    setRaceResult(res);
+    setCarLeft(carLeftForStep[3]);
+    setStep(3);
+    const snap = await simGetSnapshot();
+    setSnapshot(snap);
+    toast.success(`${res.winnerDriverId} won the race — ${res.loserDriverId} was rejected.`);
+  });
+
+  const handleWrongOtp = () => withBusy(async () => {
+    const res = await simVerifyOtp('0000', 4);
+    setOtpAttempt(res);
+    toast.error('OTP "0000" rejected — that was an intentionally wrong attempt.');
+  });
+
+  const handleCorrectOtp = () => withBusy(async () => {
+    const res = await simVerifyOtp(ride?.otp, 4);
+    setRide(res.ride);
+    setOtpAttempt(res);
+    setCarLeft(carLeftForStep[5]);
+    setStep(5);
+    toast.success('Correct OTP accepted — trip is now ONGOING.');
+  });
+
+  const handleArrive = () => withBusy(async () => {
+    const res = await simArrive(5);
+    setRide(res.ride);
+    setCarLeft(carLeftForStep[6]);
+    setStep(6);
+  });
+
+  const handleComplete = () => withBusy(async () => {
+    const res = await simComplete(6);
+    setRide(res.ride);
+    setCarLeft(carLeftForStep[7]);
+    setStep(7);
+    toast.success('Trip completed — driver released back to the pool.');
+  });
 
   const getHudStatusText = () => {
+    if (!snapshot) return 'STATUS: SANDBOX NOT RESET';
     switch (step) {
-      case 0: return 'STATUS: IDLE (Select Route)';
+      case 0: return 'STATUS: SANDBOX READY';
       case 1: return 'STATUS: FARE ESTIMATED';
-      case 2: return 'STATUS: RIDE REQUESTED';
-      case 3: return `STATUS: EN_ROUTE TO PICKUP (${etaMinutes} MINS)`;
-      case 4: return 'STATUS: ARRIVED AT PICKUP (VERIFY OTP)';
-      case 5: return 'STATUS: TRIP ONGOING ➔ EN ROUTE';
-      case 6: return 'STATUS: ARRIVED AT DESTINATION';
-      case 7: return 'STATUS: TRIP COMPLETED (PAID)';
+      case 2: return `STATUS: BROADCAST TO ${broadcastTo.length} DRIVER(S)`;
+      case 3: return `STATUS: ${raceResult?.winnerDriverId || ''} ACCEPTED (RACE RESOLVED)`;
+      case 4: return 'STATUS: AWAITING OTP VERIFICATION';
+      case 5: return 'STATUS: ONGOING — OTP VERIFIED';
+      case 6: return 'STATUS: PAYMENT_PENDING (ARRIVED)';
+      case 7: return 'STATUS: COMPLETED & PAID';
       default: return 'STATUS: IDLE';
     }
   };
@@ -951,289 +911,223 @@ function InteractiveAnimatedFlow() {
     <div style={{ maxWidth: 850, margin: '0 auto' }}>
       <StepIndicator steps={steps} currentStep={step} />
 
-      {/* Enhanced City Map Graphic Scene with Road, Buildings & Street Scenery */}
+      {/* City map scene — a deliberate fixed-dark canvas, not theme-dependent (see CLAUDE.md) */}
       <div className="uber-flow-scene">
-        {/* Top Skyline Buildings */}
         <div className="uber-city-skyline">
-          <span>🏢</span>
-          <span>🏬</span>
-          <span>🏫</span>
-          <span>🏦</span>
-          <span>🏪</span>
-          <span>🏢</span>
-          <span>🏥</span>
+          <span>🏢</span><span>🏬</span><span>🏫</span><span>🏦</span><span>🏪</span><span>🏢</span><span>🏥</span>
         </div>
-
-        {/* Street Lamps */}
         <div className="uber-street-lamps">
-          <span>💡</span>
-          <span>💡</span>
-          <span>💡</span>
-          <span>💡</span>
-          <span>💡</span>
-          <span>💡</span>
+          <span>💡</span><span>💡</span><span>💡</span><span>💡</span><span>💡</span><span>💡</span>
         </div>
-
-        {/* Multi-lane Road Network */}
         <div className="uber-road">
           <div className="uber-road-line"></div>
-          {/* Zebra Crossings */}
           <div className="uber-zebra-crossing" style={{ left: 300 }}></div>
           <div className="uber-zebra-crossing" style={{ left: 750 }}></div>
         </div>
-
-        {/* Bottom Suburban Houses & Parks */}
         <div className="uber-suburbs-bottom">
-          <span>🏡</span>
-          <span>🌳</span>
-          <span>🏠</span>
-          <span>🌲</span>
-          <span>🏡</span>
-          <span>🌳</span>
-          <span>🏢</span>
+          <span>🏡</span><span>🌳</span><span>🏠</span><span>🌲</span><span>🏡</span><span>🌳</span><span>🏢</span>
         </div>
 
-        {/* Location & Driver Badges */}
         <div className="uber-flow-map">
-          <div className="uber-flow-marker driver-start" style={{ left: 40, top: 95 }}>
-            👨‍✈️ Driver Base (Rajesh)
-          </div>
-          <div className="uber-flow-marker pickup" style={{ left: 290, top: 95 }}>
-            📍 Pickup ({pickupLabel})
-          </div>
-          <div className="uber-flow-marker drop" style={{ left: 740, top: 95 }}>
-            🏁 Dropoff ({dropoffLabel})
-          </div>
+          <div className="uber-flow-marker pickup" style={{ left: 290, top: 95 }}>📍 Pickup (MG Road)</div>
+          <div className="uber-flow-marker drop" style={{ left: 740, top: 95 }}>🏁 Dropoff (Koramangala)</div>
 
-          {/* Animated Car with Headlight Beam */}
+          {step >= 2 && drivers.filter((d) => broadcastTo.includes(d.name)).map((d, i) => {
+            const won = raceResult && d.id === raceResult.winnerDriverId;
+            const lost = raceResult && d.id === raceResult.loserDriverId;
+            const cls = won ? 'driver-won' : lost ? 'driver-lost' : 'driver-nearby';
+            return (
+              <div key={d.id} className={`uber-flow-marker ${cls}`} style={{ left: 40, top: 30 + i * 34 }}>
+                {won ? '✅' : lost ? '❌' : '👨‍✈️'} {d.name}
+              </div>
+            );
+          })}
+
           <div className="uber-flow-car" style={{ left: carLeft }}>
             🚘
             <div className="uber-car-beam"></div>
           </div>
         </div>
 
-        {/* Live HUD Overlay Badge */}
         <div className="uber-hud-overlay">
           <div style={{ fontWeight: 800, color: '#f59e0b', marginBottom: 2 }}>{getHudStatusText()}</div>
           <div style={{ fontSize: 11, opacity: 0.85 }}>
-            Speed: <strong>{step >= 3 && step <= 5 ? '48 km/h' : '0 km/h'}</strong> | Vehicle: <strong>{vehicleType}</strong>
+            Fare: <strong>{ride ? `₹${ride.fare?.toFixed(2)}` : '—'}</strong> | Vehicle: <strong>UBER_GO</strong>
           </div>
         </div>
       </div>
 
-      {/* Interactive Step Cards */}
       <Card style={{ marginTop: 16 }}>
         <CardBody>
-          {/* STEP 0: Select Route */}
-          {step === 0 && (
+          {step === 0 && !snapshot && (
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-                Step 1: Rider Selects Pickup & Dropoff Location
+                Reset the isolated sim sandbox
               </h3>
-              <div className="form-row">
-                <div style={{ flex: 1 }}>
-                  <Select label="Pickup Location" value={pickupLabel} onChange={(e) => setPickupLabel(e.target.value)}>
-                    {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
-                  </Select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <Select label="Dropoff Location" value={dropoffLabel} onChange={(e) => setDropoffLabel(e.target.value)}>
-                    {LOCATIONS.map((l) => <option key={l.label}>{l.label}</option>)}
-                  </Select>
-                </div>
-              </div>
-              <div className="vehicle-types">
-                {VEHICLES.map((v) => (
-                  <div
-                    key={v.type}
-                    className={`vehicle-card ${vehicleType === v.type ? 'selected' : ''}`}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={vehicleType === v.type}
-                    onClick={() => setVehicleType(v.type)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setVehicleType(v.type); } }}
-                  >
-                    <div className="v-icon">{v.icon}</div>
-                    <div className="v-name">{v.label}</div>
-                    <div className="v-rate">{v.rate}</div>
-                  </div>
-                ))}
-              </div>
-              <Button variant="primary" style={{ width: '100%' }} onClick={handleStep1Estimate}>
-                1. Calculate Fare & Duration ➔
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                Seeds 1 rider and 3 drivers (2 available UBER_GO nearby, 1 UBER_XL far away) in a
+                sandbox that is completely separate from the live Book/Drivers/History tabs.
+              </p>
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleReset} disabled={busy}>
+                1. Reset Sandbox ➔
               </Button>
             </div>
           )}
 
-          {/* STEP 1: Fare Estimated & Request Ride */}
+          {step === 0 && snapshot && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
+                Estimate the fare (MG Road ➔ Koramangala)
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
+                Sandbox ready — {snapshot.drivers?.length} drivers and rider {snapshot.rider?.name} seeded.
+              </p>
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleEstimate} disabled={busy}>
+                2. Estimate Fare ➔
+              </Button>
+            </div>
+          )}
+
           {step === 1 && (
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-                Step 2: Rider Confirms & Requests Ride
+                Confirm fare & request the ride
               </h3>
               {estimate && (
                 <div className="estimate-card" style={{ marginBottom: 16 }}>
-                  <div className="estimate-detail"><span>Pickup ➔ Dropoff</span><strong>{pickupLabel} ➔ {dropoffLabel}</strong></div>
                   <div className="estimate-detail"><span>Distance</span><strong>{estimate.distanceKm?.toFixed(1)} km</strong></div>
-                  <div className="estimate-detail"><span>Estimated Duration</span><strong>~{estimate.estimatedMinutes || Math.round(estimate.distanceKm * 3)} mins</strong></div>
+                  <div className="estimate-detail"><span>Estimated Duration</span><strong>~{estimate.estimatedMinutes} mins</strong></div>
+                  <div className="estimate-detail"><span>Pricing Strategy</span><strong>{estimate.pricingStrategy}</strong></div>
                   <div className="estimate-detail"><span>Estimated Fare</span><strong style={{ fontSize: 18, color: 'var(--success)' }}>₹{estimate.fare?.toFixed(2)}</strong></div>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 10 }}>
-                <Button variant="primary" style={{ flex: 1 }} onClick={handleStep2Request}>
-                  2. Confirm & Send Ride Request ➔
-                </Button>
-                <Button variant="secondary" onClick={() => setStep(0)}>
-                  ← Change Route
-                </Button>
-              </div>
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleRequest} disabled={busy}>
+                3. Request Ride & Broadcast ➔
+              </Button>
             </div>
           )}
 
-          {/* STEP 2: Driver Decision (Accept or Reject) */}
           {step === 2 && (
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>
-                Step 3: Driver Decides to Accept or Reject Ride
+                Two nearby drivers race to accept
               </h3>
-              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, border: '1px solid var(--border-primary)' }}>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Incoming Request for Driver: <strong>{driver?.name} ({driver?.vehicleType})</strong></div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>Trip #{ride?.id}: {pickupLabel} ➔ {dropoffLabel} ({estimate?.distanceKm?.toFixed(1)} km)</div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--success)', marginTop: 4 }}>Fare: ₹{ride?.fare?.toFixed(2)}</div>
-              </div>
-
-              {!isRejected ? (
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <Button variant="success" style={{ flex: 1 }} onClick={handleStep3Accept}>
-                    ✅ Accept Ride Request ➔
-                  </Button>
-                  <Button variant="danger" style={{ flex: 1 }} onClick={handleStep3Reject}>
-                    ❌ Reject (Decline) Ride
-                  </Button>
-                </div>
-              ) : (
-                <div style={{ padding: 16, background: 'var(--danger-bg)', borderRadius: 8, border: '1px solid var(--danger)' }}>
-                  <h4 style={{ color: 'var(--danger)', marginBottom: 6 }}>❌ Ride Declined by Driver</h4>
-                  <p style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 12 }}>
-                    The driver declined this ride. This is the final step for a rejected ride request.
-                  </p>
-                  <Button variant="secondary" onClick={handleReset}>
-                    🔄 Try Another Simulation
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* STEP 3: Driver En Route & ETA Calculation */}
-          {step === 3 && (
-            <div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-                Step 4: Driver En Route to Pickup (Distance & ETA)
-              </h3>
-              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, borderLeft: '4px solid var(--info)' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--info)' }}>
-                  🚘 {driver?.name} is on the way to {pickupLabel}!
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 6 }}>
-                  Driver Distance to Pickup: <strong>{driverDistance} km</strong>
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', marginTop: 4 }}>
-                  Estimated Arrival Time (ETA): <strong>~{etaMinutes} minutes</strong>
+              <div className="uber-sim-panel">
+                <div>Ride <strong>{ride?.id}</strong> broadcast to: <strong>{broadcastTo.join(', ')}</strong></div>
+                <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text-secondary)' }}>
+                  Manoj (UBER_XL, further away) was not eligible — wrong vehicle type.
                 </div>
               </div>
-              <Button variant="primary" style={{ width: '100%' }} onClick={handleStep4DriverArrived}>
-                4. Driver Arrived at Pickup ➔
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleRace} disabled={busy}>
+                4. Fire Both Drivers At Once ➔
               </Button>
             </div>
           )}
 
-          {/* STEP 4: Share OTP & Verify */}
+          {step === 3 && raceResult && (
+            <div>
+              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, color: 'var(--accent)' }}>
+                Race resolved under a per-driver lock
+              </h3>
+              <div className="uber-sim-panel">
+                <div style={{ color: 'var(--success)', fontWeight: 700 }}>
+                  ✅ {winnerDriver?.name} accepted the ride — now ON_TRIP.
+                </div>
+                <div style={{ color: 'var(--danger)', marginTop: 6 }}>
+                  ❌ {loserDriver?.name} was rejected: {raceResult.outcomes[raceResult.loserDriverId]}
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+                  Both drivers tried to accept at the same instant — only one lock wins.
+                </div>
+              </div>
+              <Button variant="primary" style={{ width: '100%' }} onClick={() => setStep(4)} disabled={busy}>
+                5. Continue to OTP Verification ➔
+              </Button>
+            </div>
+          )}
+
           {step === 4 && (
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-                Step 5: Rider Shares OTP with Driver
+                Verify OTP before the trip can start
               </h3>
-              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Rider's Secret Verification OTP:</div>
+              <div className="uber-sim-panel" style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Rider's real secret OTP:</div>
                 <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)', letterSpacing: 4, margin: '8px 0' }}>
-                  🔑 {ride?.otp || '4829'}
+                  🔑 {ride?.otp}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Driver inputs OTP to verify rider identity before starting trip.</div>
+                {otpAttempt && otpAttempt.accepted === false && (
+                  <div style={{ color: 'var(--danger)', fontSize: 12.5 }}>
+                    ❌ Attempt with "0000" was rejected — trip did not start.
+                  </div>
+                )}
               </div>
-              <div className="form-row">
-                <input
-                  type="text"
-                  value={inputOtp}
-                  onChange={(e) => setInputOtp(e.target.value)}
-                  placeholder="Enter 4-digit OTP"
-                  style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border-primary)', fontSize: 16, fontWeight: 700, textAlign: 'center', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
-                />
-                <Button variant="success" onClick={handleStep5VerifyOtp}>
-                  5. Verify OTP & Start Trip ➔
+              <div className="uber-otp-row">
+                <Button variant="secondary" style={{ flex: 1 }} onClick={handleWrongOtp} disabled={busy}>
+                  Try Wrong OTP ("0000") — expect rejection
+                </Button>
+                <Button variant="success" style={{ flex: 1 }} onClick={handleCorrectOtp} disabled={busy}>
+                  6. Enter Correct OTP & Start Trip ➔
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 5: Ride Ongoing */}
           {step === 5 && (
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-                Step 6: Ride Ongoing to Destination
+                Ride ongoing to Koramangala
               </h3>
-              <div style={{ padding: 16, background: 'var(--warning-bg)', borderRadius: 8, marginBottom: 16, border: '1px solid var(--warning)' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--warning)' }}>
-                  🚕 Ride in Progress ➔ Heading to {dropoffLabel}...
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
-                  Driver: {driver?.name} ({driver?.vehicleNumber}) | Total Distance: {estimate?.distanceKm?.toFixed(1)} km
-                </div>
+              <div className="uber-sim-panel">
+                🚕 Ride <strong>{ride?.id}</strong> is ONGOING — driver {winnerDriver?.name} en route.
               </div>
-              <Button variant="primary" style={{ width: '100%' }} onClick={handleStep6ReachedDestination}>
-                6. Reached Destination ({dropoffLabel}) ➔
+              <Button variant="primary" style={{ width: '100%' }} onClick={handleArrive} disabled={busy}>
+                7. Reached Destination ➔
               </Button>
             </div>
           )}
 
-          {/* STEP 6: Reached Destination -> Complete & Ask Payment */}
           {step === 6 && (
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-                Step 7: Driver Reached Destination & Requests Payment
+                Arrived — complete the trip and pay
               </h3>
-              <div style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 8, marginBottom: 16, borderLeft: '4px solid var(--success)' }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--success)' }}>
-                  🏁 Arrived at {dropoffLabel}!
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 6 }}>
-                  Driver has set status to <strong>COMPLETED</strong> and generated trip bill.
-                </div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--success)', marginTop: 6 }}>
-                  Total Bill Amount: ₹{ride?.fare?.toFixed(2)}
-                </div>
+              <div className="uber-sim-panel">
+                🏁 Arrived at Koramangala. Ride is PAYMENT_PENDING.
               </div>
-              <Button variant="success" style={{ width: '100%' }} onClick={handleStep7CompleteAndAskPayment}>
-                7. Complete Trip & Request Payment ➔
+              <Button variant="success" style={{ width: '100%' }} onClick={handleComplete} disabled={busy}>
+                8. Complete Trip & Pay ➔
               </Button>
             </div>
           )}
 
-          {/* STEP 7: Payment Complete */}
           {step === 7 && (
             <div>
               <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: 'var(--accent)' }}>
-                Step 8: Payment Processed by Rider
+                Final snapshot
               </h3>
-              <div style={{ padding: 16, background: 'var(--success-bg)', borderRadius: 8, marginBottom: 16, border: '1px solid var(--success)' }}>
-                <h4 style={{ color: 'var(--success)', marginBottom: 8 }}>🎉 Ride Completed & Payment Successful!</h4>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)' }}>Trip ID: <strong>{ride?.id}</strong></div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>Amount Paid: <strong style={{ fontSize: 16, color: 'var(--success)' }}>₹{ride?.fare?.toFixed(2)}</strong> via <strong>{paymentMethod}</strong></div>
-                <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>Driver {driver?.name} is now <strong>AVAILABLE</strong> at {dropoffLabel}.</div>
+              <div className="uber-sim-panel">
+                <div>🎉 Ride <strong>{ride?.id}</strong> {ride?.status} — ₹{ride?.fare?.toFixed(2)} paid via {ride?.payment?.method}.</div>
+                <div style={{ marginTop: 6 }}>Driver {winnerDriver?.name} is back to AVAILABLE.</div>
               </div>
-              <Button variant="primary" style={{ width: '100%' }} onClick={handleReset}>
-                🔄 Restart Interactive Simulation
+              <div className="uber-event-log">
+                {events.map((ev) => (
+                  <div className={`uber-event-row status-${ev.status}`} key={ev.id}>
+                    <strong>{ev.title}</strong> — {ev.description}
+                  </div>
+                ))}
+              </div>
+              <Button variant="primary" style={{ width: '100%', marginTop: 12 }} onClick={handleReset} disabled={busy}>
+                🔄 Restart Simulation
               </Button>
+            </div>
+          )}
+
+          {step !== 7 && snapshot && (
+            <div className="uber-event-log">
+              {events.slice(-4).map((ev) => (
+                <div className={`uber-event-row status-${ev.status}`} key={ev.id}>{ev.title} — {ev.description}</div>
+              ))}
             </div>
           )}
         </CardBody>
@@ -1256,7 +1150,7 @@ export default function UberPage() {
           {activeTab === 'book' && <BookRide onRideBooked={() => {}} />}
           {activeTab === 'drivers' && <DriverDashboard />}
           {activeTab === 'history' && <TripHistory />}
-          {activeTab === 'demo' && <InteractiveAnimatedFlow />}
+          {activeTab === 'demo' && <UberSimulation />}
         </div>
       )}
     </LldPage>

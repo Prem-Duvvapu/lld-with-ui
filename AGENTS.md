@@ -103,10 +103,11 @@ shape as elevator/ludo.
 - Exception hierarchy: `UberException extends com.lld.config.DomainException` with `RideNotFoundException` (404), `DriverNotFoundException` (404), `RiderNotFoundException` (404), `DriverUnavailableException` (409), `InvalidRideTransitionException` (400), `OtpVerificationException` (400), `RidePaymentFailedException` (422).
 - `PaymentProcessor`: Validates and completes rider payments (`UPI`, `CARD`, `CASH`).
 - Tests: `UberServiceTest` (workflow + every rejection), `FarePricingStrategyTest` (fare arithmetic, rounding, surge bounds, factory), `UberRepositoryTest` (storage, filtering, atomic ride-id generation), `RideStatusTest` (transition table), `UberConcurrencyTest` (riders racing for one driver, drivers racing for one ride, disjoint pairs, reclaim after release).
+- `/sim/*` engine (`reset`/`estimate`/`request`/`race`/`verify-otp`/`arrive`/`complete`/`events`/`snapshot`): a fully isolated `UberRepository` + `DriverAssignmentService` pair (`simReset()` calls `new UberRepository()`, never the live Spring bean), seeded with 1 rider and 3 drivers (2 `UBER_GO` nearby, 1 `UBER_XL` far away — never eligible for the same broadcast). `simRace` is the module's actual concurrency demonstration: two real threads call `DriverAssignmentService.assign()` for the same ride at the same instant, and the loser's `DriverUnavailableException` is caught and recorded as a `SimEvent` rather than rethrown. `simVerifyOtp` also demonstrates a wrong-OTP rejection before the correct one starts the trip. Tests: `UberSimEngineTest` (full lifecycle, isolation from the live repository, race repeated across independent instances, RCA-051's out-of-order guard), `UberControllerIntegrationTest` (real MockMvc round-trip through all 8 steps, no leaked lock objects).
 
 ### Frontend
-- 6 tabs: Passenger Booking, Driver Dashboard, Trip History, Interactive 2D Simulation, Class Diagram, Design Details.
-- Real-time polling & interactive 2D city map scene (asphalt road, skyline, street lamps, car headlight beam).
+- 7 tabs: Passenger Booking, Driver Dashboard, Trip History, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design Details.
+- Real-time polling & interactive 2D city map scene (asphalt road, skyline, street lamps, car headlight beam) — the Simulation tab (`UberSimulation` in `UberPage.jsx`) drives this scene entirely from `/sim/*` responses; it used to fake state locally and mutate the live rides tab underneath it (see RCA-051's context and the accompanying UI audit).
 
 ## Zomato Module
 ### Backend
