@@ -14,9 +14,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Serialises driver assignment so one driver cannot be handed two rides.
+ * Serialises driver assignment so one driver cannot be handed two rides, and one ride cannot
+ * be handed two drivers.
  *
- * <p>The previous implementation was a textbook check-then-act race:
+ * <p>The original implementation was a textbook check-then-act race guarded by only a
+ * per-driver lock:
  *
  * <pre>
  *   if (!driver.isAvailable()) throw ...;   // check
@@ -24,18 +26,27 @@ import java.util.concurrent.locks.ReentrantLock;
  * </pre>
  *
  * <p>Two riders accepting the same driver could both pass the check before either wrote,
- * and both rides ended up ACCEPTED with the same driver. Assignment now happens under a
- * per-driver lock with the availability re-checked inside it.
+ * and both rides ended up ACCEPTED with the same driver — closed by re-checking availability
+ * inside a per-driver lock.
  *
- * <p>Lock ordering: only ever one lock is held at a time (the driver's), so no ordering
- * rule is required and deadlock is not possible here. If a future change needs both a
- * driver and a ride lock, acquire driver-then-ride consistently.
+ * <p><b>RCA-052:</b> that per-driver lock alone left a second, distinct race open: two
+ * <em>different</em> drivers accepting the <em>same</em> ride acquire two different driver
+ * locks, so {@code ride.getDriverId() != null} (the "is this ride already taken" check) was
+ * never actually guarded for that scenario — only luck (a race window a few nanoseconds wide)
+ * kept {@code oneRideManyDrivers_bindsToOneDriver} passing before it was ever repeated across
+ * many rounds. A per-ride lock now covers that check-and-set too.
+ *
+ * <p>Lock ordering: a call may hold both a ride lock and a driver lock at once, so a fixed
+ * order is required to rule out deadlock. Always acquire the <b>ride</b> lock first, then the
+ * <b>driver</b> lock — never the reverse, and never hold two ride locks or two driver locks
+ * at the same time.
  */
 @Component
 public class DriverAssignmentService {
 
     private final UberRepository repository;
     private final Map<String, ReentrantLock> driverLocks = new ConcurrentHashMap<>();
+    private final Map<String, ReentrantLock> rideLocks = new ConcurrentHashMap<>();
 
     public DriverAssignmentService(UberRepository repository) {
         this.repository = repository;
@@ -44,6 +55,10 @@ public class DriverAssignmentService {
     private ReentrantLock lockFor(String driverId) {
         // Fair locks so a driver besieged by requests still serves them in arrival order.
         return driverLocks.computeIfAbsent(driverId, k -> new ReentrantLock(true));
+    }
+
+    private ReentrantLock rideLockFor(String rideId) {
+        return rideLocks.computeIfAbsent(rideId, k -> new ReentrantLock(true));
     }
 
     /**
@@ -58,35 +73,42 @@ public class DriverAssignmentService {
             throw new DriverNotFoundException("Driver not found: " + driverId);
         }
 
-        ReentrantLock lock = lockFor(driverId);
-        lock.lock();
+        // Ride lock first, then driver lock — see the class javadoc on lock ordering.
+        ReentrantLock rideLock = rideLockFor(ride.getId());
+        rideLock.lock();
         try {
-            // Re-read and re-check INSIDE the lock: this is the line the race was missing.
-            Driver current = repository.getDriver(driverId);
-            if (current == null) {
-                throw new DriverNotFoundException("Driver not found: " + driverId);
-            }
-            if (current.getStatus() != DriverStatus.AVAILABLE) {
-                throw new DriverUnavailableException(
-                        "Driver " + driverId + " is no longer available (" + current.getStatus() + ")");
-            }
-            if (ride.getDriverId() != null) {
-                throw new DriverUnavailableException(
-                        "Ride " + ride.getId() + " already has driver " + ride.getDriverId());
-            }
+            ReentrantLock lock = lockFor(driverId);
+            lock.lock();
+            try {
+                // Re-read and re-check INSIDE the lock: this is the line the race was missing.
+                Driver current = repository.getDriver(driverId);
+                if (current == null) {
+                    throw new DriverNotFoundException("Driver not found: " + driverId);
+                }
+                if (current.getStatus() != DriverStatus.AVAILABLE) {
+                    throw new DriverUnavailableException(
+                            "Driver " + driverId + " is no longer available (" + current.getStatus() + ")");
+                }
+                if (ride.getDriverId() != null) {
+                    throw new DriverUnavailableException(
+                            "Ride " + ride.getId() + " already has driver " + ride.getDriverId());
+                }
 
-            current.setStatus(DriverStatus.ON_TRIP);
-            ride.setDriverId(current.getId());
-            ride.setDriver(current);
-            ride.setDriverName(current.getName());
-            ride.setVehicleNumber(current.getVehicleNumber());
-            ride.setStatus(RideStatus.ACCEPTED);
+                current.setStatus(DriverStatus.ON_TRIP);
+                ride.setDriverId(current.getId());
+                ride.setDriver(current);
+                ride.setDriverName(current.getName());
+                ride.setVehicleNumber(current.getVehicleNumber());
+                ride.setStatus(RideStatus.ACCEPTED);
 
-            repository.updateDriver(current);
-            repository.updateRide(ride);
-            return current;
+                repository.updateDriver(current);
+                repository.updateRide(ride);
+                return current;
+            } finally {
+                lock.unlock();
+            }
         } finally {
-            lock.unlock();
+            rideLock.unlock();
         }
     }
 

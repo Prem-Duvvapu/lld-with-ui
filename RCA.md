@@ -4895,3 +4895,107 @@ EOF
    instead of the documented 404 contract every other domain error follows). New `/sim/*` endpoint
    families should get this same "call step N before step N-1" test as a standing checklist item,
    the same way `ErrorContractIntegrationTest`-style coverage is standing for controllers generally.
+## RCA-052: Two Different Drivers Could Both Be Assigned the Same Ride — `DriverAssignmentService`'s Per-Driver Lock Never Covered the "Two Drivers, One Ride" Race, and the One Test That Exercised It Ran Only Once
+
+### 1. Overview & Severity
+**Severity: Medium (a real, live production race — caught by CI before merge, not by design).**
+`DriverAssignmentService.assign()` serializes on a lock keyed by `driverId` alone. When two
+*different* drivers try to accept the *same* ride at the same instant, they acquire two
+*different* locks, so the check `if (ride.getDriverId() != null) throw ...` — the guard against a
+ride being double-assigned — was never actually mutually exclusive across that scenario. This is a
+live, reachable bug in `PUT /api/uber/rides/{id}/accept` and `/assign`, not something confined to
+the new `/sim/*` engine built alongside this fix — it would have let two drivers both end up
+`ON_TRIP` on the same ride in production, with the ride's `driverId` field non-deterministically
+landing on whichever write happened to occur last.
+
+### 2. Symptoms & Error Logs
+`UberConcurrencyTest.oneRideManyDrivers_bindsToOneDriver` already raced 10 different drivers for
+one ride — but ran only once per `mvn test` invocation, and usually passed anyway, because the
+unguarded window (a read of `ride.getDriverId()` and a later write to it) is only nanoseconds wide.
+A new test written for the `/sim/*` engine's own race step happened to loop the same scenario 25
+times and caught it on CI (a differently-timed environment than the local machine) on the 25th
+attempt:
+```
+[ERROR] UberSimEngineTest.raceAlwaysHasExactlyOneWinner:106 round 24 ==> expected: <true> but was: <false>
+```
+i.e. the "loser" driver's outcome was not a rejection — both drivers had been accepted.
+
+### 3. Root Cause
+```java
+// DriverAssignmentService.assign(), before the fix
+ReentrantLock lock = lockFor(driverId);   // keyed by driverId ONLY
+lock.lock();
+try {
+    ...
+    if (ride.getDriverId() != null) throw new DriverUnavailableException(...);  // check
+    ride.setDriverId(current.getId());                                          // act
+    ...
+} finally { lock.unlock(); }
+```
+`lockFor(driverId)` returns a distinct `ReentrantLock` per driver id. Thread A (assigning
+`driver-1`) and Thread B (assigning `driver-2`) to the *same* `Ride` object acquire two
+independent locks and can both be inside their critical section at once. Both read
+`ride.getDriverId() == null`, both pass the check, and both then write `ride.setDriverId(...)` —
+a genuine unguarded write-write race on the shared `Ride`, on top of a torn read of the ride's
+overall state (`driverName`, `vehicleNumber`, `status` fields end up mixed between the two
+drivers' data depending on interleaving). The lock design correctly closed "one driver, two
+riders" (both callers share the same driver lock in that case) but never considered "one ride, two
+drivers" (both callers hold *different* locks in that case) as a distinct hazard needing its own
+guard.
+
+### 4. Diagnostic Commands
+```bash
+# Reproduce directly, deterministically, by repeating the race rather than running it once:
+mvn -o test -Dtest='com.lld.uber.UberConcurrencyTest#repeatedTwoDriverRaceForOneRideNeverProducesTwoWinners'
+# -> fails before the fix (usually within a few dozen of 300 rounds), passes after
+
+# Confirm the single-shot version of the same scenario was already in the suite and already
+# insufficient to catch this on its own:
+mvn -o test -Dtest='com.lld.uber.UberConcurrencyTest#oneRideManyDrivers_bindsToOneDriver'
+# -> passes most of the time even on the buggy code, by luck — not a reliable regression guard
+```
+
+### 5. Step-by-Step Resolution
+1. Built the isolated `/api/uber/sim/*` engine's `simRace` step to demonstrate exactly the
+   "two drivers, one ride" scenario as the module's headline concurrency example, and wrote
+   `UberSimEngineTest.raceAlwaysHasExactlyOneWinner` to loop it 25 times (the same "a single run
+   can pass by luck" reasoning `UberConcurrencyTest.repeatedRaceNeverProducesTwoWinners` already
+   documents for the driver-lock scenario).
+2. CI failed on round 24 — passed locally on the first few local runs, underscoring that this
+   class of race needs repetition to surface reliably, and that a slower/differently-scheduled CI
+   runner is exactly the kind of environment that will eventually hit it.
+3. Traced the failure to `DriverAssignmentService.assign()`'s driver-only lock keying, confirmed
+   by inspection that `oneRideManyDrivers_bindsToOneDriver` races the identical shape of scenario
+   (many different drivers, one ride) but only once, and had therefore never caught this.
+4. Added a second lock map keyed by ride id (`rideLockFor(rideId)`), acquired *before* the driver
+   lock in a fixed order (ride lock, then driver lock), so the "is this ride already taken" check
+   is now mutually exclusive regardless of which two drivers are contending for it, while the
+   original per-driver guarantee (one driver cannot be double-booked across two rides) is
+   preserved unchanged.
+5. Added `UberConcurrencyTest.repeatedTwoDriverRaceForOneRideNeverProducesTwoWinners` (300 rounds,
+   mirroring the existing repeated-race test's structure) as a permanent regression guard — a
+   single-shot test for a nanosecond-wide race is not a reliable guard on its own.
+6. Re-ran the full backend suite (`mvn test`, 1836 tests) and the isolated Uber suite multiple
+   times to build confidence the fix holds under repetition, not just once.
+
+### 6. Preventative Measures
+1. **A lock keyed by one side of a two-party interaction only serializes contention on *that*
+   side.** `DriverAssignmentService` needed to reason about two distinct hazards — "one driver,
+   many riders" and "one ride, many drivers" — and a lock keyed by driver id alone only ever
+   protected the first. Any assignment/matching service pairing two independently-identified
+   entities (driver↔ride, seat↔passenger, table↔party) should ask explicitly which *pairs* of
+   concurrent callers can collide, not just which callers share an id.
+2. **A race-condition test that runs its contended scenario exactly once is not a regression
+   guard — it is a coin flip that happens to have been landing the right way.** This repo already
+   knew this for one scenario (`repeatedRaceNeverProducesTwoWinners`'s own comment says as much)
+   but had not applied the same rule to every race-shaped test in the same file;
+   `oneRideManyDrivers_bindsToOneDriver` is the proof — it exercised the exact buggy path for as
+   long as this module has existed and never once reported it. Any new race test should default to
+   a repeated-rounds form unless there's a specific reason a single run is sufficient.
+3. **When two locks may be held at once, the ordering has to be a documented, fixed rule, not an
+   afterthought.** The original javadoc actually predicted this ("If a future change needs both a
+   driver and a ride lock, acquire driver-then-ride consistently") — but the eventual fix uses
+   ride-then-driver instead (chosen to keep the whole "is this ride taken" check under one lock
+   acquired before any driver-specific state is touched); the lesson is to update that comment
+   the moment a second lock is actually introduced, not to trust a lock-ordering plan written
+   before the second lock existed.
