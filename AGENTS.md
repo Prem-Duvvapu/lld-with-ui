@@ -41,8 +41,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # currently 1465 tests
-cd frontend && npx vitest run  # currently 304 tests
+cd backend  && mvn test        # currently 2017 tests
+cd frontend && npx vitest run  # currently 346 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -256,6 +256,17 @@ audit-and-harden shape as pubsub/atm/parkinglot.
   with `ProductNotFoundException` (404), `CartEmptyException`/`InvalidOrderStateException` (400),
   `InsufficientStockException` (409), `PaymentFailedException` (422). Never maps to 5xx —
   `DomainExceptionContractTest`/`GlobalExceptionHandlerTest` enforce it.
+- **Guarded order lifecycle (real bug found and fixed, RCA-056)**: `OrderStatus` now declares
+  `isTerminal()`/`canAdvanceTo(next)` — same idiom as `uber.model.RideStatus` — and
+  `updateOrderStatus()` throws `InvalidOrderStateException` on any non-forward move (backward, a
+  repeat, or anything out of `DELIVERED`/`CANCELLED`). Skipping an intermediate status forward
+  (e.g. `PLACED` straight to `SHIPPED`) stays legal; `CANCELLED` is still routed through
+  `cancelOrder()`'s own pre-existing guard. Previously `updateOrderStatus()` only special-cased
+  `CANCELLED` and wrote any other target status straight through with no validation at all — a
+  seller could mark a `PLACED` order `DELIVERED` in one click — despite the design docs explicitly
+  calling this lifecycle "guarded." The isolated `/sim/*` path (`simUpdateOrderStatus`) got the
+  equivalent check, logging a `STATUS_UPDATE_REJECTED` event instead of throwing, consistent with
+  how it already handles a rejected `INSUFFICIENT_STOCK` checkout.
 - Lombok models: `CartItem`/`OrderItem`/`User` are `@Data @Builder @AllArgsConstructor` (the
   generated constructor's signature already matched every existing call site, so no call sites
   needed to change). `Order` is `@Data @Builder` with its defaulting 5-arg constructor kept
@@ -287,7 +298,8 @@ audit-and-harden shape as pubsub/atm/parkinglot.
 
 ### Frontend
 - 8 tabs: Shop Catalog, Cart & Checkout with Undo, Orders Timeline, Seller Dashboard, Interactive
-  Simulation, Class Diagram, Sequence Diagram, Design Details.
+  Simulation, Class Diagram, Sequence Diagram, Design Details — rendered on the shared `LldPage`
+  shell (the previous page hand-rolled its own header/tab bar; see the RCA-055 note below).
 - Simulation tab rebuilt as an 8-step, user-driven walkthrough (no autoplay timers) against the
   isolated `/api/shoppingcart/sim/*` sandbox, using the shared `StepIndicator` component: reset the
   sandbox, two shoppers contend for a 2-unit low-stock product, the second shopper's checkout is
@@ -296,10 +308,25 @@ audit-and-harden shape as pubsub/atm/parkinglot.
   attempt on the now-shipped order is rejected by the guarded state machine. A live telemetry HUD
   (tracked product stock, per-shopper cart item counts, orders placed, events logged, tracked
   order status), per-shopper cart panels, a warehouse stock grid, and a reverse-chronological event
-  log all render straight from each step's real API response.
+  log all render straight from each step's real API response. A dedicated "Reset Sandbox" button
+  sits next to "Next" (previously the only reset path was running the walkthrough to completion and
+  clicking "Run Again").
 - **`usePolling` added (RCA-044 follow-up)**: the catalog polls every 6s so another shopper's order
   decrementing stock shows up without a manual refresh — stock, not the current user's own cart, is
   the shared state this closes the gap on.
+- **Invisible core controls, real bug found and fixed (RCA-055, filed as issue #87)**: the page
+  referenced `var(--accent-violet)` 14 times as its accent color — a custom property that was never
+  defined anywhere in `theme.css`. With no fallback, every button using it (the active tab,
+  "Add to Cart", "Proceed to Checkout", every seller-dashboard status button, the whole simulation
+  tab's controls) fell back to a transparent background while its label stayed hardcoded white —
+  invisible white-on-transparent, not merely low-contrast. Fixed by migrating onto `LldPage`
+  (restoring the missing "← Home" breadcrumb for free) and replacing every `--accent-violet`/
+  hardcoded-hex reference with the real theme tokens (`--accent`, `--danger`, `--success`,
+  `--warning`, `--info` and their `-bg` variants).
+- **Cart quantity stepper (issue #87 point 3)**: the backend `updateCartQuantity` endpoint and its
+  `api.js` wrapper already existed end-to-end but were never called from the UI — the Cart tab now
+  has a +/- stepper per line item wired to it, decrementing to 0 removes the line (already
+  undo-safe, see `UpdateQuantityCommand` above).
 
 ## Pub Sub System Module
 ### Backend
@@ -373,6 +400,22 @@ reference bar — same audit-and-harden shape as pubsub/parkinglot.
   note-breakdown badges) plus an 8-step interactive simulation tab against the isolated
   `/api/atm/sim/*` sandbox with a live telemetry HUD, driving the real state machine, dispense
   strategies and account-lock race instead of a client-only animation.
+- **Simulation step-advance chain, real bug found and fixed (RCA-057, filed as issue #89)**:
+  `SimulationTab` gates every control with strict `step === N` equality, but every action handler
+  (`doInsertCard`, `doAuthenticate`, `doWithdraw`, `doRace`) passed its own trigger step number as
+  the advance hint instead of the next one — `Math.max(N, N)` is a guaranteed no-op, so nothing
+  after "Reset Sandbox" could ever move the walkthrough forward (only `doReset`'s hint happened to
+  differ from its own gate, which is why reset alone appeared to work). Fixed all four hints, and
+  added a "Next: Insert Card →" button on the one step (viewing seeded accounts) that has no
+  backend action of its own to auto-advance off of. Currency figures across the live terminal
+  (receipt, transaction list, note-inventory total, sim cassette HUD) now format with
+  `toLocaleString('en-IN')`, matching account balances.
+- Class diagram (`data/diagrams/atm.js`) was missing this module's headline State pattern entirely
+  — no `SessionState` interface, no `SessionStates` resolver — and half the Strategy pattern (only
+  `GreedyDenominationDispenseStrategy`, no `ConserveLargeNotesDispenseStrategy`/factory/
+  `DispenseMode`). Rewritten against the real backend classes above, mirroring
+  `elevator.js`'s `ElevatorLifecycleState`/`ElevatorLifecycleStates` shape for the identical
+  state-pattern-via-`EnumMap` idiom.
 
 ## LinkedIn Module
 ### Backend
@@ -1501,8 +1544,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 1657 tests, 180 classes
-cd frontend && npx vitest run # 304 tests, 3 files
+cd backend && mvn test        # 2017 tests, 231 classes
+cd frontend && npx vitest run # 346 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green
