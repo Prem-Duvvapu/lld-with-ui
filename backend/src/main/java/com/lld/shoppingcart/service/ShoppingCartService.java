@@ -242,6 +242,12 @@ public class ShoppingCartService {
             return getOrder(orderId);
         }
 
+        OrderStatus current = order.getStatus();
+        if (!current.canAdvanceTo(newStatus)) {
+            throw new InvalidOrderStateException(String.format(
+                    "Cannot move order %s from %s to %s!", orderId, current, newStatus));
+        }
+
         order.setStatus(newStatus);
         return order;
     }
@@ -379,6 +385,10 @@ public class ShoppingCartService {
                 Product p = simProducts.get(item.getProductId());
                 if (p != null) p.incrementStock(item.getQuantity());
             }
+        } else if (!order.getStatus().canAdvanceTo(status)) {
+            logSimEvent("STATUS_UPDATE_REJECTED", "Admin", String.format(
+                    "CANNOT ADVANCE! Order %s is %s -- cannot move to %s!", orderId, order.getStatus(), status), null);
+            return getSimSnapshots();
         }
 
         order.setStatus(status);

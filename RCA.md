@@ -5115,3 +5115,138 @@ one already works, since a single-constructor class needs no annotation at all a
 surfaces once a second constructor appears. When adding a second constructor to an existing Spring
 bean for test convenience, immediately check whether the class still resolves via
 `@SpringBootTest` rather than assuming the original constructor still "wins."
+
+## RCA-055: `ShoppingCartPage` Referenced `var(--accent-violet)` 14 Times, But That Custom Property Was Never Defined Anywhere — Rendering the Active Tab, "Add to Cart", "Proceed to Checkout" and Every Simulation Control as White Text on a Transparent Background
+
+**Overview & Severity** — High (core interactive controls on a live module were invisible to
+users; filed as [GitHub issue #87](https://github.com/prem-duvvapu/lld-with-ui/issues/87)).
+`ShoppingCartPage.jsx` used `var(--accent-violet)` as its accent color for the active tab
+background, the header title, category badges, cart totals, and — critically — the background of
+every primary action button ("Add to Cart", "Proceed to Checkout", every seller-dashboard status
+button, and the entire Concurrency Simulation tab's "Start Walkthrough" / "Next" control). None of
+these ever rendered visibly broken in isolation; they just silently disappeared.
+
+**Symptoms & Error Logs** — No console error, no failed request, no exception — this was a pure
+CSS defect, so nothing in the network or JS console pointed at it. Reported symptoms (verbatim from
+the filed issue): "no reset or next buttons are visible on concurrency simulation tab," and
+"current tab is not visible. I think it is being shown in white colour." Both point at the same
+underlying cause. A grep across the whole frontend confirms the property was module-local:
+```bash
+grep -rn -- "--accent-violet:" frontend/src/          # zero matches anywhere
+grep -rl "accent-violet" frontend/src/lld/             # exactly one file: shoppingcart/ShoppingCartPage.jsx
+grep -c "accent-violet" frontend/src/lld/shoppingcart/ShoppingCartPage.jsx   # 14
+```
+
+**Root Cause** — `var(--custom-property)` with no fallback and an undefined custom property does
+not throw or warn; the browser treats the whole declaration as invalid and falls back to the
+property's inherited/initial value. For `color` (inherited), that meant text silently took its
+parent's color. For `background`/`background-color` (not inherited, initial value `transparent`),
+every one of those "violet" buttons rendered with a fully transparent background. Combined with a
+hardcoded `color: '#ffffff'` on the *active tab* button (`activeTab === tab.id ? '#ffffff' :
+'var(--text-secondary)'`) and on every action button's label, the result was white text on a
+transparent background sitting on the page's own `var(--bg-primary)` (near-white in light theme)
+— functionally invisible, not merely low-contrast. `theme.css` defines a real, properly wired
+token for this exact purpose (`--accent`, consumed correctly by every other module and by
+`LldPage.css`'s own `.lld-page-nav button.active` rule) — `--accent-violet` was simply never
+plumbed into it. Compounding this, `ShoppingCartPage` did not use the shared `LldPage` shell (see
+`CLAUDE.md`'s explicit convention that a page rendering its own `<ClassDiagram>`/`<DesignDetails>`
+duplicates dead code) — it hand-rolled its own header, tab bar and breadcrumb-less layout, which is
+also why the page had no "← Home" link (issue #87 point 8) while every other module does.
+
+**Diagnostic Commands**
+```bash
+# Confirm a var() token is genuinely undefined anywhere in the theme:
+grep -rn -- "--<token>:" frontend/src/styles/theme.css
+# Find every consumer of a suspect token across the module in question:
+grep -n -- "--<token>" frontend/src/lld/<module>/*.jsx
+```
+Because this class of bug produces no error at any layer, the only reliable diagnostic is a
+static grep proving the custom property has zero definitions against its N consumers — DevTools'
+"Computed" panel on an affected element would also show the declaration crossed out as invalid,
+but that requires already suspecting the specific element.
+
+**Step-by-Step Resolution**
+1. Replaced all 14 `var(--accent-violet)` references with the already-defined `var(--accent)`
+   token (and `var(--danger)`/`var(--success)`/`var(--warning)`/`var(--info)` plus their `-bg`
+   variants in place of several other hardcoded hex colors found in the same sweep, e.g.
+   `rgba(239, 68, 68, 0.15)` for error banners), so the page now themes correctly in both light
+   and dark mode instead of merely "not being invisible."
+2. Migrated `ShoppingCartPage` onto the shared `LldPage` shell (matching `splitwise`'s
+   function-children pattern), which fixed the missing "← Home" breadcrumb for free and replaced
+   the hand-rolled tab bar with `LldPage.css`'s already-correct `.lld-page-nav button.active` rule
+   — removing an entire duplicate-rendering class of bug rather than just this one instance of it.
+   `LldPage`'s children-render-prop was extended to also pass `setTab` (`children(tab, setTab)`,
+   backward compatible — every other caller ignores the second argument) so the Cart tab's
+   checkout button can still jump to the Orders tab after a successful order, which the page's own
+   local `activeTab` state used to do directly.
+3. Added a dedicated "⟲ Reset Sandbox" button to the Concurrency Simulation tab, distinct from
+   "Next" — previously the only way to reset was to click through to the end of the 8-step
+   walkthrough and hit "Run Again," which read as "there is no reset button" exactly as reported.
+
+**Preventative Measures** — A page-local `var(--some-token)` that isn't defined in `theme.css`
+should be treated as a hard error, not a style choice: since nothing in the toolchain currently
+flags an undefined CSS custom property, any new "accent" or brand color introduced by a page
+should be checked with `grep -rn -- "--<name>:" frontend/src/styles/theme.css` before use, or
+better, always reused from the existing token set. More generally: a module that renders its own
+header/tabs instead of the shared `LldPage` shell doesn't just risk the "duplicate `<ClassDiagram>`
+tab" dead-code smell `CLAUDE.md` already calls out — it also silently opts out of every fix already
+proven correct in `LldPage.css` (active-tab styling, the home breadcrumb, consistent tab-nav
+theming), so any pre-`LldPage` page found during future work should be migrated onto it rather than
+patched in place.
+
+## RCA-056: `ShoppingCartService#updateOrderStatus` Accepted Any Status Jump — Including Backward and Post-Terminal — Despite Every Design Doc Calling the Order Lifecycle "Guarded"
+
+**Overview & Severity** — Medium (a real correctness gap, not user-visible unless deliberately
+exercised — surfaced while investigating [GitHub issue #87](https://github.com/prem-duvvapu/lld-with-ui/issues/87)'s
+question "what is expected to happen in seller dashboard? are those actions available?").
+`updateOrderStatus(orderId, newStatus)` special-cased only `CANCELLED` (routing it through
+`cancelOrder()`'s existing guard); every other target status was written straight to the order
+with `order.setStatus(newStatus)` and no validation at all. A seller could mark a freshly `PLACED`
+order `DELIVERED` in one click, or move a `DELIVERED` order back to `PROCESSING`.
+
+**Symptoms & Error Logs** — None observable through the existing test suite:
+`ShoppingCartServiceTest#testGuardedOrderStateTransitionsAndCancellation` is named as though it
+proves the guard, but only ever exercises the legal forward path
+(`PLACED → PROCESSING → SHIPPED`) plus the pre-existing cancel-after-SHIPPED rejection — it never
+attempts an illegal jump, so it passed both before and after this fix and gave false confidence.
+`frontend/src/data/design/shoppingcart.js` independently and explicitly documents "Guarded order
+lifecycle (PLACED -> PROCESSING -> SHIPPED -> DELIVERED, or CANCELLED before SHIPPED)" — the
+design doc and the code had silently diverged.
+
+**Root Cause** — `OrderStatus` was a bare enum with no declared transition table (unlike
+`RideStatus` in `com.lld.uber.model` or `TaskStatus`'s state classes, both of which declare legal
+next-states once and enforce them through a single gate). `cancelOrder()` grew its own inline
+guard early on (reject cancelling `SHIPPED`/`DELIVERED`/already-`CANCELLED`), which covered the one
+path anyone had reason to test, but `updateOrderStatus()`'s non-cancel branch was added later
+without an equivalent check — the same shape of gap `RCA-026`'s two-phase dispatch bug and several
+other entries in this log describe: a guard added for one code path doesn't automatically cover a
+sibling path added afterward.
+
+**Diagnostic Commands**
+```bash
+mvn test -Dtest='com.lld.shoppingcart.ShoppingCartServiceTest#testUpdateOrderStatusRejectsBackwardAndTerminalTransitions'
+```
+Reading `updateOrderStatus` and `cancelOrder` side by side made the asymmetry obvious: one method
+validates against `order.getStatus()`, the other never reads it before writing.
+
+**Step-by-Step Resolution** — Gave `OrderStatus` the same declared-transition idiom used
+elsewhere in the codebase: `isTerminal()` (`DELIVERED`/`CANCELLED`) and `canAdvanceTo(next)`
+(rejects a terminal source, a `CANCELLED` target — that path stays owned by `cancelOrder()` — and
+any target whose ordinal isn't strictly greater than the current status's, so skipping an
+intermediate status forward, e.g. `PLACED → SHIPPED`, stays legal while any backward or same-status
+move is rejected). `updateOrderStatus()` now throws `InvalidOrderStateException` (400, matching the
+existing cancel-guard's exception type) on an illegal move; the isolated `/sim/*` engine's
+`simUpdateOrderStatus` got the equivalent check, logging a `STATUS_UPDATE_REJECTED` sim event
+instead of throwing, consistent with how it already handles a rejected `INSUFFICIENT_STOCK`
+checkout. The frontend's Seller Dashboard now disables (rather than silently allowing) a button for
+any status the current order can't legally move to, with a tooltip explaining why. Added
+`testUpdateOrderStatusRejectsBackwardAndTerminalTransitions`, which the old code fails.
+
+**Preventative Measures** — When one code path (`cancelOrder`) already validates transitions
+against a status enum and a sibling path (`updateOrderStatus`) mutates the same field without the
+same check, that asymmetry is the bug, even if no test currently exercises it — a test named
+"testGuarded\*" that never actually attempts an illegal transition is worse than no test, since it
+reads as coverage it isn't. Any module whose design doc claims a "guarded"/"state machine" lifecycle
+should declare that lifecycle once (mirroring `RideStatus`'s `Map<Status, Set<Status>>` +
+`canTransitionTo`/`allowedNext`/`isTerminal` idiom) and route every mutation of that field through
+it, rather than letting each call site re-derive its own notion of which moves are legal.
