@@ -5,51 +5,6 @@
   color: var(--text-primary);
 }
 
-.atm-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border-primary);
-  padding-bottom: 16px;
-}
-
-.atm-title-area h1 {
-  margin: 0 0 4px 0;
-  font-size: 1.8rem;
-}
-
-.atm-badge {
-  font-size: 0.85rem;
-  color: #a78bfa;
-  background: rgba(167, 139, 250, 0.1);
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(167, 139, 250, 0.2);
-}
-
-.atm-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.atm-tab {
-  padding: 8px 16px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-primary);
-  color: var(--text-secondary);
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s;
-}
-
-.atm-tab.active {
-  background: var(--accent-color, #7c3aed);
-  color: #fff;
-  border-color: var(--accent-color, #7c3aed);
-}
-
 /* TERMINAL LAYOUT */
 .atm-terminal-layout {
   display: grid;

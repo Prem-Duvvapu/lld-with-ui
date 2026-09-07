@@ -5250,3 +5250,73 @@ reads as coverage it isn't. Any module whose design doc claims a "guarded"/"stat
 should declare that lifecycle once (mirroring `RideStatus`'s `Map<Status, Set<Status>>` +
 `canTransitionTo`/`allowedNext`/`isTerminal` idiom) and route every mutation of that field through
 it, rather than letting each call site re-derive its own notion of which moves are legal.
+
+## RCA-057: ATM Simulation Tab's Step Counter Never Advanced Past "View Seeded Accounts" — Every `doXxx()` Handler Passed Its *Own* Step Number as the Advance Hint Instead of the Next One
+
+**Overview & Severity** — High (the entire 8-step interactive simulation was non-functional beyond
+its first click; filed as [GitHub issue #89](https://github.com/prem-duvvapu/lld-with-ui/issues/89)
+point 1: "I have only reset and exit sandbox options. I don't have option to move to next state.").
+`SimulationTab`'s `step` state gates every control with strict equality (`{step === 2 && (...)}`),
+so the numeric sequence produced by each action handler has to land exactly on 0, 1, 2, ..., 7 in
+order — and it didn't.
+
+**Symptoms & Error Logs** — No console error, no failed request. Clicking "▶ Reset Sandbox"
+correctly showed the seeded-accounts panel, but nothing on screen let the user proceed to "Insert
+Card" — the reported symptom. No test caught it because `AtmConcurrencyTest` and friends exercise
+the `/api/atm/sim/*` endpoints directly; nothing in the suite drives the React step-gating logic
+itself (this class of bug is invisible to a backend-only test run, same as RCA-055).
+
+**Root Cause** — Two distinct bugs stacked on top of each other:
+1. `SIM_STEPS[1]` ("View seeded accounts & cards") is a pure look-and-continue step with no
+   backend action of its own — the accounts/cards panels render unconditionally once a snapshot
+   exists, not gated by `step` at all. Nothing in the component ever called `setStep(2)` for it;
+   there was no control to leave step 1 at all.
+2. Every subsequent handler — `doInsertCard`, `doAuthenticate`, `doWithdraw`, `doRace` — called
+   `applyResult(result, N)` with its **own** trigger step number (2, 3, 4, 5 respectively) instead
+   of the step it should reveal *next* (3, 4, 5, 6). `applyResult`'s advance logic is
+   `setStep(s => Math.max(s, advanceHint))` — since a handler can only fire while `step` already
+   equals its own gating value, `Math.max(N, N)` is a guaranteed no-op. `doReset`'s hint (`1`, one
+   past its own effectively-ungated step-0 intro screen) was the only one of the six calls that
+   ever moved `step` to a genuinely new value, which is why "Reset Sandbox" alone appeared to
+   work and everything after it looked dead. `doEject`'s hint (`6`, matching its own step) is the
+   one exception that is *not* a bug: the UI deliberately also shows a separate "Review Telemetry
+   →" button whenever `step === 6`, so ejecting is optional before finishing the walkthrough.
+
+**Diagnostic Commands** — Static reasoning was the only way in, since this is pure React state
+logic with no backend call to reproduce it against:
+```bash
+grep -n "applyResult(.*,\s*[0-9])" frontend/src/lld/atm/AtmPage.jsx
+grep -n "step === [0-9]" frontend/src/lld/atm/AtmPage.jsx
+```
+Lining the two lists up side by side (which numeric hint each handler passes vs. which step number
+each render branch gates on) makes the mismatch immediate: five of six hints exactly equal their
+own branch's gate instead of the next one.
+
+**Step-by-Step Resolution**
+1. Added an explicit "Next: Insert Card →" button rendered only at `step === 1`, since that step
+   has no backend action of its own to hang an auto-advance off of.
+2. Corrected the four broken hints: `doInsertCard` now advances to `3` (not `2`), `doAuthenticate`
+   to `4` (not `3`), `doWithdraw` to `5` (not `4`), `doRace` to `6` (not `5`). `doEject`'s `6` was
+   left unchanged — confirmed intentional per the reasoning above, not part of this bug.
+3. Also fixed, in the same investigation: the class diagram (`frontend/src/data/diagrams/atm.js`)
+   was missing this module's headline pattern entirely — no `SessionState` interface, no
+   `SessionStates` resolver, despite `AGENTS.md`/`README.md` calling out "State Pattern Session
+   Machine: one `SessionState` class per `ATMState`" as the module's signature design. It also
+   showed only one of the two `DenominationDispenseStrategy` implementations and omitted
+   `DenominationDispenseStrategyFactory`/`DispenseMode` entirely. Added all of the above, mirroring
+   the `ElevatorLifecycleState`/`ElevatorLifecycleStates` shape already used for the identical
+   state-pattern-via-EnumMap idiom in `elevator.js`'s diagram.
+
+**Preventative Measures** — A `step === N` gate chain with no test coverage over the client-side
+state machine itself is a trap: every handler *looks* like it advances the walkthrough (it calls
+`applyResult` with a plausible-looking number), and the bug only surfaces by actually clicking
+through the UI or by systematically diffing "what number does this handler pass" against "what
+number does the next control require" — reading either list alone doesn't reveal it. Any
+multi-step wizard gated by strict step equality should either (a) have the "reveal next step" hint
+be visibly `currentStep + 1` at each call site rather than a bare literal, so a mismatched literal
+is obvious on inspection, or (b) get a lightweight frontend test that drives the whole step
+sequence end-to-end and asserts each control becomes reachable — this module had neither. Separately:
+a class diagram is easy to leave stale when a module's headline pattern (here, the state pattern)
+was added or reshaped after the diagram was first written — `/audit-lld` or a manual diff against
+the real `src/main/java` package for a module's stated "key features" is the only way to catch this
+short of a user asking "is the class diagram correct?" directly.

@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **49 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **52 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -79,7 +79,9 @@ lld-with-ui/
 │       ├── lrucache/  ludo/  minesweeper/  movieticket/  parkinglot/  pubsub/
 │       ├── shoppingcart/  snakeladders/  socialnetwork/  splitwise/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
-│       └── trafficsignal/  uber/  vendingmachine/  zomato/     (30 modules)
+│       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
+│       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
+│                                   (44 backend module packages -> 52 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -199,8 +201,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 881 tests across 91 classes
-cd frontend && npx vitest run  # 286 tests across 3 files
+cd backend  && mvn test        # 2017 tests across 231 classes
+cd frontend && npx vitest run  # 346 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -621,6 +623,7 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - **Atomic Stock Protection**: CAS check-and-decrement (`AtomicInteger`) preventing negative stock under high-concurrency race conditions, backed by a per-product `ReentrantLock` during checkout.
 - **Idempotent Checkout**: a client-supplied idempotency key makes a retried `placeOrder()` call return the identical cached `Order` with no second stock decrement or payment charge — proven under concurrent retries, not just sequential ones.
 - **Typed Exception Hierarchy**: `ShoppingCartException` (abstract) with `ProductNotFoundException` (404), `CartEmptyException`/`InvalidOrderStateException` (400), `InsufficientStockException` (409), `PaymentFailedException` (422).
+- **Guarded Order Lifecycle**: `OrderStatus.canAdvanceTo`/`isTerminal` (same idiom as Uber's `RideStatus`) enforce forward-only progress — skipping an intermediate status is fine, a backward move or anything out of a terminal status is rejected with `InvalidOrderStateException`.
 - **Isolated Simulation**: an 8-step interactive walkthrough against a completely separate `/sim/*` sandbox — two shoppers contend for low stock, a multi-product checkout visualizes lock-acquisition order vs. cart-insertion order, and a guarded cancel-after-ship rejection.
 
 #### API Endpoints
