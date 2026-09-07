@@ -86,6 +86,28 @@ public class ShoppingCartServiceTest {
     }
 
     @Test
+    public void testUpdateOrderStatusRejectsBackwardAndTerminalTransitions() {
+        service.addToCart("u1", "P1", 1);
+        Order order = service.placeOrder("u1", PaymentMethod.UPI, null);
+
+        // Forward skip (PLACED -> SHIPPED, bypassing PROCESSING) is legal.
+        service.updateOrderStatus(order.getOrderId(), OrderStatus.SHIPPED);
+        assertEquals(OrderStatus.SHIPPED, order.getStatus());
+
+        // Backward move is not.
+        assertThrows(InvalidOrderStateException.class, () ->
+                service.updateOrderStatus(order.getOrderId(), OrderStatus.PROCESSING));
+        assertEquals(OrderStatus.SHIPPED, order.getStatus());
+
+        service.updateOrderStatus(order.getOrderId(), OrderStatus.DELIVERED);
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+
+        // DELIVERED is terminal -- no further move, forward or otherwise.
+        assertThrows(InvalidOrderStateException.class, () ->
+                service.updateOrderStatus(order.getOrderId(), OrderStatus.DELIVERED));
+    }
+
+    @Test
     public void test10ConcurrentCheckoutThreadsZeroOverselling() throws Exception {
         // Product P-HOT has only 2 units in stock
         service.addProduct(new Product("P-HOT", "PS5 Console", Category.ELECTRONICS, 500.0, 2));

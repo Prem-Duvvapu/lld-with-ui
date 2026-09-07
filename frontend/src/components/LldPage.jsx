@@ -84,9 +84,9 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
         {tab === 'sequence' && <SequenceDiagram module={module} />}
         {!isBuiltIn && (
           typeof children === 'function'
-            ? children(tab)
+            ? children(tab, setTab)
             : Array.isArray(children)
-              ? children.map((c) => (typeof c === 'function' ? c(tab) : c))
+              ? children.map((c) => (typeof c === 'function' ? c(tab, setTab) : c))
               : children
         )}
       </main>
