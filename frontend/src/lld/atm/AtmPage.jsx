@@ -272,7 +272,7 @@ function AppTab() {
 
         <div className="panel-card">
           <h3>🏦 ATM Note Inventory</h3>
-          <div className="total-cash-badge">Total Available: <strong>₹{dispenser.totalCash}</strong></div>
+          <div className="total-cash-badge">Total Available: <strong>₹{(dispenser.totalCash || 0).toLocaleString('en-IN')}</strong></div>
           <div className="inventory-grid">
             {dispenser.inventory && Object.entries(dispenser.inventory).map(([denom, count]) => (
               <div key={denom} className="denom-card">
@@ -289,7 +289,7 @@ function AppTab() {
             <div className="receipt-details">
               <p>Txn ID: {receipt.transactionId}</p>
               <p>Account: {receipt.accountNumber}</p>
-              <p>Amount: ₹{receipt.amount}</p>
+              <p>Amount: ₹{receipt.amount.toLocaleString('en-IN')}</p>
               <p>Status: <strong className="green">{receipt.status}</strong></p>
               {receipt.dispensedNotes && (
                 <div className="receipt-notes">
@@ -310,7 +310,7 @@ function AppTab() {
               {transactions.slice().reverse().slice(0, 8).map((t) => (
                 <div key={t.transactionId} className={`txn-row ${t.status === 'FAILED' ? 'failed' : ''}`}>
                   <span>{t.type}</span>
-                  <span>₹{t.amount}</span>
+                  <span>₹{t.amount.toLocaleString('en-IN')}</span>
                   <span className="txn-status">{t.status}</span>
                 </div>
               ))}
@@ -373,19 +373,19 @@ function SimulationTab() {
 
   const doInsertCard = () => withBusy(async () => {
     const result = await simInsertCard(cardNumber);
-    applyResult(result, 2);
+    applyResult(result, 3);
   });
 
   const doAuthenticate = () => withBusy(async () => {
     const result = await simAuthenticate(cardNumber, pin);
-    applyResult(result, 3);
+    applyResult(result, 4);
   });
 
   const doWithdraw = () => withBusy(async () => {
     const acc = snapshot?.activeAccount;
     if (!acc) { setError('Authenticate first.'); return; }
     const result = await simWithdraw(acc.accountNumber, Number(amount), mode);
-    applyResult(result, 4);
+    applyResult(result, 5);
   });
 
   const doRace = () => withBusy(async () => {
@@ -398,7 +398,7 @@ function SimulationTab() {
     const succeeded = results.filter((r) => !r?.error).length;
     setRaceResult({ attempts, succeeded });
     const last = results.find((r) => !r?.error) || results[results.length - 1];
-    applyResult(last, 5);
+    applyResult(last, 6);
   });
 
   const doEject = () => withBusy(async () => {
@@ -439,7 +439,7 @@ function SimulationTab() {
         <>
           <div className="atm-hud">
             <div className="atm-hud-tile"><div className="v">{simState}</div><div className="l">Session State</div></div>
-            <div className="atm-hud-tile"><div className="v">₹{snapshot.dispenserCash ?? 0}</div><div className="l">Cash In Cassette</div></div>
+            <div className="atm-hud-tile"><div className="v">₹{(snapshot.dispenserCash ?? 0).toLocaleString('en-IN')}</div><div className="l">Cash In Cassette</div></div>
             <div className="atm-hud-tile"><div className="v">{events.length}</div><div className="l">Events Logged</div></div>
             <div className="atm-hud-tile"><div className="v">{raceResult ? `${raceResult.succeeded}/${raceResult.attempts}` : '—'}</div><div className="l">Race Winners</div></div>
             <div className="atm-hud-tile"><div className="v">{snapshot.activeAccount ? snapshot.activeAccount.accountNumber : '—'}</div><div className="l">Active Account</div></div>
@@ -477,6 +477,13 @@ function SimulationTab() {
               </div>
             </div>
           </div>
+
+          {step === 1 && (
+            <div className="atm-sim-actions">
+              <span className="atm-sim-hint">The sandbox seeded 2 accounts and 2 cards, shown in the panels above — nothing to do here but look before moving on.</span>
+              <button className="btn-trigger" onClick={() => setStep(2)} disabled={busy}>Next: Insert Card →</button>
+            </div>
+          )}
 
           {step === 2 && (
             <div className="atm-sim-actions">

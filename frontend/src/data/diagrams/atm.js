@@ -13,7 +13,8 @@ export default {
         '- cashDispenser: CashDispenser',
         '- currentState: ATMState',
         '- activeCard: Card',
-        '- activeAccount: Account'
+        '- activeAccount: Account',
+        '- sessionLock: ReentrantLock'
       ],
       methods: [
         '+ insertCard(cardNumber): Map',
@@ -22,6 +23,25 @@ export default {
         '+ withdraw(accNum, amount): WithdrawalTransaction',
         '+ deposit(accNum, amount, notes): DepositTransaction',
         '+ ejectCard(): Map',
+        '- transitionTo(target: ATMState): void  // the only place currentState is ever assigned'
+      ]
+    },
+    {
+      name: 'SessionState',
+      stereotype: 'interface',
+      fields: [],
+      methods: [
+        '+ getStatus(): ATMState',
+        '+ allowedNext(): Set<ATMState>',
+        '+ canTransitionTo(target): boolean'
+      ]
+    },
+    {
+      name: 'SessionStates',
+      stereotype: 'resolver',
+      fields: [],
+      methods: [
+        '+ of(status: ATMState): SessionState  // EnumMap of the 7 singleton states'
       ]
     },
     {
@@ -49,12 +69,35 @@ export default {
       ]
     },
     {
+      name: 'DenominationDispenseStrategyFactory',
+      stereotype: 'factory',
+      fields: [],
+      methods: [
+        '+ forMode(mode: DispenseMode): DenominationDispenseStrategy'
+      ]
+    },
+    {
+      name: 'DispenseMode',
+      stereotype: 'enum',
+      fields: ['MINIMIZE_NOTES', 'CONSERVE_LARGE_NOTES'],
+      methods: []
+    },
+    {
       name: 'GreedyDenominationDispenseStrategy',
       fields: [
         'implements DenominationDispenseStrategy'
       ],
       methods: [
-        '+ calculateNotes(amount, availableInventory): Map'
+        '+ calculateNotes(amount, availableInventory): Map  // largest denomination first'
+      ]
+    },
+    {
+      name: 'ConserveLargeNotesDispenseStrategy',
+      fields: [
+        'implements DenominationDispenseStrategy'
+      ],
+      methods: [
+        '+ calculateNotes(amount, availableInventory): Map  // smallest denomination first'
       ]
     },
     {
@@ -175,16 +218,42 @@ export default {
     },
     {
       from: 'AtmService',
+      to: 'SessionStates',
+      label: 'resolves current phase via'
+    },
+    {
+      from: 'SessionStates',
+      to: 'SessionState',
+      label: 'creates'
+    },
+    {
+      from: 'SessionState',
       to: 'ATMState',
-      label: 'maintains session state'
+      label: 'describes'
     },
     {
       from: 'CashDispenser',
+      to: 'DenominationDispenseStrategyFactory',
+      label: 'resolves via'
+    },
+    {
+      from: 'DenominationDispenseStrategyFactory',
       to: 'DenominationDispenseStrategy',
-      label: 'uses'
+      label: 'creates'
+    },
+    {
+      from: 'DenominationDispenseStrategyFactory',
+      to: 'DispenseMode',
+      label: 'keyed by'
     },
     {
       from: 'GreedyDenominationDispenseStrategy',
+      to: 'DenominationDispenseStrategy',
+      label: 'implements',
+      dashed: true
+    },
+    {
+      from: 'ConserveLargeNotesDispenseStrategy',
       to: 'DenominationDispenseStrategy',
       label: 'implements',
       dashed: true
