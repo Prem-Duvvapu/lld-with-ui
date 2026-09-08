@@ -25,6 +25,7 @@ import _hotel from './sequences/hotel.js';
 import _inventory from './sequences/inventory.js';
 import _library from './sequences/library.js';
 import _linkedin from './sequences/linkedin.js';
+import _locker from './sequences/locker.js';
 import _loggingFramework from './sequences/logging-framework.js';
 import _lru_cache from './sequences/lru-cache.js';
 import _ludo from './sequences/ludo.js';
@@ -75,6 +76,7 @@ const sequenceDiagrams = {
   inventory: _inventory,
   library: _library,
   linkedin: _linkedin,
+  locker: _locker,
   loggingFramework: _loggingFramework,
   'lru-cache': _lru_cache,
   ludo: _ludo,
