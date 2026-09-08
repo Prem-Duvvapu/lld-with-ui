@@ -1,12 +1,12 @@
 # Remaining Modules — Build Plan
 
-Portfolio is at 55 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
-Scheduler; Locker Management, Payment Gateway and Web Crawler shipped since — see
-RCA-058, RCA-059 and RCA-060 for real bugs caught during their builds). This document
-plans the remaining 5 modules from the original gap-analysis session, in priority order.
-Each section is meant to be handed to a fresh agent as a self-contained brief — read
-`new-lld` skill and one reference module (`splitwise`, `logging`, or `uber`) first
-regardless.
+Portfolio is at 56 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
+Scheduler; Locker Management, Payment Gateway, Web Crawler and Generic Cache Library
+shipped since — see RCA-058, RCA-059 and RCA-060 for real bugs caught during those
+builds). This document plans the remaining 4 modules from the original gap-analysis
+session, in priority order. Each section is meant to be handed to a fresh agent as a
+self-contained brief — read `new-lld` skill and one reference module (`splitwise`,
+`logging`, or `uber`) first regardless.
 
 ## Read first
 
@@ -71,41 +71,7 @@ conflicts above at merge time.
 
 ## Tier 2
 
-### 1. Generic Cache Library
-
-**Key**: `cachelibrary` · route `/cachelibrary` · package `com.lld.cachelibrary`
-
-**Pitch**: Not another single-policy cache demo (this repo already has `lru-cache` and
-`ttl-cache`) — this is the **library design** itself: one `Cache<K,V>` interface, a
-`CacheBuilder` that composes any eviction policy with optional TTL and optional stats, so a
-caller writes `CacheBuilder.newBuilder().maximumSize(100).evictionPolicy(LFU).withStats()
-.build()`. **Explicitly differentiate this from `lru-cache`/`ttl-cache` in the design
-write-up** — those are demos of one algorithm each; this is a demo of pluggable
-architecture.
-
-- **Domain**: `Cache<K,V>` interface, `EvictionPolicy<K>` (LRU/LFU/FIFO — reuse the
-  algorithmic ideas from `lru-cache`, don't copy the code), `CacheBuilder` (fluent
-  configuration), a `StatsDecorator` wrapping any `Cache` to count hit/miss/eviction without
-  the base implementation knowing about stats at all.
-- **Patterns**: **Builder** (`CacheBuilder`), **Strategy** (`EvictionPolicy`), **Decorator**
-  (`StatsDecorator` — genuinely wraps and delegates, doesn't just add a counter field
-  internally), Factory (policy resolution from a config enum).
-- **The concurrency bug**: a segment/shard-locked cache (mirroring how real
-  `ConcurrentHashMap`/Guava Cache achieve throughput) — if you build it as one big lock
-  around the whole map, say so explicitly as a documented trade-off rather than silently
-  under-designing; if you build sharded locks, the race to prove is that concurrent
-  `put`/`get`/eviction on *different* shards never blocks on each other while same-key
-  operations still serialize correctly (same lesson as `concurrenthashmap` primitive, reused
-  at a library-design level).
-- **API**: this one is more library-shaped than request/response-shaped — expose it through
-  a demo service: `POST /api/cachelibrary/configure` (policy, maxSize, ttlSeconds),
-  `PUT /api/cachelibrary/{key}`, `GET /api/cachelibrary/{key}`, `GET
-  /api/cachelibrary/stats`, `/sim/*`: reset, fill past capacity (watch eviction happen live),
-  a TTL expiry demo, a stats-decorator readout, a concurrent-shard race demo.
-- **Exceptions**: `CacheLibraryException`, `KeyNotFoundException` (404),
-  `InvalidCacheConfigException` (400, e.g. maxSize ≤ 0).
-
-### 2. Key-Value Store
+### 1. Key-Value Store
 
 **Key**: `kvstore` · route `/kvstore` · package `com.lld.kvstore`
 
@@ -144,7 +110,7 @@ leaning into **versioning and CAS semantics**, not eviction.
 
 ## Tier 3
 
-### 3. Coupon/Promotion Engine
+### 2. Coupon/Promotion Engine
 
 **Key**: `coupon` · route `/coupon` · package `com.lld.coupon`
 
@@ -175,7 +141,7 @@ with stacking/precedence rules and a hard per-coupon redemption limit.
   `CouponExpiredException` (400), `RedemptionLimitExceededException` (409),
   `IneligibleCartException` (400 — a condition rejected the cart).
 
-### 4. Blackjack / Deck of Cards
+### 3. Blackjack / Deck of Cards
 
 **Key**: `blackjack` · route `/blackjack` · package `com.lld.blackjack`
 
@@ -208,7 +174,7 @@ Blackjack so it has a real game loop rather than being an abstract card-shufflin
   (409 — the shared shoe ran out mid-deal, a genuine edge case worth modeling rather than
   hand-waving).
 
-### 5. Workflow/Approval Engine
+### 4. Workflow/Approval Engine
 
 **Key**: `workflow` · route `/workflow` · package `com.lld.workflow`
 

@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **55 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **56 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -63,6 +63,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **55 LLD projects**
 | 53 | [Locker Management](#53-locker-management) | Amazon-style parcel lockers | Strategy (smallest-fit/first-fit allocation), State Machine (locker lifecycle), Factory (pickup codes), per-locker lock race safety |
 | 54 | [Payment Gateway](#54-payment-gateway) | Stripe/Razorpay-style charge & refund | Strategy (payment methods), Chain of Responsibility (fraud pipeline), State Machine (payment lifecycle), idempotent double-submit protection |
 | 55 | [Web Crawler](#55-web-crawler) | Multi-threaded frontier crawl | Producer-Consumer (frontier queue + worker pool), Strategy (URL filter policy), atomic dedup claim, per-domain politeness lock |
+| 56 | [Generic Cache Library](#56-generic-cache-library) | Pluggable Cache<K,V> library | Builder (CacheBuilder), Strategy (eviction policy), Decorator (stats), segment/shard-locked concurrency |
 
 ---
 
@@ -84,7 +85,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (47 backend module packages -> 55 LLD problems total)
+│                                   (48 backend module packages -> 56 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -204,8 +205,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2090 tests across 245 classes
-cd frontend && npx vitest run  # 364 tests across 3 files
+cd backend  && mvn test        # 2129 tests across 251 classes
+cd frontend && npx vitest run  # 370 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -1527,6 +1528,32 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/webcrawler/sim/race`
 - `GET /api/webcrawler/sim/events`
 - `GET /api/webcrawler/sim/snapshot`
+
+---
+
+### 56. Generic Cache Library
+
+#### Key Features
+- **Not Another Single-Policy Cache Demo**: `lru-cache` and `ttl-cache` each implement one fixed algorithm from scratch — this module is the pluggable *library design* itself. `CacheBuilder.newBuilder().maximumSize(100).evictionPolicy(LFU).withStats().build()` composes three independent, orthogonal choices (eviction policy x TTL x stats) into genuinely different cache shapes from one fluent API.
+- **Segment/Shard-Locked Concurrency**: the same throughput idea real `ConcurrentHashMap`/Guava/Caffeine caches use — keys are partitioned across N independently-locked shards, so concurrent operations on *different* shards never contend while same-key operations (always the same shard) still serialize correctly. `Shard#put` holds its lock across the whole "check capacity → evict if needed → insert" sequence, closing the classic two-step check-then-act eviction race. Proven with a 300-round repeated test asserting a full shard never overshoots its capacity under concurrent puts, plus a deterministic cross-shard independence test using `Integer` keys whose `hashCode()` is fully controlled.
+- **Strategy-Based Eviction**: `EvictionPolicy<K>` (LRU/LFU/FIFO), minted fresh per shard by `EvictionPolicyFactory` — deliberately *not* a shared singleton, since each policy holds mutable per-shard bookkeeping.
+- **Decorator-Based Stats**: `StatsDecorator` wraps any `Cache<K,V>` and counts hit/miss/eviction without the wrapped `ShardedCache` ever knowing stats exist.
+- **Isolated Simulation**: a 6-step interactive walkthrough — fill a small cache past capacity (watch LRU eviction), a real TTL expiry wait, a stats readout, and a live 8-worker 4-shard concurrency race.
+
+#### API Endpoints
+- `POST /api/cachelibrary/configure`
+- `GET /api/cachelibrary/configure`
+- `PUT /api/cachelibrary/{key}`
+- `GET /api/cachelibrary/{key}`
+- `GET /api/cachelibrary/stats`
+- `POST /api/cachelibrary/sim/reset`
+- `POST /api/cachelibrary/sim/configure`
+- `PUT /api/cachelibrary/sim/{key}`
+- `GET /api/cachelibrary/sim/{key}`
+- `POST /api/cachelibrary/sim/ttl-demo`
+- `POST /api/cachelibrary/sim/race`
+- `GET /api/cachelibrary/sim/events`
+- `GET /api/cachelibrary/sim/snapshot`
 
 ---
 
