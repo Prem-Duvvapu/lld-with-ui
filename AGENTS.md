@@ -1642,6 +1642,58 @@ Package `com.lld.payment`.
   `Payment` returned), a refund, a live 6-way double-submit race, and a final telemetry/event-log
   review.
 
+## Web Crawler Module
+Brand-new module (portfolio position #55, ROADMAP.md Tier 2, next after Payment Gateway).
+Package `com.lld.webcrawler`.
+
+### Backend
+- `com.lld.webcrawler`: `controller / service / model / strategy / exception / repository / util`
+  packages.
+- **Two independent races closed in one method — this module's centerpiece**:
+  `WebCrawlerService#processUrl` closes both a URL-dedup race and a per-domain politeness race.
+  Dedup: naive "if not visited, add and fetch" is a check-then-act race where two workers can both
+  check before either adds; the fix is a single atomic `CrawlEngine#claimUrl`
+  (`ConcurrentHashMap.putIfAbsent`), never a separate `containsKey`+`put`. Politeness: two workers
+  assigned different URLs on the same domain must not both fetch inside the politeness window; the
+  fix is a per-domain `ReentrantLock` (`CrawlEngine#domainLockFor`, lazily created via
+  `computeIfAbsent`) held across the whole "check `lastFetchTime`, then update it" sequence — a
+  loser releases its claim and re-queues for a later wave rather than failing outright.
+  `WebCrawlerConcurrencyTest` proves both at once: a 300-round repeated test seeds one wave with an
+  exact-duplicate URL on one domain and two distinct URLs on a second domain, asserting exactly
+  one page per domain every round, with no wall-clock wait needed since `maxPages` ends the job
+  before any deferred retry would matter.
+- **Producer-Consumer at the application-domain level**: the frontier (`LinkedBlockingQueue`) is
+  the buffer; `WebCrawlerService` drains it in waves of up to 8 URLs and submits each wave to a
+  fixed `ExecutorService`, waiting on a `CountDownLatch` before draining the next — the same shape
+  as this repo's `blocking-queue`/`thread-pool` concurrency primitives, driving a real crawl
+  algorithm instead of a synthetic demo.
+- **Strategy**: `UrlFilterStrategy` (`AllowAll`/`RespectRobotsTxt`/`DomainAllowlist`), resolved by
+  `UrlFilterStrategyFactory` via an `EnumMap` — the same shape as
+  `locker.strategy.LockerAllocationStrategyFactory`.
+- `PageFetcher` is entirely simulated — deterministic content and exactly two child links per
+  page (`url+"/child1"`, `url+"/child2"`), never a real outbound HTTP call.
+- `CrawlEngine` is a plain per-job object, not a Spring bean — `WebCrawlerRepository` holds one
+  instance per job id, so two concurrently-running jobs never share a frontier or visited set
+  (`WebCrawlerConcurrencyTest` proves six independently-started jobs each fetch exactly their own
+  page).
+- Exception hierarchy: `WebCrawlerException` (abstract — like `locker.exception.LockerException`,
+  so it never needs `DomainExceptionContractTest`'s `BASES` allowlist) with
+  `CrawlJobNotFoundException` (404), `InvalidSeedUrlException` (400).
+- **Real pre-ship bug found and fixed (RCA-060)**: `simRace`'s ad-hoc `CrawlJob` was never saved
+  into the sim repository, so a winning worker's fetched page — though genuinely saved — became
+  unreachable from `getSimSnapshots()`'s job-driven traversal. Fixed by saving the race job before
+  and after the race.
+- Isolated `/api/webcrawler/sim/*` engine: a second `WebCrawlerRepository` instance, seeded empty.
+- Tests (5 files): `WebCrawlerServiceTest`, `WebCrawlerConcurrencyTest` (the load-bearing suite
+  above), `UrlFilterStrategyTest`, `UrlUtilsTest`, `WebCrawlerRepositoryTest`.
+
+### Frontend
+- 6 tabs: Start Crawl, Fetched Pages, Interactive 2D Simulation, Class Diagram, Sequence Diagram,
+  Design Details — built on the shared `LldPage` shell from the start.
+- Simulation tab: 5-step guided demo — reset, seed a job with a duplicate URL and same-domain
+  siblings, dispatch waves until the job completes, a standalone 6-worker live dedup race, and a
+  final telemetry/event-log review.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
@@ -1653,8 +1705,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2064 tests, 240 classes
-cd frontend && npx vitest run # 358 tests, 3 files
+cd backend && mvn test        # 2090 tests, 245 classes
+cd frontend && npx vitest run # 364 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green

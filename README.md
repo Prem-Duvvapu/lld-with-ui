@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **54 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **55 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -62,6 +62,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **54 LLD projects**
 | 52 | [Job Scheduler](#52-job-scheduler) | Cron/interval job scheduler | Strategy (schedule, misfire policy), Factory, priority-queue dispatch, race-free cancel/dispatch guard |
 | 53 | [Locker Management](#53-locker-management) | Amazon-style parcel lockers | Strategy (smallest-fit/first-fit allocation), State Machine (locker lifecycle), Factory (pickup codes), per-locker lock race safety |
 | 54 | [Payment Gateway](#54-payment-gateway) | Stripe/Razorpay-style charge & refund | Strategy (payment methods), Chain of Responsibility (fraud pipeline), State Machine (payment lifecycle), idempotent double-submit protection |
+| 55 | [Web Crawler](#55-web-crawler) | Multi-threaded frontier crawl | Producer-Consumer (frontier queue + worker pool), Strategy (URL filter policy), atomic dedup claim, per-domain politeness lock |
 
 ---
 
@@ -83,7 +84,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (46 backend module packages -> 54 LLD problems total)
+│                                   (47 backend module packages -> 55 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -203,8 +204,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2064 tests across 240 classes
-cd frontend && npx vitest run  # 358 tests across 3 files
+cd backend  && mvn test        # 2090 tests across 245 classes
+cd frontend && npx vitest run  # 364 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -1503,6 +1504,29 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/payment/sim/race`
 - `GET /api/payment/sim/events`
 - `GET /api/payment/sim/snapshot`
+
+---
+
+### 55. Web Crawler
+
+#### Key Features
+- **Two Races Closed by One Method**: `WebCrawlerService#processUrl` closes a URL-dedup race (an atomic `ConcurrentHashMap.putIfAbsent` claim, never `containsKey`+`put`) and a per-domain politeness race (a per-domain `ReentrantLock` held across the whole "check last-fetch-time, then update it" sequence) in the same pass — a politeness loser releases its claim and re-queues for a later wave rather than failing outright. Proven with a 300-round repeated test that seeds one wave with a duplicate URL on one domain and two distinct URLs on a second domain, asserting exactly one page per domain every round.
+- **Producer-Consumer Frontier**: a `LinkedBlockingQueue` frontier drained in waves of up to 8 URLs, each wave submitted to a fixed worker pool and joined on a `CountDownLatch` before the next wave — the same shape as this repo's Blocking Queue / Thread Pool concurrency primitives, driving a real crawl algorithm instead of a synthetic demo.
+- **Strategy-Based URL Filtering**: `UrlFilterStrategy` (Allow All / Respect robots.txt / Domain Allowlist), resolved by `UrlFilterStrategyFactory` via an `EnumMap`.
+- **Fully Simulated Fetching**: `PageFetcher` returns deterministic content and two child links per page — never a real outbound HTTP call.
+- **Isolated Simulation**: a 5-step interactive walkthrough — seed a job with a duplicate URL and same-domain siblings, dispatch waves until it completes, and a standalone live 6-worker dedup race.
+
+#### API Endpoints
+- `POST /api/webcrawler/jobs`
+- `GET /api/webcrawler/jobs`
+- `GET /api/webcrawler/jobs/{jobId}`
+- `GET /api/webcrawler/jobs/{jobId}/pages`
+- `POST /api/webcrawler/sim/reset`
+- `POST /api/webcrawler/sim/seed`
+- `POST /api/webcrawler/sim/{jobId}/dispatch`
+- `POST /api/webcrawler/sim/race`
+- `GET /api/webcrawler/sim/events`
+- `GET /api/webcrawler/sim/snapshot`
 
 ---
 

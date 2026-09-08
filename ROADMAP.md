@@ -1,11 +1,12 @@
 # Remaining Modules — Build Plan
 
-Portfolio is at 54 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
-Scheduler; Locker Management and Payment Gateway shipped since — see RCA-058 and RCA-059
-for real bugs caught during their builds). This document plans the remaining 7 modules
-from the original gap-analysis session, in priority order. Each section is meant to be
-handed to a fresh agent as a self-contained brief — read `new-lld` skill and one reference
-module (`splitwise`, `logging`, or `uber`) first regardless.
+Portfolio is at 55 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
+Scheduler; Locker Management, Payment Gateway and Web Crawler shipped since — see
+RCA-058, RCA-059 and RCA-060 for real bugs caught during their builds). This document
+plans the remaining 5 modules from the original gap-analysis session, in priority order.
+Each section is meant to be handed to a fresh agent as a self-contained brief — read
+`new-lld` skill and one reference module (`splitwise`, `logging`, or `uber`) first
+regardless.
 
 ## Read first
 
@@ -70,39 +71,7 @@ conflicts above at merge time.
 
 ## Tier 2
 
-### 1. Web Crawler
-
-**Key**: `webcrawler` · route `/webcrawler` · package `com.lld.webcrawler`
-
-**Pitch**: A multi-threaded crawler: a URL frontier queue, a worker pool that fetches
-concurrently, a dedup set so no URL is ever fetched twice, and per-domain politeness
-(a domain may not be hit again within N ms of its last fetch).
-
-- **Domain**: `CrawlJob` (seed URLs, status), `Page` (URL, simulated fetched content/links,
-  fetchedAt), `Frontier` (a queue of URLs to visit), a fake `PageFetcher` (returns
-  deterministic simulated HTML/links rather than a real HTTP call — this module is about the
-  crawl machinery, not real networking).
-- **Patterns**: **Producer-Consumer** (frontier queue + a fixed worker pool — same shape as
-  `blocking-queue`/`thread-pool` primitives but at the application-domain level), Strategy
-  for politeness/URL-filtering policy (`respectRobotsTxt` on/off, domain allowlist), Observer
-  for crawl-progress listeners (optional — only if it doesn't feel bolted-on).
-- **The concurrency bug**: naive "if not in visited-set, add and fetch" is a check-then-act
-  race — two workers can both check before either adds, and both fetch the same URL. Fix
-  with `ConcurrentHashMap<String,Boolean>.putIfAbsent` (atomic claim) rather than
-  `containsKey` + `put`. Separately, **per-domain politeness must itself be race-free**: a
-  per-domain `ReentrantLock` (or a `lastFetchTime` map checked-and-updated atomically) so two
-  workers assigned URLs from the same domain don't both fetch within the politeness window.
-  Repeated-round test: N workers racing on a frontier seeded with duplicate URLs across
-  domains; assert each unique URL is fetched exactly once and no domain is ever fetched
-  twice within the politeness window.
-- **API**: `POST /api/webcrawler/jobs` (seed URLs, maxPages) → starts a crawl,
-  `GET /api/webcrawler/jobs/{id}`, `GET /api/webcrawler/jobs/{id}/pages`, `/sim/*`: reset,
-  seed the frontier, dispatch workers (watch pages get claimed), hit a politeness delay,
-  a live dedup-race demo, final snapshot with the visited set.
-- **Exceptions**: `WebCrawlerException`, `CrawlJobNotFoundException` (404),
-  `InvalidSeedUrlException` (400).
-
-### 2. Generic Cache Library
+### 1. Generic Cache Library
 
 **Key**: `cachelibrary` · route `/cachelibrary` · package `com.lld.cachelibrary`
 
@@ -136,7 +105,7 @@ architecture.
 - **Exceptions**: `CacheLibraryException`, `KeyNotFoundException` (404),
   `InvalidCacheConfigException` (400, e.g. maxSize ≤ 0).
 
-### 3. Key-Value Store
+### 2. Key-Value Store
 
 **Key**: `kvstore` · route `/kvstore` · package `com.lld.kvstore`
 
@@ -175,7 +144,7 @@ leaning into **versioning and CAS semantics**, not eviction.
 
 ## Tier 3
 
-### 4. Coupon/Promotion Engine
+### 3. Coupon/Promotion Engine
 
 **Key**: `coupon` · route `/coupon` · package `com.lld.coupon`
 
@@ -206,7 +175,7 @@ with stacking/precedence rules and a hard per-coupon redemption limit.
   `CouponExpiredException` (400), `RedemptionLimitExceededException` (409),
   `IneligibleCartException` (400 — a condition rejected the cart).
 
-### 5. Blackjack / Deck of Cards
+### 4. Blackjack / Deck of Cards
 
 **Key**: `blackjack` · route `/blackjack` · package `com.lld.blackjack`
 
@@ -239,7 +208,7 @@ Blackjack so it has a real game loop rather than being an abstract card-shufflin
   (409 — the shared shoe ran out mid-deal, a genuine edge case worth modeling rather than
   hand-waving).
 
-### 6. Workflow/Approval Engine
+### 5. Workflow/Approval Engine
 
 **Key**: `workflow` · route `/workflow` · package `com.lld.workflow`
 
