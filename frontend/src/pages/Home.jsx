@@ -131,7 +131,9 @@ const ALL_LLDS = [
   { title: 'Web Crawler', icon: '🕷️', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'Frontier-queue worker pool with an atomic dedup claim and per-domain politeness locking, plus a Strategy-based URL filter policy' },
   { title: 'Generic Cache Library', icon: '🧰', difficulty: 'Hard', category: 'Design Patterns & Systems',
-    desc: 'A pluggable Cache<K,V> library — Builder-composed eviction policy, TTL and stats, backed by a segment/shard-locked cache for real concurrent throughput' }
+    desc: 'A pluggable Cache<K,V> library — Builder-composed eviction policy, TTL and stats, backed by a segment/shard-locked cache for real concurrent throughput' },
+  { title: 'Key-Value Store', icon: '🗃️', difficulty: 'Hard', category: 'Design Patterns & Systems',
+    desc: 'A toy Redis-shaped store — Command-pattern write-ahead log for durability, versioned entries, and a fully lock-free compare-and-swap race' }
 ]
 
 const routeMap = {
@@ -166,6 +168,7 @@ const routeMap = {
   'Payment Gateway': 'payment',
   'Web Crawler': 'webcrawler',
   'Generic Cache Library': 'cachelibrary',
+  'Key-Value Store': 'kvstore',
 }
 
 export default function Home() {

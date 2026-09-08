@@ -1747,6 +1747,56 @@ Package `com.lld.cachelibrary`.
   (watch LRU eviction), a real 1-second TTL expiry wait, a stats-decorator readout, a live
   8-worker 4-shard concurrency race, and a final telemetry review.
 
+## Key-Value Store Module
+Brand-new module (portfolio position #57, ROADMAP.md Tier 2, next after Generic Cache Library).
+Package `com.lld.kvstore`.
+
+### Backend
+- `com.lld.kvstore`: `controller / service / model / command / template / repository /
+  exception` packages.
+- **Fully lock-free compare-and-swap — this module's centerpiece**: `KvStoreRepository#cas`
+  drives its version check and its update through a single `ConcurrentHashMap#compute` call —
+  a deliberate, explicit departure from every other module shipped in this repo, all of which
+  close their races with a per-entity `ReentrantLock`. `compute()`'s remapping function for a
+  given key runs atomically with respect to every other operation on that key, so no separate
+  lock object is ever created. `KvStoreConcurrencyTest` proves it: a 300-round repeated test
+  racing 10 threads against the same key with the identical `expectedVersion` (exactly one
+  winner, exactly one version bump, every round), plus a 200-round test proving CAS composes
+  correctly across 5 sequential racing "waves" — the winner of one wave genuinely becomes the
+  baseline every loser in the next wave must beat.
+- **Command, applied to durability rather than undo/redo**: every successful write (SET or a
+  winning CAS) appends a `SetCommand`/`DeleteCommand` to a `WriteAheadLog`; replaying the whole
+  log against an empty map rebuilds identical state — the same GoF pattern serving a genuinely
+  different purpose than the typical undo-stack use. `SetCommand` carries the exact version and
+  expiry a write already produced, so replay is a pure "set state to exactly this," with no
+  dependency on command order.
+- **Template Method for the read path only**: `KvReadTemplate` governs both a throwing
+  `GetOperation` and a non-throwing `PeekOperation` (used by the sim snapshot). Deliberately
+  *not* extended to CAS: CAS's expiry-and-version check must happen atomically inside the same
+  `compute()` call as the write, and a separate template-driven pre-read would reintroduce the
+  exact check-then-act race this module exists to close — documented explicitly as a case where
+  forcing pattern reuse would have broken correctness.
+- **No eviction, by design**: explicitly differentiated from `cachelibrary` (shipped
+  immediately before this module) — no capacity limit, no eviction policy at all. Every key
+  lives until explicitly deleted or TTL-expired; TTL is enforced lazily (checked on read only),
+  the same trade-off `cachelibrary.cache.ShardedCache` makes.
+- Exception hierarchy: `KvStoreException` (abstract — like
+  `cachelibrary.exception.CacheLibraryException`, so it never needs
+  `DomainExceptionContractTest`'s `BASES` allowlist) with `KeyNotFoundException` (404 — shares
+  its simple name with `cachelibrary.exception.KeyNotFoundException`, harmless since exceptions
+  are plain classes, not Spring beans, so RCA-059's bean-collision lesson doesn't apply),
+  `VersionConflictException` (409 — the request was well-formed, it just lost a race).
+- Isolated `/api/kvstore/sim/*` engine: a second `KvStoreRepository` instance, seeded empty.
+- Tests (5 files): `KvStoreServiceTest`, `KvStoreConcurrencyTest` (the load-bearing suite
+  above), `CommandTest`, `KvReadTemplateTest`, `KvStoreRepositoryTest`.
+
+### Frontend
+- 6 tabs: Store, CAS, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design
+  Details — built on the shared `LldPage` shell from the start.
+- Simulation tab: 6-step guided demo — reset, a clean SET/GET, a WAL-replay durability proof, a
+  real 1-second TTL expiry wait, a live 8-worker CAS race, and a final review of the WAL and
+  event log.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
@@ -1758,8 +1808,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2129 tests, 251 classes
-cd frontend && npx vitest run # 370 tests, 3 files
+cd backend && mvn test        # 2164 tests, 256 classes
+cd frontend && npx vitest run # 376 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green

@@ -28,6 +28,7 @@ import _locker from './diagrams/locker.js';
 import _payment from './diagrams/payment.js';
 import _webcrawler from './diagrams/webcrawler.js';
 import _cachelibrary from './diagrams/cachelibrary.js';
+import _kvstore from './diagrams/kvstore.js';
 import _library from './diagrams/library.js';
 import _linkedin from './diagrams/linkedin.js';
 import _loggingFramework from './diagrams/logging-framework.js';
@@ -86,6 +87,7 @@ const classDiagrams = {
   payment: _payment,
   webcrawler: _webcrawler,
   cachelibrary: _cachelibrary,
+  kvstore: _kvstore,
   library: _library,
   linkedin: _linkedin,
   loggingFramework: _loggingFramework,
