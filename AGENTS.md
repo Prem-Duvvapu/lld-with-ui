@@ -1895,6 +1895,70 @@ Engine). Package `com.lld.blackjack`.
   deal, hit-then-stand (or skip if the deal already settled on a natural blackjack), a live
   15-table race against the near-exhausted shared shoe, and a final telemetry review.
 
+## Workflow / Approval Engine Module
+Brand-new module (portfolio position #60, ROADMAP.md Tier 3, the last module in ROADMAP.md).
+Package `com.lld.workflow`.
+
+### Backend
+- `com.lld.workflow`: `controller / service / model / chain / strategy / repository /
+  exception` packages.
+- **Approve-vs-escalate race — this module's centerpiece**: `WorkflowService#doApprove` and
+  `#doTriggerEscalation` each hold "is this step (and, for escalation, this exact
+  `stepIndex`) still the current pending step? decide it if so" as one atomic block, called
+  only under that instance's own fair `ReentrantLock` (`WorkflowInstance#getLock`) — the same
+  per-entity-lock idiom as `locker.service.LockerService#deposit`,
+  `coupon.service.CouponService`, and structurally the same shape as Job Scheduler's
+  cancel/dispatch race. `WorkflowConcurrencyTest` proves it: a 300-round repeated test racing
+  one thread's `approve()` against another's `triggerEscalation()` on the identical pending
+  step (exactly one action ever takes effect, never both, never neither, every round), plus a
+  200-round test with 8 threads racing concurrent `approve()` calls on the same step.
+- **Stale-escalation bug caught by that very test, during development**: an earlier version of
+  `triggerEscalation(id)` took no step index, so once `approve()` advanced
+  `currentStepIndex`, a "losing" escalation would silently succeed against the *new* current
+  step instead of being rejected — both racers reported success, just on different steps.
+  Fixed by scoping `triggerEscalation(id, stepIndex)` to the step it was actually armed
+  against and re-validating `requireStepStillCurrent` inside the lock, matching how a real
+  timeout targets a specific step rather than "whatever is current now". See `RCA.md`.
+- **Chain of Responsibility for threshold routing (cumulative, not claim-and-stop)**:
+  `ManagerThresholdHandler` → `DirectorThresholdHandler` → `FinanceThresholdHandler`, the same
+  `setNext`-linking shape as `logging.chain.LogHandler`, `payment.fraud.FraudCheckHandler` and
+  `coupon.chain.EligibilityHandler` — a fourth genuine use of this shape. Deliberately
+  cumulative: every applicable handler contributes its role (a $7,500 expense needs Manager
+  AND Director AND Finance), unlike coupon's claim-and-stop chain. `ApprovalChainFactoryTest`
+  proves thresholds are exclusive (exactly $1,000 needs only Manager) and cumulative (a large
+  amount needs all three roles in order).
+- **State machine**: `WorkflowStatus` declares its own legal-next-states in a `Map<WorkflowStatus,
+  Set<WorkflowStatus>>`, the same idiom as `uber.model.RideStatus`. `ESCALATED` is deliberately
+  non-terminal — it marks "this step's timeout fired," not "this workflow is done," so the
+  escalation target can still resolve the chain to `APPROVED`/`REJECTED`.
+- **Strategy**: `AutoEscalateStrategy` / `NotifyOnlyStrategy`, resolved by
+  `EscalationStrategyFactory` via an `EnumMap` — the same shape as
+  `locker.strategy.LockerAllocationStrategyFactory`. `AutoEscalateStrategy` advances the step to
+  the next approver (a no-op on the last step, rather than silently closing the workflow);
+  `NotifyOnlyStrategy` never touches the step at all — genuinely different policies, proven by
+  `EscalationStrategyTest`.
+- Exception hierarchy: `WorkflowException` (abstract — like
+  `blackjack.exception.BlackjackException`, so it never needs `DomainExceptionContractTest`'s
+  `BASES` allowlist) with `WorkflowNotFoundException` (404), `InvalidStepTransitionException`
+  (400 — approving/escalating a step that isn't currently pending, or a stale escalation),
+  `UnauthorizedApproverException` (403 — the acting approver's role doesn't match the current
+  step's required role; confirmed 403 is an already-supported mapping via
+  `stackoverflow.exception.NotQuestionAuthorException` and
+  `linkedin.exception.UnauthorizedActionException` precedent).
+- Isolated `/api/workflow/sim/*` engine: a second `WorkflowRepository` instance, with a live
+  approve-vs-escalate race demo (`simRace`) spawning two raw `Thread`s synchronized on a
+  `CountDownLatch`.
+- Tests (5 files): `WorkflowServiceTest`, `WorkflowConcurrencyTest` (the load-bearing suite
+  above), `ApprovalChainFactoryTest`, `EscalationStrategyTest`, `WorkflowRepositoryTest`.
+
+### Frontend
+- 6 tabs: Submit & Track, Approve / Reject, Interactive 2D Simulation, Class Diagram, Sequence
+  Diagram, Design Details — built on the shared `LldPage` shell from the start.
+- Simulation tab: 6-step guided demo — reset, submit a small Manager-only expense, submit a
+  large Manager→Director→Finance expense, approve the large one's Manager step, a live
+  Director-approve-vs-timeout-escalate race on the Director step, and a final telemetry
+  review.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)

@@ -1,0 +1,160 @@
+// classDiagrams — workflow
+// Single source of truth for this module. One file per module: duplicate keys in a
+// shared object literal previously let JavaScript silently discard the richer entry.
+
+export default {
+  title: 'Workflow / Approval Engine — Class Diagram',
+  classes: [
+    {
+      name: 'WorkflowService',
+      stereotype: 'service',
+      fields: [
+        '- repository: WorkflowRepository',
+        '- chainFactory: ApprovalChainFactory',
+        '- escalationStrategyFactory: EscalationStrategyFactory',
+      ],
+      methods: [
+        '+ submit(requester, amount, escalationStrategyType): WorkflowInstance',
+        '+ approve(id, approverId, role): WorkflowInstance',
+        '+ reject(id, approverId, role, reason): WorkflowInstance',
+        '+ triggerEscalation(id, stepIndex): WorkflowInstance',
+        '- doApprove(repo, id, approverId, role): WorkflowInstance',
+        '- doTriggerEscalation(repo, id, stepIndex): WorkflowInstance',
+      ],
+    },
+    {
+      name: 'WorkflowRepository',
+      stereotype: 'repository',
+      fields: ['- instances: ConcurrentHashMap<String, WorkflowInstance>'],
+      methods: ['+ save(instance): void', '+ get(id): WorkflowInstance', '+ getAll(): List<WorkflowInstance>', '+ reset(): void'],
+    },
+    {
+      name: 'WorkflowInstance',
+      fields: [
+        '- id: String',
+        '- requester: String',
+        '- amount: double',
+        '- escalationStrategyType: EscalationStrategyType',
+        '- steps: List<ApprovalStep>',
+        '- currentStepIndex: volatile int',
+        '- status: volatile WorkflowStatus',
+        '- instanceLock: ReentrantLock',
+      ],
+      methods: [
+        '+ transitionTo(target): void  // validated against WorkflowStatus\'s declared table',
+        '+ currentStep(): ApprovalStep',
+        '+ isLastStep(): boolean',
+        '+ getLock(): ReentrantLock',
+      ],
+    },
+    {
+      name: 'ApprovalStep',
+      fields: [
+        '- role: ApproverRole',
+        '- decision: volatile StepDecision',
+        '- approverId: volatile String',
+        '- decidedAtEpoch: volatile Long',
+        '- reason: volatile String',
+      ],
+      methods: [],
+    },
+    {
+      name: 'ApproverRole',
+      stereotype: 'enum',
+      fields: ['MANAGER', 'DIRECTOR', 'FINANCE'],
+      methods: [],
+    },
+    {
+      name: 'StepDecision',
+      stereotype: 'enum',
+      fields: ['PENDING', 'APPROVED', 'REJECTED', 'ESCALATED'],
+      methods: [],
+    },
+    {
+      name: 'WorkflowStatus',
+      stereotype: 'enum',
+      fields: ['PENDING', 'IN_REVIEW', 'APPROVED', 'REJECTED', 'ESCALATED'],
+      methods: ['+ isTerminal(): boolean', '+ canTransitionTo(next): boolean', '+ allowedNext(): Set<WorkflowStatus>'],
+    },
+    {
+      name: 'ApprovalThresholdHandler',
+      stereotype: 'abstract',
+      fields: ['- next: ApprovalThresholdHandler'],
+      methods: [
+        '+ setNext(next): ApprovalThresholdHandler',
+        '+ collectRequiredRoles(amount, roles): void',
+        '# role(): ApproverRole',
+        '# isRequired(amount): boolean',
+      ],
+    },
+    {
+      name: 'ManagerThresholdHandler',
+      fields: ['extends ApprovalThresholdHandler'],
+      methods: ['# isRequired(...): boolean  // always true'],
+    },
+    {
+      name: 'DirectorThresholdHandler',
+      fields: ['extends ApprovalThresholdHandler'],
+      methods: ['# isRequired(...): boolean  // amount > 1000'],
+    },
+    {
+      name: 'FinanceThresholdHandler',
+      fields: ['extends ApprovalThresholdHandler'],
+      methods: ['# isRequired(...): boolean  // amount > 5000'],
+    },
+    {
+      name: 'ApprovalChainFactory',
+      stereotype: 'factory',
+      fields: ['- chainHead: ApprovalThresholdHandler'],
+      methods: ['+ resolveRequiredRoles(amount): List<ApproverRole>'],
+    },
+    {
+      name: 'EscalationStrategy',
+      stereotype: 'interface',
+      fields: [],
+      methods: ['+ escalate(instance): boolean'],
+    },
+    {
+      name: 'AutoEscalateStrategy',
+      fields: ['implements EscalationStrategy'],
+      methods: ['+ escalate(...): boolean  // advances routing to the next approver'],
+    },
+    {
+      name: 'NotifyOnlyStrategy',
+      fields: ['implements EscalationStrategy'],
+      methods: ['+ escalate(...): boolean  // never touches the step, always false'],
+    },
+    {
+      name: 'EscalationStrategyFactory',
+      stereotype: 'resolver',
+      fields: [],
+      methods: ['+ forType(type): EscalationStrategy'],
+    },
+    {
+      name: 'EscalationStrategyType',
+      stereotype: 'enum',
+      fields: ['AUTO_ESCALATE', 'NOTIFY_ONLY'],
+      methods: [],
+    },
+  ],
+  relationships: [
+    { from: 'WorkflowService', to: 'WorkflowRepository', label: 'reads/writes' },
+    { from: 'WorkflowService', to: 'ApprovalChainFactory', label: 'resolves required roles via' },
+    { from: 'WorkflowService', to: 'EscalationStrategyFactory', label: 'resolves escalation policy via' },
+    { from: 'ApprovalChainFactory', to: 'ApprovalThresholdHandler', label: 'wires chain head' },
+    { from: 'ManagerThresholdHandler', to: 'ApprovalThresholdHandler', label: 'extends' },
+    { from: 'DirectorThresholdHandler', to: 'ApprovalThresholdHandler', label: 'extends' },
+    { from: 'FinanceThresholdHandler', to: 'ApprovalThresholdHandler', label: 'extends' },
+    { from: 'ApprovalThresholdHandler', to: 'ApproverRole', label: 'produces' },
+    { from: 'EscalationStrategyFactory', to: 'EscalationStrategy', label: 'resolves' },
+    { from: 'AutoEscalateStrategy', to: 'EscalationStrategy', label: 'implements', dashed: true },
+    { from: 'NotifyOnlyStrategy', to: 'EscalationStrategy', label: 'implements', dashed: true },
+    { from: 'EscalationStrategy', to: 'WorkflowInstance', label: 'mutates routing on' },
+    { from: 'WorkflowRepository', to: 'WorkflowInstance', label: 'stores' },
+    { from: 'WorkflowInstance', to: 'ApprovalStep', label: 'has ordered' },
+    { from: 'WorkflowInstance', to: 'WorkflowStatus', label: 'has' },
+    { from: 'ApprovalStep', to: 'ApproverRole', label: 'has' },
+    { from: 'ApprovalStep', to: 'StepDecision', label: 'has' },
+    { from: 'WorkflowInstance', to: 'EscalationStrategyType', label: 'has' },
+  ],
+};
