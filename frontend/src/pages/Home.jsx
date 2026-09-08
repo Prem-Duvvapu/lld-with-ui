@@ -133,7 +133,9 @@ const ALL_LLDS = [
   { title: 'Generic Cache Library', icon: '🧰', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'A pluggable Cache<K,V> library — Builder-composed eviction policy, TTL and stats, backed by a segment/shard-locked cache for real concurrent throughput' },
   { title: 'Key-Value Store', icon: '🗃️', difficulty: 'Hard', category: 'Design Patterns & Systems',
-    desc: 'A toy Redis-shaped store — Command-pattern write-ahead log for durability, versioned entries, and a fully lock-free compare-and-swap race' }
+    desc: 'A toy Redis-shaped store — Command-pattern write-ahead log for durability, versioned entries, and a fully lock-free compare-and-swap race' },
+  { title: 'Coupon / Promotion Engine', icon: '🏷️', difficulty: 'Medium', category: 'Real-world',
+    desc: 'Percentage/flat/BOGO discount strategies, a Chain-of-Responsibility eligibility check, and a race-free per-coupon redemption limit' }
 ]
 
 const routeMap = {
@@ -169,6 +171,7 @@ const routeMap = {
   'Web Crawler': 'webcrawler',
   'Generic Cache Library': 'cachelibrary',
   'Key-Value Store': 'kvstore',
+  'Coupon / Promotion Engine': 'coupon',
 }
 
 export default function Home() {
