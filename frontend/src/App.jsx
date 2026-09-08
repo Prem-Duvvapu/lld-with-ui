@@ -86,6 +86,7 @@ const LLD_ROUTES = [
   { path: 'jobscheduler', title: 'Job Scheduler', module: './lld/jobscheduler/JobSchedulerPage.jsx' },
   { path: 'locker', title: 'Locker Management', module: './lld/locker/LockerPage.jsx' },
   { path: 'payment', title: 'Payment Gateway', module: './lld/payment/PaymentPage.jsx' },
+  { path: 'webcrawler', title: 'Web Crawler', module: './lld/webcrawler/WebCrawlerPage.jsx' },
 ]
 
 function Layout({ children }) {

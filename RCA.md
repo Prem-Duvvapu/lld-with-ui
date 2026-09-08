@@ -5452,3 +5452,55 @@ full backend suite before opening a PR, not just the new package") — module-sc
 structurally blind to this entire class of cross-module collision, since a single Spring
 `ApplicationContext` shared by 45+ module packages is exactly the kind of shared global namespace
 where two independently-developed modules can innocently choose the same default bean name.
+
+## RCA-060: New `WebCrawlerService#simRace` Never Saved Its Ad-Hoc `CrawlJob` Into the Sim Repository — Every Live Dedup-Race Demo Fetched a Real Page That Then Vanished From the Sandbox Snapshot
+
+**Overview & Severity** — Medium (self-contained to the new `webcrawler` module's `/sim/*`
+sandbox; caught during initial development, before ever shipping, by writing the service test
+for the simulation walkthrough rather than by any user-facing report). Logged per `ROADMAP.md`'s
+own instruction to record a real bug found while building a new module, even one caught pre-ship.
+
+**Symptoms & Error Logs** — `WebCrawlerServiceTest#simRaceOnASingleUrlFetchesItExactlyOnce`
+asserted on `raceResult.fetched`/`raceResult.deduped` (both correct — the claim race itself was
+never broken) but a follow-up assertion checking that the fetched page actually appeared in
+`getSimSnapshots()`'s `"pages"` list failed: the list was empty even though exactly one worker had
+just won the race and called `PageFetcher#fetch` successfully. `WebCrawlerRepository#savePage`
+had genuinely been called and the page was sitting in the repository's internal `pages` map the
+whole time — it just could never be found again.
+
+**Root Cause** — `getSimSnapshots()` computes its `"pages"` list by iterating
+`simRepository.getAllJobs()` and flat-mapping each job's `getPagesForJob(jobId)` — it never scans
+`pages` directly. `simRace(url, workerCount)` builds its own ad-hoc `CrawlJob` (id `"SIM-RACE"`)
+purely as a parameter to carry `maxPages`/`filterPolicy` into the shared `processUrl` method, and
+the first draft never called `simRepository.saveJob(raceJob)` — only the winning worker's
+`targetRepository.savePage(page)` call inside `processUrl` ever touched the repository. Because
+`Page` is keyed internally by `jobId + "|" + url`, the save itself succeeded silently; the bug was
+purely in *retrieval*, which is why running the race and reading back its own `raceResult` summary
+(computed locally from `AtomicInteger` counters, never from the repository) looked completely
+correct while the snapshot silently dropped the page.
+
+**Diagnostic Commands**
+```bash
+# The service test that caught it -- run in isolation to reproduce quickly.
+mvn -o test -Dtest='com.lld.webcrawler.WebCrawlerServiceTest#simEngineIsFullyIsolatedFromLiveState'
+# Confirms the page really was saved, just unreachable via getAllJobs()-driven traversal.
+grep -n "getSimSnapshots\|savePage\|saveJob" backend/src/main/java/com/lld/webcrawler/service/WebCrawlerService.java
+```
+
+**Step-by-Step Resolution** — Added `simRepository.saveJob(raceJob)` immediately after
+`raceJob` is constructed in `simRace`, and a second `simRepository.saveJob(raceJob)` after the
+race completes (updating `status` to `COMPLETED` and `pagesFetched` from the engine's live
+counter), so the ad-hoc race job shows up in `getAllJobs()`/`getSimSnapshots()` exactly like a
+job created through `simSeed`, and its fetched page becomes reachable through the same
+job-id-driven traversal every other snapshot read relies on.
+
+**Preventative Measures** — Any in-memory store whose read path is *derived* (here, "all pages"
+is computed by walking jobs and looking up their pages, rather than by scanning `pages` directly)
+has an implicit invariant that every write path must keep the derivation's root collection
+populated too — a page saved under a `jobId` that was never itself saved as a job is orphaned
+from every job-driven read, even though `get`-by-exact-key would still find it. When a facade
+method builds a throwaway/ad-hoc parent object purely to satisfy another method's parameter list
+(here, `raceJob` exists only to carry `maxPages`/`getId()` into `processUrl`), check explicitly
+whether that object also needs to be persisted for the store's *other* read paths to see its
+children — don't assume a child save is enough just because the immediate return value (the local
+`raceResult` counters, in this case) looked correct.

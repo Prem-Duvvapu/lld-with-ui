@@ -26,6 +26,7 @@ import _inventory from './design/inventory.js';
 import _jobscheduler from './design/jobscheduler.js';
 import _locker from './design/locker.js';
 import _payment from './design/payment.js';
+import _webcrawler from './design/webcrawler.js';
 import _library from './design/library.js';
 import _linkedin from './design/linkedin.js';
 import _loggingFramework from './design/logging-framework.js';
@@ -82,6 +83,7 @@ const designDetails = {
   jobscheduler: _jobscheduler,
   locker: _locker,
   payment: _payment,
+  webcrawler: _webcrawler,
   library: _library,
   linkedin: _linkedin,
   loggingFramework: _loggingFramework,

@@ -127,7 +127,9 @@ const ALL_LLDS = [
   { title: 'Locker Management', icon: '🔐', difficulty: 'Medium', category: 'Real-world',
     desc: 'Amazon-style parcel lockers with size-fit allocation strategies and a race-free deposit/pickup lifecycle' },
   { title: 'Payment Gateway', icon: '💳', difficulty: 'Hard', category: 'Design Patterns & Systems',
-    desc: 'Stripe-style charge/refund with a Chain-of-Responsibility fraud pipeline and idempotency-key-safe double-submit protection' }
+    desc: 'Stripe-style charge/refund with a Chain-of-Responsibility fraud pipeline and idempotency-key-safe double-submit protection' },
+  { title: 'Web Crawler', icon: '🕷️', difficulty: 'Hard', category: 'Design Patterns & Systems',
+    desc: 'Frontier-queue worker pool with an atomic dedup claim and per-domain politeness locking, plus a Strategy-based URL filter policy' }
 ]
 
 const routeMap = {
@@ -160,6 +162,7 @@ const routeMap = {
   'Job Scheduler': 'jobscheduler',
   'Locker Management': 'locker',
   'Payment Gateway': 'payment',
+  'Web Crawler': 'webcrawler',
 }
 
 export default function Home() {
