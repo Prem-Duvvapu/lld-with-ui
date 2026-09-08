@@ -129,7 +129,9 @@ const ALL_LLDS = [
   { title: 'Payment Gateway', icon: '💳', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'Stripe-style charge/refund with a Chain-of-Responsibility fraud pipeline and idempotency-key-safe double-submit protection' },
   { title: 'Web Crawler', icon: '🕷️', difficulty: 'Hard', category: 'Design Patterns & Systems',
-    desc: 'Frontier-queue worker pool with an atomic dedup claim and per-domain politeness locking, plus a Strategy-based URL filter policy' }
+    desc: 'Frontier-queue worker pool with an atomic dedup claim and per-domain politeness locking, plus a Strategy-based URL filter policy' },
+  { title: 'Generic Cache Library', icon: '🧰', difficulty: 'Hard', category: 'Design Patterns & Systems',
+    desc: 'A pluggable Cache<K,V> library — Builder-composed eviction policy, TTL and stats, backed by a segment/shard-locked cache for real concurrent throughput' }
 ]
 
 const routeMap = {
@@ -163,6 +165,7 @@ const routeMap = {
   'Locker Management': 'locker',
   'Payment Gateway': 'payment',
   'Web Crawler': 'webcrawler',
+  'Generic Cache Library': 'cachelibrary',
 }
 
 export default function Home() {

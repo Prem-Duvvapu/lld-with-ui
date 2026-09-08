@@ -28,6 +28,7 @@ import _linkedin from './sequences/linkedin.js';
 import _locker from './sequences/locker.js';
 import _payment from './sequences/payment.js';
 import _webcrawler from './sequences/webcrawler.js';
+import _cachelibrary from './sequences/cachelibrary.js';
 import _loggingFramework from './sequences/logging-framework.js';
 import _lru_cache from './sequences/lru-cache.js';
 import _ludo from './sequences/ludo.js';
@@ -81,6 +82,7 @@ const sequenceDiagrams = {
   locker: _locker,
   payment: _payment,
   webcrawler: _webcrawler,
+  cachelibrary: _cachelibrary,
   loggingFramework: _loggingFramework,
   'lru-cache': _lru_cache,
   ludo: _ludo,

@@ -1694,6 +1694,59 @@ Package `com.lld.webcrawler`.
   siblings, dispatch waves until the job completes, a standalone 6-worker live dedup race, and a
   final telemetry/event-log review.
 
+## Generic Cache Library Module
+Brand-new module (portfolio position #56, ROADMAP.md Tier 2, next after Web Crawler).
+Package `com.lld.cachelibrary`.
+
+### Backend
+- `com.lld.cachelibrary`: `controller / service / model / strategy / cache / builder /
+  repository / exception` packages.
+- **Not another single-policy cache demo** (the repo already has `lru-cache` and `ttl-cache`,
+  each a from-scratch implementation of one fixed algorithm) — this is the *pluggable library
+  design* itself: `CacheBuilder.<K,V>newBuilder().maximumSize(100).evictionPolicy(LFU)
+  .withStats().build()` composes three independent, orthogonal choices (eviction policy x TTL x
+  stats) into genuinely different `Cache<K,V>` shapes from one fluent API.
+- **The shard-capacity race — this module's centerpiece**: `Shard#put` holds its own
+  `ReentrantLock` across the ENTIRE "is this a new key? are we at capacity? evict one if so, THEN
+  insert" sequence — splitting the capacity check and the evict+insert into two separate locked
+  steps would let two concurrent putters on the same shard each independently observe "at
+  capacity" and each evict one entry for what should be a single net eviction, overshooting.
+  `CacheLibraryConcurrencyTest` proves it with a 300-round repeated test hammering 20 concurrent
+  distinct-key puts at a single capacity-5 shard, asserting the final size is exactly 5 every
+  round, plus a 200-round deterministic cross-shard independence test using `Integer` keys whose
+  `hashCode()` is fully controlled (so which shard each key lands on is never left to chance).
+- **Builder**: `CacheBuilder<K,V>` — validating fluent setters, `build()` clamps `shardCount` to
+  never exceed `maximumSize` (so no shard's capacity rounds down to zero) and composes any
+  `onEviction()` custom listener together with `withStats()`'s own listener into one combined
+  callback.
+- **Strategy**: `EvictionPolicy<K>` (LRU/LFU/FIFO), resolved by `EvictionPolicyFactory` —
+  deliberately *not* the usual EnumMap-of-singletons shape this repo uses elsewhere (see
+  `locker.strategy.LockerAllocationStrategyFactory`), since a policy holds mutable per-shard
+  state that a shared singleton would corrupt across every cache built anywhere.
+- **Decorator**: `StatsDecorator` wraps any `Cache<K,V>` and counts hit/miss/eviction without the
+  wrapped `ShardedCache` ever knowing stats exist — `ShardedCache` only exposes a generic
+  eviction-listener callback.
+- `Cache<K,V>#get` returns `null` on a miss, matching standard `java.util.Map`/Guava/Caffeine
+  semantics — `CacheLibraryService#get` is the one that chooses to translate a miss into a 404
+  `KeyNotFoundException`, keeping that translation out of the library itself.
+- Exception hierarchy: `CacheLibraryException` (abstract — like
+  `webcrawler.exception.WebCrawlerException`, so it never needs
+  `DomainExceptionContractTest`'s `BASES` allowlist) with `KeyNotFoundException` (404),
+  `InvalidCacheConfigException` (400).
+- Isolated `/api/cachelibrary/sim/*` engine: a second `CacheLibraryRepository` instance, its
+  eviction listener wired to the sim event log so every eviction during the walkthrough is
+  visible without the service needing to compute it after the fact.
+- Tests (6 files): `EvictionPolicyTest`, `ShardedCacheTest`, `CacheBuilderTest`,
+  `CacheLibraryRepositoryTest`, `CacheLibraryServiceTest`, `CacheLibraryConcurrencyTest` (the
+  load-bearing suite above).
+
+### Frontend
+- 6 tabs: Configure & Use, Stats, Interactive 2D Simulation, Class Diagram, Sequence Diagram,
+  Design Details — built on the shared `LldPage` shell from the start.
+- Simulation tab: 6-step guided demo — reset to a scarce maxSize=3 cache, fill past capacity
+  (watch LRU eviction), a real 1-second TTL expiry wait, a stats-decorator readout, a live
+  8-worker 4-shard concurrency race, and a final telemetry review.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
@@ -1705,8 +1758,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2090 tests, 245 classes
-cd frontend && npx vitest run # 364 tests, 3 files
+cd backend && mvn test        # 2129 tests, 251 classes
+cd frontend && npx vitest run # 370 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green

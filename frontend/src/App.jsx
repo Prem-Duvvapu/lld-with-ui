@@ -87,6 +87,7 @@ const LLD_ROUTES = [
   { path: 'locker', title: 'Locker Management', module: './lld/locker/LockerPage.jsx' },
   { path: 'payment', title: 'Payment Gateway', module: './lld/payment/PaymentPage.jsx' },
   { path: 'webcrawler', title: 'Web Crawler', module: './lld/webcrawler/WebCrawlerPage.jsx' },
+  { path: 'cachelibrary', title: 'Generic Cache Library', module: './lld/cachelibrary/CacheLibraryPage.jsx' },
 ]
 
 function Layout({ children }) {
