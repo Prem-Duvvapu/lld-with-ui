@@ -31,6 +31,7 @@ import _webcrawler from './sequences/webcrawler.js';
 import _cachelibrary from './sequences/cachelibrary.js';
 import _kvstore from './sequences/kvstore.js';
 import _coupon from './sequences/coupon.js';
+import _blackjack from './sequences/blackjack.js';
 import _loggingFramework from './sequences/logging-framework.js';
 import _lru_cache from './sequences/lru-cache.js';
 import _ludo from './sequences/ludo.js';
@@ -87,6 +88,7 @@ const sequenceDiagrams = {
   cachelibrary: _cachelibrary,
   kvstore: _kvstore,
   coupon: _coupon,
+  blackjack: _blackjack,
   loggingFramework: _loggingFramework,
   'lru-cache': _lru_cache,
   ludo: _ludo,

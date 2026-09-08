@@ -1,10 +1,10 @@
 # Remaining Modules — Build Plan
 
-Portfolio is at 58 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
+Portfolio is at 59 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
 Scheduler; Locker Management, Payment Gateway, Web Crawler, Generic Cache Library,
-Key-Value Store and Coupon/Promotion Engine shipped since — see RCA-058, RCA-059 and
-RCA-060 for real bugs caught during those builds). This document plans the remaining 2
-modules from the original gap-analysis session, in priority order. Each section is
+Key-Value Store, Coupon/Promotion Engine and Blackjack/Deck of Cards shipped since —
+see RCA-058, RCA-059 and RCA-060 for real bugs caught during those builds). This
+document plans the remaining 1 module from the original gap-analysis session. It is
 meant to be handed to a fresh agent as a self-contained brief — read `new-lld` skill
 and one reference module (`splitwise`, `logging`, or `uber`) first regardless.
 
@@ -71,40 +71,7 @@ conflicts above at merge time.
 
 ## Tier 3
 
-### 1. Blackjack / Deck of Cards
-
-**Key**: `blackjack` · route `/blackjack` · package `com.lld.blackjack`
-
-**Pitch**: The generic "design a deck of cards" interview question, given concrete shape as
-Blackjack so it has a real game loop rather than being an abstract card-shuffling exercise.
-
-- **Domain**: `Card` (rank, suit), `Deck`/`Shoe` (one or more decks shuffled together —
-  real casinos deal from a multi-deck shoe, which is what makes the concurrency angle below
-  possible), `Hand` (cards, computed value handling soft/hard aces), `Round` (bet, player
-  hand(s), dealer hand, outcome).
-- **Patterns**: **Factory** (`Deck.of(count)` builds and shuffles N standard decks into one
-  shoe), **Strategy** (dealer-play rules: `HitOnSoft17Strategy` vs `StandOnSoft17Strategy` —
-  genuinely different house rules, not cosmetic), **State machine**
-  (`BETTING → DEALING → PLAYER_TURN → DEALER_TURN → SETTLEMENT`).
-- **The concurrency bug**: model multiple simultaneous tables **sharing one physical shoe**
-  (mirrors how real casinos run several tables off one continuous shuffle) — two tables'
-  dealers must never draw the same physical card. The shoe's "draw next card" must be a
-  single atomic pop guarded by one lock (or an `AtomicInteger` cursor into a pre-shuffled
-  immutable array — a genuinely lock-free alternative worth using here, since the array is
-  fixed-size and known upfront, unlike the CAS-retry-loop cases elsewhere in this plan).
-  Repeated-round test: N tables racing to draw from a shoe of known size; assert every card
-  position is dealt to exactly one table and the shoe never over-draws.
-- **API**: `POST /api/blackjack/tables` (creates a table against the shared shoe),
-  `POST /api/blackjack/{tableId}/deal`, `POST /api/blackjack/{tableId}/hit`,
-  `POST /api/blackjack/{tableId}/stand`, `/sim/*`: reset (fresh shoe), deal a round, hit
-  (bust or not), dealer plays out by strategy, settlement, a live multi-table shared-shoe
-  race demo, final snapshot.
-- **Exceptions**: `BlackjackException`, `TableNotFoundException` (404),
-  `InvalidActionException` (400 — e.g. hitting after standing), `ShoeExhaustedException`
-  (409 — the shared shoe ran out mid-deal, a genuine edge case worth modeling rather than
-  hand-waving).
-
-### 2. Workflow/Approval Engine
+### 1. Workflow/Approval Engine
 
 **Key**: `workflow` · route `/workflow` · package `com.lld.workflow`
 

@@ -30,6 +30,7 @@ import _webcrawler from './design/webcrawler.js';
 import _cachelibrary from './design/cachelibrary.js';
 import _kvstore from './design/kvstore.js';
 import _coupon from './design/coupon.js';
+import _blackjack from './design/blackjack.js';
 import _library from './design/library.js';
 import _linkedin from './design/linkedin.js';
 import _loggingFramework from './design/logging-framework.js';
@@ -90,6 +91,7 @@ const designDetails = {
   cachelibrary: _cachelibrary,
   kvstore: _kvstore,
   coupon: _coupon,
+  blackjack: _blackjack,
   library: _library,
   linkedin: _linkedin,
   loggingFramework: _loggingFramework,

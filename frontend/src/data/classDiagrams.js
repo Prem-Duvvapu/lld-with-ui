@@ -30,6 +30,7 @@ import _webcrawler from './diagrams/webcrawler.js';
 import _cachelibrary from './diagrams/cachelibrary.js';
 import _kvstore from './diagrams/kvstore.js';
 import _coupon from './diagrams/coupon.js';
+import _blackjack from './diagrams/blackjack.js';
 import _library from './diagrams/library.js';
 import _linkedin from './diagrams/linkedin.js';
 import _loggingFramework from './diagrams/logging-framework.js';
@@ -90,6 +91,7 @@ const classDiagrams = {
   cachelibrary: _cachelibrary,
   kvstore: _kvstore,
   coupon: _coupon,
+  blackjack: _blackjack,
   library: _library,
   linkedin: _linkedin,
   loggingFramework: _loggingFramework,
