@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **56 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **57 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -64,6 +64,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **56 LLD projects**
 | 54 | [Payment Gateway](#54-payment-gateway) | Stripe/Razorpay-style charge & refund | Strategy (payment methods), Chain of Responsibility (fraud pipeline), State Machine (payment lifecycle), idempotent double-submit protection |
 | 55 | [Web Crawler](#55-web-crawler) | Multi-threaded frontier crawl | Producer-Consumer (frontier queue + worker pool), Strategy (URL filter policy), atomic dedup claim, per-domain politeness lock |
 | 56 | [Generic Cache Library](#56-generic-cache-library) | Pluggable Cache<K,V> library | Builder (CacheBuilder), Strategy (eviction policy), Decorator (stats), segment/shard-locked concurrency |
+| 57 | [Key-Value Store](#57-key-value-store) | Toy Redis-shaped KV store | Command (write-ahead log), Template Method (read path), fully lock-free compare-and-swap |
 
 ---
 
@@ -85,7 +86,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (48 backend module packages -> 56 LLD problems total)
+│                                   (49 backend module packages -> 57 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -205,8 +206,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2129 tests across 251 classes
-cd frontend && npx vitest run  # 370 tests across 3 files
+cd backend  && mvn test        # 2164 tests across 256 classes
+cd frontend && npx vitest run  # 376 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -1554,6 +1555,31 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/cachelibrary/sim/race`
 - `GET /api/cachelibrary/sim/events`
 - `GET /api/cachelibrary/sim/snapshot`
+
+---
+
+### 57. Key-Value Store
+
+#### Key Features
+- **Fully Lock-Free Compare-and-Swap**: `KvStoreRepository#cas` drives its version check and its update through a single `ConcurrentHashMap#compute` call — a deliberate, explicit departure from every other module in this repo, all of which close their races with a per-entity `ReentrantLock`. Proven with a 300-round repeated test racing 10 threads against the same key with the identical `expectedVersion` (exactly one winner every round) plus a second 200-round test proving CAS composes correctly across 5 sequential racing "waves."
+- **Command Pattern for Durability, Not Undo/Redo**: every successful write appends a replayable `Command` to a `WriteAheadLog`; replaying that log against an empty map reconstructs identical state — the same GoF pattern, a genuinely different purpose than the typical undo-stack use.
+- **Template Method for the Read Path**: `KvReadTemplate` governs both a throwing `GetOperation` and a non-throwing `PeekOperation` — deliberately *not* extended to CAS, whose expiry-and-version check must stay atomic inside `compute()` itself.
+- **No Eviction, By Design**: explicitly differentiated from Generic Cache Library (shipped just before this module) — no capacity limit, no eviction policy at all. Every key lives until explicitly deleted or TTL-expired.
+- **Isolated Simulation**: a 6-step interactive walkthrough — a clean SET/GET, a WAL-replay durability proof, a real TTL expiry wait, and a live 8-worker CAS race.
+
+#### API Endpoints
+- `PUT /api/kvstore/{key}`
+- `GET /api/kvstore/{key}`
+- `DELETE /api/kvstore/{key}`
+- `POST /api/kvstore/{key}/cas`
+- `POST /api/kvstore/sim/reset`
+- `PUT /api/kvstore/sim/{key}`
+- `GET /api/kvstore/sim/{key}`
+- `POST /api/kvstore/sim/replay`
+- `POST /api/kvstore/sim/ttl-demo`
+- `POST /api/kvstore/sim/cas-race`
+- `GET /api/kvstore/sim/events`
+- `GET /api/kvstore/sim/snapshot`
 
 ---
 

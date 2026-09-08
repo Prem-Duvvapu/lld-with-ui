@@ -88,6 +88,7 @@ const LLD_ROUTES = [
   { path: 'payment', title: 'Payment Gateway', module: './lld/payment/PaymentPage.jsx' },
   { path: 'webcrawler', title: 'Web Crawler', module: './lld/webcrawler/WebCrawlerPage.jsx' },
   { path: 'cachelibrary', title: 'Generic Cache Library', module: './lld/cachelibrary/CacheLibraryPage.jsx' },
+  { path: 'kvstore', title: 'Key-Value Store', module: './lld/kvstore/KvStorePage.jsx' },
 ]
 
 function Layout({ children }) {

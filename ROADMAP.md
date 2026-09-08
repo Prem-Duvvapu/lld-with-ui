@@ -1,12 +1,12 @@
 # Remaining Modules — Build Plan
 
-Portfolio is at 56 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
-Scheduler; Locker Management, Payment Gateway, Web Crawler and Generic Cache Library
-shipped since — see RCA-058, RCA-059 and RCA-060 for real bugs caught during those
-builds). This document plans the remaining 4 modules from the original gap-analysis
-session, in priority order. Each section is meant to be handed to a fresh agent as a
-self-contained brief — read `new-lld` skill and one reference module (`splitwise`,
-`logging`, or `uber`) first regardless.
+Portfolio is at 57 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
+Scheduler; Locker Management, Payment Gateway, Web Crawler, Generic Cache Library and
+Key-Value Store shipped since — see RCA-058, RCA-059 and RCA-060 for real bugs caught
+during those builds). This document plans the remaining 3 modules from the original
+gap-analysis session, in priority order. Each section is meant to be handed to a fresh
+agent as a self-contained brief — read `new-lld` skill and one reference module
+(`splitwise`, `logging`, or `uber`) first regardless.
 
 ## Read first
 
@@ -69,48 +69,9 @@ conflicts above at merge time.
 
 ---
 
-## Tier 2
-
-### 1. Key-Value Store
-
-**Key**: `kvstore` · route `/kvstore` · package `com.lld.kvstore`
-
-**Pitch**: A toy Redis-shaped KV store: `SET`/`GET`/`DELETE`, optimistic-concurrency
-`CAS` (compare-and-swap), TTL expiry, and a write-ahead log (WAL) that's replayed on
-`/sim/reset` to demonstrate durability — differentiate from Generic Cache Library by
-leaning into **versioning and CAS semantics**, not eviction.
-
-- **Domain**: `KvEntry` (value, version, expiresAt), `WriteAheadLog` (an append-only list of
-  `Command` objects — SET/DELETE — that can be replayed), the store itself.
-- **Patterns**: **Command** (WAL entries are Commands with an `apply(store)` method — reused
-  intentionally from the Command idea in Text Editor's design, but applied to durability
-  instead of undo/redo, which is worth calling out explicitly as the same pattern serving two
-  different purposes), Template Method (a common get/set/delete flow with hooks for
-  TTL-expiry checking and WAL-appending), Strategy (eviction-on-full policy, reusing Generic
-  Cache Library's `EvictionPolicy` interface if that module ships first — otherwise a
-  simple standalone one).
-- **The concurrency bug — this module's centerpiece**: `CAS(key, expectedVersion, newValue)`
-  must be a genuine compare-and-swap, not a `get()` followed by an unconditional `set()`.
-  Prove it with N threads racing `CAS` against the same key with a stale expected version —
-  exactly one may succeed per version bump, the rest must retry-and-fail cleanly (return a
-  `false`/`VersionConflictException`, not silently overwrite). This is the classic
-  optimistic-concurrency-control demo and a genuinely different concurrency shape from every
-  per-key-`ReentrantLock` module shipped so far — worth it specifically because it's
-  *lock-free* (an `AtomicReference`/`compareAndSet` loop, or a versioned
-  `ConcurrentHashMap.compute`), not another mutex.
-- **API**: `PUT /api/kvstore/{key}` (SET), `GET /api/kvstore/{key}`,
-  `DELETE /api/kvstore/{key}`, `POST /api/kvstore/{key}/cas` (expectedVersion, newValue),
-  `/sim/*`: reset (replay WAL), a clean set/get, a TTL expiry demo, a live CAS race (many
-  threads, one winner per round, watch the version counter), final snapshot with the WAL.
-- **Exceptions**: `KvStoreException`, `KeyNotFoundException` (404),
-  `VersionConflictException` (409 — this is the interesting one, not a 400: the request was
-  well-formed, it just lost a race).
-
----
-
 ## Tier 3
 
-### 2. Coupon/Promotion Engine
+### 1. Coupon/Promotion Engine
 
 **Key**: `coupon` · route `/coupon` · package `com.lld.coupon`
 
@@ -141,7 +102,7 @@ with stacking/precedence rules and a hard per-coupon redemption limit.
   `CouponExpiredException` (400), `RedemptionLimitExceededException` (409),
   `IneligibleCartException` (400 — a condition rejected the cart).
 
-### 3. Blackjack / Deck of Cards
+### 2. Blackjack / Deck of Cards
 
 **Key**: `blackjack` · route `/blackjack` · package `com.lld.blackjack`
 
@@ -174,7 +135,7 @@ Blackjack so it has a real game loop rather than being an abstract card-shufflin
   (409 — the shared shoe ran out mid-deal, a genuine edge case worth modeling rather than
   hand-waving).
 
-### 4. Workflow/Approval Engine
+### 3. Workflow/Approval Engine
 
 **Key**: `workflow` · route `/workflow` · package `com.lld.workflow`
 
