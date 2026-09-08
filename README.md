@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **52 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **53 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -60,6 +60,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **52 LLD projects**
 | 50 | [Feature Flag](#50-feature-flag) | Feature flag targeting service | Composite (rule tree), Factory (rule builder), atomic volatile swap for race-free concurrent evaluation |
 | 51 | [Notification System](#51-notification-system) | Multi-channel notification dispatch | Strategy (channels, retry policy), Factory, idempotent per-key locking, priority-ordered dispatch |
 | 52 | [Job Scheduler](#52-job-scheduler) | Cron/interval job scheduler | Strategy (schedule, misfire policy), Factory, priority-queue dispatch, race-free cancel/dispatch guard |
+| 53 | [Locker Management](#53-locker-management) | Amazon-style parcel lockers | Strategy (smallest-fit/first-fit allocation), State Machine (locker lifecycle), Factory (pickup codes), per-locker lock race safety |
 
 ---
 
@@ -81,7 +82,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (44 backend module packages -> 52 LLD problems total)
+│                                   (45 backend module packages -> 53 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -201,8 +202,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2017 tests across 231 classes
-cd frontend && npx vitest run  # 346 tests across 3 files
+cd backend  && mvn test        # 2039 tests across 235 classes
+cd frontend && npx vitest run  # 352 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -1455,6 +1456,29 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/jobscheduler/sim/race`
 - `GET /api/jobscheduler/sim/events`
 - `GET /api/jobscheduler/sim/snapshot`
+
+---
+
+### 53. Locker Management
+
+#### Key Features
+- **Two Allocation Strategies Behind One Factory**: `SmallestFitFirstAllocationStrategy` (minimizes wasted space) vs `FirstFitAllocationStrategy` (first fitting locker in scan order, genuinely wasteful when it lands on an oversized one) — resolved by `LockerAllocationStrategyFactory` via an `EnumMap`.
+- **Race-Free Deposit Allocation**: two couriers whose allocation scan lands on the identical candidate locker can never both claim it — the whole "still EMPTY? claim it" sequence runs under that locker's own fair `ReentrantLock`, and the loser retries against a fresh candidate rather than failing outright. Proven with a 300-round repeated concurrency test and an 8-couriers-vs-3-lockers race asserting exactly `min(couriers, lockers)` succeed.
+- **Guarded Locker Lifecycle**: `LockerStatus` declares its own legal-next-states (`EMPTY → OCCUPIED → AWAITING_PICKUP → EMPTY`, a cycle with no terminal state) enforced through one `Locker#transitionTo` gate — the same declared-transition-table idiom as Uber's `RideStatus`.
+- **Factory-Generated Pickup Codes**: `PickupCodeFactory` hands out 6-digit codes guaranteed unique against every currently-active code; a wrong or already-consumed code is rejected with `InvalidPickupCodeException`.
+- **Isolated Simulation**: a 7-step interactive walkthrough against a completely separate `/sim/*` sandbox — a live 4-courier race for the bank's one scarce SMALL locker, a rejected wrong-code pickup, the real winner's pickup, and a fresh courier reusing the just-freed locker.
+
+#### API Endpoints
+- `GET /api/locker/banks`
+- `GET /api/locker/banks/{bankId}/lockers`
+- `POST /api/locker/deposit`
+- `POST /api/locker/pickup`
+- `POST /api/locker/sim/reset`
+- `POST /api/locker/sim/deposit`
+- `POST /api/locker/sim/pickup`
+- `POST /api/locker/sim/race`
+- `GET /api/locker/sim/events`
+- `GET /api/locker/sim/snapshot`
 
 ---
 

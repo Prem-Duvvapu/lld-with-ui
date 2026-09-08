@@ -1,7 +1,8 @@
 # Remaining Modules — Build Plan
 
-Portfolio is at 52 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
-Scheduler). This document plans the remaining 9 modules from the original gap-analysis
+Portfolio is at 53 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
+Scheduler; Locker Management shipped since, see RCA-058 for a real bug caught during its
+build). This document plans the remaining 8 modules from the original gap-analysis
 session, in priority order. Each section is meant to be handed to a fresh agent as a
 self-contained brief — read `new-lld` skill and one reference module (`splitwise`,
 `logging`, or `uber`) first regardless.
@@ -69,36 +70,7 @@ conflicts above at merge time.
 
 ## Tier 2
 
-### 1. Package/Locker Management (Amazon Locker)
-
-**Key**: `locker` · route `/locker` · package `com.lld.locker`
-
-**Pitch**: A courier deposits a package into an available locker sized to fit it; the
-recipient later unlocks it with a one-time code. Models Amazon's actual locker network at
-small scale.
-
-- **Domain**: `Locker` (size enum `SMALL/MEDIUM/LARGE`, status
-  `EMPTY/OCCUPIED/AWAITING_PICKUP`), `LockerBank` (a named location holding many lockers),
-  `Package` (dimensions, assigned locker, pickup code, expiry).
-- **Patterns**: **Strategy** for locker-allocation (`SmallestFitFirstAllocationStrategy` vs
-  a random/first-fit alternative — genuinely different behavior, not just two names for the
-  same loop), **State machine** for locker status transitions, **Factory** for generating
-  unique pickup codes.
-- **The concurrency bug to build and catch**: two couriers depositing at the same instant,
-  both querying "is there an available SMALL locker" then claiming one — a classic
-  check-then-act race that can double-assign the same locker. Fix with a per-locker
-  `ReentrantLock` acquired during the whole find-and-claim operation (not just the write).
-  Repeated-round test: N couriers racing to deposit into a bank with fewer available lockers
-  than couriers; assert no locker is ever claimed twice and exactly `min(couriers,
-  available)` deposits succeed.
-- **API**: `POST /api/locker/deposit` (size, packageId) → assigns a locker + code,
-  `POST /api/locker/pickup` (code) → opens and frees the locker, `GET /api/locker/banks`,
-  plus `/sim/*` mirroring: reset, deposit small, deposit large (bank fills up), a live
-  race demo, pickup, final snapshot.
-- **Exceptions**: `LockerException` (base), `NoAvailableLockerException` (409 or 503 — pick
-  one and justify it), `InvalidPickupCodeException` (400), `LockerNotFoundException` (404).
-
-### 2. Payment Gateway
+### 1. Payment Gateway
 
 **Key**: `payment` · route `/payment` · package `com.lld.payment`
 
@@ -126,7 +98,7 @@ refund, with a fraud-check pipeline and idempotent charge submission.
   `FraudCheckFailedException` (402 — payment required/declined), `InvalidRefundException`
   (400, e.g. refunding more than was charged or refunding a non-CAPTURED payment).
 
-### 3. Web Crawler
+### 2. Web Crawler
 
 **Key**: `webcrawler` · route `/webcrawler` · package `com.lld.webcrawler`
 
@@ -158,7 +130,7 @@ concurrently, a dedup set so no URL is ever fetched twice, and per-domain polite
 - **Exceptions**: `WebCrawlerException`, `CrawlJobNotFoundException` (404),
   `InvalidSeedUrlException` (400).
 
-### 4. Generic Cache Library
+### 3. Generic Cache Library
 
 **Key**: `cachelibrary` · route `/cachelibrary` · package `com.lld.cachelibrary`
 
@@ -192,7 +164,7 @@ architecture.
 - **Exceptions**: `CacheLibraryException`, `KeyNotFoundException` (404),
   `InvalidCacheConfigException` (400, e.g. maxSize ≤ 0).
 
-### 5. Key-Value Store
+### 4. Key-Value Store
 
 **Key**: `kvstore` · route `/kvstore` · package `com.lld.kvstore`
 
@@ -231,7 +203,7 @@ leaning into **versioning and CAS semantics**, not eviction.
 
 ## Tier 3
 
-### 6. Coupon/Promotion Engine
+### 5. Coupon/Promotion Engine
 
 **Key**: `coupon` · route `/coupon` · package `com.lld.coupon`
 
@@ -262,7 +234,7 @@ with stacking/precedence rules and a hard per-coupon redemption limit.
   `CouponExpiredException` (400), `RedemptionLimitExceededException` (409),
   `IneligibleCartException` (400 — a condition rejected the cart).
 
-### 7. Blackjack / Deck of Cards
+### 6. Blackjack / Deck of Cards
 
 **Key**: `blackjack` · route `/blackjack` · package `com.lld.blackjack`
 
@@ -295,7 +267,7 @@ Blackjack so it has a real game loop rather than being an abstract card-shufflin
   (409 — the shared shoe ran out mid-deal, a genuine edge case worth modeling rather than
   hand-waving).
 
-### 8. Workflow/Approval Engine
+### 7. Workflow/Approval Engine
 
 **Key**: `workflow` · route `/workflow` · package `com.lld.workflow`
 

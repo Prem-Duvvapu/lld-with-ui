@@ -24,6 +24,7 @@ import _h2o from './design/h2o.js';
 import _hotel from './design/hotel.js';
 import _inventory from './design/inventory.js';
 import _jobscheduler from './design/jobscheduler.js';
+import _locker from './design/locker.js';
 import _library from './design/library.js';
 import _linkedin from './design/linkedin.js';
 import _loggingFramework from './design/logging-framework.js';
@@ -78,6 +79,7 @@ const designDetails = {
   hotel: _hotel,
   inventory: _inventory,
   jobscheduler: _jobscheduler,
+  locker: _locker,
   library: _library,
   linkedin: _linkedin,
   loggingFramework: _loggingFramework,

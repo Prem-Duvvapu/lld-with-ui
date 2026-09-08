@@ -41,8 +41,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # currently 2017 tests
-cd frontend && npx vitest run  # currently 346 tests
+cd backend  && mvn test        # currently 2039 tests
+cd frontend && npx vitest run  # currently 352 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -1533,6 +1533,60 @@ Brand-new module (portfolio position #50). Package `com.lld.jobscheduler`.
   the clock so jobs actually fire, trigger a forced misfire, cancel a job, a live cancel/dispatch
   race demo, and a final snapshot with the full event log.
 
+## Locker Management Module
+Brand-new module (portfolio position #53, ROADMAP.md Tier 2 #1). Package `com.lld.locker`.
+
+### Backend
+- `com.lld.locker`: `controller / service / model / strategy / factory / exception / repository`
+  packages.
+- **The deposit allocation race — this module's centerpiece**: two couriers' allocation-strategy
+  scans are plain, unlocked reads, so they can legitimately both pick the SAME candidate locker.
+  `LockerService#claimLocker` holds that one locker's fair `ReentrantLock` across the whole
+  "is this candidate still EMPTY? if so, claim it" sequence, re-checking status *inside* the lock
+  (the read that matters). The loser doesn't just fail — it retries the whole scan excluding the
+  locker it just lost, until it finds a different candidate or the bank is genuinely out of
+  lockers of that size. `LockerConcurrencyTest` proves it: a 300-round repeated 1-locker/2-courier
+  race (a single-shot race reliably passes on broken code, per this repo's RCA-052/lld-tests
+  lesson), an 8-couriers-vs-3-lockers test asserting exactly `min(couriers, lockers)` succeed and
+  no locker is ever double-claimed, and a 200-round repeated deposit→pickup→redeposit test proving
+  the freed locker is safely reusable.
+- **Strategy** — `LockerAllocationStrategy` (`SmallestFitFirstAllocationStrategy`/
+  `FirstFitAllocationStrategy`, resolved by `LockerAllocationStrategyFactory` via an `EnumMap`, the
+  same shape as `inventory.strategy.ReorderStrategyFactory`). The two genuinely diverge —
+  `LockerAllocationStrategyTest` proves smallest-fit picks a tight SMALL locker over a LARGE one
+  even when LARGE is scanned first, while first-fit takes whichever fits first regardless of waste.
+- **State machine**: `LockerStatus` declares its own legal-next-states set
+  (`EMPTY→{OCCUPIED}`, `OCCUPIED→{AWAITING_PICKUP}`, `AWAITING_PICKUP→{EMPTY}` — a cycle, no
+  terminal state, since a locker is reused forever), the same declared-transition-table idiom as
+  `uber.model.RideStatus`. `Locker#transitionTo` is the single enforcement point.
+- **Factory** — `PickupCodeFactory` generates 6-digit codes guaranteed unique against every
+  currently-active (not yet picked up) code.
+- The domain class is named `Parcel`, not `Package` — `com.lld.locker.model.Package` collides with
+  `java.lang.Package` and fails to compile with "reference to Package is ambiguous."
+- Exception hierarchy: `LockerException` (abstract — like `shoppingcart.exception
+  .ShoppingCartException`, so it needs no `@ResponseStatus` of its own and is never added to
+  `DomainExceptionContractTest`'s `BASES` allowlist) with `LockerNotFoundException`/
+  `LockerBankNotFoundException` (404), `InvalidPickupCodeException` (400),
+  `NoAvailableLockerException` (409 — the request is fine, the bank's current state is what makes
+  it currently unsatisfiable, the same shape as `shoppingcart.exception.InsufficientStockException`
+  and `atm.exception.InsufficientCashException`).
+- Isolated `/api/locker/sim/*` engine: a second `LockerRepository` instance seeded with exactly one
+  locker of each size (SMALL deliberately scarce, so the race has real bite). Its `simDeposit` is
+  deliberately **not** `synchronized` — see RCA-058: a method-level lock there would have forced
+  every "concurrent" courier in `simRace` to queue one at a time before ever reaching the real
+  per-locker lock, making the demo unable to lose even on broken locking code.
+- Tests (4 files): `LockerServiceTest`, `LockerAllocationStrategyTest`, `LockerRepositoryTest`,
+  `LockerConcurrencyTest` (the load-bearing suite above).
+
+### Frontend
+- 7 tabs: Banks & Lockers, Deposit, Pickup, Interactive 2D Simulation, Class Diagram, Sequence
+  Diagram, Design Details — built on the shared `LldPage` shell from the start.
+- Banks & Lockers tab polls (`usePolling`, 6s) so another courier/recipient's deposit or pickup
+  shows up without a manual refresh.
+- Simulation tab: 7-step guided demo — reset, view the seeded bank, a live 4-courier race for the
+  single SMALL locker, a rejected pickup with a wrong code, the real winner's pickup, a fresh
+  courier reusing the just-freed locker, and a final telemetry/event-log review.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
@@ -1544,8 +1598,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2017 tests, 231 classes
-cd frontend && npx vitest run # 346 tests, 3 files
+cd backend && mvn test        # 2039 tests, 235 classes
+cd frontend && npx vitest run # 352 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green

@@ -24,6 +24,7 @@ import _h2o from './diagrams/h2o.js';
 import _hotel from './diagrams/hotel.js';
 import _inventory from './diagrams/inventory.js';
 import _jobscheduler from './diagrams/jobscheduler.js';
+import _locker from './diagrams/locker.js';
 import _library from './diagrams/library.js';
 import _linkedin from './diagrams/linkedin.js';
 import _loggingFramework from './diagrams/logging-framework.js';
@@ -78,6 +79,7 @@ const classDiagrams = {
   hotel: _hotel,
   inventory: _inventory,
   jobscheduler: _jobscheduler,
+  locker: _locker,
   library: _library,
   linkedin: _linkedin,
   loggingFramework: _loggingFramework,

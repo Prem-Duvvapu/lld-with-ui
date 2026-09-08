@@ -123,7 +123,9 @@ const ALL_LLDS = [
   { title: 'Notification System', icon: '🔔', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'Priority-ordered multi-channel dispatch with idempotent sends, preference-based suppression, and retry with backoff' },
   { title: 'Job Scheduler', icon: '⏰', difficulty: 'Hard', category: 'Design Patterns & Systems',
-    desc: 'Cron-expression parsing, priority-queue dispatch, and misfire policies with a race-free cancel/dispatch guard' }
+    desc: 'Cron-expression parsing, priority-queue dispatch, and misfire policies with a race-free cancel/dispatch guard' },
+  { title: 'Locker Management', icon: '🔐', difficulty: 'Medium', category: 'Real-world',
+    desc: 'Amazon-style parcel lockers with size-fit allocation strategies and a race-free deposit/pickup lifecycle' }
 ]
 
 const routeMap = {
@@ -154,6 +156,7 @@ const routeMap = {
   'Feature Flag': 'featureflag',
   'Notification System': 'notification',
   'Job Scheduler': 'jobscheduler',
+  'Locker Management': 'locker',
 }
 
 export default function Home() {

@@ -5320,3 +5320,73 @@ a class diagram is easy to leave stale when a module's headline pattern (here, t
 was added or reshaped after the diagram was first written — `/audit-lld` or a manual diff against
 the real `src/main/java` package for a module's stated "key features" is the only way to catch this
 short of a user asking "is the class diagram correct?" directly.
+
+## RCA-058: New `LockerService` Sim Race Demo Would Have Silently Faked Its Own Concurrency — `synchronized` on the Method Under Test, Plus a Racy Event-Log Scrape to Tally Results
+
+**Overview & Severity** — Medium (caught during initial development of the new `locker` module,
+before ever shipping — no user impact, but exactly the class of self-inflicted bug the
+`lld-tests` skill's "a single-shot 2-thread race reliably passes on broken code" warning exists
+for, this time one level up: a *demo* that would never have exercised real concurrency at all,
+while still reporting a plausible-looking result). Flagged per `ROADMAP.md`'s own instruction to
+log an RCA entry for any real bug found while building a new module, even one caught pre-ship.
+
+**Symptoms & Error Logs** — None yet; this was caught by re-reading the draft `LockerService`
+before writing its tests, not by a failing test. Had it shipped as written, the module's headline
+`/sim/race` demo — 4 couriers racing for the bank's one SMALL locker — would have appeared to work
+(some couriers "succeed," others "rejected") while never actually exercising the per-locker
+`ReentrantLock` the module exists to demonstrate, because nothing would ever have run concurrently
+inside it in the first place.
+
+**Root Cause** — Two independent mistakes, both copied by pattern-matching against an existing
+module's sim engine shape without checking whether that module's *reason* for the pattern applied
+here:
+1. `simDeposit(...)` was declared `public synchronized Map<String, Object> simDeposit(...)`,
+   mirroring `ShoppingCartService#simAddToCart`'s `synchronized` methods. That precedent is correct
+   for `shoppingcart`, whose sim tab is a *sequential* scripted walkthrough with nothing racing.
+   Locker's sim tab is different: `simRace` exists specifically to fire N couriers at
+   `simDeposit` concurrently to prove the per-locker lock, not a service-level lock, is what
+   prevents a double-claim. A `synchronized` method-level lock on `simDeposit` would have forced
+   every "concurrent" courier to queue one at a time before ever reaching `claimLocker`'s
+   locker-level locking — the race the demo exists to show would have been impossible to lose even
+   on genuinely broken locker-locking code, because there would never have been two threads inside
+   `claimLocker` at once to race in the first place.
+2. `simRace`'s per-thread success/failure tally read the *shared* `simEventLog`'s last entry
+   (`events.get(events.size() - 1)`) immediately after each thread's own `simDeposit` call
+   returned, assuming that entry described its own deposit. Under real concurrency this is itself
+   a race: by the time thread A inspects "the last event," thread B may already have appended its
+   own event after A's, so A could read B's outcome and mis-tally a winner as a loser or vice
+   versa — a bug in the test harness's own bookkeeping, not in the code being demonstrated.
+
+**Diagnostic Commands** — Caught by inspection rather than a failing run, but the way to *prove*
+either mistake once suspected:
+```bash
+# (1) grep for synchronized on any method a repeated-round or N-thread race test calls directly —
+# a method-level lock there defeats the point of firing real concurrent threads at it.
+grep -n "synchronized" backend/src/main/java/com/lld/locker/service/LockerService.java
+
+# (2) a per-thread tally that reads shared mutable state (a log, a counter) instead of using its
+# OWN call's return value is a smell worth grepping for across sim/race engines generally.
+```
+
+**Step-by-Step Resolution**
+1. Removed `synchronized` from `simDeposit`, and extracted its body into a private
+   `trySimDeposit(...): Optional<Parcel>` that both the single-shot `simDeposit` endpoint and
+   `simRace`'s per-thread racer call directly — leaving only each candidate `Locker`'s own
+   `ReentrantLock` (inside `claimLocker`, already correct) to serialize the truly contested case.
+2. Changed `simRace`'s per-thread tally to use `trySimDeposit`'s own return value
+   (`Optional<Parcel>`, present on success) directly, instead of scraping the shared event log —
+   each thread now only ever reads the outcome of its *own* call.
+3. Backed both fixes with `LockerConcurrencyTest`, which exercises the equivalent live-path
+   `claimLocker` logic with real `CountDownLatch`-released threads (300 rounds for the tight
+   1-locker-vs-2-couriers case, plus an 8-couriers-vs-3-lockers single-round assertion) — the same
+   code path `simRace` calls into, so a regression in either would fail the same suite.
+
+**Preventative Measures** — When copying a sim-engine shape from an existing module (`initSimState`,
+`simX` method naming, event logging), copy the *reasoning*, not just the syntax: ask whether the
+new module's sim tab needs to demonstrate genuine concurrent contention (locker/shopping-cart/
+inventory-style races) or is a sequential scripted walkthrough (most other modules) — a
+`synchronized` method that is harmless (even correct) in the latter shape silently defeats the
+former. Separately: any test or demo that tallies "did MY operation succeed" by inspecting shared
+mutable state after the fact (a log's last entry, a global counter's current value) rather than
+using that operation's own return value is racy by construction the moment more than one thread can
+touch that shared state — prefer threading the outcome back through the call itself.

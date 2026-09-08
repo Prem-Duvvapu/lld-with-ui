@@ -84,6 +84,7 @@ const LLD_ROUTES = [
   { path: 'featureflag', title: 'Feature Flag', module: './lld/featureflag/FeatureFlagPage.jsx' },
   { path: 'notification', title: 'Notification System', module: './lld/notification/NotificationPage.jsx' },
   { path: 'jobscheduler', title: 'Job Scheduler', module: './lld/jobscheduler/JobSchedulerPage.jsx' },
+  { path: 'locker', title: 'Locker Management', module: './lld/locker/LockerPage.jsx' },
 ]
 
 function Layout({ children }) {
