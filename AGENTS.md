@@ -41,8 +41,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # currently 2039 tests
-cd frontend && npx vitest run  # currently 352 tests
+cd backend  && mvn test        # currently 2064 tests
+cd frontend && npx vitest run  # currently 358 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -1587,6 +1587,61 @@ Brand-new module (portfolio position #53, ROADMAP.md Tier 2 #1). Package `com.ll
   single SMALL locker, a rejected pickup with a wrong code, the real winner's pickup, a fresh
   courier reusing the just-freed locker, and a final telemetry/event-log review.
 
+## Payment Gateway Module
+Brand-new module (portfolio position #54, ROADMAP.md Tier 2, next after Locker Management).
+Package `com.lld.payment`.
+
+### Backend
+- `com.lld.payment`: `controller / service / model / strategy / fraud / exception / repository`
+  packages.
+- **The double-submit race — this module's centerpiece**: `PaymentService#charge` mirrors
+  `shoppingcart.service.ShoppingCartService#placeOrder`'s idempotency handling exactly (RCA-053's
+  lesson) — a lazily-created lock object per idempotency key wraps the whole "check cache → charge
+  → populate cache" sequence, so two concurrent retries sharing the same key can never both
+  observe a cache miss. A lock-free `ConcurrentHashMap.putIfAbsent` claim was deliberately
+  rejected: it can only atomically claim that a payment id owns the key, not that the actual
+  `Payment` behind it has finished being created — a loser could read a "claimed" key before the
+  winner ever calls `repository.save`. `PaymentConcurrencyTest` proves it: a 300-round repeated
+  4-way double-submit race asserting exactly one `Payment`/transaction id is ever created, plus a
+  disjoint-keys test proving different idempotency keys never block each other.
+- **The second race — concurrent refund**: `PaymentService#refund` serializes on that payment's
+  own fair `ReentrantLock`, re-checking `status == CAPTURED` inside the lock. A 300-round repeated
+  4-way concurrent-refund test asserts exactly one refund ever succeeds.
+- **Chain of Responsibility (fraud pipeline)**: `FraudCheckHandler` (abstract, `setNext`-linking
+  shape identical to `logging.chain.LogHandler`) — `VelocityCheckHandler` →
+  `BlacklistCheckHandler` → `AmountLimitHandler`, wired by `FraudCheckChainFactory`. Each handler
+  is independently unit-tested; `FraudCheckChainTest` also proves velocity genuinely fires first
+  even for a payer who would *also* fail the blacklist check, not just that rejection happens
+  somehow.
+- **Strategy**: `PaymentMethodStrategy` (`CreditCard`/`Upi`/`WalletPaymentMethodStrategy`),
+  resolved by `PaymentGatewayProcessor` via a `Map` — the same shape as
+  `shoppingcart.payment.ShoppingCartPaymentProcessor`.
+- **State machine**: `PaymentStatus` declares its own legal-next-states (`INITIATED → AUTHORIZED
+  → CAPTURED → REFUNDED`, `FAILED` reachable only from `INITIATED`/`AUTHORIZED`), the same idiom
+  as `uber.model.RideStatus`. `charge()` drives `INITIATED → AUTHORIZED → CAPTURED` in one call
+  (no separate authorize/capture endpoints); a fraud rejection instead moves it to `FAILED`.
+- **Real cross-module bug found and fixed before shipping (RCA-059)**: the processor class was
+  first named `PaymentProcessor`, which collided with `com.lld.concertticket.service
+  .PaymentProcessor`'s identical default Spring bean name — `ConflictingBeanDefinitionException`
+  failed the *entire* `ApplicationContext`, breaking every `@SpringBootTest` in the repo, not just
+  this module's. Renamed to `PaymentGatewayProcessor`. Only surfaced on a *full* `mvn test` run,
+  never a module-scoped `-Dtest` filter — see ROADMAP.md gotcha #7.
+- Exception hierarchy: `PaymentException` (abstract — like `locker.exception.LockerException`, so
+  it never needs `DomainExceptionContractTest`'s `BASES` allowlist) with `PaymentNotFoundException`
+  (404), `FraudCheckFailedException` (402), `InvalidRefundException` (400).
+- Isolated `/api/payment/sim/*` engine: a second `PaymentRepository` instance, its own
+  idempotency cache/locks, seeded empty.
+- Tests (6 files): `PaymentServiceTest`, `PaymentConcurrencyTest` (the load-bearing suite above),
+  `FraudCheckChainTest`, `PaymentGatewayProcessorTest`, `PaymentRepositoryTest`.
+
+### Frontend
+- 6 tabs: Charge, Payments, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design
+  Details — built on the shared `LldPage` shell from the start.
+- Simulation tab: 7-step guided demo — reset, a clean charge, trip the velocity check with 4 rapid
+  charges from one payer, a duplicate-charge idempotency demo (same key submitted twice, identical
+  `Payment` returned), a refund, a live 6-way double-submit race, and a final telemetry/event-log
+  review.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
@@ -1598,8 +1653,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2039 tests, 235 classes
-cd frontend && npx vitest run # 352 tests, 3 files
+cd backend && mvn test        # 2064 tests, 240 classes
+cd frontend && npx vitest run # 358 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green

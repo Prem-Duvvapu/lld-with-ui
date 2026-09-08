@@ -85,6 +85,7 @@ const LLD_ROUTES = [
   { path: 'notification', title: 'Notification System', module: './lld/notification/NotificationPage.jsx' },
   { path: 'jobscheduler', title: 'Job Scheduler', module: './lld/jobscheduler/JobSchedulerPage.jsx' },
   { path: 'locker', title: 'Locker Management', module: './lld/locker/LockerPage.jsx' },
+  { path: 'payment', title: 'Payment Gateway', module: './lld/payment/PaymentPage.jsx' },
 ]
 
 function Layout({ children }) {

@@ -1,11 +1,11 @@
 # Remaining Modules — Build Plan
 
-Portfolio is at 53 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
-Scheduler; Locker Management shipped since, see RCA-058 for a real bug caught during its
-build). This document plans the remaining 8 modules from the original gap-analysis
-session, in priority order. Each section is meant to be handed to a fresh agent as a
-self-contained brief — read `new-lld` skill and one reference module (`splitwise`,
-`logging`, or `uber`) first regardless.
+Portfolio is at 54 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
+Scheduler; Locker Management and Payment Gateway shipped since — see RCA-058 and RCA-059
+for real bugs caught during their builds). This document plans the remaining 7 modules
+from the original gap-analysis session, in priority order. Each section is meant to be
+handed to a fresh agent as a self-contained brief — read `new-lld` skill and one reference
+module (`splitwise`, `logging`, or `uber`) first regardless.
 
 ## Read first
 
@@ -70,35 +70,7 @@ conflicts above at merge time.
 
 ## Tier 2
 
-### 1. Payment Gateway
-
-**Key**: `payment` · route `/payment` · package `com.lld.payment`
-
-**Pitch**: A simplified Stripe/Razorpay-shaped gateway: charge, authorize/capture split,
-refund, with a fraud-check pipeline and idempotent charge submission.
-
-- **Domain**: `PaymentRequest`/`Payment` (amount, method, status), `PaymentMethod`
-  (`CreditCard`/`UPI`/`Wallet` — Strategy), fraud checks as a **Chain of Responsibility**
-  (`VelocityCheckHandler` → `BlacklistCheckHandler` → `AmountLimitHandler`, each able to
-  short-circuit to REJECTED).
-- **Patterns**: Strategy (payment methods), **Chain of Responsibility** (fraud pipeline —
-  this repo doesn't have a CoR example yet, a good differentiator), State machine
-  (`INITIATED → AUTHORIZED → CAPTURED → REFUNDED` / `FAILED`).
-- **The concurrency bug**: a double-submit of the same `idempotencyKey` (e.g. a client retry
-  after a timeout) must never charge twice — same shape as Notification's RCA-053, but
-  worth re-proving independently here since it's the textbook payments use case interviewers
-  actually ask about. Also consider: a refund request and a duplicate capture racing on the
-  same payment — both must serialize on a per-payment lock, and the state machine must
-  reject the losing transition rather than silently double-applying money.
-- **API**: `POST /api/payment/charge` (idempotencyKey, amount, method) → runs fraud chain
-  then processes, `POST /api/payment/{id}/refund`, `GET /api/payment/{id}`, `/sim/*`: reset,
-  a clean charge, a fraud-rejected charge (trip the velocity check), a duplicate-charge
-  idempotency demo, a refund, a live concurrent double-submit race, final snapshot.
-- **Exceptions**: `PaymentException`, `PaymentNotFoundException` (404),
-  `FraudCheckFailedException` (402 — payment required/declined), `InvalidRefundException`
-  (400, e.g. refunding more than was charged or refunding a non-CAPTURED payment).
-
-### 2. Web Crawler
+### 1. Web Crawler
 
 **Key**: `webcrawler` · route `/webcrawler` · package `com.lld.webcrawler`
 
@@ -130,7 +102,7 @@ concurrently, a dedup set so no URL is ever fetched twice, and per-domain polite
 - **Exceptions**: `WebCrawlerException`, `CrawlJobNotFoundException` (404),
   `InvalidSeedUrlException` (400).
 
-### 3. Generic Cache Library
+### 2. Generic Cache Library
 
 **Key**: `cachelibrary` · route `/cachelibrary` · package `com.lld.cachelibrary`
 
@@ -164,7 +136,7 @@ architecture.
 - **Exceptions**: `CacheLibraryException`, `KeyNotFoundException` (404),
   `InvalidCacheConfigException` (400, e.g. maxSize ≤ 0).
 
-### 4. Key-Value Store
+### 3. Key-Value Store
 
 **Key**: `kvstore` · route `/kvstore` · package `com.lld.kvstore`
 
@@ -203,7 +175,7 @@ leaning into **versioning and CAS semantics**, not eviction.
 
 ## Tier 3
 
-### 5. Coupon/Promotion Engine
+### 4. Coupon/Promotion Engine
 
 **Key**: `coupon` · route `/coupon` · package `com.lld.coupon`
 
@@ -234,7 +206,7 @@ with stacking/precedence rules and a hard per-coupon redemption limit.
   `CouponExpiredException` (400), `RedemptionLimitExceededException` (409),
   `IneligibleCartException` (400 — a condition rejected the cart).
 
-### 6. Blackjack / Deck of Cards
+### 5. Blackjack / Deck of Cards
 
 **Key**: `blackjack` · route `/blackjack` · package `com.lld.blackjack`
 
@@ -267,7 +239,7 @@ Blackjack so it has a real game loop rather than being an abstract card-shufflin
   (409 — the shared shoe ran out mid-deal, a genuine edge case worth modeling rather than
   hand-waving).
 
-### 7. Workflow/Approval Engine
+### 6. Workflow/Approval Engine
 
 **Key**: `workflow` · route `/workflow` · package `com.lld.workflow`
 

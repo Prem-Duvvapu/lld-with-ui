@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **53 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **54 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -61,6 +61,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **53 LLD projects**
 | 51 | [Notification System](#51-notification-system) | Multi-channel notification dispatch | Strategy (channels, retry policy), Factory, idempotent per-key locking, priority-ordered dispatch |
 | 52 | [Job Scheduler](#52-job-scheduler) | Cron/interval job scheduler | Strategy (schedule, misfire policy), Factory, priority-queue dispatch, race-free cancel/dispatch guard |
 | 53 | [Locker Management](#53-locker-management) | Amazon-style parcel lockers | Strategy (smallest-fit/first-fit allocation), State Machine (locker lifecycle), Factory (pickup codes), per-locker lock race safety |
+| 54 | [Payment Gateway](#54-payment-gateway) | Stripe/Razorpay-style charge & refund | Strategy (payment methods), Chain of Responsibility (fraud pipeline), State Machine (payment lifecycle), idempotent double-submit protection |
 
 ---
 
@@ -82,7 +83,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (45 backend module packages -> 53 LLD problems total)
+│                                   (46 backend module packages -> 54 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -202,8 +203,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2039 tests across 235 classes
-cd frontend && npx vitest run  # 352 tests across 3 files
+cd backend  && mvn test        # 2064 tests across 240 classes
+cd frontend && npx vitest run  # 358 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -1479,6 +1480,29 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/locker/sim/race`
 - `GET /api/locker/sim/events`
 - `GET /api/locker/sim/snapshot`
+
+---
+
+### 54. Payment Gateway
+
+#### Key Features
+- **Idempotent Double-Submit Protection**: a client retrying the same `idempotencyKey` (e.g. after a timeout) is guaranteed to never be charged twice and always gets back the identical `Payment` — a per-key lock (not a lock-free CAS) wraps the whole check-cache → charge → populate-cache sequence, mirroring Shopping Cart's own idempotent-checkout precedent. Proven with a 300-round repeated 4-way race.
+- **Chain of Responsibility Fraud Pipeline**: `VelocityCheckHandler` → `BlacklistCheckHandler` → `AmountLimitHandler`, each able to short-circuit to a rejection — the same `setNext`-linking shape as Logging Framework's handler chain.
+- **Strategy-Based Payment Methods**: `PaymentMethodStrategy` (Credit Card / UPI / Wallet), resolved by `PaymentGatewayProcessor` via a `Map`.
+- **Guarded Payment Lifecycle**: `PaymentStatus` declares its own legal-next-states (`INITIATED → AUTHORIZED → CAPTURED → REFUNDED` / `FAILED`) enforced through one `Payment#transitionTo` gate — the same idiom as Uber's `RideStatus`.
+- **Race-Free Refund**: concurrent refund attempts on one payment serialize on that payment's own `ReentrantLock`; a 300-round repeated test asserts exactly one ever succeeds.
+- **Isolated Simulation**: a 7-step interactive walkthrough — a clean charge, tripping the velocity check, a duplicate-charge idempotency demo, a refund, and a live 6-way double-submit race.
+
+#### API Endpoints
+- `POST /api/payment/charge`
+- `GET /api/payment/{paymentId}`
+- `POST /api/payment/{paymentId}/refund`
+- `POST /api/payment/sim/reset`
+- `POST /api/payment/sim/charge`
+- `POST /api/payment/sim/{paymentId}/refund`
+- `POST /api/payment/sim/race`
+- `GET /api/payment/sim/events`
+- `GET /api/payment/sim/snapshot`
 
 ---
 

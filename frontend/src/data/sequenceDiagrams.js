@@ -26,6 +26,7 @@ import _inventory from './sequences/inventory.js';
 import _library from './sequences/library.js';
 import _linkedin from './sequences/linkedin.js';
 import _locker from './sequences/locker.js';
+import _payment from './sequences/payment.js';
 import _loggingFramework from './sequences/logging-framework.js';
 import _lru_cache from './sequences/lru-cache.js';
 import _ludo from './sequences/ludo.js';
@@ -77,6 +78,7 @@ const sequenceDiagrams = {
   library: _library,
   linkedin: _linkedin,
   locker: _locker,
+  payment: _payment,
   loggingFramework: _loggingFramework,
   'lru-cache': _lru_cache,
   ludo: _ludo,
