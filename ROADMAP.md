@@ -1,12 +1,12 @@
 # Remaining Modules — Build Plan
 
-Portfolio is at 57 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
-Scheduler; Locker Management, Payment Gateway, Web Crawler, Generic Cache Library and
-Key-Value Store shipped since — see RCA-058, RCA-059 and RCA-060 for real bugs caught
-during those builds). This document plans the remaining 3 modules from the original
-gap-analysis session, in priority order. Each section is meant to be handed to a fresh
-agent as a self-contained brief — read `new-lld` skill and one reference module
-(`splitwise`, `logging`, or `uber`) first regardless.
+Portfolio is at 58 modules (as of PRs #83–#85: Feature Flag, Notification System, Job
+Scheduler; Locker Management, Payment Gateway, Web Crawler, Generic Cache Library,
+Key-Value Store and Coupon/Promotion Engine shipped since — see RCA-058, RCA-059 and
+RCA-060 for real bugs caught during those builds). This document plans the remaining 2
+modules from the original gap-analysis session, in priority order. Each section is
+meant to be handed to a fresh agent as a self-contained brief — read `new-lld` skill
+and one reference module (`splitwise`, `logging`, or `uber`) first regardless.
 
 ## Read first
 
@@ -71,38 +71,7 @@ conflicts above at merge time.
 
 ## Tier 3
 
-### 1. Coupon/Promotion Engine
-
-**Key**: `coupon` · route `/coupon` · package `com.lld.coupon`
-
-**Pitch**: Apply one or more coupons to a cart total — percentage-off, flat-off, and BOGO —
-with stacking/precedence rules and a hard per-coupon redemption limit.
-
-- **Domain**: `Coupon` (code, discount type, conditions, maxRedemptions, currentRedemptions),
-  `DiscountStrategy` (`PercentageOffStrategy`/`FlatOffStrategy`/`BogoStrategy`), a condition
-  tree for eligibility (min cart value, category restriction, first-order-only).
-- **Patterns**: **Strategy** (discount calculation), and for the eligibility conditions,
-  prefer **Chain of Responsibility** over another Composite tree — Feature Flag already
-  shipped a Composite `Condition` tree; a differently-shaped pattern here keeps the
-  portfolio varied. Each condition handler either passes the cart through or rejects with a
-  specific reason string.
-- **The concurrency bug**: a coupon with `maxRedemptions = 100` must never be redeemed 101
-  times under concurrent checkout — the classic bounded-counter check-then-act race, same
-  lesson as Job Scheduler's cancel/dispatch and Feature Flag's rule swap but applied to a
-  numeric budget instead of a status/tree swap. Fix with a per-coupon `ReentrantLock`
-  guarding "read count, compare to limit, increment" as one atomic block (an
-  `AtomicInteger.updateAndGet` with a bounded-increment function is the lock-free
-  alternative — pick one and justify it in the design write-up).
-- **API**: `POST /api/coupon` (create), `POST /api/coupon/{code}/apply` (cartTotal, category,
-  isFirstOrder) → returns discounted total + which coupon logic fired, `/sim/*`: reset,
-  a successful apply, a rejected apply (condition fails — show the reason), a live
-  redemption-limit race (N concurrent applies against a coupon with 3 redemptions left —
-  exactly 3 succeed), final snapshot.
-- **Exceptions**: `CouponException`, `CouponNotFoundException` (404),
-  `CouponExpiredException` (400), `RedemptionLimitExceededException` (409),
-  `IneligibleCartException` (400 — a condition rejected the cart).
-
-### 2. Blackjack / Deck of Cards
+### 1. Blackjack / Deck of Cards
 
 **Key**: `blackjack` · route `/blackjack` · package `com.lld.blackjack`
 
@@ -135,7 +104,7 @@ Blackjack so it has a real game loop rather than being an abstract card-shufflin
   (409 — the shared shoe ran out mid-deal, a genuine edge case worth modeling rather than
   hand-waving).
 
-### 3. Workflow/Approval Engine
+### 2. Workflow/Approval Engine
 
 **Key**: `workflow` · route `/workflow` · package `com.lld.workflow`
 

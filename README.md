@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **57 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **58 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -65,6 +65,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **57 LLD projects**
 | 55 | [Web Crawler](#55-web-crawler) | Multi-threaded frontier crawl | Producer-Consumer (frontier queue + worker pool), Strategy (URL filter policy), atomic dedup claim, per-domain politeness lock |
 | 56 | [Generic Cache Library](#56-generic-cache-library) | Pluggable Cache<K,V> library | Builder (CacheBuilder), Strategy (eviction policy), Decorator (stats), segment/shard-locked concurrency |
 | 57 | [Key-Value Store](#57-key-value-store) | Toy Redis-shaped KV store | Command (write-ahead log), Template Method (read path), fully lock-free compare-and-swap |
+| 58 | [Coupon / Promotion Engine](#58-coupon--promotion-engine) | Cart discount application | Strategy (percentage/flat/BOGO discount), Chain of Responsibility (eligibility), race-free redemption limit |
 
 ---
 
@@ -86,7 +87,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (49 backend module packages -> 57 LLD problems total)
+│                                   (50 backend module packages -> 58 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -206,8 +207,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2164 tests across 256 classes
-cd frontend && npx vitest run  # 376 tests across 3 files
+cd backend  && mvn test        # 2192 tests across 261 classes
+cd frontend && npx vitest run  # 382 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -1580,6 +1581,26 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/kvstore/sim/cas-race`
 - `GET /api/kvstore/sim/events`
 - `GET /api/kvstore/sim/snapshot`
+
+---
+
+### 58. Coupon / Promotion Engine
+
+#### Key Features
+- **Race-Free Redemption Limit**: `Coupon#tryRedeem` holds "read count, compare to limit, increment" as one atomic block under that coupon's own fair `ReentrantLock` — the classic bounded-counter check-then-act race, closed the same way every per-entity-lock module in this portfolio closes it. Proven with a 300-round repeated test racing 12 threads against a coupon with exactly 3 redemptions remaining (exactly 3 succeed, every round) plus a 200-round test with 20 racers against a 5-redemption limit.
+- **Chain of Responsibility for Eligibility**: `MinCartValueHandler` → `CategoryRestrictionHandler` → `FirstOrderOnlyHandler`, each able to independently reject with a specific reason — deliberately a different pattern shape than Feature Flag's Composite condition tree, to keep the portfolio's pattern usage varied.
+- **Strategy-Based Discounts**: `PercentageOffStrategy` / `FlatOffStrategy` / `BogoStrategy`, resolved by `DiscountStrategyFactory` via an `EnumMap`. BOGO is the one strategy that genuinely depends on `itemCount`, not just the discount value — every 2nd item in the cart is free.
+- **Isolated Simulation**: a 5-step interactive walkthrough — a successful apply, a rejected apply showing which eligibility condition failed, and a live 8-worker race against a coupon with only 3 redemptions left.
+
+#### API Endpoints
+- `POST /api/coupon`
+- `GET /api/coupon/{code}`
+- `POST /api/coupon/{code}/apply`
+- `POST /api/coupon/sim/reset`
+- `POST /api/coupon/sim/{code}/apply`
+- `POST /api/coupon/sim/{code}/race`
+- `GET /api/coupon/sim/events`
+- `GET /api/coupon/sim/snapshot`
 
 ---
 

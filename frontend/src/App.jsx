@@ -89,6 +89,7 @@ const LLD_ROUTES = [
   { path: 'webcrawler', title: 'Web Crawler', module: './lld/webcrawler/WebCrawlerPage.jsx' },
   { path: 'cachelibrary', title: 'Generic Cache Library', module: './lld/cachelibrary/CacheLibraryPage.jsx' },
   { path: 'kvstore', title: 'Key-Value Store', module: './lld/kvstore/KvStorePage.jsx' },
+  { path: 'coupon', title: 'Coupon / Promotion Engine', module: './lld/coupon/CouponPage.jsx' },
 ]
 
 function Layout({ children }) {

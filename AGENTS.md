@@ -1797,6 +1797,52 @@ Package `com.lld.kvstore`.
   real 1-second TTL expiry wait, a live 8-worker CAS race, and a final review of the WAL and
   event log.
 
+## Coupon / Promotion Engine Module
+Brand-new module (portfolio position #58, ROADMAP.md Tier 3, next after Key-Value Store).
+Package `com.lld.coupon`.
+
+### Backend
+- `com.lld.coupon`: `controller / service / model / strategy / chain / repository / exception`
+  packages.
+- **Race-free redemption limit — this module's centerpiece**: `Coupon#tryRedeem` holds "read
+  count, compare to limit, increment" as one atomic block, called only under that coupon's own
+  fair `ReentrantLock` (`Coupon#getLock`) — the classic bounded-counter check-then-act race,
+  closed the same way `locker.service.LockerService#deposit` closes its own per-entity race.
+  `CouponConcurrencyTest` proves it: a 300-round repeated test racing 12 threads against a
+  coupon with exactly 3 redemptions remaining (exactly 3 succeed, the coupon's own counter
+  lands exactly at its limit, every round), plus a 200-round test with 20 racers against a
+  5-redemption limit.
+- **Chain of Responsibility for eligibility**: `MinCartValueHandler` →
+  `CategoryRestrictionHandler` → `FirstOrderOnlyHandler`, the same `setNext`-linking shape as
+  `logging.chain.LogHandler` and `payment.fraud.FraudCheckHandler`. Deliberately chosen over
+  another Composite condition tree (`featureflag` already ships one) to keep the portfolio's
+  pattern usage varied. `EligibilityChainTest` proves the handlers fire in the documented
+  order, including a cart that would fail all three conditions simultaneously.
+- **Strategy**: `PercentageOffStrategy` / `FlatOffStrategy` / `BogoStrategy`, resolved by
+  `DiscountStrategyFactory` via an `EnumMap` — the same shape as
+  `locker.strategy.LockerAllocationStrategyFactory`. `BogoStrategy` is the one strategy that
+  genuinely depends on `itemCount`, not just `discountValue`: every 2nd item in the cart is
+  free, computed from the average per-item price.
+- The eligibility chain runs entirely unlocked — it only reads immutable coupon config and the
+  caller-supplied cart, never `currentRedemptions`, so only `tryRedeem()` itself needs the
+  lock, keeping the critical section as small as possible.
+- Exception hierarchy: `CouponException` (abstract — like
+  `kvstore.exception.KvStoreException`, so it never needs `DomainExceptionContractTest`'s
+  `BASES` allowlist) with `CouponNotFoundException` (404), `CouponExpiredException` (400),
+  `RedemptionLimitExceededException` (409 — the request was well-formed, the coupon simply ran
+  out), `IneligibleCartException` (400 — names which chain condition rejected the cart).
+- Isolated `/api/coupon/sim/*` engine: a second `CouponRepository` instance, seeded with 3 demo
+  coupons (one deliberately scarce, at 3 redemptions, for the race demo).
+- Tests (5 files): `CouponServiceTest`, `CouponConcurrencyTest` (the load-bearing suite above),
+  `DiscountStrategyTest`, `EligibilityChainTest`, `CouponRepositoryTest`.
+
+### Frontend
+- 6 tabs: Create Coupon, Apply, Interactive 2D Simulation, Class Diagram, Sequence Diagram,
+  Design Details — built on the shared `LldPage` shell from the start.
+- Simulation tab: 5-step guided demo — reset (seeds 3 coupons), a successful apply, a rejected
+  apply showing which eligibility condition failed, a live 8-worker race against the scarce
+  coupon, and a final telemetry review.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
@@ -1808,8 +1854,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2164 tests, 256 classes
-cd frontend && npx vitest run # 376 tests, 3 files
+cd backend && mvn test        # 2192 tests, 261 classes
+cd frontend && npx vitest run # 382 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green
