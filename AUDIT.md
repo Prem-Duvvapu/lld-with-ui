@@ -73,6 +73,19 @@ against source code rather than documentation claims.
 
 ## Flagged loudly — real bugs, not style nits
 
+These findings are tracked as open incidents in `RCA.md`: Blackjack's table-action race
+([RCA-062](RCA.md#rca-062-blackjacks-table-actions-have-an-unlocked-check-then-act-race)),
+Splitwise's untyped domain failures
+([RCA-063](RCA.md#rca-063-splitwises-raw-runtimeexceptions-bypass-the-shared-domain-error-contract)),
+Logging's missing module exception boundary
+([RCA-064](RCA.md#rca-064-the-reference-logging-module-has-no-typed-domain-exception-boundary)),
+Traffic Signal's live-state simulation wiring
+([RCA-065](RCA.md#rca-065-traffic-signals-simulation-tab-bypasses-its-isolated-backend-engine)),
+and the three pattern-claim mismatches
+([RCA-066](RCA.md#rca-066-three-modules-overstate-or-lack-the-design-patterns-used-at-runtime)).
+They remain open because this audit was read-only; the RCA entries record verified causes and
+required resolution work without claiming that production code has already changed.
+
 1. **Blackjack: unlocked check-then-act race.** `doDeal`/`doHit`/`doStand` in `BlackjackService`
    read `table.getStatus()` then mutate with no lock at all — only the shoe draw is protected
    (a lock-free `AtomicInteger`, by design). Verified directly against source. Two concurrent

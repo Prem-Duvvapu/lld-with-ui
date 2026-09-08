@@ -8,8 +8,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
-import java.util.List;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class WalletRepositoryTest {
@@ -24,8 +22,7 @@ class WalletRepositoryTest {
     @Test
     @DisplayName("Seeds 3 wallets (Alice/Bob/Charlie) on construction")
     void seedsDemoData() {
-        List<Wallet> wallets = repository.getAllWallets();
-        assertEquals(3, wallets.size());
+        assertEquals(java.util.List.of(1L, 2L, 3L), repository.getWalletIds());
         assertEquals(5000.0, repository.findWalletById(1L).getBalance());
         assertEquals(3000.0, repository.findWalletById(2L).getBalance());
         assertEquals(10000.0, repository.findWalletById(3L).getBalance());
@@ -60,12 +57,6 @@ class WalletRepositoryTest {
     void findUnknownReturnsNull() {
         assertNull(repository.findWalletById(999L));
         assertNull(repository.findWalletById(null));
-    }
-
-    @Test
-    @DisplayName("totalBalance sums every wallet's balance")
-    void totalBalanceSums() {
-        assertEquals(5000.0 + 3000.0 + 10000.0, repository.totalBalance(), 0.0001);
     }
 
     @Test

@@ -45,16 +45,14 @@ public class WalletRepository {
         return id == null ? null : wallets.get(id);
     }
 
-    /** Sorted by id — the frontend (and several tests) rely on a stable, deterministic wallet order. */
-    public List<Wallet> getAllWallets() {
-        List<Wallet> all = new ArrayList<>(wallets.values());
-        all.sort(Comparator.comparingLong(Wallet::getId));
-        return all;
-    }
-
-    /** Sum of every wallet's balance — used to assert conservation across concurrent transfers. */
-    public double totalBalance() {
-        return wallets.values().stream().mapToDouble(Wallet::getBalance).sum();
+    /**
+     * Stable ids only. Balance snapshots belong to {@code WalletService}, which owns the locks
+     * required to read the mutable Wallet values safely.
+     */
+    public List<Long> getWalletIds() {
+        List<Long> ids = new ArrayList<>(wallets.keySet());
+        ids.sort(Comparator.naturalOrder());
+        return ids;
     }
 
     public void addTransaction(Transaction txn) {

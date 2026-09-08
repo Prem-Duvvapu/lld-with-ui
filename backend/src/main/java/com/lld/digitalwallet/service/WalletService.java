@@ -12,6 +12,7 @@ import com.lld.digitalwallet.repository.WalletRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +21,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 
 /**
@@ -72,11 +74,18 @@ public class WalletService {
                 .currency("INR")
                 .createdAt(LocalDateTime.now())
                 .build();
-        return repository.saveWallet(wallet);
+        ReentrantLock lock = lockFor(wallet.getId());
+        lock.lock();
+        try {
+            repository.saveWallet(wallet);
+            return copyOf(wallet);
+        } finally {
+            lock.unlock();
+        }
     }
 
     public double getBalance(long walletId) {
-        return requireWallet(repository, walletId).getBalance();
+        return readBalance(repository, this::lockFor, walletId);
     }
 
     public Map<String, Object> addFunds(long walletId, double amount, String paymentMethod) {
@@ -85,7 +94,7 @@ public class WalletService {
         Transaction txn = runCommand(command);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
-        result.put("newBalance", repository.findWalletById(walletId).getBalance());
+        result.put("newBalance", command.getResultingBalance());
         result.put("transaction", txn);
         return result;
     }
@@ -95,7 +104,7 @@ public class WalletService {
         Transaction txn = runCommand(command);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
-        result.put("newBalance", repository.findWalletById(walletId).getBalance());
+        result.put("newBalance", command.getResultingBalance());
         result.put("transaction", txn);
         return result;
     }
@@ -106,8 +115,8 @@ public class WalletService {
         Transaction txn = runCommand(command);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("success", true);
-        result.put("fromBalance", repository.findWalletById(fromWalletId).getBalance());
-        result.put("toBalance", repository.findWalletById(toWalletId).getBalance());
+        result.put("fromBalance", command.getResultingFromBalance());
+        result.put("toBalance", command.getResultingToBalance());
         result.put("transaction", txn);
         return result;
     }
@@ -118,11 +127,11 @@ public class WalletService {
     }
 
     public List<Wallet> getAllWallets() {
-        return repository.getAllWallets();
+        return snapshotWallets(repository, this::lockFor);
     }
 
     public Wallet getWallet(long walletId) {
-        return requireWallet(repository, walletId);
+        return snapshotWallet(repository, this::lockFor, walletId);
     }
 
     /** The command log IS the execution history — every credit/debit/transfer ever run, in order. */
@@ -142,6 +151,74 @@ public class WalletService {
             throw new WalletNotFoundException(walletId);
         }
         return wallet;
+    }
+
+    /**
+     * Reads one balance under the same lock every writer uses. ConcurrentHashMap safely publishes
+     * the Wallet reference, but it does not make later mutations of Wallet#balance visible.
+     */
+    private double readBalance(WalletRepository repo, LongFunction<ReentrantLock> lockProvider, long walletId) {
+        requireWallet(repo, walletId); // avoid allocating a permanent lock for an unknown id
+        ReentrantLock lock = lockProvider.apply(walletId);
+        lock.lock();
+        try {
+            return requireWallet(repo, walletId).getBalance();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private Wallet snapshotWallet(WalletRepository repo, LongFunction<ReentrantLock> lockProvider, long walletId) {
+        requireWallet(repo, walletId);
+        ReentrantLock lock = lockProvider.apply(walletId);
+        lock.lock();
+        try {
+            return copyOf(requireWallet(repo, walletId));
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    /**
+     * Acquires every wallet lock in ascending id order, matching TransferCommand, then returns
+     * detached values. This prevents a transfer snapshot from observing the sender debit without
+     * the corresponding recipient credit, and prevents JSON serialization after return from
+     * racing later mutations of the repository's live Wallet objects.
+     */
+    private List<Wallet> snapshotWallets(WalletRepository repo, LongFunction<ReentrantLock> lockProvider) {
+        List<Long> ids = repo.getWalletIds();
+        List<ReentrantLock> locks = new ArrayList<>(ids.size());
+        for (Long id : ids) {
+            ReentrantLock lock = lockProvider.apply(id);
+            lock.lock();
+            locks.add(lock);
+        }
+        try {
+            List<Wallet> snapshots = new ArrayList<>(ids.size());
+            for (Long id : ids) {
+                snapshots.add(copyOf(requireWallet(repo, id)));
+            }
+            return List.copyOf(snapshots);
+        } finally {
+            for (int i = locks.size() - 1; i >= 0; i--) {
+                locks.get(i).unlock();
+            }
+        }
+    }
+
+    private double totalBalanceSnapshot(WalletRepository repo, LongFunction<ReentrantLock> lockProvider) {
+        return snapshotWallets(repo, lockProvider).stream().mapToDouble(Wallet::getBalance).sum();
+    }
+
+    private static Wallet copyOf(Wallet wallet) {
+        return Wallet.builder()
+                .id(wallet.getId())
+                .userId(wallet.getUserId())
+                .userName(wallet.getUserName())
+                .balance(wallet.getBalance())
+                .currency(wallet.getCurrency())
+                .createdAt(wallet.getCreatedAt())
+                .build();
     }
 
     // ================================================================= ISOLATED SIMULATION ENGINE
@@ -164,10 +241,11 @@ public class WalletService {
         return getSimSnapshot();
     }
 
-    public Map<String, Object> getSimSnapshot() {
+    public synchronized Map<String, Object> getSimSnapshot() {
+        List<Wallet> wallets = snapshotWallets(simRepository, this::simLockFor);
         Map<String, Object> snapshot = new LinkedHashMap<>();
-        snapshot.put("wallets", simRepository.getAllWallets());
-        snapshot.put("totalBalance", simRepository.totalBalance());
+        snapshot.put("wallets", wallets);
+        snapshot.put("totalBalance", wallets.stream().mapToDouble(Wallet::getBalance).sum());
         snapshot.put("events", List.copyOf(simEvents));
         return snapshot;
     }
@@ -181,7 +259,7 @@ public class WalletService {
                     .id("EV-" + simEventIdGen.getAndIncrement())
                     .stepNumber(step).eventType("CREDIT").status("SUCCESS")
                     .title("Funds Added")
-                    .description(command.describe() + " -> new balance " + simRepository.findWalletById(walletId).getBalance())
+                    .description(command.describe() + " -> new balance " + command.getResultingBalance())
                     .build()
                     .addDetail("transactionId", txn.getId()));
         } catch (RuntimeException ex) {
@@ -199,7 +277,7 @@ public class WalletService {
                     .id("EV-" + simEventIdGen.getAndIncrement())
                     .stepNumber(step).eventType("DEBIT").status("SUCCESS")
                     .title("Funds Withdrawn")
-                    .description(command.describe() + " -> new balance " + simRepository.findWalletById(walletId).getBalance())
+                    .description(command.describe() + " -> new balance " + command.getResultingBalance())
                     .build()
                     .addDetail("transactionId", txn.getId()));
         } catch (RuntimeException ex) {
@@ -235,7 +313,7 @@ public class WalletService {
      * balance.
      */
     public synchronized Map<String, Object> simRace(long walletAId, long walletBId, int concurrentTransfers, double amountEach, int step) {
-        double totalBefore = simRepository.totalBalance();
+        double totalBefore = totalBalanceSnapshot(simRepository, this::simLockFor);
         CountDownLatch start = new CountDownLatch(1);
         AtomicInteger succeeded = new AtomicInteger();
         AtomicInteger rejected = new AtomicInteger();
@@ -265,7 +343,7 @@ public class WalletService {
                 Thread.currentThread().interrupt();
             }
         }
-        double totalAfter = simRepository.totalBalance();
+        double totalAfter = totalBalanceSnapshot(simRepository, this::simLockFor);
 
         WalletSimEvent event = WalletSimEvent.builder()
                 .id("EV-" + simEventIdGen.getAndIncrement())
