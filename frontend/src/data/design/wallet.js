@@ -13,13 +13,14 @@ export default {
     'Transfer (send money): move funds between two wallets with balance validation and self-transfer rejection',
     'Every credit, debit and transfer is modelled as an executable Command object; the command log IS the operational history',
     'Deadlock-free concurrent transfers: two wallets can be the target of many simultaneous transfers, in either direction, without corrupting balances or deadlocking',
+    'Read-side consistency: a balance read uses the same wallet lock as writers; aggregate snapshots lock every wallet in ascending ID order and return detached values',
     'Transaction history: complete per-wallet log of all credits, debits, and transfers, immutable after creation',
     'Isolated interactive simulation sandbox — a completely separate wallet repository so a demo run can never touch live balances',
   ],
   entities: [
     {
       name: 'WalletService',
-      description: 'Facade the controller delegates to wholesale. Builds and executes WalletCommands against a per-wallet ReentrantLock map, appends every executed command to a command log, and owns a second, fully isolated WalletRepository + lock map for the /sim/* engine.',
+      description: 'Facade the controller delegates to wholesale. Builds and executes WalletCommands against a per-wallet ReentrantLock map, takes lock-consistent detached read snapshots, appends every executed command to a command log, and owns a second, fully isolated WalletRepository + lock map for the /sim/* engine.',
       fields: [
         { name: 'repository', type: 'WalletRepository', description: 'Live data access layer, injected via constructor' },
         { name: 'walletLocks', type: 'ConcurrentHashMap<Long, ReentrantLock>', description: 'One lazily-created lock per wallet id (computeIfAbsent) — never a single global lock' },
@@ -31,6 +32,9 @@ export default {
         { name: 'addFunds(walletId, amount, paymentMethod)', returns: 'Map', description: 'Builds and executes a CreditCommand' },
         { name: 'withdrawFunds(walletId, amount, description)', returns: 'Map', description: 'Builds and executes a DebitCommand' },
         { name: 'sendMoney(from, to, amount, description)', returns: 'Map', description: 'Builds and executes a TransferCommand — see TransferCommand for the ascending-lock-order rule' },
+        { name: 'getBalance(walletId)', returns: 'double', description: 'Reads the balance while holding that wallet\'s writer lock' },
+        { name: 'getWallet(walletId)', returns: 'Wallet', description: 'Returns a detached snapshot captured under the wallet lock' },
+        { name: 'getAllWallets()', returns: 'List<Wallet>', description: 'Locks every wallet in ascending ID order and returns a consistent detached snapshot' },
         { name: 'getTransactions(walletId)', returns: 'List<Transaction>', description: 'Full per-wallet transaction history' },
         { name: 'getCommandLog()', returns: 'List<String>', description: "The Command pattern's execution log, human-readable" },
       ]
@@ -88,12 +92,12 @@ export default {
         { name: 'findWalletById(id)', returns: 'Wallet', description: 'O(1) wallet lookup, null if absent' },
         { name: 'saveWallet(wallet)', returns: 'Wallet', description: 'Upserts wallet into the map' },
         { name: 'addTransaction(txn)', returns: 'void', description: 'Thread-safe transaction storage per wallet' },
-        { name: 'totalBalance()', returns: 'double', description: 'Sum of every wallet\'s balance — used to assert conservation under concurrency' },
+        { name: 'getWalletIds()', returns: 'List<Long>', description: 'Sorted wallet IDs; WalletService owns all lock-aware balance traversal' },
       ]
     },
     {
       name: 'Wallet',
-      description: 'User wallet with balance and metadata. Balance is only ever mutated by a WalletCommand holding this wallet\'s lock.',
+      description: 'User wallet with balance and metadata. The live balance is read and mutated only while holding this wallet\'s lock; APIs return detached copies.',
       fields: [
         { name: 'id', type: 'long', description: 'Unique wallet identifier' },
         { name: 'userId', type: 'String', description: 'User\'s unique ID' },

@@ -45,9 +45,11 @@ class WalletCommandTest {
     @DisplayName("CreditCommand increases balance and records a CREDIT transaction")
     void creditIncreasesBalance() {
         double before = repository.findWalletById(1L).getBalance();
-        Transaction txn = new CreditCommand(repository, lockFor(1), 1, 250.0, "UPI").execute();
+        CreditCommand command = new CreditCommand(repository, lockFor(1), 1, 250.0, "UPI");
+        Transaction txn = command.execute();
 
         assertEquals(before + 250.0, repository.findWalletById(1L).getBalance());
+        assertEquals(before + 250.0, command.getResultingBalance());
         assertEquals(Transaction.Type.CREDIT, txn.getType());
         assertEquals(Transaction.Status.COMPLETED, txn.getStatus());
         assertEquals(250.0, txn.getAmount());
@@ -73,9 +75,11 @@ class WalletCommandTest {
     @DisplayName("DebitCommand decreases balance and records a DEBIT transaction")
     void debitDecreasesBalance() {
         double before = repository.findWalletById(1L).getBalance();
-        Transaction txn = new DebitCommand(repository, lockFor(1), 1, 500.0, "withdrawal").execute();
+        DebitCommand command = new DebitCommand(repository, lockFor(1), 1, 500.0, "withdrawal");
+        Transaction txn = command.execute();
 
         assertEquals(before - 500.0, repository.findWalletById(1L).getBalance());
+        assertEquals(before - 500.0, command.getResultingBalance());
         assertEquals(Transaction.Type.DEBIT, txn.getType());
     }
 
@@ -100,12 +104,15 @@ class WalletCommandTest {
     @Test
     @DisplayName("TransferCommand moves funds and preserves the combined total")
     void transferMovesFunds() {
-        double totalBefore = repository.totalBalance();
-        Transaction txn = new TransferCommand(repository, this::lockFor, 1, 2, 1000.0, "rent").execute();
+        double totalBefore = balance(1) + balance(2) + balance(3);
+        TransferCommand command = new TransferCommand(repository, this::lockFor, 1, 2, 1000.0, "rent");
+        Transaction txn = command.execute();
 
         assertEquals(4000.0, repository.findWalletById(1L).getBalance());
         assertEquals(4000.0, repository.findWalletById(2L).getBalance());
-        assertEquals(totalBefore, repository.totalBalance(), 0.0001);
+        assertEquals(totalBefore, balance(1) + balance(2) + balance(3), 0.0001);
+        assertEquals(4000.0, command.getResultingFromBalance());
+        assertEquals(4000.0, command.getResultingToBalance());
         assertEquals(Transaction.Type.TRANSFER, txn.getType());
         assertEquals(1L, txn.getFromWalletId());
         assertEquals(2L, txn.getToWalletId());
@@ -159,5 +166,9 @@ class WalletCommandTest {
         // lock-order deadlock under concurrency (exercised properly in WalletConcurrencyTest).
         assertFalse(lock1.isLocked());
         assertFalse(lock2.isLocked());
+    }
+
+    private double balance(long walletId) {
+        return repository.findWalletById(walletId).getBalance();
     }
 }

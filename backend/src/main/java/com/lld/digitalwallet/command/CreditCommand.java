@@ -19,6 +19,7 @@ public class CreditCommand implements WalletCommand {
     private final long walletId;
     private final double amount;
     private final String paymentMethod;
+    private double resultingBalance;
 
     public CreditCommand(WalletRepository repository, ReentrantLock walletLock,
                           long walletId, double amount, String paymentMethod) {
@@ -40,7 +41,8 @@ public class CreditCommand implements WalletCommand {
             if (wallet == null) {
                 throw new WalletNotFoundException(walletId);
             }
-            wallet.setBalance(wallet.getBalance() + amount);
+            resultingBalance = wallet.getBalance() + amount;
+            wallet.setBalance(resultingBalance);
 
             Transaction txn = Transaction.builder()
                     .id(repository.nextTransactionId())
@@ -62,5 +64,10 @@ public class CreditCommand implements WalletCommand {
     @Override
     public String describe() {
         return "CREDIT wallet " + walletId + " +" + amount + " via " + paymentMethod;
+    }
+
+    /** Balance captured while the wallet lock was still held. */
+    public double getResultingBalance() {
+        return resultingBalance;
     }
 }

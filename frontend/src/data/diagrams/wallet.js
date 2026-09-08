@@ -29,6 +29,9 @@ export default {
         '+ addFunds(id, amt, method): Map',
         '+ withdrawFunds(id, amt, desc): Map',
         '+ sendMoney(from, to, amt, desc): Map',
+        '+ getBalance(id): double',
+        '+ getWallet(id): Wallet',
+        '+ getAllWallets(): List<Wallet>',
         '+ getTransactions(id): List<Transaction>',
         '+ getCommandLog(): List<String>',
       ]
@@ -49,10 +52,12 @@ export default {
         '- walletLock: ReentrantLock',
         '- walletId: long',
         '- amount: double',
-        '- paymentMethod: String'
+        '- paymentMethod: String',
+        '- resultingBalance: double'
       ],
       methods: [
-        '+ execute(): Transaction'
+        '+ execute(): Transaction',
+        '+ getResultingBalance(): double'
       ]
     },
     {
@@ -61,10 +66,12 @@ export default {
         '- repository: WalletRepository',
         '- walletLock: ReentrantLock',
         '- walletId: long',
-        '- amount: double'
+        '- amount: double',
+        '- resultingBalance: double'
       ],
       methods: [
-        '+ execute(): Transaction'
+        '+ execute(): Transaction',
+        '+ getResultingBalance(): double'
       ]
     },
     {
@@ -74,10 +81,14 @@ export default {
         '- lockProvider: LongFunction<ReentrantLock>',
         '- fromWalletId: long',
         '- toWalletId: long',
-        '- amount: double'
+        '- amount: double',
+        '- resultingFromBalance: double',
+        '- resultingToBalance: double'
       ],
       methods: [
-        '+ execute(): Transaction  // locks min(id) then max(id)'
+        '+ execute(): Transaction  // locks min(id) then max(id)',
+        '+ getResultingFromBalance(): double',
+        '+ getResultingToBalance(): double'
       ]
     },
     {
@@ -132,7 +143,7 @@ export default {
         '+ findWalletById(id): Wallet',
         '+ saveWallet(w): Wallet',
         '+ addTransaction(t): void',
-        '+ totalBalance(): double',
+        '+ getWalletIds(): List<Long>',
         '+ getTransactionsByWalletId(id): List'
       ]
     },

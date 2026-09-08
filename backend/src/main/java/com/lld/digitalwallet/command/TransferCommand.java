@@ -31,6 +31,8 @@ public class TransferCommand implements WalletCommand {
     private final long toWalletId;
     private final double amount;
     private final String description;
+    private double resultingFromBalance;
+    private double resultingToBalance;
 
     public TransferCommand(WalletRepository repository, LongFunction<ReentrantLock> lockProvider,
                             long fromWalletId, long toWalletId, double amount, String description) {
@@ -72,8 +74,10 @@ public class TransferCommand implements WalletCommand {
                     throw new InsufficientBalanceException(fromWalletId, amount, from.getBalance());
                 }
 
-                from.setBalance(from.getBalance() - amount);
-                to.setBalance(to.getBalance() + amount);
+                resultingFromBalance = from.getBalance() - amount;
+                resultingToBalance = to.getBalance() + amount;
+                from.setBalance(resultingFromBalance);
+                to.setBalance(resultingToBalance);
 
                 Transaction txn = Transaction.builder()
                         .id(repository.nextTransactionId())
@@ -99,5 +103,15 @@ public class TransferCommand implements WalletCommand {
     @Override
     public String describe() {
         return "TRANSFER " + amount + " from wallet " + fromWalletId + " to wallet " + toWalletId;
+    }
+
+    /** Sender balance captured while both wallet locks were still held. */
+    public double getResultingFromBalance() {
+        return resultingFromBalance;
+    }
+
+    /** Recipient balance captured while both wallet locks were still held. */
+    public double getResultingToBalance() {
+        return resultingToBalance;
     }
 }

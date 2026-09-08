@@ -43,6 +43,18 @@ class WalletServiceTest {
     }
 
     @Test
+    @DisplayName("Wallet reads return detached snapshots, not mutable repository entities")
+    void walletReadsAreDetachedSnapshots() {
+        Wallet one = service.getWallet(1);
+        one.setBalance(-1.0);
+        assertEquals(5000.0, service.getBalance(1));
+
+        List<Wallet> all = service.getAllWallets();
+        all.get(0).setBalance(-2.0);
+        assertEquals(5000.0, service.getBalance(1));
+    }
+
+    @Test
     @DisplayName("addFunds credits the wallet and returns the new balance")
     void addFundsCreditsWallet() {
         Map<String, Object> result = service.addFunds(1, 1000.0, "UPI");

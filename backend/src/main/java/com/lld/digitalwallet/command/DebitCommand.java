@@ -21,6 +21,7 @@ public class DebitCommand implements WalletCommand {
     private final long walletId;
     private final double amount;
     private final String description;
+    private double resultingBalance;
 
     public DebitCommand(WalletRepository repository, ReentrantLock walletLock,
                          long walletId, double amount, String description) {
@@ -45,7 +46,8 @@ public class DebitCommand implements WalletCommand {
             if (wallet.getBalance() < amount) {
                 throw new InsufficientBalanceException(walletId, amount, wallet.getBalance());
             }
-            wallet.setBalance(wallet.getBalance() - amount);
+            resultingBalance = wallet.getBalance() - amount;
+            wallet.setBalance(resultingBalance);
 
             Transaction txn = Transaction.builder()
                     .id(repository.nextTransactionId())
@@ -67,5 +69,10 @@ public class DebitCommand implements WalletCommand {
     @Override
     public String describe() {
         return "DEBIT wallet " + walletId + " -" + amount;
+    }
+
+    /** Balance captured while the wallet lock was still held. */
+    public double getResultingBalance() {
+        return resultingBalance;
     }
 }

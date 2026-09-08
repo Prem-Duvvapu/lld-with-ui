@@ -6,12 +6,16 @@ import com.lld.digitalwallet.service.WalletService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -184,6 +188,97 @@ class WalletConcurrencyTest {
 
             double totalAfter = service.getBalance(1) + service.getBalance(2);
             assertEquals(totalBefore, totalAfter, 0.0, "round " + round + " lost or created money");
+        }
+    }
+
+    @Test
+    @DisplayName("getBalance waits for an in-flight write on the same wallet")
+    void balanceReadUsesTheWriterLock() throws Exception {
+        WalletRepository repository = new WalletRepository();
+        PausingWallet wallet = replaceWallet(repository, 1);
+        WalletService service = new WalletService(repository);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        try {
+            wallet.pauseNextWrite();
+            Future<?> credit = pool.submit(() -> service.addFunds(1, 100.0, "CARD"));
+            assertTrue(wallet.writeApplied.await(2, TimeUnit.SECONDS), "credit never reached the guarded write");
+            Future<Double> read = pool.submit(() -> service.getBalance(1));
+
+            assertThrows(TimeoutException.class, () -> read.get(150, TimeUnit.MILLISECONDS),
+                    "getBalance returned while the writer still owned the wallet lock");
+            wallet.allowWriteToFinish.countDown();
+            credit.get(2, TimeUnit.SECONDS);
+            assertEquals(5100.0, read.get(2, TimeUnit.SECONDS));
+        } finally {
+            wallet.allowWriteToFinish.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    @DisplayName("getAllWallets never observes only half of a transfer")
+    void aggregateSnapshotUsesCanonicalWalletLocks() throws Exception {
+        WalletRepository repository = new WalletRepository();
+        PausingWallet sender = replaceWallet(repository, 1);
+        WalletService service = new WalletService(repository);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+
+        try {
+            sender.pauseNextWrite();
+            Future<?> transfer = pool.submit(() -> service.sendMoney(1, 2, 100.0, "snapshot race"));
+            assertTrue(sender.writeApplied.await(2, TimeUnit.SECONDS), "transfer never applied the sender debit");
+            Future<List<Wallet>> snapshot = pool.submit(service::getAllWallets);
+
+            assertThrows(TimeoutException.class, () -> snapshot.get(150, TimeUnit.MILLISECONDS),
+                    "aggregate snapshot returned between the sender debit and recipient credit");
+            sender.allowWriteToFinish.countDown();
+            transfer.get(2, TimeUnit.SECONDS);
+            double total = snapshot.get(2, TimeUnit.SECONDS).stream().mapToDouble(Wallet::getBalance).sum();
+            assertEquals(18000.0, total, 0.0);
+        } finally {
+            sender.allowWriteToFinish.countDown();
+            pool.shutdownNow();
+        }
+    }
+
+    private static PausingWallet replaceWallet(WalletRepository repository, long walletId) {
+        Wallet original = repository.findWalletById(walletId);
+        PausingWallet replacement = new PausingWallet();
+        replacement.setId(original.getId());
+        replacement.setUserId(original.getUserId());
+        replacement.setUserName(original.getUserName());
+        replacement.setBalance(original.getBalance());
+        replacement.setCurrency(original.getCurrency());
+        replacement.setCreatedAt(original.getCreatedAt());
+        repository.saveWallet(replacement);
+        return replacement;
+    }
+
+    /** Applies one balance write, then pauses while the command still owns its wallet lock. */
+    private static final class PausingWallet extends Wallet {
+        private final CountDownLatch writeApplied = new CountDownLatch(1);
+        private final CountDownLatch allowWriteToFinish = new CountDownLatch(1);
+        private volatile boolean pauseNextWrite;
+
+        private void pauseNextWrite() {
+            pauseNextWrite = true;
+        }
+
+        @Override
+        public void setBalance(double balance) {
+            super.setBalance(balance);
+            if (!pauseNextWrite) {
+                return;
+            }
+            pauseNextWrite = false;
+            writeApplied.countDown();
+            try {
+                allowWriteToFinish.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("paused wallet write interrupted", e);
+            }
         }
     }
 }
