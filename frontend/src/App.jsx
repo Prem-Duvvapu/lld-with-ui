@@ -91,6 +91,7 @@ const LLD_ROUTES = [
   { path: 'kvstore', title: 'Key-Value Store', module: './lld/kvstore/KvStorePage.jsx' },
   { path: 'coupon', title: 'Coupon / Promotion Engine', module: './lld/coupon/CouponPage.jsx' },
   { path: 'blackjack', title: 'Blackjack / Deck of Cards', module: './lld/blackjack/BlackjackPage.jsx' },
+  { path: 'workflow', title: 'Workflow / Approval Engine', module: './lld/workflow/WorkflowPage.jsx' },
 ]
 
 function Layout({ children }) {

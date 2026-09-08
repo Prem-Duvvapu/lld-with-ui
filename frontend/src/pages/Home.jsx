@@ -137,7 +137,9 @@ const ALL_LLDS = [
   { title: 'Coupon / Promotion Engine', icon: '🏷️', difficulty: 'Medium', category: 'Real-world',
     desc: 'Percentage/flat/BOGO discount strategies, a Chain-of-Responsibility eligibility check, and a race-free per-coupon redemption limit' },
   { title: 'Blackjack / Deck of Cards', icon: '🃏', difficulty: 'Medium', category: 'Real-world',
-    desc: 'A real game loop over a Factory-shuffled shoe — Strategy dealer house rules, a declared round state machine, and a lock-free shared-shoe draw across tables' }
+    desc: 'A real game loop over a Factory-shuffled shoe — Strategy dealer house rules, a declared round state machine, and a lock-free shared-shoe draw across tables' },
+  { title: 'Workflow / Approval Engine', icon: '✅', difficulty: 'Hard', category: 'Design Patterns & Systems',
+    desc: 'Multi-step amount-based approval routing via Chain of Responsibility, a declared instance state machine, an escalation Strategy, and a race-free per-instance approve-vs-timeout-escalate lock' }
 ]
 
 const routeMap = {
@@ -175,6 +177,7 @@ const routeMap = {
   'Key-Value Store': 'kvstore',
   'Coupon / Promotion Engine': 'coupon',
   'Blackjack / Deck of Cards': 'blackjack',
+  'Workflow / Approval Engine': 'workflow',
 }
 
 export default function Home() {
@@ -196,7 +199,7 @@ export default function Home() {
     <div className="home">
       <header className="home-header">
         <h1>Low Level Design Patterns</h1>
-        <p className="home-subtitle">45 interactive modules — each with a live UI, class diagram, and working Java backend</p>
+        <p className="home-subtitle">60 interactive modules — each with a live UI, class diagram, and working Java backend</p>
 
         <div className="home-controls">
           <div className="search-bar">

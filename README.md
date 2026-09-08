@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **59 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -67,6 +67,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **59 LLD projects**
 | 57 | [Key-Value Store](#57-key-value-store) | Toy Redis-shaped KV store | Command (write-ahead log), Template Method (read path), fully lock-free compare-and-swap |
 | 58 | [Coupon / Promotion Engine](#58-coupon--promotion-engine) | Cart discount application | Strategy (percentage/flat/BOGO discount), Chain of Responsibility (eligibility), race-free redemption limit |
 | 59 | [Blackjack / Deck of Cards](#59-blackjack--deck-of-cards) | Real blackjack game loop | Factory (shuffled Shoe), Strategy (dealer house rules), State Machine (round lifecycle), lock-free shared-shoe draw |
+| 60 | [Workflow / Approval Engine](#60-workflow--approval-engine) | Multi-step expense approval | Chain of Responsibility (threshold routing), State Machine (instance lifecycle), Strategy (escalation policy), race-free approve-vs-escalate lock |
 
 ---
 
@@ -88,7 +89,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (51 backend module packages -> 59 LLD problems total)
+│                                   (52 backend module packages -> 60 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -1630,6 +1631,32 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/blackjack/sim/race`
 - `GET /api/blackjack/sim/events`
 - `GET /api/blackjack/sim/snapshot`
+
+---
+
+### 60. Workflow / Approval Engine
+
+#### Key Features
+- **Approve-vs-Escalate Race (this module's centerpiece)**: a human `approve()` and an automatic timeout `triggerEscalation()` racing on the SAME pending step of the SAME instance. Both serialize on the instance's own fair `ReentrantLock`, holding "is this step (and this exact step index) still current and pending? decide it if so" as one atomic block. Proven with a 300-round repeated test racing the two actions on the identical step (exactly one ever takes effect, never both, never neither) plus a 200-round test with 8 threads racing concurrent approvals.
+- **Cumulative Chain of Responsibility**: `ManagerThresholdHandler` → `DirectorThresholdHandler` → `FinanceThresholdHandler` resolve WHICH roles an amount requires — deliberately cumulative (every applicable handler contributes) rather than claim-and-stop, since a $7,500 expense genuinely needs Manager AND Director AND Finance, not just one of them.
+- **Declared Instance State Machine**: `PENDING → IN_REVIEW → APPROVED/REJECTED/ESCALATED`, the same declared-transition-table idiom as Uber's `RideStatus`. `ESCALATED` is deliberately non-terminal — it marks a timeout, not a finished workflow, so the escalation target can still resolve the chain.
+- **Strategy-Based Escalation Policy**: `AutoEscalateStrategy` (routes the step to the next approver automatically) vs `NotifyOnlyStrategy` (flags it without touching routing at all) — genuinely different policies, not two names for the same behavior.
+- **Isolated Simulation**: a 6-step interactive walkthrough — submit a small Manager-only expense and a large Manager→Director→Finance one, approve the large one's Manager step, then a live Director-approve-vs-timeout-escalate race on the Director step.
+
+#### API Endpoints
+- `POST /api/workflow`
+- `GET /api/workflow/{id}`
+- `GET /api/workflow`
+- `POST /api/workflow/{id}/approve`
+- `POST /api/workflow/{id}/reject`
+- `POST /api/workflow/{id}/escalate`
+- `POST /api/workflow/sim/reset`
+- `POST /api/workflow/sim/submit`
+- `POST /api/workflow/sim/{id}/approve`
+- `POST /api/workflow/sim/{id}/reject`
+- `POST /api/workflow/sim/{id}/race`
+- `GET /api/workflow/sim/events`
+- `GET /api/workflow/sim/snapshot`
 
 ---
 

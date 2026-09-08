@@ -5504,3 +5504,68 @@ method builds a throwaway/ad-hoc parent object purely to satisfy another method'
 whether that object also needs to be persisted for the store's *other* read paths to see its
 children — don't assume a child save is enough just because the immediate return value (the local
 `raceResult` counters, in this case) looked correct.
+
+## RCA-061: New `WorkflowService#triggerEscalation` Re-Checked Only the Instance's Status, Not the Specific Step It Was Armed Against — A "Losing" Escalation Silently Succeeded Against the Wrong Step Instead of Being Rejected
+
+**Overview & Severity** — Medium (self-contained to the new `workflow` module's core
+approve-vs-escalate race, this module's entire reason for existing; caught during initial
+development, before ever shipping, by the very 300-round concurrency test the `new-lld` skill
+requires). Logged per the same `ROADMAP.md` instruction RCA-060 was logged under: record a real
+bug found while building a new module, even one caught pre-ship.
+
+**Symptoms & Error Logs** — `WorkflowConcurrencyTest#approveAndEscalateRaceNeverBothTakeEffect`
+asserted `successes.get() == 1` per round (exactly one of `approve()`/`triggerEscalation()` should
+take effect on the raced step) but round 0 failed immediately:
+```
+org.opentest4j.AssertionFailedError: round 0: exactly one of approve/escalate must take effect,
+never both, never neither ==> expected: <1> but was: <2>
+```
+Both racer threads reported success in the same round, on a two-step (Manager → Director)
+instance where only one human/automatic decision should have been possible on the contested step.
+
+**Root Cause** — `doTriggerEscalation(repository, id)` originally took only the workflow `id`, not
+a step index. Its guard was `requirePending(instance, id)` — "is the *instance's overall status*
+still non-terminal?" — followed by operating unconditionally on `instance.currentStep()`,
+whatever that happened to be *at the moment the lock was acquired*. When `approve()` won the race
+first, it correctly decided step 0 (Manager) and advanced `currentStepIndex` to 1, transitioning
+the instance's status to `IN_REVIEW` — non-terminal. The escalator thread then acquired the lock
+*after* that, saw `IN_REVIEW` (a legitimately non-terminal status) as "still pending," and
+proceeded to escalate `instance.currentStep()` — but by then that was step 1 (Director), a
+completely different, still-genuinely-pending step that the escalation was never actually armed
+against. Both racers succeeded because they silently ended up acting on two *different* steps of
+the same instance; the test's premise — that both were racing for the identical contested
+decision — was violated by a service method with no way to express "no, specifically the step that
+was pending when I was scheduled."
+
+**Diagnostic Commands**
+```bash
+# The concurrency test that caught it -- run alone to reproduce quickly (it fails on round 0).
+mvn -o test -Dtest='com.lld.workflow.WorkflowConcurrencyTest#approveAndEscalateRaceNeverBothTakeEffect'
+# Confirms triggerEscalation had no step-scoping parameter before the fix.
+grep -n "triggerEscalation\|doTriggerEscalation" backend/src/main/java/com/lld/workflow/service/WorkflowService.java
+```
+
+**Step-by-Step Resolution** — Changed `WorkflowService#triggerEscalation`'s signature from
+`triggerEscalation(id)` to `triggerEscalation(id, stepIndex)`, threading `stepIndex` through to
+`doTriggerEscalation`. Added a new guard, `requireStepStillCurrent(instance, stepIndex, id)`,
+called immediately after `requirePending` and before touching the step at all: it throws
+`InvalidStepTransitionException` if `instance.getCurrentStepIndex() != stepIndex`, i.e. if routing
+has already moved past the step this particular escalation was scheduled against. Updated every
+caller — the REST controller (`stepIndex` now required in the escalate request body), the `/sim/*`
+race demo (captures `stepIndexAtRaceStart` from `instance.getCurrentStepIndex()` before spawning
+either racer thread), and the test suite — to pass the step index explicitly. Re-ran the
+concurrency test: 300/300 rounds green, with `approveWon`/`escalateWon` both nonzero (proving the
+race is genuinely contested both ways, not just always won by whichever thread happens to start
+first).
+
+**Preventative Measures** — When two racing actions are described as contesting "the same X" (here,
+"the same pending step"), the losing action's guard must re-validate its own claimed target's
+*identity*, not just a coarser-grained status field that happens to still read as "pending" for an
+unrelated reason. `requirePending`'s instance-level check was a legitimate guard for a different
+question ("is this workflow done?") but was being reused to answer a question it was never
+designed to answer ("is this *specific* step still the one I was scheduled against?"). Any method
+whose caller implicitly commits to a target at schedule time (a timeout armed against a step, a
+cancellation armed against a job, a retry armed against an attempt) needs that target's identity
+threaded through as an explicit parameter and re-checked inside the same lock acquisition that
+performs the mutation — never inferred from "whatever the current one happens to be" once the lock
+is finally acquired.
