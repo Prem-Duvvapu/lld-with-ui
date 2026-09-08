@@ -26,8 +26,6 @@ const styles = `
 .wal-btn:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; transform: none; }
 .wal-btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-primary); }
 .wal-btn-secondary:hover:not(:disabled) { background: var(--bg-tertiary); }
-.wal-msg-ok { color: var(--success); font-size: var(--font-xs); }
-.wal-msg-err { color: var(--danger); font-size: var(--font-xs); }
 .wal-spinner { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: wal-spin 0.6s linear infinite; }
 .wal-btn-secondary .wal-spinner { border-color: rgba(0,0,0,0.2); border-top-color: var(--text-primary); }
 @keyframes wal-spin { to { transform: rotate(360deg); } }
@@ -120,7 +118,7 @@ function WalletsTab() {
   const [creditMethod, setCreditMethod] = useState('CARD');
   const [debitAmt, setDebitAmt] = useState('');
   const [sendForm, setSendForm] = useState({ toId: '', amount: '', desc: '' });
-  const [message, setMessage] = useState('');
+  const [alert, setAlert] = useState(null); // { status: 'SUCCESS' | 'ERROR', text }
   const [busy, setBusy] = useState(false);
   const [busyAction, setBusyAction] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -139,7 +137,7 @@ function WalletsTab() {
 
   const selectWallet = async (w) => {
     setSelected(w);
-    setMessage('');
+    setAlert(null);
     try {
       const [t, log] = await Promise.all([api.getTransactions(w.id), api.getCommandLog()]);
       setTxns(t.slice().reverse());
@@ -156,12 +154,12 @@ function WalletsTab() {
   };
 
   const runAction = async (action, fn, successMsg) => {
-    setBusy(true); setBusyAction(action); setMessage('');
+    setBusy(true); setBusyAction(action); setAlert(null);
     try {
       await fn();
-      setMessage(successMsg);
+      setAlert({ status: 'SUCCESS', text: successMsg });
     } catch (err) {
-      setMessage(`Error: ${err.message || 'action failed'}`);
+      setAlert({ status: 'ERROR', text: err.message || 'Action failed' });
     } finally { setBusy(false); setBusyAction(null); }
   };
 
@@ -191,7 +189,14 @@ function WalletsTab() {
       {loading ? (
         <div className="wal-empty">Loading wallets…</div>
       ) : (
-        <div className="wal-grid">
+        <>
+          {wallets.length > 0 && (
+            <div className="wal-hud">
+              <div className="wal-hud-tile"><div className="icon">👛</div><div className="num">{wallets.length}</div><div className="lbl">Wallets</div></div>
+              <div className="wal-hud-tile"><div className="icon">💰</div><div className="num">₹{Math.round(wallets.reduce((s, w) => s + w.balance, 0)).toLocaleString('en-IN')}</div><div className="lbl">Total Balance</div></div>
+            </div>
+          )}
+          <div className="wal-grid">
           {wallets.map(w => (
             <div
               key={w.id}
@@ -213,7 +218,8 @@ function WalletsTab() {
             </div>
           ))}
           {wallets.length === 0 && <div className="wal-empty">No wallets found</div>}
-        </div>
+          </div>
+        </>
       )}
 
       {selected && (
@@ -251,7 +257,12 @@ function WalletsTab() {
                 await refreshSelected(selected.id);
               }, 'Transfer complete')}>{busyAction === 'send' && spinner} 📤 Send</button>
             </div>
-            {message && <div className={message.startsWith('Error') ? 'wal-msg-err' : 'wal-msg-ok'}>{message}</div>}
+            {alert && (
+              <div className={`wal-alert ${alert.status}`}>
+                <span className="wal-alert-icon">{STATUS_ICON[alert.status]}</span>
+                <span className="wal-alert-text">{alert.text}</span>
+              </div>
+            )}
           </div>
 
           <div className="wal-form">
@@ -465,6 +476,26 @@ function SimulationTab() {
           </>
         )}
       </div>
+
+      {wallets.length > 2 && (
+        <div className="wal-form" style={{ marginTop: 0 }}>
+          <h4>Other Seeded Wallets (not this step's actors)</h4>
+          <div className="wal-grid" style={{ margin: 0 }}>
+            {wallets.slice(2).map(w => (
+              <div key={w.id} className="wal-card" style={{ cursor: 'default' }}>
+                <div className="wal-card-top">
+                  <div className="wal-avatar" style={{ background: avatarColor(w.id) }}>{initials(w.userName)}</div>
+                  <div>
+                    <h3>{w.userName}</h3>
+                    <div className="wal-id">@{w.userId} · #{w.id}</div>
+                  </div>
+                </div>
+                <div className="wal-balance">{money(w.balance)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {wallets.length > 0 && (
         <div className="wal-hud">
