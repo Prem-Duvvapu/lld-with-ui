@@ -5569,3 +5569,326 @@ cancellation armed against a job, a retry armed against an attempt) needs that t
 threaded through as an explicit parameter and re-checked inside the same lock acquisition that
 performs the mutation — never inferred from "whatever the current one happens to be" once the lock
 is finally acquired.
+
+## RCA-062: Blackjack's Table Actions Have an Unlocked Check-Then-Act Race
+
+**Overview & Severity** — High, **Open** (verified by the 2026-09-08 portfolio audit; no code
+change was made by that read-only pass). Concurrent actions against one blackjack table can make
+decisions from the same stale round status and then interleave mutations to the table's hands,
+status, and outcome. This is separate from the shared shoe's lock-free correctness.
+
+**Symptoms & Error Logs** — There is no deterministic production error log because the defect is
+schedule-dependent and the current blackjack test suite does not race two actions against the same
+table. Source inspection shows the same shape in all three action paths:
+
+- `doDeal` reads `BETTING`, then transitions and draws four cards without a table lock.
+- `doHit` reads `PLAYER_TURN`, then draws into the player hand and may settle the round without a
+  table lock.
+- `doStand` reads `PLAYER_TURN`, then advances the dealer, draws zero or more cards, and settles the
+  round without a table lock.
+
+A `hit` and `stand` that both observe `PLAYER_TURN` can therefore continue concurrently. Depending
+on ordering, the hit can mutate the player hand while stand is calculating the dealer outcome, or
+one transition can fail only after the other request has already changed part of the round. Two
+concurrent deals can likewise both pass the initial `BETTING` check before either transition is
+visible. `Shoe#draw()` still guarantees that no physical card is returned twice, but that narrower
+guarantee does not make the multi-field table action atomic.
+
+**Root Cause** — The module treated its shared shoe as the only concurrency boundary. The shoe's
+atomic cursor correctly protects card allocation across independent tables, but a table action is
+a larger transaction: validate the current round status, mutate one or both hands, perform one or
+more state transitions, and possibly set the outcome. `Table#status` and `outcome` being `volatile`
+provides visibility only; it does not make this check-then-act sequence indivisible. Neither
+`BlackjackService` nor `BlackjackRepository` owns a per-table `ReentrantLock`, and
+`Table#transitionTo` is not synchronized.
+
+**Diagnostic Commands**
+```bash
+rg -n "doDeal|doHit|doStand|tableLocks|ReentrantLock" \
+  backend/src/main/java/com/lld/blackjack backend/src/test/java/com/lld/blackjack
+sed -n '1,180p' backend/src/main/java/com/lld/blackjack/service/BlackjackService.java
+sed -n '1,120p' backend/src/main/java/com/lld/blackjack/model/Table.java
+```
+
+**Step-by-Step Resolution** — **Not yet applied.** Add a per-table fair `ReentrantLock`, keyed by
+table id and scoped to each repository/sandbox state. Acquire it before reading the table status
+and hold it through the final hand/status/outcome mutation in `doDeal`, `doHit`, and `doStand`.
+Keep the shared shoe lock-free so actions on different tables still contend only on its atomic
+draw cursor. Add latch-synchronized regression tests for deal-vs-deal, hit-vs-stand, and disjoint
+tables; assert one coherent outcome for a contested action and continued parallel progress for
+independent tables. Run the full backend suite before changing this RCA to `Resolved`.
+
+**Preventative Measures** — Document concurrency invariants at the aggregate boundary, not only
+at the lowest-level data structure. An atomic allocator protects allocation uniqueness; it does
+not automatically protect the business transaction that consumes several allocations and mutates
+related state. Every service operation with a read/validate/mutate sequence over an aggregate must
+identify the lock that covers the whole sequence, and every advertised concurrency centerpiece
+must have both same-aggregate contention tests and disjoint-aggregate progress tests.
+
+## RCA-063: Splitwise's Raw `RuntimeException`s Bypass the Shared Domain Error Contract
+
+**Overview & Severity** — High, **Open** (verified by the 2026-09-08 portfolio audit; not changed by
+that read-only pass). Splitwise is presented as a reference module, but expected user and business
+rule failures can escape as generic HTTP 500 responses rather than the repository-wide typed 4xx
+contract.
+
+**Symptoms & Error Logs** — `SplitwiseService` throws raw `RuntimeException` for missing users and
+groups in live and simulation paths. `EqualSplitStrategy`, `PercentageSplitStrategy`, and
+`ExactSplitStrategy` do the same for invalid split definitions and unresolved users. These
+exceptions do not match any handler in `GlobalExceptionHandler`, which deliberately handles only
+`DomainException`, `IllegalArgumentException`/`IllegalStateException`, and
+`NoSuchElementException`. Consequently an expected domain rejection such as adding an expense for
+an unknown user falls through to Spring's generic 500 path. The existing
+`DomainExceptionContractTest` cannot flag the module because Splitwise declares no
+`DomainException` subtype for the classpath scanner to find.
+
+**Root Cause** — Splitwise was hardened for locking, strategies, simulation isolation, and event
+logging without being migrated onto the shared exception architecture. The service and its
+strategies encoded domain meaning only in free-form exception messages. This created two blind
+spots: the global handler cannot choose a status from a concrete exception's `@ResponseStatus`,
+and the contract scan sees no Splitwise exception hierarchy whose annotations it could validate.
+The absence of local controller catches does not provide a fallback; it exposes the raw runtime
+failure as a server error.
+
+**Diagnostic Commands**
+```bash
+rg -n "throw new RuntimeException|throw new IllegalArgumentException" \
+  backend/src/main/java/com/lld/splitwise
+find backend/src/main/java/com/lld/splitwise -maxdepth 2 -type d | sort
+sed -n '20,125p' backend/src/main/java/com/lld/config/GlobalExceptionHandler.java
+mvn -f backend/pom.xml test -Dtest=com.lld.config.DomainExceptionContractTest
+```
+
+**Step-by-Step Resolution** — **Not yet applied.** Introduce an abstract
+`SplitwiseException extends DomainException`, then concrete, status-annotated exceptions for at
+least missing user (404), missing group (404), invalid split definition (400 or 422), and invalid
+settlement/expense requests (400). Replace raw runtime throws in both the service and every split
+strategy. Keep controllers as transport-only delegates and let `GlobalExceptionHandler` create
+`ErrorResponse`. Extend service and MockMvc coverage to pin the exception class, status, and body
+for live and `/sim/*` endpoints, then run the full backend suite and change this RCA to `Resolved`.
+
+**Preventative Measures** — Make the contract test assert that every backend module exposing REST
+endpoints either owns a module exception base or explicitly documents why it has no domain
+rejections. A scanner that validates only classes that already extend `DomainException` cannot
+detect an entirely missing hierarchy. Upgrade checklists should grep services and strategies for
+direct `RuntimeException` construction before a module is labeled reference quality.
+
+## RCA-064: The Reference Logging Module Has No Typed Domain-Exception Boundary
+
+**Overview & Severity** — Medium, **Open** (verified by the 2026-09-08 portfolio audit; no code
+change was made). The logging module is labeled reference quality but has no `exception` package
+or `DomainException` subclasses, so its public API cannot express module-specific failures through
+the shared error contract.
+
+**Symptoms & Error Logs** — Invalid enum strings in `LoggingController` currently become generic
+`IllegalArgumentException` responses, while unknown appender names in
+`LoggingService#toggleAppender` and `getAppenderLogs` silently behave as success/empty output.
+There is no `LoggingException` family carrying stable codes such as invalid log level, invalid
+formatter, or appender not found. Unlike Splitwise, the enum parsing cases happen to be mapped to
+HTTP 400 by the global handler's generic `IllegalArgumentException` branch; the defect is the loss
+of typed module semantics and inconsistent behavior, not a claim that every logging failure is
+currently a 500. `DomainExceptionContractTest` again remains green because there are no logging
+domain exceptions for it to inspect.
+
+**Root Cause** — The module's error behavior grew implicitly from Java enum parsing and sentinel
+return values instead of being designed as part of the facade contract. The shared error handler
+was able to make some malformed inputs look superficially acceptable as generic 400 responses,
+masking the fact that the reference module has no stable exception taxonomy and that other invalid
+operations are silently accepted.
+
+**Diagnostic Commands**
+```bash
+find backend/src/main/java/com/lld/logging -maxdepth 2 -type d | sort
+rg -n "valueOf|toggleAppender|getAppenderLogs|DomainException|RuntimeException" \
+  backend/src/main/java/com/lld/logging backend/src/test/java/com/lld/logging
+sed -n '1,170p' backend/src/main/java/com/lld/logging/controller/LoggingController.java
+sed -n '1,180p' backend/src/main/java/com/lld/logging/service/LoggingService.java
+```
+
+**Step-by-Step Resolution** — **Not yet applied.** Define an abstract
+`LoggingException extends DomainException` and concrete `@ResponseStatus` failures for invalid
+configuration values and unknown appenders. Parse and validate transport input through service
+methods (or typed request DTOs) so the controller does not leak `Enum.valueOf` as the module's
+error model. Replace silent unknown-appender success/empty responses with the chosen typed 404 or
+400 behavior. Add service and MockMvc tests for every rejection and update the contract scan so an
+entirely absent hierarchy cannot pass unnoticed. Run the full backend suite before marking this
+RCA resolved.
+
+**Preventative Measures** — Reference-module scoring must verify failure behavior, not merely the
+happy-path patterns and concurrency model. Generic framework exceptions and empty sentinel values
+are not substitutes for a documented domain contract. Add a portfolio check that compares REST
+modules against the set of module exception bases, with explicit exemptions reviewed rather than
+silently inferred.
+
+## RCA-065: Traffic Signal's Simulation Tab Bypasses Its Isolated Backend Engine
+
+**Overview & Severity** — High, **Open** (verified by the 2026-09-08 portfolio audit; no wiring was
+changed by that read-only pass). The frontend labels a tab as a simulation, but it reads and
+mutates the live traffic intersection while the backend's purpose-built `/sim/*` sandbox remains
+unused. Backend failures are also replaced with hardcoded state, making the demo look healthy when
+the API is unavailable.
+
+**Symptoms & Error Logs** — `AnimatedFlow` imports the same `getStatus`, `transition`, and
+`emergency` wrappers used by the operational tab. Those wrappers call `/traffic/status`,
+`/traffic/transition`, and `/traffic/emergency`, all live endpoints. The frontend API file exports
+no wrapper for `/traffic/sim/reset`, `/sim/tick`, `/sim/emergency`, `/sim/resume`,
+`/sim/manual-transition`, `/sim/events`, or `/sim/snapshot`, even though every endpoint exists in
+`TrafficController`. When status polling fails, `AnimatedFlow#fetchStatus` catches the error and
+installs a four-light mock object; transition and emergency errors are swallowed. A user can
+therefore see an apparently functioning scene that is detached from backend state, while a
+successful demo action modifies the real intersection.
+
+**Root Cause** — The isolated backend engine and the frontend animation were developed as
+independent improvements and never joined at their API boundary. The page reused legacy live API
+helpers because their response shape was already convenient, and a temporary mock fallback was
+left as permanent error handling. No integration or frontend test asserts that a simulation tab's
+requests stay under its module's `/sim/*` prefix.
+
+**Diagnostic Commands**
+```bash
+rg -n "getStatus|transition|emergency|/sim|Mock fallback|catch" \
+  frontend/src/lld/traffic-signal
+rg -n '@.*Mapping\("/sim' \
+  backend/src/main/java/com/lld/trafficsignal/controller/TrafficController.java
+rg -n "simReset|simTick|simEmergency|simResume|simManualTransition|getSimSnapshot" \
+  backend/src/main/java/com/lld/trafficsignal
+```
+
+**Step-by-Step Resolution** — **Not yet applied.** Add thin frontend wrappers for the existing sim
+endpoints, reset the sandbox when the walkthrough starts, drive each of at least eight explicit
+steps from backend responses, and render the returned snapshot/event telemetry as the HUD. Remove
+the mock-data fallback and surface a retryable error state. Keep the operational tab on live
+endpoints. Add frontend tests that spy on requests and prove the simulation uses only `/sim/*`,
+plus a backend isolation test proving a full simulated walkthrough leaves the live intersection
+unchanged. Run frontend tests/build and the backend suite before changing this RCA to `Resolved`.
+
+**Preventative Measures** — Treat endpoint namespace isolation as a testable contract. Every
+interactive simulation should have an API-layer test forbidding live endpoint calls and a service
+test comparing live state before and after the walkthrough. Mock fallbacks must be restricted to
+explicit storybook/demo fixtures; production pages should expose transport failure rather than
+silently substituting invented domain state.
+
+## RCA-066: Three Modules Overstate or Lack the Design Patterns Used at Runtime
+
+**Overview & Severity** — Medium, **Open** (verified by the 2026-09-08 portfolio audit; the
+read-only pass changed neither code nor documentation). Movie Ticket advertises an Observer whose
+subscriber list is always empty, Zomato documentation claims Observer and payment Strategy
+implementations that are absent, and Tic Tac Toe has no GoF pattern despite the portfolio rubric
+requiring one. These mismatches undermine the repository's purpose as an LLD reference.
+
+**Symptoms & Error Logs** — This is a silent architecture/documentation defect rather than a
+runtime exception:
+
+- Movie Ticket constructs and invokes `SeatMapNotifier`, but no production implementation of
+  `SeatAvailabilityObserver` exists and nothing calls `addObserver`. Every notification iterates
+  an empty list while README/design/diagram content presents live seat-availability observation as
+  implemented.
+- Zomato writes `Notification` records directly through `ZomatoService#sendNotification`; there is
+  no observer subject/subscriber contract. Its README summary says `Strategy (payment)`, but
+  payment is handled by a concrete processor rather than interchangeable payment strategies.
+  Zomato does have a real delivery-fee Strategy family, which does not make the payment-Strategy
+  claim accurate.
+- Tic Tac Toe has service, repository, model, and exception packages, but no pattern package or
+  interchangeable State/Command/Strategy/Observer implementation. Its guarded status enum and
+  undo history are useful design features, but neither alone is a GoF-pattern implementation.
+
+**Root Cause** — Pattern names were accepted from intent, interface shape, or nearby behavior
+without tracing a complete runtime path. A subject with no concrete subscriber was counted as
+Observer; direct notification persistence was labeled Observer; a concrete payment helper was
+labeled Strategy; and ordinary state/history structures were allowed to imply a named pattern.
+Documentation review checked vocabulary rather than construction, registration, injection, and
+invocation evidence.
+
+**Diagnostic Commands**
+```bash
+rg -n "SeatAvailabilityObserver|SeatMapNotifier|addObserver" \
+  backend/src/main/java/com/lld/movieticket README.md frontend/src/data/{design,diagrams}/movieticket.js
+rg -n "Observer|Notification|PaymentProcessor|Payment.*Strategy|DeliveryFeeStrategy" \
+  backend/src/main/java/com/lld/zomato README.md frontend/src/data/{design,diagrams}/zomato.js
+find backend/src/main/java/com/lld/tictactoe -maxdepth 2 -type d | sort
+rg -n "Pattern|Strategy|Observer|Command|State" \
+  backend/src/main/java/com/lld/tictactoe frontend/src/data/{design,diagrams}/tictactoe.js README.md
+```
+
+**Step-by-Step Resolution** — **Not yet applied.** Resolve each claim deliberately rather than by
+renaming existing code. For Movie Ticket, either add real independently useful observers,
+constructor-register them, expose/test their effects, and isolate sim telemetry, or remove the
+dead notifier and all Observer claims. For Zomato, correct the README to identify the existing
+delivery-fee Strategy and remove Observer/payment-Strategy claims unless real implementations are
+added and wired. For Tic Tac Toe, introduce a pattern only where it improves the model (for
+example Command objects that own execute/undo for moves) and test runtime selection/behavior; do
+not add a one-implementation interface solely to satisfy scoring. Re-run content-to-code audits
+and full suites, then update the entries and this RCA to `Resolved`.
+
+**Preventative Measures** — A pattern claim must include four pieces of evidence: the abstraction,
+at least two meaningful implementations where polymorphism is claimed, production wiring, and a
+test proving runtime behavior. Content audits should trace every diagram edge and pattern bullet
+to those artifacts. The portfolio rubric should score a missing pattern honestly instead of
+rewarding decorative interfaces or pattern terminology.
+
+## RCA-067: Digital Wallet Locked Every Balance Write but Read the Same Plain `double` Without the Lock
+
+**Overview & Severity** — High, **Resolved** (2026-09-08). Digital Wallet correctly serialized
+credits, debits, and transfers with per-wallet `ReentrantLock`s, but its read APIs bypassed those
+locks. A completed write therefore had no Java Memory Model happens-before relationship with a
+concurrent balance reader, and multi-wallet snapshots could observe only one side of a transfer.
+
+**Symptoms & Error Logs** — There was no deterministic exception or log. The flaw was identified
+by reviewing `GET /api/wallet/{walletId}/balance`: `WalletService#getBalance` retrieved a mutable
+`Wallet` from `ConcurrentHashMap` and immediately read its plain `double balance`, while every
+command wrote that field under a wallet lock. The same unsafe shape existed in `getWallet`,
+`getAllWallets`, `WalletRepository#totalBalance`, sim snapshots, and the response assembly after a
+command released its lock. On common 64-bit JVMs a single `double` read is normally physically
+atomic, but that does not provide freshness or a happens-before edge; Java code still had a data
+race. The map protected its own structure and reference publication, not later field mutations in
+the stored object.
+
+The aggregate case was more severe than a merely stale value. `TransferCommand` deliberately
+updates the sender and recipient as two field assignments while holding both locks. An unlocked
+`totalBalance`/wallet-list traversal could run between those assignments and temporarily report
+that money had disappeared (or appeared for the reverse assignment order), even though the
+transfer itself was correctly atomic to other writers.
+
+**Root Cause** — The locking design was reviewed only from the mutation side. Its documentation
+said balance was "only ever mutated" under a per-wallet lock, but did not state that every reader
+of a non-volatile lock-guarded field must acquire the same lock. `ConcurrentHashMap` was
+incorrectly allowed to imply safety for the mutable `Wallet` values it contained. Returning those
+live objects introduced a second boundary error: even if the service had locked while returning a
+wallet, Jackson would read it later, after the method released the lock, so serialization could
+still race the next mutation.
+
+**Diagnostic Commands**
+```bash
+rg -n "getBalance|getWallet|getAllWallets|totalBalance|setBalance|ReentrantLock" \
+  backend/src/main/java/com/lld/digitalwallet backend/src/test/java/com/lld/digitalwallet
+sed -n '1,150p' backend/src/main/java/com/lld/digitalwallet/service/WalletService.java
+sed -n '1,120p' backend/src/main/java/com/lld/digitalwallet/model/Wallet.java
+mvn test -Dtest=WalletServiceTest,WalletCommandTest,WalletRepositoryTest,WalletConcurrencyTest
+```
+
+**Step-by-Step Resolution** — Added shared read helpers in `WalletService`. A single balance or
+wallet read acquires that id's writer lock; all-wallet and sim snapshots obtain every relevant lock
+in ascending wallet-id order, copy every field into detached `Wallet` values, then unlock in
+reverse. This matches `TransferCommand`'s canonical ordering, so snapshot reads cannot introduce a
+deadlock and cannot linearize between the sender debit and recipient credit. `createWallet` now
+publishes and copies the new wallet while holding its future mutation lock.
+
+Removed `WalletRepository#getAllWallets` and `totalBalance`, because the repository does not own
+the locks needed to implement either safely; it now exposes only sorted wallet ids for the
+service's locked snapshot traversal. `CreditCommand`, `DebitCommand`, and `TransferCommand` capture
+their resulting balance(s) while still inside the locked mutation and expose those captured values
+to response/event assembly, eliminating the unlocked post-command rereads. `getSimSnapshot` is
+also synchronized and returns detached locked snapshots.
+
+Added two deterministic regression tests with a `PausingWallet`: one pauses a credit after its
+field write but before it releases the wallet lock and proves `getBalance` cannot return; the other
+pauses a transfer after the sender debit and proves `getAllWallets` cannot expose the half-transfer.
+A service test also proves mutating a returned wallet/snapshot cannot alter repository state. The
+four Digital Wallet test classes pass: 44 tests, zero failures.
+
+**Preventative Measures** — Every field guarded by a lock must document both sides of the
+protocol: all writes *and reads* use that lock. Thread-safe collections protect collection
+operations, not arbitrary mutations of stored values. APIs must return immutable DTOs or detached
+snapshots when serialization happens after a lock is released. Multi-aggregate reads must acquire
+the same locks in the same global order as multi-aggregate writes, and concurrency suites should
+pause a writer inside its critical section to prove readers cannot observe intermediate state.
