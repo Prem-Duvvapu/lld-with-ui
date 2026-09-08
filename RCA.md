@@ -5390,3 +5390,65 @@ former. Separately: any test or demo that tallies "did MY operation succeed" by 
 mutable state after the fact (a log's last entry, a global counter's current value) rather than
 using that operation's own return value is racy by construction the moment more than one thread can
 touch that shared state — prefer threading the outcome back through the call itself.
+
+## RCA-059: New `com.lld.payment.strategy.PaymentProcessor` Collided With an Existing `com.lld.concertticket.service.PaymentProcessor` Bean Name, Failing the Entire Spring `ApplicationContext` for Every `@SpringBootTest` in the Repo
+
+**Overview & Severity** — High (would have failed every `@SpringBootTest`-based integration test
+across the *entire* portfolio, in *every* module, not just the new one — caught during initial
+development of the `payment` module, before ever shipping). Logged per `ROADMAP.md`'s own
+instruction to record a real bug found while building a new module, even one caught pre-ship.
+
+**Symptoms & Error Logs** — Running the new module's own test package in isolation
+(`mvn test -Dtest='com.lld.payment.**'`) passed cleanly (plain JUnit tests, no Spring context
+involved). Running the *full* suite (`mvn test`, no `-Dtest` filter) failed dozens of unrelated
+tests across unrelated modules — `MeetingSchedulerControllerIntegrationTest` among them — each
+with `IllegalStateException: Failed to load ApplicationContext`:
+```
+Caused by: org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse
+configuration class [com.lld.LldApplication]
+Caused by: org.springframework.context.annotation.ConflictingBeanDefinitionException:
+Annotation-specified bean name 'paymentProcessor' for bean class
+[com.lld.payment.strategy.PaymentProcessor] conflicts with existing, non-compatible bean
+definition of same name and class [com.lld.concertticket.service.PaymentProcessor]
+```
+The failure surfaced on a module that has nothing to do with either `payment` or `concertticket` —
+a strong, generalizable signal: an `ApplicationContext` load failure appearing on an *unrelated*
+module almost always means the context itself can't boot at all (a bean-definition conflict, a
+missing `@Autowired`, etc.), not a bug in the module the failing test belongs to.
+
+**Root Cause** — `@Component`/`@Service`/`@Repository` beans are registered under Spring's default
+name — the class's simple name with a lowercased first letter — unless given an explicit
+`@Component("someName")`. `com.lld.concertticket.service.PaymentProcessor` already existed and
+registered as bean name `paymentProcessor`; the new `com.lld.payment.strategy.PaymentProcessor`
+picked the identical default name. Spring's component scan is package-qualified for resolving
+*which* classes to instantiate, but the bean *name* registry is flat across the whole
+`ApplicationContext` — two unrelated classes in different packages choosing the same simple name
+collide the instant both are on the classpath, and `LldApplication` boots all 45 module packages
+into one shared context (per `CLAUDE.md`'s own architecture description), so any two modules can
+silently collide on a common noun like "PaymentProcessor," "Repository," "Service," or
+"Notifier" the moment both exist.
+
+**Diagnostic Commands**
+```bash
+# Full suite, not a module-scoped -Dtest filter -- this class of bug is invisible otherwise,
+# per ROADMAP.md's own gotcha #7 ("run the FULL backend suite before opening a PR").
+mvn test 2>&1 | grep -n "Caused by"
+# The ConflictingBeanDefinitionException names both colliding classes directly.
+grep -rn "class PaymentProcessor" backend/src/main/java
+```
+
+**Step-by-Step Resolution** — Renamed the new class (file, references, and its own test file/class
+name) from `PaymentProcessor` to `PaymentGatewayProcessor` throughout
+`com.lld.payment.strategy`/`com.lld.payment.service`/`com.lld.payment` tests. Left
+`com.lld.concertticket.service.PaymentProcessor` untouched — it was there first and nothing about
+it is wrong; the new module's own class was the one with a real, available, more specific name.
+
+**Preventative Measures** — Before naming a new module's Spring bean class something generic
+("Processor," "Manager," "Handler," "Service," "Repository" combined with a common domain noun),
+grep the *whole* backend tree for that exact class name, not just the new module's own package —
+`grep -rn "class <Name>" backend/src/main/java` costs one command and catches this before it ever
+reaches `mvn test`. This is a direct instance of `ROADMAP.md` gotcha #7's broader point ("run the
+full backend suite before opening a PR, not just the new package") — module-scoped test runs are
+structurally blind to this entire class of cross-module collision, since a single Spring
+`ApplicationContext` shared by 45+ module packages is exactly the kind of shared global namespace
+where two independently-developed modules can innocently choose the same default bean name.
