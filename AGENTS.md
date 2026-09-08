@@ -1843,6 +1843,58 @@ Package `com.lld.coupon`.
   apply showing which eligibility condition failed, a live 8-worker race against the scarce
   coupon, and a final telemetry review.
 
+## Blackjack / Deck of Cards Module
+Brand-new module (portfolio position #59, ROADMAP.md Tier 3, next after Coupon/Promotion
+Engine). Package `com.lld.blackjack`.
+
+### Backend
+- `com.lld.blackjack`: `controller / service / model / shoe / strategy / repository /
+  exception` packages.
+- **Lock-free shared-shoe draw — this module's centerpiece**: `Shoe#draw` is a single atomic
+  `AtomicInteger#getAndIncrement` into a pre-shuffled, fixed-size, immutable `Card[]` array —
+  genuinely lock-free, a deliberate departure from every other race-closing mechanism in this
+  repo (per-entity `ReentrantLock` in locker/payment/webcrawler/cachelibrary/coupon,
+  `ConcurrentHashMap#compute` in kvstore). The array is fully known upfront at shuffle time, so
+  there is nothing to retry — a bare atomic increment is both the simplest and fastest correct
+  implementation. `BlackjackConcurrencyTest` proves it: a 300-round repeated test where 16
+  threads fully drain a 52-card shoe (every card dealt to exactly one thread, none ever
+  duplicated, the shoe ending exactly drained), plus a 200-round "more racers than cards" test
+  with 30 threads racing a 10-card shoe.
+- **Factory**: `Deck.of(deckCount)` — a static factory method, not a Spring-managed bean, since
+  a shoe is built on demand (table-group creation, or `/sim/reset`) rather than resolved
+  repeatedly from a shared singleton.
+- **Strategy**: `HitOnSoft17Strategy` / `StandOnSoft17Strategy`, resolved by
+  `DealerStrategyFactory` via an `EnumMap` — the same shape as
+  `locker.strategy.LockerAllocationStrategyFactory`. The two only diverge on a soft 17 (e.g.
+  Ace+6), which is exactly what `DealerStrategyTest` proves.
+- **State machine**: `RoundStatus` declares its own legal-next-states (`BETTING → DEALING →
+  PLAYER_TURN → DEALER_TURN → SETTLEMENT`, terminal at `SETTLEMENT`), the same idiom as
+  `uber.model.RideStatus`. A natural blackjack on the deal still walks every state in order —
+  it just doesn't wait for player input in between.
+- `Hand#getValue()` and `Hand#isSoft()` derive from one shared Ace-downgrade computation (a
+  private record holding both results), so the two dealer strategies can never disagree about
+  whether a 17 is soft.
+- `Card` is an immutable Lombok `@Value` — two cards with the same rank and suit are equal,
+  which is exactly what the concurrency test relies on to detect a duplicate deal.
+- Exception hierarchy: `BlackjackException` (abstract — like
+  `coupon.exception.CouponException`, so it never needs `DomainExceptionContractTest`'s
+  `BASES` allowlist) with `TableNotFoundException` (404 — shares its simple name with
+  `restaurant.exception.TableNotFoundException`, harmless since exceptions are plain classes,
+  not Spring beans), `InvalidActionException` (400), `ShoeExhaustedException` (409 — the
+  well-formed request simply lost the race for the last cards).
+- Isolated `/api/blackjack/sim/*` engine: a second `BlackjackRepository` instance with its own
+  deliberately scarce single-deck (52-card) shoe, so the race demo has real exhaustion to show.
+- Tests (7 files): `BlackjackServiceTest`, `BlackjackConcurrencyTest` (the load-bearing suite
+  above), `HandTest`, `RoundStatusTest`, `DealerStrategyTest`, `ShoeTest`,
+  `BlackjackRepositoryTest`.
+
+### Frontend
+- 5 tabs: Tables, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design Details —
+  built on the shared `LldPage` shell from the start.
+- Simulation tab: 6-step guided demo — reset to a fresh single-deck shoe, create a table and
+  deal, hit-then-stand (or skip if the deal already settled on a natural blackjack), a live
+  15-table race against the near-exhausted shared shoe, and a final telemetry review.
+
 ## Running
 ```bash
 cd backend && mvn package && java -jar target/lld-all-0.0.1-SNAPSHOT.jar   # port 59190 (or $BACKEND_PORT)
@@ -1854,8 +1906,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2192 tests, 261 classes
-cd frontend && npx vitest run # 382 tests, 3 files
+cd backend && mvn test        # 2225 tests, 268 classes
+cd frontend && npx vitest run # 388 tests, 3 files
 ```
 
 ### Cross-cutting suites — keep these green

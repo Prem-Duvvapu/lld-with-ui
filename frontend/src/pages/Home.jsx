@@ -135,7 +135,9 @@ const ALL_LLDS = [
   { title: 'Key-Value Store', icon: '🗃️', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'A toy Redis-shaped store — Command-pattern write-ahead log for durability, versioned entries, and a fully lock-free compare-and-swap race' },
   { title: 'Coupon / Promotion Engine', icon: '🏷️', difficulty: 'Medium', category: 'Real-world',
-    desc: 'Percentage/flat/BOGO discount strategies, a Chain-of-Responsibility eligibility check, and a race-free per-coupon redemption limit' }
+    desc: 'Percentage/flat/BOGO discount strategies, a Chain-of-Responsibility eligibility check, and a race-free per-coupon redemption limit' },
+  { title: 'Blackjack / Deck of Cards', icon: '🃏', difficulty: 'Medium', category: 'Real-world',
+    desc: 'A real game loop over a Factory-shuffled shoe — Strategy dealer house rules, a declared round state machine, and a lock-free shared-shoe draw across tables' }
 ]
 
 const routeMap = {
@@ -172,6 +174,7 @@ const routeMap = {
   'Generic Cache Library': 'cachelibrary',
   'Key-Value Store': 'kvstore',
   'Coupon / Promotion Engine': 'coupon',
+  'Blackjack / Deck of Cards': 'blackjack',
 }
 
 export default function Home() {

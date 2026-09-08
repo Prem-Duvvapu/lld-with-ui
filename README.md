@@ -1,6 +1,6 @@
 # Low-Level Design with UI
 
-SDE-2 interview preparation portfolio (2+ years experience). **58 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
+SDE-2 interview preparation portfolio (2+ years experience). **59 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
 
@@ -66,6 +66,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **58 LLD projects**
 | 56 | [Generic Cache Library](#56-generic-cache-library) | Pluggable Cache<K,V> library | Builder (CacheBuilder), Strategy (eviction policy), Decorator (stats), segment/shard-locked concurrency |
 | 57 | [Key-Value Store](#57-key-value-store) | Toy Redis-shaped KV store | Command (write-ahead log), Template Method (read path), fully lock-free compare-and-swap |
 | 58 | [Coupon / Promotion Engine](#58-coupon--promotion-engine) | Cart discount application | Strategy (percentage/flat/BOGO discount), Chain of Responsibility (eligibility), race-free redemption limit |
+| 59 | [Blackjack / Deck of Cards](#59-blackjack--deck-of-cards) | Real blackjack game loop | Factory (shuffled Shoe), Strategy (dealer house rules), State Machine (round lifecycle), lock-free shared-shoe draw |
 
 ---
 
@@ -87,7 +88,7 @@ lld-with-ui/
 │       ├── stackoverflow/  stockbroker/  taskmanagement/  tictactoe/
 │       ├── trafficsignal/  uber/  vendingmachine/  zomato/  ...
 │       └── concurrency/         ← 9 primitive sub-packages (blockingqueue, bloomfilter, ...)
-│                                   (50 backend module packages -> 58 LLD problems total)
+│                                   (51 backend module packages -> 59 LLD problems total)
 │
 │   Each module follows the same layering:
 │       controller/ · service/ · model/ · repository/ · exception/
@@ -207,8 +208,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2192 tests across 261 classes
-cd frontend && npx vitest run  # 382 tests across 3 files
+cd backend  && mvn test        # 2225 tests across 268 classes
+cd frontend && npx vitest run  # 388 tests across 3 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -1601,6 +1602,34 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - `POST /api/coupon/sim/{code}/race`
 - `GET /api/coupon/sim/events`
 - `GET /api/coupon/sim/snapshot`
+
+---
+
+### 59. Blackjack / Deck of Cards
+
+#### Key Features
+- **Lock-Free Shared-Shoe Draw (this module's centerpiece)**: multiple tables share ONE physical `Shoe` — the same way real casinos run several tables off one continuous shuffle. `Shoe#draw` is a single atomic `AtomicInteger#getAndIncrement` into a pre-shuffled, fixed-size, immutable card array — genuinely lock-free, unlike every other race-closing mechanism in this repo. Proven with a 300-round repeated test where 16 threads fully drain a 52-card shoe (every card dealt exactly once, never duplicated, never over-drawn) plus a 200-round "more racers than cards" test.
+- **Correct Soft/Hard Ace Handling**: an Ace counts as 11 unless that would bust the hand, in which case it downgrades to 1 — a hand can hold multiple Aces, only as many as needed ever downgrade.
+- **Factory-Built Shoe**: `Deck.of(deckCount)` shuffles N standard 52-card decks into one flat `Shoe`.
+- **Strategy-Based Dealer Play**: `HitOnSoft17Strategy` vs `StandOnSoft17Strategy` — genuinely different house rules on the one hand that distinguishes them, a soft 17.
+- **Declared Round State Machine**: `BETTING → DEALING → PLAYER_TURN → DEALER_TURN → SETTLEMENT`, the same declared-transition-table idiom as Uber's `RideStatus`.
+- **Isolated Simulation**: a 6-step interactive walkthrough — play one table by hand, then race 15 tables against a deliberately near-exhausted shared shoe.
+
+#### API Endpoints
+- `POST /api/blackjack/tables`
+- `GET /api/blackjack/tables`
+- `GET /api/blackjack/{tableId}`
+- `POST /api/blackjack/{tableId}/deal`
+- `POST /api/blackjack/{tableId}/hit`
+- `POST /api/blackjack/{tableId}/stand`
+- `POST /api/blackjack/sim/reset`
+- `POST /api/blackjack/sim/tables`
+- `POST /api/blackjack/sim/{tableId}/deal`
+- `POST /api/blackjack/sim/{tableId}/hit`
+- `POST /api/blackjack/sim/{tableId}/stand`
+- `POST /api/blackjack/sim/race`
+- `GET /api/blackjack/sim/events`
+- `GET /api/blackjack/sim/snapshot`
 
 ---
 
