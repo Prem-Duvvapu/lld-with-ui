@@ -10,6 +10,7 @@ export default {
     'Factory Pattern: Deck.of(deckCount) shuffles deckCount standard 52-card decks into one flat Shoe.',
     'Strategy Pattern for dealer house rules: HitOnSoft17Strategy vs StandOnSoft17Strategy — genuinely different behavior on the one hand that distinguishes them, a soft 17 (e.g. Ace+6).',
     'The centerpiece: multiple simultaneous tables share ONE physical Shoe, mirroring how real casinos run several tables off one continuous shuffle. Two tables must never draw the same physical card, and the shoe must never be over-drawn past its own size.',
+    'Each deal, hit, or stand is atomic per table: a fair ReentrantLock keyed by table id covers status validation through the final hand/status/outcome mutation, while unrelated tables retain parallel progress.',
     'Isolated Concurrency Simulation: an isolated /api/blackjack/sim/* sandbox (a second BlackjackRepository instance, with its own shoe) with a live 15-table race against a deliberately near-exhausted shared shoe.',
   ],
   entities: [
@@ -43,7 +44,7 @@ export default {
     },
     {
       name: 'Table',
-      description: 'One table\'s round, playing against the SHARED Shoe. status is mutated only through transitionTo(), the one place its lifecycle can move — the same single-enforcement-point idiom as locker.model.Locker#transitionTo.',
+      description: 'One table\'s round, playing against the SHARED Shoe. status is mutated only through transitionTo(), while BlackjackService holds this table\'s fair lock across every complete action.',
       fields: [],
       methods: [],
     },
@@ -82,13 +83,15 @@ export default {
   ],
   tradeoffs: [
     'Shoe#draw is deliberately built on AtomicInteger#getAndIncrement rather than a CAS retry loop or a ReentrantLock — the backing array is fixed-size and fully known upfront at shuffle time, so there is nothing to retry and nothing that benefits from a lock: a single atomic increment is both the simplest and the fastest correct implementation.',
+    'Table actions deliberately use a different concurrency primitive from Shoe#draw: a multi-field read/validate/mutate transaction needs a per-table ReentrantLock. One global lock would be simpler but would unnecessarily serialize unrelated tables.',
     'A table\'s dealerStrategyType is fixed at table-creation time rather than swappable mid-round — real casino house rules don\'t change between hands either, so this matches the domain rather than being an arbitrary limitation.',
     'RoundStatus has no path back to BETTING — this simplified model treats a settled table as done; a real app would spawn a fresh Round on the same Table for the next hand rather than reusing a terminal one, which this module deliberately leaves out to keep the state machine\'s terminal-state guarantee simple and provable.',
   ],
-  summary: 'A blackjack game loop whose centerpiece is proving that multiple tables sharing one physical shoe never step on each other: Shoe#draw is a single atomic AtomicInteger#getAndIncrement into a pre-shuffled, fixed-size, immutable card array — genuinely lock-free, since the array is fully known upfront and there is nothing to retry. Deck.of(deckCount) is the Factory that builds that shared shoe; DealerStrategy (Strategy Pattern) gives each table its own house rule for whether the dealer hits a soft 17; RoundStatus (a declared transition table, the same idiom as uber.model.RideStatus) enforces the BETTING -> DEALING -> PLAYER_TURN -> DEALER_TURN -> SETTLEMENT lifecycle as one single enforcement point.',
+  summary: 'A blackjack game loop with two deliberately different concurrency boundaries: Shoe#draw uses one atomic AtomicInteger#getAndIncrement so different tables never receive the same physical card, while a fair per-table ReentrantLock makes each deal/hit/stand transaction atomic. Deck.of(deckCount) builds the shared shoe; DealerStrategy gives each table its house rule for soft 17; RoundStatus enforces the BETTING -> DEALING -> PLAYER_TURN -> DEALER_TURN -> SETTLEMENT lifecycle.',
   highlights: [
     'The shared-shoe race proven directly: a 300-round repeated test has 16 threads race to fully drain a 52-card shoe, asserting every one of the 52 cards is dealt to exactly one thread, none is ever duplicated, and the shoe ends fully drained — never over-drawn.',
     'A second, harder test proves the "more racers than cards" case is handled cleanly: 30 threads racing a 10-card shoe across 200 rounds, asserting exactly 10 succeed and the other 20 cleanly receive ShoeExhaustedException, never a duplicate or a null card.',
+    'Three latch-controlled aggregate tests pause one action inside the table lock: a competing deal and a competing stand cannot pass stale status checks, while an action on a different table completes without waiting.',
     'Soft/hard Ace math independently verified: HandTest proves a hand with two Aces correctly downgrades only ONE of them (11+11=22 busts, so exactly one becomes 1, giving 12) — a genuinely easy-to-get-wrong edge case that would otherwise silently corrupt every DealerStrategy decision built on top of it.',
   ],
 };

@@ -73,7 +73,7 @@ against source code rather than documentation claims.
 
 ## Flagged loudly — real bugs, not style nits
 
-These findings are tracked as open incidents in `RCA.md`: Blackjack's table-action race
+These findings were recorded as open incidents in `RCA.md`: Blackjack's table-action race
 ([RCA-062](RCA.md#rca-062-blackjacks-table-actions-have-an-unlocked-check-then-act-race)),
 Splitwise's untyped domain failures
 ([RCA-063](RCA.md#rca-063-splitwises-raw-runtimeexceptions-bypass-the-shared-domain-error-contract)),
@@ -83,14 +83,14 @@ Traffic Signal's live-state simulation wiring
 ([RCA-065](RCA.md#rca-065-traffic-signals-simulation-tab-bypasses-its-isolated-backend-engine)),
 and the three pattern-claim mismatches
 ([RCA-066](RCA.md#rca-066-three-modules-overstate-or-lack-the-design-patterns-used-at-runtime)).
-They remain open because this audit was read-only; the RCA entries record verified causes and
-required resolution work without claiming that production code has already changed.
+The audit itself was read-only. Post-audit remediation status as of 2026-09-09: RCA-062 is now
+resolved with per-table action locks and deterministic concurrency tests; RCA-063 through RCA-066
+remain open. RCA-067, found during the follow-up Digital Wallet review, is also resolved.
 
-1. **Blackjack: unlocked check-then-act race.** `doDeal`/`doHit`/`doStand` in `BlackjackService`
-   read `table.getStatus()` then mutate with no lock at all — only the shoe draw is protected
-   (a lock-free `AtomicInteger`, by design). Verified directly against source. Two concurrent
-   `hit`/`stand` calls on the same table can race, in a module whose entire premise is
-   concurrency correctness.
+1. **Blackjack: unlocked check-then-act race (resolved 2026-09-09, RCA-062).** The audited code
+   read `table.getStatus()` then mutated with no aggregate lock. `BlackjackService` now holds a
+   fair per-table lock across each complete action while retaining the shared shoe's lock-free
+   `AtomicInteger` cursor for cross-table card allocation.
 2. **Splitwise (reference module): no exception hierarchy exists.** Raw `RuntimeException`
    thrown throughout `SplitwiseService`, never caught by `GlobalExceptionHandler`, falls through
    to a generic Spring 500 instead of the module's own error contract.
@@ -105,8 +105,9 @@ required resolution work without claiming that production code has already chang
 
 ## Three highest-value fixes, ranked
 
-1. **Blackjack's table-status race** — a silent correctness bug, not a nit. Add a per-table
-   `ReentrantLock` around the check-and-mutate span in `doDeal`/`doHit`/`doStand`.
+1. **Blackjack's table-status race (completed 2026-09-09)** — fixed with fair per-table
+   `ReentrantLock`s around the check-and-mutate span in `doDeal`/`doHit`/`doStand` and three
+   latch-controlled regression tests.
 2. **Splitwise + Logging's missing exception hierarchies** — both are the portfolio's own stated
    quality bar; right now they don't meet their own standard.
 3. **TrafficSignal's dead sim engine** — wire the frontend to the `/sim/*` endpoints that already

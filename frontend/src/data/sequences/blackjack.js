@@ -3,12 +3,13 @@
 // BlackjackConcurrencyTest#repeatedFullShoeDrainRaceNeverDuplicatesOrOverdraws: many threads
 // (representing many tables) racing to draw from one physical shoe until it is exhausted. A
 // class diagram shows Shoe owns a cursor and an array; it does not show why a single
-// AtomicInteger#getAndIncrement, with NO lock anywhere, is enough to guarantee two threads never
-// receive the same array index.
+// AtomicInteger#getAndIncrement, with no lock inside Shoe, is enough to guarantee two threads
+// never receive the same array index. BlackjackService still uses a distinct lock per table for
+// the larger status/hand/outcome transaction; those locks never serialize different tables.
 export default {
   title: 'Blackjack / Deck of Cards — Multiple Tables Racing One Shared Shoe',
   description:
-    'Two tables both call shoe.draw() at nearly the same instant. AtomicInteger#getAndIncrement is a single hardware-level atomic read-modify-write: whichever call actually executes first on the CPU gets index N and the counter becomes N+1 as one indivisible step; the second call can only ever see the counter AFTER that increment, so it gets N+1, never N again. No ReentrantLock, no synchronized block, and no CAS retry loop are needed — the operation is atomic by construction, which is exactly why this module is the one place in the repo that closes a shared-resource race with a bare AtomicInteger rather than a lock.',
+    'Two different tables both call shoe.draw() at nearly the same instant. Each service action holds only its own table\'s fair lock, so the calls still reach the shared shoe concurrently. AtomicInteger#getAndIncrement is one atomic read-modify-write: whichever draw executes first gets index N and advances the counter to N+1; the other draw can only get N+1, never N again. Shoe itself needs no ReentrantLock, synchronized block, or CAS retry loop.',
   flows: [
     {
       id: 'shared-shoe-draw-race',
@@ -24,12 +25,12 @@ export default {
       ],
       steps: [
         { type: 'note', over: ['shoe'], text: 'cursor=48 -- 4 cards remain before this shoe is exhausted.' },
-        { from: 'tableA', to: 'service', text: 'deal()  — draws card 1 of 4' },
-        { from: 'tableB', to: 'service', text: 'deal()  — draws card 1 of 4, ~simultaneously' },
+        { from: 'tableA', to: 'service', text: 'deal() — acquire Table A lock, draw card 1 of 4' },
+        { from: 'tableB', to: 'service', text: 'deal() — acquire distinct Table B lock, ~simultaneously' },
         { from: 'service', to: 'shoe', text: '[A] draw()' },
         { from: 'shoe', to: 'cursor', text: '[A] cursor.getAndIncrement()  -- atomically returns 48, cursor becomes 49' },
         { from: 'shoe', to: 'service', text: '[A] return cards[48]', type: 'return' },
-        { from: 'service', to: 'shoe', text: '[B] draw()  — genuinely concurrent with A, no lock acquired by either' },
+        { from: 'service', to: 'shoe', text: '[B] draw() — concurrent with A because the table locks are independent' },
         { from: 'shoe', to: 'cursor', text: '[B] cursor.getAndIncrement()  -- the hardware guarantees this sees cursor AFTER A\'s increment: returns 49, cursor becomes 50' },
         { from: 'shoe', to: 'service', text: '[B] return cards[49]', type: 'return' },
         { type: 'note', over: ['cursor'], text: 'This is the guarantee a naive "check index, then read, then increment" (three separate steps) would break: two threads could both read cursor=48 before either increments, both returning cards[48].' },

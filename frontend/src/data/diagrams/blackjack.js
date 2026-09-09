@@ -8,7 +8,12 @@ export default {
     {
       name: 'BlackjackService',
       stereotype: 'service',
-      fields: ['- repository: BlackjackRepository', '- dealerStrategyFactory: DealerStrategyFactory'],
+      fields: [
+        '- repository: BlackjackRepository',
+        '- dealerStrategyFactory: DealerStrategyFactory',
+        '- tableLocks: ConcurrentMap<String, ReentrantLock>',
+        '- simTableLocks: ConcurrentMap<String, ReentrantLock>',
+      ],
       methods: [
         '+ createTable(dealerStrategyType): Table',
         '+ deal(tableId): Table',
@@ -112,6 +117,7 @@ export default {
   ],
   relationships: [
     { from: 'BlackjackService', to: 'BlackjackRepository', label: 'reads/writes' },
+    { from: 'BlackjackService', to: 'Table', label: 'serializes each action with a fair per-table lock' },
     { from: 'BlackjackService', to: 'DealerStrategyFactory', label: 'resolves dealer play via' },
     { from: 'BlackjackRepository', to: 'Table', label: 'stores' },
     { from: 'BlackjackRepository', to: 'Shoe', label: 'holds the ONE shared instance of' },
