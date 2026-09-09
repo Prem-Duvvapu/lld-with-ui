@@ -156,6 +156,38 @@ automatically; pass a full `VITE_BACKEND_URL` instead if the backend lives on an
 
 ---
 
+## Deployment (free tier)
+
+Both halves already ship with a production `Dockerfile` (`backend/Dockerfile`,
+`frontend/Dockerfile`) — deploying is wiring, not new code. This project is entirely in-memory
+with no database, so there's no persistence layer to provision anywhere.
+
+**Backend → [Render](https://render.com) free Web Service**
+1. Push this repo to your own GitHub account (fork or your own remote).
+2. On Render: **New → Blueprint**, connect the repo. Render reads `render.yaml` at the repo root
+   and creates a free Docker web service from `backend/Dockerfile` automatically.
+   *(No Blueprint support on your plan? New → Web Service → same repo → Runtime: Docker →
+   Dockerfile path `backend/Dockerfile` → Plan: Free.)*
+3. Deploy. Render assigns a public URL like `https://lld-backend-xxxx.onrender.com` — copy it.
+   The backend already reads Render's injected `PORT` env var (`application.properties`), so no
+   config is needed there.
+
+**Frontend → [Vercel](https://vercel.com) free tier**
+1. New Project → import the same repo → set **Root Directory** to `frontend`.
+2. Before deploying, edit `frontend/vercel.json` and replace every
+   `https://lld-backend.onrender.com` placeholder with the real Render URL from the step above,
+   then commit and push.
+3. Deploy. Vercel builds with `npm run build` automatically and serves `dist/`.
+   `vercel.json`'s rewrites proxy `/api/*` (and Swagger) to the Render backend server-to-server,
+   so the frontend's existing same-origin `/api` calls (`utils/api.js`) work unmodified — no
+   CORS configuration needed, since the browser only ever talks to the Vercel domain.
+
+**Known free-tier tradeoff**: Render's free plan sleeps after ~15 minutes idle; the first request
+after a sleep takes 30–50s to wake the container. Expected and harmless for a portfolio link —
+just don't be surprised by a slow first click.
+
+---
+
 ## Design Patterns Reference
 
 | Pattern | Module Usage | Rationale |
