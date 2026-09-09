@@ -281,11 +281,6 @@ export default {
       explanation: 'SeatFactory creates Seat instances with predefined row/col layouts and prices per seat type, now actually called from MovieTicketRepository#createShowWithSeats (it previously existed but every show\'s seats were constructed inline, bypassing it entirely).'
     },
     {
-      name: 'Observer Pattern',
-      used: true,
-      explanation: 'SeatMapNotifier publishes seat status changes to SeatAvailabilityObserver instances.'
-    },
-    {
       name: 'Singleton Pattern',
       used: true,
       explanation: 'Spring manages MovieTicketService and SeatLockManager as singletons.'

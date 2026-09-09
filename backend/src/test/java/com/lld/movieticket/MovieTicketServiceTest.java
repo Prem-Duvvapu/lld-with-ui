@@ -2,7 +2,6 @@ package com.lld.movieticket;
 
 import com.lld.movieticket.exception.SeatNotAvailableException;
 import com.lld.movieticket.model.*;
-import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
 import com.lld.movieticket.service.MovieTicketService;
 import com.lld.movieticket.service.MovieTicketPaymentProcessor;
@@ -24,7 +23,6 @@ public class MovieTicketServiceTest {
     private MovieTicketRepository repository;
     private SeatLockManager seatLockManager;
     private MovieTicketPaymentProcessor paymentProcessor;
-    private SeatMapNotifier seatMapNotifier;
     private PricingStrategyFactory pricingStrategyFactory;
     private MovieTicketService service;
 
@@ -34,9 +32,8 @@ public class MovieTicketServiceTest {
         repository.seedInitialData();
         seatLockManager = new SeatLockManager();
         paymentProcessor = new MovieTicketPaymentProcessor();
-        seatMapNotifier = new SeatMapNotifier();
         pricingStrategyFactory = new PricingStrategyFactory(new BasePricingStrategy(), new SurgePricingStrategy());
-        service = new MovieTicketService(repository, seatLockManager, paymentProcessor, seatMapNotifier, pricingStrategyFactory);
+        service = new MovieTicketService(repository, seatLockManager, paymentProcessor, pricingStrategyFactory);
     }
 
     @Test

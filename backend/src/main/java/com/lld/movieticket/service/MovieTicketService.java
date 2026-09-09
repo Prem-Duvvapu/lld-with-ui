@@ -2,7 +2,6 @@ package com.lld.movieticket.service;
 
 import com.lld.movieticket.exception.*;
 import com.lld.movieticket.model.*;
-import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
 import com.lld.movieticket.strategy.PricingStrategyFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -20,7 +19,6 @@ public class MovieTicketService {
     private final MovieTicketRepository repository;
     private final SeatLockManager seatLockManager;
     private final MovieTicketPaymentProcessor paymentProcessor;
-    private final SeatMapNotifier seatMapNotifier;
     private final PricingStrategyFactory pricingStrategyFactory;
 
     // Idempotency cache: key -> Booking
@@ -37,12 +35,10 @@ public class MovieTicketService {
     public MovieTicketService(MovieTicketRepository repository,
                               SeatLockManager seatLockManager,
                               MovieTicketPaymentProcessor paymentProcessor,
-                              SeatMapNotifier seatMapNotifier,
                               PricingStrategyFactory pricingStrategyFactory) {
         this.repository = repository;
         this.seatLockManager = seatLockManager;
         this.paymentProcessor = paymentProcessor;
-        this.seatMapNotifier = seatMapNotifier;
         this.pricingStrategyFactory = pricingStrategyFactory;
 
         // Initialize simulation engine repository & locks
@@ -68,7 +64,7 @@ public class MovieTicketService {
         Show show = repository.findShowById(showId);
         if (show == null) throw new InvalidShowException("Show with ID " + showId + " not found.");
         // Expire stale holds first to ensure accurate map
-        seatLockManager.expireStaleHolds(showId, repository, seatMapNotifier);
+        seatLockManager.expireStaleHolds(showId, repository);
         return repository.getSeatsByShow(showId);
     }
 
@@ -84,7 +80,7 @@ public class MovieTicketService {
         }
 
         long holdDurationMs = 5 * 60 * 1000L; // 5 minutes
-        seatLockManager.holdSeats(showId, seatIds, userId, holdDurationMs, repository, seatMapNotifier);
+        seatLockManager.holdSeats(showId, seatIds, userId, holdDurationMs, repository);
 
         long expiresAt = System.currentTimeMillis() + holdDurationMs;
         double totalAmount = 0.0;
@@ -123,11 +119,11 @@ public class MovieTicketService {
 
         // Check if seats are currently held by this user, or perform direct hold if available
         try {
-            seatLockManager.confirmSeats(showId, seatIds, userId, repository, seatMapNotifier);
+            seatLockManager.confirmSeats(showId, seatIds, userId, repository);
         } catch (BookingFailedException e) {
             // Try holding first if user skipped hold step
-            seatLockManager.holdSeats(showId, seatIds, userId, 60000L, repository, seatMapNotifier);
-            seatLockManager.confirmSeats(showId, seatIds, userId, repository, seatMapNotifier);
+            seatLockManager.holdSeats(showId, seatIds, userId, 60000L, repository);
+            seatLockManager.confirmSeats(showId, seatIds, userId, repository);
         }
 
         double totalAmount = 0.0;
@@ -143,7 +139,7 @@ public class MovieTicketService {
             paymentProcessor.processPayment(userId, totalAmount, paymentMethod);
         } catch (Exception e) {
             // Revert seats back to AVAILABLE on payment failure
-            seatLockManager.releaseSeats(showId, seatIds, userId, repository, seatMapNotifier);
+            seatLockManager.releaseSeats(showId, seatIds, repository);
             throw new BookingFailedException("Payment failed: " + e.getMessage());
         }
 
@@ -193,7 +189,7 @@ public class MovieTicketService {
             }
 
             // Release seats back to AVAILABLE
-            seatLockManager.cancelBookedSeats(booking.getShowId(), booking.getSeatIds(), repository, seatMapNotifier);
+            seatLockManager.cancelBookedSeats(booking.getShowId(), booking.getSeatIds(), repository);
 
             return booking;
         } finally {
@@ -215,7 +211,7 @@ public class MovieTicketService {
     public void cleanupExpiredHolds() {
         for (Movie movie : repository.getMovies()) {
             for (Show s : repository.getShowsByMovie(movie.getId())) {
-                seatLockManager.expireStaleHolds(s.getId(), repository, seatMapNotifier);
+                seatLockManager.expireStaleHolds(s.getId(), repository);
             }
         }
     }
@@ -232,7 +228,7 @@ public class MovieTicketService {
     }
 
     public List<Seat> simGetSeats(long showId) {
-        simSeatLockManager.expireStaleHolds(showId, simRepository, null);
+        simSeatLockManager.expireStaleHolds(showId, simRepository);
         return simRepository.getSeatsByShow(showId);
     }
 
@@ -244,7 +240,7 @@ public class MovieTicketService {
         Show show = simRepository.findShowById(showId);
         if (show == null) throw new InvalidShowException("Sim Show not found");
         try {
-            simSeatLockManager.holdSeats(showId, seatIds, userId, 300000L, simRepository, null);
+            simSeatLockManager.holdSeats(showId, seatIds, userId, 300000L, simRepository);
             double total = 0.0;
             for (Long sid : seatIds) {
                 Seat seat = simRepository.findSeatById(showId, sid);
@@ -261,7 +257,7 @@ public class MovieTicketService {
     public Booking simBookSeats(long showId, List<Long> seatIds, String userId, String actorName) {
         Show show = simRepository.findShowById(showId);
         try {
-            simSeatLockManager.confirmSeats(showId, seatIds, userId, simRepository, null);
+            simSeatLockManager.confirmSeats(showId, seatIds, userId, simRepository);
             double total = 0.0;
             for (Long sid : seatIds) {
                 Seat seat = simRepository.findSeatById(showId, sid);
@@ -282,7 +278,7 @@ public class MovieTicketService {
     }
 
     public void simExpireHold(long showId, List<Long> seatIds, String actorName) {
-        simSeatLockManager.releaseSeats(showId, seatIds, "EXPIRED", simRepository, null);
+        simSeatLockManager.releaseSeats(showId, seatIds, simRepository);
         logSimEvent("HOLD_EXPIRED", actorName, "Hold TTL expired for seat(s) " + seatIds + " — seats auto-released to AVAILABLE", Map.of("seatIds", seatIds), simRepository.getSeatsByShow(showId));
     }
 
@@ -298,7 +294,7 @@ public class MovieTicketService {
             simRepository.updateShow(show);
         }
 
-        simSeatLockManager.cancelBookedSeats(booking.getShowId(), booking.getSeatIds(), simRepository, null);
+        simSeatLockManager.cancelBookedSeats(booking.getShowId(), booking.getSeatIds(), simRepository);
         logSimEvent("BOOKING_CANCELLED", actorName, actorName + " cancelled booking #" + bookingId + " for seat(s) " + booking.getSeatIds() + " — seats returned to AVAILABLE", Map.of("bookingId", bookingId, "seatIds", booking.getSeatIds()), simRepository.getSeatsByShow(show.getId()));
         return booking;
     }

@@ -18,7 +18,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects**
 | 8 | [Splitwise](#8-splitwise) | Expense sharing | Split Strategies (Equal/Percentage/Exact), Graph Debt Simplification |
 | 9 | [Elevator](#9-elevator-system) | Elevator control | SCAN Scheduling Strategy, Proximity Scoring, ReentrantLock |
 | 10 | [Library Management](#10-library-management) | Book Catalog & Loans | Strategy (fines), Factory (members), Observer (due date), Per-Book ReentrantLock |
-| 11 | [Movie Ticket Booking](#11-movie-ticket-booking-bookmyshow) | Cinema seats & shows | Per-Seat ReentrantLock, Hold TTL, Strategy, Observer |
+| 11 | [Movie Ticket Booking](#11-movie-ticket-booking-bookmyshow) | Cinema seats & shows | Per-Seat ReentrantLock, Hold TTL, Strategy + Factory |
 | 12 | [Hotel Management](#12-hotel-management) | Room reservation | State Machine, Strategy, Factory |
 | 13 | [Airline Reservation](#13-airline-reservation) | Flight booking & seats | State Machine (holds/bookings), Strategy (pricing/refunds), Per-Seat ReentrantLock |
 | 14 | [Coffee Machine](#14-coffee-machine) | Ingredient & brew engine | State Pattern, Factory (Recipes), Decorator (Customizations), Deadlock-Safe Multi-Ingredient Locking |
@@ -163,7 +163,7 @@ automatically; pass a full `VITE_BACKEND_URL` instead if the backend lives on an
 | **Singleton** | `AtmService`, `ShoppingCartService`, `PubSubService` | Centralized system state facade |
 | **Strategy** | `DenominationDispenseStrategy`, `PaymentStrategy`, `SplitStrategy` | Pluggable runtime algorithms |
 | **Command** | `AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand` | Encapsulates cart actions for single-step Undo |
-| **Observer** | `SeatMapNotifier`, `SubscriberWorker` | Decoupled event publication & async delivery |
+| **Observer** | `SignalChangeNotifier`, `SubscriberWorker` | Decoupled event publication & async delivery |
 | **State Machine** | `ATMState`, `OrderStatus`, `RideStatus`, `SeatStatus` | Formal lifecycle transitions with state guards |
 | **Template Method** | `Transaction` (`WithdrawalTransaction`, `DepositTransaction`) | Encapsulates invariant transaction lifecycle |
 | **Concurrency** | `ReentrantLock`, `AtomicInteger`, `ConcurrentHashMap` | Deadlock-free fine-grained thread safety |
@@ -483,7 +483,7 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - **Per-Seat Lock Granularity**: `ReentrantLock` per seat (`showId:seatId`) preventing global serialization.
 - **Seat-Hold Lifecycle & TTL**: `AVAILABLE` ➔ `HELD` (5-minute TTL) ➔ `BOOKED` with automated background cleanup.
 - **Deadlock Prevention**: Ascending seat ID lock acquisition ordering.
-- **Strategy & Observer Patterns**: Dynamic pricing strategy and real-time seat availability observer.
+- **Strategy + Factory Patterns**: `PricingStrategyFactory` selects base or surge pricing by show time; `SeatFactory` creates the seeded seat maps. The former empty `SeatMapNotifier` was removed because it had no registered production observer.
 
 #### API Endpoints
 - `GET /api/movie-ticket/movies`
