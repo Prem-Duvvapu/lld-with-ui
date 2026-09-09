@@ -5711,9 +5711,9 @@ direct `RuntimeException` construction before a module is labeled reference qual
 
 ## RCA-064: The Reference Logging Module Has No Typed Domain-Exception Boundary
 
-**Overview & Severity** — Medium, **Open** (verified by the 2026-09-08 portfolio audit; no code
-change was made). The logging module is labeled reference quality but has no `exception` package
-or `DomainException` subclasses, so its public API cannot express module-specific failures through
+**Overview & Severity** — Medium, **Resolved 2026-09-09** (found by the 2026-09-08 portfolio
+audit). The logging module was labeled reference quality but had no `exception` package or
+`DomainException` subclasses, so its public API could not express module-specific failures through
 the shared error contract.
 
 **Symptoms & Error Logs** — Invalid enum strings in `LoggingController` currently become generic
@@ -5741,14 +5741,26 @@ sed -n '1,170p' backend/src/main/java/com/lld/logging/controller/LoggingControll
 sed -n '1,180p' backend/src/main/java/com/lld/logging/service/LoggingService.java
 ```
 
-**Step-by-Step Resolution** — **Not yet applied.** Define an abstract
-`LoggingException extends DomainException` and concrete `@ResponseStatus` failures for invalid
-configuration values and unknown appenders. Parse and validate transport input through service
-methods (or typed request DTOs) so the controller does not leak `Enum.valueOf` as the module's
-error model. Replace silent unknown-appender success/empty responses with the chosen typed 404 or
-400 behavior. Add service and MockMvc tests for every rejection and update the contract scan so an
-entirely absent hierarchy cannot pass unnoticed. Run the full backend suite before marking this
-RCA resolved.
+**Step-by-Step Resolution**
+
+1. Added abstract `LoggingException extends DomainException`, plus
+   `InvalidLogLevelException`, `InvalidFormatterException`, and
+   `InvalidLoggingRequestException` (400) and `AppenderNotFoundException` (404), each carrying
+   `@ResponseStatus` for the shared handler.
+2. Moved raw level and formatter parsing behind `LoggingService` overloads. The controller now
+   passes transport strings to that boundary instead of exposing `Enum.valueOf` failures as its
+   public error model.
+3. Centralized appender resolution so both configured names (`ConsoleAppender`) and enum types
+   (`CONSOLE`) work, while an unknown live toggle/read or simulation read returns the same typed
+   404 instead of false success or an empty list.
+4. Added request validation for blank logger names and non-positive burst counts, and applied the
+   typed level parser to the simulation emission endpoint as well as live logging.
+5. Added service regression coverage and six MockMvc cases pinning the standard `ErrorResponse`
+   code/status behavior. The focused logging/contract suite passed `30` tests. The full backend
+   suite passed `2,276` tests, frontend Vitest passed `394`, and the production build completed
+   with the entry chunk at `268.34 kB`, below the `500 kB` budget. Backend validation ran from an
+   explicit Linux-filesystem copy because javac stalls on the OneDrive mount; no server was
+   started.
 
 **Preventative Measures** — Reference-module scoring must verify failure behavior, not merely the
 happy-path patterns and concurrency model. Generic framework exceptions and empty sentinel values

@@ -83,8 +83,8 @@ Traffic Signal's live-state simulation wiring
 ([RCA-065](RCA.md#rca-065-traffic-signals-simulation-tab-bypasses-its-isolated-backend-engine)),
 and the three pattern-claim mismatches
 ([RCA-066](RCA.md#rca-066-three-modules-overstate-or-lack-the-design-patterns-used-at-runtime)).
-The audit itself was read-only. Post-audit remediation status as of 2026-09-09: RCA-062 and
-RCA-063 are now resolved; RCA-064 through RCA-066 remain open. RCA-067, found during the follow-up
+The audit itself was read-only. Post-audit remediation status as of 2026-09-09: RCA-062 through
+RCA-064 are now resolved; RCA-065 and RCA-066 remain open. RCA-067, found during the follow-up
 Digital Wallet review, is also resolved.
 
 1. **Blackjack: unlocked check-then-act race (resolved 2026-09-09, RCA-062).** The audited code
@@ -94,8 +94,10 @@ Digital Wallet review, is also resolved.
 2. **Splitwise exception hierarchy (resolved 2026-09-09, RCA-063).** The audited code threw raw
    `RuntimeException` throughout the service and strategies. It now has typed 404/400/422 domain
    failures, shared live/simulation validation, and MockMvc coverage of `ErrorResponse`.
-3. **Logging (reference module): the same gap** — zero `DomainException` subclasses, no
-   `exception` package at all.
+3. **Logging exception hierarchy (resolved 2026-09-09, RCA-064).** The audited code had zero
+   `DomainException` subclasses and silently accepted unknown appenders. It now parses transport
+   values at the service boundary, returns typed 400/404 `ErrorResponse`s, and applies the same
+   appender/level contract to live and simulation endpoints.
 4. **TrafficSignal: the frontend Simulation tab never calls its own backend `/sim/*` engine.**
    It hits live endpoints instead and falls back to hardcoded mock data on failure — the backend
    sandbox was built and is simply unused.
@@ -108,8 +110,8 @@ Digital Wallet review, is also resolved.
 1. **Blackjack's table-status race (completed 2026-09-09)** — fixed with fair per-table
    `ReentrantLock`s around the check-and-mutate span in `doDeal`/`doHit`/`doStand` and three
    latch-controlled regression tests.
-2. **Splitwise + Logging's missing exception hierarchies** — Splitwise is completed under
-   RCA-063; Logging remains open under RCA-064.
+2. **Splitwise + Logging's missing exception hierarchies (completed 2026-09-09)** — both modules
+   now expose typed domain failures through the shared `ErrorResponse` contract.
 3. **TrafficSignal's dead sim engine** — wire the frontend to the `/sim/*` endpoints that already
    exist rather than mutating live state with a mock-data fallback.
 

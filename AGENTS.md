@@ -707,6 +707,13 @@ shared `apiFetch` (it previously hand-rolled its own `fetch`/error handling).
 - Observer & Strategy Pattern: `LogAppender` contract with `ConsoleAppender`, `FileAppender` (with simulated file rotation and byte limits), `DatabaseAppender` (SQL inserts), and `ElasticsearchAppender` (JSON document PUTs).
 - Async Logging: `AsyncLogDispatcher` using bounded `ArrayBlockingQueue` and dedicated background worker thread with dropped log telemetry.
 - Hierarchical Loggers: `Logger` (supporting parent-child level inheritance and MDC context tags like `traceId` / `userId`) managed by `LogManager` registry.
+- Exception hierarchy (RCA-064): abstract `LoggingException extends DomainException`, with
+  `InvalidLogLevelException`/`InvalidFormatterException`/`InvalidLoggingRequestException` (400)
+  and `AppenderNotFoundException` (404). Raw request strings are parsed by the service boundary,
+  and unknown appenders fail consistently for live toggles, live reads, and simulation reads
+  instead of returning false success or an empty list.
+- Tests: `LoggingServiceTest` covers typed configuration/appender failures and live/simulation
+  parity; `LoggingControllerIntegrationTest` pins the shared `ErrorResponse` status/code shape.
 
 ### Frontend
 - 6 tabs: 🖥️ Live Logging Console & Stream, 🗄️ Multi-Appender Sinks, ⚙️ Logger Hierarchy & Configuration, 🕹️ 8-Step Interactive Pipeline Simulation with Telemetry HUD, 📐 Class Diagram, 📋 Design Details.

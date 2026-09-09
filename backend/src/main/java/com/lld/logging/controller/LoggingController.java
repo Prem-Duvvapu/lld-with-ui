@@ -27,26 +27,20 @@ public class LoggingController {
     @PostMapping("/configure")
     @Operation(summary = "Set global active log level threshold")
     public ResponseEntity<LogConfiguration> configure(@RequestBody Map<String, String> body) {
-        LogLevel level = LogLevel.valueOf(body.getOrDefault("level", "INFO").toUpperCase());
-        return ResponseEntity.ok(loggingService.configure(level));
+        return ResponseEntity.ok(loggingService.configure(body.getOrDefault("level", "INFO")));
     }
 
     @PostMapping("/logger-level")
     @Operation(summary = "Set specific log level override for a named logger")
     public ResponseEntity<LogConfiguration> setLoggerLevel(@RequestBody Map<String, String> body) {
         String logger = body.get("loggerName");
-        String levelStr = body.get("level");
-        LogLevel level = (levelStr != null && !levelStr.equalsIgnoreCase("DEFAULT"))
-                ? LogLevel.valueOf(levelStr.toUpperCase())
-                : null;
-        return ResponseEntity.ok(loggingService.setLoggerLevel(logger, level));
+        return ResponseEntity.ok(loggingService.setLoggerLevel(logger, body.get("level")));
     }
 
     @PostMapping("/formatter")
     @Operation(summary = "Set active log formatter strategy (SIMPLE, JSON, PATTERN)")
     public ResponseEntity<LogConfiguration> setFormatter(@RequestBody Map<String, String> body) {
-        FormatterType type = FormatterType.valueOf(body.getOrDefault("formatter", "SIMPLE").toUpperCase());
-        return ResponseEntity.ok(loggingService.setFormatter(type));
+        return ResponseEntity.ok(loggingService.setFormatter(body.getOrDefault("formatter", "SIMPLE")));
     }
 
     @PostMapping("/appender/toggle")
@@ -68,7 +62,7 @@ public class LoggingController {
     @Operation(summary = "Emit a log message through the logger hierarchy and chain of responsibility")
     public ResponseEntity<LogMessage> logMessage(@RequestBody Map<String, Object> body) {
         String loggerName = (String) body.getOrDefault("loggerName", "RootLogger");
-        LogLevel level = LogLevel.valueOf(((String) body.getOrDefault("level", "INFO")).toUpperCase());
+        String level = String.valueOf(body.getOrDefault("level", "INFO"));
         String message = (String) body.getOrDefault("message", "");
         @SuppressWarnings("unchecked")
         Map<String, Object> context = (Map<String, Object>) body.get("context");
@@ -126,7 +120,7 @@ public class LoggingController {
     @Operation(summary = "Emit a log in the isolated simulation sandbox")
     public ResponseEntity<LogMessage> simEmitLog(@RequestBody Map<String, Object> body) {
         String loggerName = (String) body.getOrDefault("loggerName", "SimAppLogger");
-        LogLevel level = LogLevel.valueOf(((String) body.getOrDefault("level", "INFO")).toUpperCase());
+        String level = String.valueOf(body.getOrDefault("level", "INFO"));
         String message = (String) body.getOrDefault("message", "Simulated event message");
         @SuppressWarnings("unchecked")
         Map<String, Object> context = (Map<String, Object>) body.get("context");

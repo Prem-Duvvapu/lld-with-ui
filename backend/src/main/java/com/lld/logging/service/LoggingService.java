@@ -1,6 +1,10 @@
 package com.lld.logging.service;
 
 import com.lld.logging.appender.*;
+import com.lld.logging.exception.AppenderNotFoundException;
+import com.lld.logging.exception.InvalidFormatterException;
+import com.lld.logging.exception.InvalidLogLevelException;
+import com.lld.logging.exception.InvalidLoggingRequestException;
 import com.lld.logging.formatter.LogFormatter;
 import com.lld.logging.formatter.LogFormatterFactory;
 import com.lld.logging.logger.LogManager;
@@ -61,6 +65,9 @@ public class LoggingService {
     }
 
     public LogConfiguration configure(LogLevel level) {
+        if (level == null) {
+            throw new InvalidLogLevelException(null);
+        }
         lock.lock();
         try {
             this.activeLevel = level;
@@ -71,7 +78,14 @@ public class LoggingService {
         }
     }
 
+    public LogConfiguration configure(String level) {
+        return configure(parseLogLevel(level));
+    }
+
     public LogConfiguration setLoggerLevel(String loggerName, LogLevel level) {
+        if (loggerName == null || loggerName.isBlank()) {
+            throw new InvalidLoggingRequestException("Logger name must not be blank");
+        }
         lock.lock();
         try {
             Logger logger = logManager.getLogger(loggerName);
@@ -87,7 +101,17 @@ public class LoggingService {
         }
     }
 
+    public LogConfiguration setLoggerLevel(String loggerName, String level) {
+        LogLevel parsedLevel = level == null || level.equalsIgnoreCase("DEFAULT")
+                ? null
+                : parseLogLevel(level);
+        return setLoggerLevel(loggerName, parsedLevel);
+    }
+
     public LogConfiguration setFormatter(FormatterType formatterType) {
+        if (formatterType == null) {
+            throw new InvalidFormatterException(null);
+        }
         lock.lock();
         try {
             this.activeFormatterType = formatterType;
@@ -99,14 +123,14 @@ public class LoggingService {
         }
     }
 
+    public LogConfiguration setFormatter(String formatterType) {
+        return setFormatter(parseFormatterType(formatterType));
+    }
+
     public LogConfiguration toggleAppender(String appenderName, boolean enabled) {
         lock.lock();
         try {
-            for (LogAppender appender : appenders) {
-                if (appender.getName().equalsIgnoreCase(appenderName) || appender.getType().name().equalsIgnoreCase(appenderName)) {
-                    appender.setEnabled(enabled);
-                }
-            }
+            findAppender(appenders, appenderName).setEnabled(enabled);
             return getConfiguration();
         } finally {
             lock.unlock();
@@ -125,8 +149,18 @@ public class LoggingService {
     }
 
     public LogMessage log(String loggerName, LogLevel level, String message, Map<String, Object> context) {
+        if (loggerName == null || loggerName.isBlank()) {
+            throw new InvalidLoggingRequestException("Logger name must not be blank");
+        }
+        if (level == null) {
+            throw new InvalidLogLevelException(null);
+        }
         Logger logger = logManager.getLogger(loggerName);
         return logger.log(level, message, context);
+    }
+
+    public LogMessage log(String loggerName, String level, String message, Map<String, Object> context) {
+        return log(loggerName, parseLogLevel(level), message, context);
     }
 
     public List<LogMessage> getLogs() {
@@ -134,12 +168,7 @@ public class LoggingService {
     }
 
     public List<String> getAppenderLogs(String appenderType) {
-        for (LogAppender appender : appenders) {
-            if (appender.getType().name().equalsIgnoreCase(appenderType) || appender.getName().equalsIgnoreCase(appenderType)) {
-                return appender.getAppenderLogs();
-            }
-        }
-        return Collections.emptyList();
+        return findAppender(appenders, appenderType).getAppenderLogs();
     }
 
     public LogConfiguration getConfiguration() {
@@ -161,6 +190,9 @@ public class LoggingService {
     }
 
     public List<LogMessage> triggerBurstLogs(int count) {
+        if (count <= 0) {
+            throw new InvalidLoggingRequestException("Burst count must be greater than zero");
+        }
         String[] loggers = {"AuthService", "PaymentGateway", "OrderProcessor", "InventoryService", "NotificationHub"};
         LogLevel[] levels = {LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR, LogLevel.FATAL};
         String[] sampleMsgs = {
@@ -208,5 +240,39 @@ public class LoggingService {
         } finally {
             lock.unlock();
         }
+    }
+
+    static LogLevel parseLogLevel(String value) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidLogLevelException(value);
+        }
+        try {
+            return LogLevel.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidLogLevelException(value);
+        }
+    }
+
+    private FormatterType parseFormatterType(String value) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidFormatterException(value);
+        }
+        try {
+            return FormatterType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidFormatterException(value);
+        }
+    }
+
+    static LogAppender findAppender(List<LogAppender> candidates, String value) {
+        if (value != null) {
+            for (LogAppender appender : candidates) {
+                if (appender.getType().name().equalsIgnoreCase(value)
+                        || appender.getName().equalsIgnoreCase(value)) {
+                    return appender;
+                }
+            }
+        }
+        throw new AppenderNotFoundException(value);
     }
 }
