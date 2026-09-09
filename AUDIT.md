@@ -84,8 +84,8 @@ Traffic Signal's live-state simulation wiring
 and the three pattern-claim mismatches
 ([RCA-066](RCA.md#rca-066-three-modules-overstate-or-lack-the-design-patterns-used-at-runtime)).
 The audit itself was read-only. Post-audit remediation status as of 2026-09-09: RCA-062 through
-RCA-065 are now resolved; RCA-066 remains open. RCA-067, found during the follow-up
-Digital Wallet review, is also resolved.
+RCA-066 are now resolved. RCA-067, found during the follow-up Digital Wallet review, is also
+resolved.
 
 1. **Blackjack: unlocked check-then-act race (resolved 2026-09-09, RCA-062).** The audited code
    read `table.getStatus()` then mutated with no aggregate lock. `BlackjackService` now holds a
@@ -101,9 +101,9 @@ Digital Wallet review, is also resolved.
 4. **TrafficSignal simulation wiring (resolved 2026-09-09, RCA-065).** The audited frontend hit
    live endpoints and hid failures behind hardcoded state. Its eight-step walkthrough now uses
    only `/traffic/sim/*`, renders backend snapshot/event telemetry, and exposes retryable errors.
-5. **Dead/false pattern claims (RCA-066, partially resolved).** MovieTicket's empty notifier was
-   removed, and Zomato's Observer/payment-Strategy claims were corrected to its real delivery-fee
-   Strategy + Factory on 2026-09-09. TicTacToe's missing GoF pattern remains open.
+5. **Dead/false pattern claims (resolved 2026-09-09, RCA-066).** MovieTicket's empty notifier was
+   removed; Zomato's claims now describe its real delivery-fee Strategy + Factory; and TicTacToe
+   now routes live and simulation move/undo/reset mutations through real Command objects.
 
 ## Three highest-value fixes, ranked
 

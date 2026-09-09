@@ -170,6 +170,11 @@ public class TicTacToeServiceTest {
         assertEquals(0, reset.getMoveCount());
         assertEquals("Alice", reset.getCurrentTurn().getName());
         assertTrue(reset.getMoveHistory().isEmpty());
+
+        Game undoAfterReset = service.undoLastMove(game.getId());
+        assertEquals(0, undoAfterReset.getMoveCount(), "reset must clear the invoker's command history");
+        assertEquals("", undoAfterReset.getBoard()[0][0]);
+        assertEquals("", undoAfterReset.getBoard()[1][1]);
     }
 
     @Test

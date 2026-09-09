@@ -7,10 +7,11 @@ export default {
   classes: [
     {
       name: 'TicTacToeService',
-      stereotype: 'singleton',
       fields: [
         '- repository: GameRepository',
         '- gameLocks: ConcurrentHashMap<String, ReentrantLock>',
+        '- commandHistory: ConcurrentHashMap<String, Deque<PlaceMoveCommand>>',
+        '- simCommandHistory: ConcurrentLinkedDeque<PlaceMoveCommand>'
       ],
       methods: [
         '+ createGame(p1, p2): Game',
@@ -18,6 +19,50 @@ export default {
         '+ makeMove(gameId, row, col, playerName): Game',
         '+ undoLastMove(gameId): Game',
         '+ resetGame(gameId): Game',
+      ]
+    },
+    {
+      name: 'GameCommand',
+      stereotype: 'interface',
+      fields: [],
+      methods: [
+        '+ execute(): Game'
+      ]
+    },
+    {
+      name: 'PlaceMoveCommand',
+      fields: [
+        '- game: Game',
+        '- row: int',
+        '- col: int',
+        '- playerName: String',
+        '- executed: boolean',
+        '- executedMoveNumber: int'
+      ],
+      methods: [
+        '+ execute(): Game',
+        '+ undo(): Game',
+        '+ isExecuted(): boolean'
+      ]
+    },
+    {
+      name: 'UndoMoveCommand',
+      fields: [
+        '- target: PlaceMoveCommand',
+        '- undone: boolean'
+      ],
+      methods: [
+        '+ execute(): Game',
+        '+ wasUndone(): boolean'
+      ]
+    },
+    {
+      name: 'ResetGameCommand',
+      fields: [
+        '- game: Game'
+      ],
+      methods: [
+        '+ execute(): Game'
       ]
     },
     {
@@ -124,6 +169,41 @@ export default {
       from: 'TicTacToeService',
       to: 'GameRepository',
       label: 'uses'
+    },
+    {
+      from: 'TicTacToeService',
+      to: 'GameCommand',
+      label: 'invokes under game lock'
+    },
+    {
+      from: 'PlaceMoveCommand',
+      to: 'GameCommand',
+      label: 'implements'
+    },
+    {
+      from: 'UndoMoveCommand',
+      to: 'GameCommand',
+      label: 'implements'
+    },
+    {
+      from: 'ResetGameCommand',
+      to: 'GameCommand',
+      label: 'implements'
+    },
+    {
+      from: 'UndoMoveCommand',
+      to: 'PlaceMoveCommand',
+      label: 'reverses latest'
+    },
+    {
+      from: 'PlaceMoveCommand',
+      to: 'Game',
+      label: 'validates and mutates'
+    },
+    {
+      from: 'ResetGameCommand',
+      to: 'Game',
+      label: 'resets'
     },
     {
       from: 'TicTacToeService',

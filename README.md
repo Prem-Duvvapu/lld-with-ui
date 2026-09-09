@@ -12,7 +12,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects**
 | 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy + Factory (delivery fees), OTP Handoff |
 | 3 | [Uber](#3-uber) | Ride-hailing | State Machine (transition table), Strategy (standard/surge pricing), Per-Driver Lock, Haversine Distance, OTP |
 | 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy + Factory (reputation), deterministic Question≤Answer≤User lock ordering, Votable interface, State Machine (question status) |
-| 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Exception Hierarchy, Undo History, Isolated Sim Engine |
+| 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | Command (move/undo/reset), Exception Hierarchy, Per-Game Lock, Isolated Sim Engine |
 | 6 | [Snake & Ladders](#6-snake--ladders) | Multiplayer board game | Dice Strategy, Per-Game Lock, Exact-Count Win Rule, Isolated Sim Engine |
 | 7 | [ATM](#7-atm) | Banking ATM | State Machine, Denomination Strategy, ReentrantLock, Lockout |
 | 8 | [Splitwise](#8-splitwise) | Expense sharing | Split Strategies (Equal/Percentage/Exact), Graph Debt Simplification |
@@ -329,7 +329,7 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 - **2-Player Human vs Human**: a 3x3 board with turn-based X/O play — no AI opponent exists in this codebase.
 - **Exact Win-Line Detection**: an O(N) row/column/diagonal scan returns the precise `[startRow, startCol, endRow, endCol]` winning line for the frontend to highlight, checked from an empty board opening through mid-game fork positions.
 - **Typed Exception Contract**: `GameNotFoundException` (404), `InvalidMoveException` (400), `CellOccupiedException` (422), `NotYourTurnException` (409), `GameOverException` (409) — replacing an earlier ad hoc `IllegalArgumentException`/`IllegalStateException` + manual controller `try/catch`.
-- **Move History & Undo**: step-by-step move history log with atomic Undo move support.
+- **Command Pattern with Undo**: `PlaceMoveCommand` owns validation, execution, and exact LIFO reversal; `UndoMoveCommand` invokes that reversal and `ResetGameCommand` clears the match. The same commands drive live and simulation endpoints.
 - **Per-Game Locking + Isolated Simulation Sandbox**: a `ReentrantLock` per game id, and `/api/tictactoe/sim/*` backed by a second in-memory repository so the demo tab can never corrupt a real match.
 
 #### API Endpoints

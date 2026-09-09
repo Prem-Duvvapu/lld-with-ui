@@ -9,14 +9,14 @@ export default {
     'Typed exception contract (GameNotFoundException, InvalidMoveException, CellOccupiedException, NotYourTurnException, GameOverException) mapped to real HTTP statuses by the shared GlobalExceptionHandler.',
     'Board win/draw detection: O(N) row/column/diagonal scan returning the exact [startRow, startCol, endRow, endCol] winning line for the frontend to highlight.',
     'Thread-safe session isolation using a ConcurrentHashMap GameRepository protected by a per-game ReentrantLock, so two near-simultaneous move requests for the same game cannot both land.',
-    'Move history log supporting atomic single-step Undo, plus a full board Reset.',
+    'Command-backed move history: PlaceMoveCommand owns execute/undo, UndoMoveCommand invokes exact LIFO reversal, and ResetGameCommand clears the match.',
     'An isolated /api/tictactoe/sim/* engine — a separate GameRepository instance driving the interactive demo tab — so replaying the simulation can never corrupt a real match.'
   ],
   requirements: [
     'Two named players start a match; the engine assigns X to player 1 and O to player 2 and alternates turns.',
     'The board validates cell bounds and occupancy, and auto-detects a win across any row, column, or diagonal, or a draw when the board fills with no winner.',
     'The engine computes the exact winning line coordinates for visual highlight.',
-    'Supports move history tracking, single-move Undo, and a full board Reset without creating a new game id.',
+    'Supports command-backed move history, single-move LIFO Undo, and a full board Reset without creating a new game id.',
     'Handles concurrent move execution safely across multiple simultaneous game sessions, and reports precise, typed errors (occupied cell, wrong turn, game already over, unknown game, out-of-bounds move) instead of a generic failure.'
   ],
   entities: [
@@ -26,15 +26,17 @@ export default {
       fields: [
         { name: 'repository', type: 'GameRepository', description: 'Production repository holding every real match, injected via @Qualifier("tictactoeGameRepository")' },
         { name: 'gameLocks', type: 'ConcurrentHashMap<String, ReentrantLock>', description: 'One lock per game id, created on first use via computeIfAbsent' },
+        { name: 'commandHistory', type: 'ConcurrentHashMap<String, Deque<PlaceMoveCommand>>', description: 'Per-game LIFO command stack accessed under the same game lock as board mutation' },
         { name: 'simRepository', type: 'GameRepository', description: 'A second, independent repository instance backing /sim/* so the demo can never touch a real match' },
-        { name: 'simEventLog', type: 'CopyOnWriteArrayList<SimEvent>', description: 'Append-only log of simulation steps, safe for concurrent read while the UI polls it' }
+        { name: 'simEventLog', type: 'CopyOnWriteArrayList<SimEvent>', description: 'Append-only log of simulation steps, safe for concurrent read while the UI polls it' },
+        { name: 'simCommandHistory', type: 'ConcurrentLinkedDeque<PlaceMoveCommand>', description: 'Independent command stack for the simulation sandbox' }
       ],
       methods: [
         { name: 'createGame(player1, player2)', returns: 'Game', description: 'Creates a new match, defaulting blank names to "Player X"/"Player O"' },
         { name: 'getGame(id)', returns: 'Game', description: 'Looks the game up, throwing GameNotFoundException when absent' },
-        { name: 'makeMove(gameId, row, col, playerName)', returns: 'Game', description: 'Locks the game, validates bounds/turn/occupancy in order, then applies the move' },
-        { name: 'undoLastMove(gameId)', returns: 'Game', description: 'Locks the game and pops the last move off its history' },
-        { name: 'resetGame(gameId)', returns: 'Game', description: 'Locks the game and clears the board back to a fresh IN_PROGRESS state' }
+        { name: 'makeMove(gameId, row, col, playerName)', returns: 'Game', description: 'Locks the game, executes PlaceMoveCommand, and pushes it only after success' },
+        { name: 'undoLastMove(gameId)', returns: 'Game', description: 'Locks the game and executes UndoMoveCommand against the latest PlaceMoveCommand' },
+        { name: 'resetGame(gameId)', returns: 'Game', description: 'Locks the game, executes ResetGameCommand, and clears the command stack' }
       ]
     },
     {
@@ -101,7 +103,7 @@ export default {
     },
     {
       name: 'Move',
-      description: 'Value object recording move number, player name, symbol, row/col, and timestamp — the unit the Undo stack pops.',
+      description: 'Value object recording move number, player name, symbol, row/col, and timestamp; PlaceMoveCommand uses it to verify exact LIFO reversal.',
       fields: [
         { name: 'moveNumber', type: 'int', description: '1-based sequence number within the match' },
         { name: 'playerName', type: 'String', description: 'Name of the player who made this move' },
@@ -155,9 +157,9 @@ export default {
   ],
   designPatterns: [
     {
-      name: 'Facade Pattern',
+      name: 'Command Pattern',
       used: true,
-      explanation: 'TicTacToeService is the single entry point the controller delegates to wholesale — every rule (bounds, turn order, occupancy, game-over, win/draw detection) lives behind it, not scattered across the controller.'
+      explanation: 'TicTacToeService invokes GameCommand implementations under the game lock: PlaceMoveCommand owns validation, execution and undo; UndoMoveCommand invokes the latest reversal; ResetGameCommand owns reset. Live and simulation histories are isolated.'
     },
     {
       name: 'Repository Pattern',
@@ -178,11 +180,11 @@ export default {
   principles: [
     {
       name: 'Single Responsibility Principle (SRP)',
-      description: 'TicTacToeService manages game state transitions and locking; GameRepository handles storage; Board owns grid mechanics and win/draw detection.'
+      description: 'TicTacToeService invokes commands and owns locking/history; commands own mutations; GameRepository handles storage; Board owns grid mechanics and win/draw detection.'
     },
     {
       name: 'Open/Closed Principle (OCP)',
-      description: 'Board size is already parameterized (new Board(size)); win-line scanning works for any N without touching Game or the service.'
+      description: 'New game mutations can implement GameCommand without adding mutation logic to the controller; Board size is also parameterized.'
     },
     {
       name: 'Liskov Substitution Principle (LSP)',

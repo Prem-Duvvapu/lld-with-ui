@@ -5830,10 +5830,11 @@ silently substituting invented domain state.
 
 ## RCA-066: Three Modules Overstate or Lack the Design Patterns Used at Runtime
 
-**Overview & Severity** — Medium, **Open** (verified by the 2026-09-08 portfolio audit; the
-read-only pass changed neither code nor documentation). Movie Ticket advertises an Observer whose
-subscriber list is always empty, Zomato documentation claims Observer and payment Strategy
-implementations that are absent, and Tic Tac Toe has no GoF pattern despite the portfolio rubric
+**Overview & Severity** — Medium, **Resolved** (2026-09-09; verified by the 2026-09-08 portfolio
+audit, whose read-only pass changed neither code nor documentation). Movie Ticket advertised an
+Observer whose
+subscriber list was always empty, Zomato documentation claimed Observer and payment Strategy
+implementations that were absent, and Tic Tac Toe had no GoF pattern despite the portfolio rubric
 requiring one. These mismatches undermine the repository's purpose as an LLD reference.
 
 **Symptoms & Error Logs** — This is a silent architecture/documentation defect rather than a
@@ -5871,8 +5872,8 @@ rg -n "Pattern|Strategy|Observer|Command|State" \
   backend/src/main/java/com/lld/tictactoe frontend/src/data/{design,diagrams}/tictactoe.js README.md
 ```
 
-**Step-by-Step Resolution** — **In progress.** Resolve each claim deliberately rather than by
-renaming existing code.
+**Step-by-Step Resolution** — **Resolved.** Each claim was traced to production construction,
+wiring, invocation, and tests rather than being satisfied by terminology alone.
 
 1. **Movie Ticket — resolved 2026-09-09.** Removed `SeatMapNotifier` and
    `SeatAvailabilityObserver`: the interface had zero implementations, the subject had zero
@@ -5890,9 +5891,15 @@ renaming existing code.
    nonexistent `PaymentProcessor` or Observer abstractions. Validation: all 14 focused delivery-fee
    tests, all 381 design-data checks, all 2,277 backend tests, all 396 frontend tests, and the
    production build passed; the entry chunk remained 268.34 kB.
-3. **Tic Tac Toe — pending.** Introduce a pattern only where it improves the model (for example
-   Command objects that own execute/undo for moves) and test runtime behavior; do not add a
-   one-implementation interface solely to satisfy scoring.
+3. **Tic Tac Toe — resolved 2026-09-09.** Added `GameCommand` with three production implementations:
+   `PlaceMoveCommand` owns typed validation, execution, and exact LIFO reversal;
+   `UndoMoveCommand` invokes that reversal; `ResetGameCommand` owns reset. `TicTacToeService`
+   invokes them under the existing per-game lock and maintains separate live/simulation command
+   histories, clearing history on reset. Five command-specific tests prove validation, all three
+   implementations, polymorphic execution, exact undo, and LIFO enforcement; the existing service
+   and concurrency tests prove production wiring. Validation: all 25 focused Tic Tac Toe tests,
+   all 381 design-data checks, all 2,282 backend tests, all 396 frontend tests, and the production
+   build passed; the entry chunk remained 268.34 kB.
 
 **Preventative Measures** — A pattern claim must include four pieces of evidence: the abstraction,
 at least two meaningful implementations where polymorphism is claimed, production wiring, and a
