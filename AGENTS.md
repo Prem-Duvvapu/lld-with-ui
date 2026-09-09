@@ -133,10 +133,21 @@ shape as elevator/ludo.
 ### Backend
 - `TicTacToeService`: `createGame`, `getGame`, `makeMove`, `undoLastMove`, `resetGame` — a 2-player, human-vs-human 3x3 board. There is no AI opponent, `GameMode`, or `AIDifficulty` in this codebase (an earlier version of this doc described a Minimax AI that was never actually implemented — corrected here).
 - `Game`/`Board`/`Cell`: `Board` owns the 3x3 grid, cell occupancy, the O(N) row/column/diagonal win scan (returns the exact `[startRow, startCol, endRow, endCol]` winning line), and fill/draw detection; `Game` owns turn order, status, winner, and move history.
+- **Command Pattern (RCA-066)**: `GameCommand#execute` has three production implementations.
+  `PlaceMoveCommand` owns the complete bounds/status/turn/occupancy validation and move mutation,
+  plus `undo()` for exact LIFO reversal; `UndoMoveCommand` invokes that reversal; and
+  `ResetGameCommand` owns full reset. `TicTacToeService` is the invoker: its per-game command stack
+  is updated under the same per-game lock as the board, reset clears the stack, and the isolated
+  sim engine uses the same command classes with its own history.
 - Exception hierarchy: `TicTacToeException` (abstract) `extends com.lld.config.DomainException` with `GameNotFoundException` (404), `InvalidMoveException` (400, out-of-bounds), `CellOccupiedException` (422, rule violation), `NotYourTurnException` (409), `GameOverException` (409) — replacing the previous ad hoc `IllegalArgumentException`/`IllegalStateException` + manual controller `try/catch` building `ErrorResponse` by hand.
 - Concurrency: a per-game `ReentrantLock` (`ConcurrentHashMap<String, ReentrantLock>`, `computeIfAbsent`) held for the whole span of `makeMove`/`undoLastMove`/`resetGame`, mirroring `ChessService`.
 - Isolated `/api/tictactoe/sim/*` engine: a second `GameRepository` instance (`simReset`/`simGetGame`/`simMove`/`simUndo`/`simGetEventLog`) so the demo cannot touch a real match; `simReset` seeds a fresh Alice-vs-Bob game and clears the `SimEvent` log.
-- Tests: `TicTacToeServiceTest` (row/column/main-diagonal/anti-diagonal win detection — including from a mid-game fork position, not just an empty-board opening — draw, undo, reset, every exception path, sim-engine isolation), `TicTacToeConcurrencyTest` (two and twenty threads racing the same cell on one game — exactly one wins; disjoint games never contend).
+- Tests: `TicTacToeCommandTest` (all three command implementations, typed validation, reversal,
+  LIFO enforcement, polymorphic execution), `TicTacToeServiceTest` (row/column/main-diagonal/
+  anti-diagonal win detection — including from a mid-game fork position, not just an empty-board
+  opening — draw, command-backed undo/reset, every exception path, sim-engine isolation),
+  `TicTacToeConcurrencyTest` (two and twenty threads racing the same cell on one game — exactly
+  one wins; disjoint games never contend).
 
 ### Frontend
 - Uses the shared `LldPage` shell. Tabs: board, history, simulation, diagram, details.
