@@ -101,9 +101,9 @@ Digital Wallet review, is also resolved.
 4. **TrafficSignal simulation wiring (resolved 2026-09-09, RCA-065).** The audited frontend hit
    live endpoints and hid failures behind hardcoded state. Its eight-step walkthrough now uses
    only `/traffic/sim/*`, renders backend snapshot/event telemetry, and exposes retryable errors.
-5. **Dead/false pattern claims**: MovieTicket's `SeatAvailabilityObserver` interface has zero
-   implementations; Zomato's docs claim an Observer and a payment Strategy that don't exist in
-   code; TicTacToe has no GoF pattern anywhere despite needing one for criterion 3.
+5. **Dead/false pattern claims (RCA-066, partially resolved).** MovieTicket's empty notifier and
+   Observer claims were removed on 2026-09-09. Zomato's Observer/payment-Strategy documentation
+   mismatch and TicTacToe's missing GoF pattern remain open.
 
 ## Three highest-value fixes, ranked
 

@@ -5,7 +5,6 @@ import com.lld.movieticket.exception.HoldExpiredException;
 import com.lld.movieticket.exception.SeatNotAvailableException;
 import com.lld.movieticket.model.Seat;
 import com.lld.movieticket.model.SeatStatus;
-import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
 import org.springframework.stereotype.Component;
 
@@ -46,7 +45,7 @@ public class SeatLockManager {
         }
     }
 
-    public void holdSeats(long showId, List<Long> seatIds, String userId, long holdDurationMs, MovieTicketRepository repository, SeatMapNotifier notifier) {
+    public void holdSeats(long showId, List<Long> seatIds, String userId, long holdDurationMs, MovieTicketRepository repository) {
         List<ReentrantLock> locks = lockSeatsInOrder(showId, seatIds);
         long now = System.currentTimeMillis();
         try {
@@ -68,22 +67,18 @@ public class SeatLockManager {
             long expiresAt = now + holdDurationMs;
             for (Long seatId : seatIds) {
                 Seat seat = repository.findSeatById(showId, seatId);
-                SeatStatus oldStatus = seat.getStatus();
                 seat.setStatus(SeatStatus.HELD);
                 seat.setHeldByUserId(userId);
                 seat.setHoldExpiresAt(expiresAt);
                 seat.setVersion(seat.getVersion() + 1);
                 repository.updateSeat(seat);
-                if (notifier != null) {
-                    notifier.notifyStatusChange(showId, seat, oldStatus, SeatStatus.HELD, userId);
-                }
             }
         } finally {
             unlockSeats(locks);
         }
     }
 
-    public void confirmSeats(long showId, List<Long> seatIds, String userId, MovieTicketRepository repository, SeatMapNotifier notifier) {
+    public void confirmSeats(long showId, List<Long> seatIds, String userId, MovieTicketRepository repository) {
         List<ReentrantLock> locks = lockSeatsInOrder(showId, seatIds);
         long now = System.currentTimeMillis();
         try {
@@ -109,36 +104,28 @@ public class SeatLockManager {
             // Step 2: All valid -> transition to BOOKED
             for (Long seatId : seatIds) {
                 Seat seat = repository.findSeatById(showId, seatId);
-                SeatStatus oldStatus = seat.getStatus();
                 seat.setStatus(SeatStatus.BOOKED);
                 seat.setHeldByUserId(null);
                 seat.setHoldExpiresAt(0L);
                 seat.setVersion(seat.getVersion() + 1);
                 repository.updateSeat(seat);
-                if (notifier != null) {
-                    notifier.notifyStatusChange(showId, seat, oldStatus, SeatStatus.BOOKED, userId);
-                }
             }
         } finally {
             unlockSeats(locks);
         }
     }
 
-    public void releaseSeats(long showId, List<Long> seatIds, String userId, MovieTicketRepository repository, SeatMapNotifier notifier) {
+    public void releaseSeats(long showId, List<Long> seatIds, MovieTicketRepository repository) {
         List<ReentrantLock> locks = lockSeatsInOrder(showId, seatIds);
         try {
             for (Long seatId : seatIds) {
                 Seat seat = repository.findSeatById(showId, seatId);
                 if (seat != null) {
-                    SeatStatus oldStatus = seat.getStatus();
                     seat.setStatus(SeatStatus.AVAILABLE);
                     seat.setHeldByUserId(null);
                     seat.setHoldExpiresAt(0L);
                     seat.setVersion(seat.getVersion() + 1);
                     repository.updateSeat(seat);
-                    if (notifier != null) {
-                        notifier.notifyStatusChange(showId, seat, oldStatus, SeatStatus.AVAILABLE, userId);
-                    }
                 }
             }
         } finally {
@@ -146,21 +133,17 @@ public class SeatLockManager {
         }
     }
 
-    public void cancelBookedSeats(long showId, List<Long> seatIds, MovieTicketRepository repository, SeatMapNotifier notifier) {
+    public void cancelBookedSeats(long showId, List<Long> seatIds, MovieTicketRepository repository) {
         List<ReentrantLock> locks = lockSeatsInOrder(showId, seatIds);
         try {
             for (Long seatId : seatIds) {
                 Seat seat = repository.findSeatById(showId, seatId);
                 if (seat != null) {
-                    SeatStatus oldStatus = seat.getStatus();
                     seat.setStatus(SeatStatus.AVAILABLE);
                     seat.setHeldByUserId(null);
                     seat.setHoldExpiresAt(0L);
                     seat.setVersion(seat.getVersion() + 1);
                     repository.updateSeat(seat);
-                    if (notifier != null) {
-                        notifier.notifyStatusChange(showId, seat, oldStatus, SeatStatus.AVAILABLE, "SYSTEM");
-                    }
                 }
             }
         } finally {
@@ -168,7 +151,7 @@ public class SeatLockManager {
         }
     }
 
-    public void expireStaleHolds(long showId, MovieTicketRepository repository, SeatMapNotifier notifier) {
+    public void expireStaleHolds(long showId, MovieTicketRepository repository) {
         List<Seat> seats = repository.getSeatsByShow(showId);
         long now = System.currentTimeMillis();
         for (Seat seat : seats) {
@@ -177,16 +160,11 @@ public class SeatLockManager {
                 lock.lock();
                 try {
                     if (seat.getStatus() == SeatStatus.HELD && seat.getHoldExpiresAt() <= now) {
-                        SeatStatus oldStatus = seat.getStatus();
-                        String holder = seat.getHeldByUserId();
                         seat.setStatus(SeatStatus.AVAILABLE);
                         seat.setHeldByUserId(null);
                         seat.setHoldExpiresAt(0L);
                         seat.setVersion(seat.getVersion() + 1);
                         repository.updateSeat(seat);
-                        if (notifier != null) {
-                            notifier.notifyStatusChange(showId, seat, oldStatus, SeatStatus.AVAILABLE, holder != null ? holder : "SYSTEM_CLEANUP");
-                        }
                     }
                 } finally {
                     lock.unlock();

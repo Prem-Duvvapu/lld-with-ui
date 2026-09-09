@@ -5870,15 +5870,23 @@ rg -n "Pattern|Strategy|Observer|Command|State" \
   backend/src/main/java/com/lld/tictactoe frontend/src/data/{design,diagrams}/tictactoe.js README.md
 ```
 
-**Step-by-Step Resolution** — **Not yet applied.** Resolve each claim deliberately rather than by
-renaming existing code. For Movie Ticket, either add real independently useful observers,
-constructor-register them, expose/test their effects, and isolate sim telemetry, or remove the
-dead notifier and all Observer claims. For Zomato, correct the README to identify the existing
-delivery-fee Strategy and remove Observer/payment-Strategy claims unless real implementations are
-added and wired. For Tic Tac Toe, introduce a pattern only where it improves the model (for
-example Command objects that own execute/undo for moves) and test runtime selection/behavior; do
-not add a one-implementation interface solely to satisfy scoring. Re-run content-to-code audits
-and full suites, then update the entries and this RCA to `Resolved`.
+**Step-by-Step Resolution** — **In progress.** Resolve each claim deliberately rather than by
+renaming existing code.
+
+1. **Movie Ticket — resolved 2026-09-09.** Removed `SeatMapNotifier` and
+   `SeatAvailabilityObserver`: the interface had zero implementations, the subject had zero
+   registered subscribers, and every publish call was therefore a no-op. Removed the notifier
+   constructor field and method parameters from `MovieTicketService`/`SeatLockManager`, then
+   corrected README, design, diagram, and repository-context claims. The module continues to
+   demonstrate its genuine pricing Strategy + Factory and seat Factory patterns. Validation:
+   all 29 focused Movie Ticket tests, all 2,277 backend tests, all 396 frontend tests, and the
+   production build passed; the entry chunk remained 268.34 kB.
+2. **Zomato — pending.** Correct the README/design material to identify the existing delivery-fee
+   Strategy and remove Observer/payment-Strategy claims unless real implementations are added and
+   wired.
+3. **Tic Tac Toe — pending.** Introduce a pattern only where it improves the model (for example
+   Command objects that own execute/undo for moves) and test runtime behavior; do not add a
+   one-implementation interface solely to satisfy scoring.
 
 **Preventative Measures** — A pattern claim must include four pieces of evidence: the abstraction,
 at least two meaningful implementations where polymorphism is claimed, production wiring, and a

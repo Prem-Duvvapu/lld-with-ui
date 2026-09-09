@@ -5,7 +5,6 @@ import com.lld.movieticket.exception.SeatNotAvailableException;
 import com.lld.movieticket.model.Booking;
 import com.lld.movieticket.model.PaymentMethod;
 import com.lld.movieticket.model.Show;
-import com.lld.movieticket.observer.SeatMapNotifier;
 import com.lld.movieticket.repository.MovieTicketRepository;
 import com.lld.movieticket.service.MovieTicketPaymentProcessor;
 import com.lld.movieticket.service.MovieTicketService;
@@ -36,9 +35,8 @@ public class MovieTicketConcurrencyTest {
         repository.seedInitialData();
         SeatLockManager seatLockManager = new SeatLockManager();
         MovieTicketPaymentProcessor paymentProcessor = new MovieTicketPaymentProcessor();
-        SeatMapNotifier seatMapNotifier = new SeatMapNotifier();
         PricingStrategyFactory pricingStrategyFactory = new PricingStrategyFactory(new BasePricingStrategy(), new SurgePricingStrategy());
-        service = new MovieTicketService(repository, seatLockManager, paymentProcessor, seatMapNotifier, pricingStrategyFactory);
+        service = new MovieTicketService(repository, seatLockManager, paymentProcessor, pricingStrategyFactory);
     }
 
     private long firstShowId() {

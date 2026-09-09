@@ -12,7 +12,6 @@ export default {
         '- repository: MovieTicketRepository',
         '- seatLockManager: SeatLockManager',
         '- paymentProcessor: MovieTicketPaymentProcessor',
-        '- seatMapNotifier: SeatMapNotifier',
         '- pricingStrategyFactory: PricingStrategyFactory',
         '- bookingLocks: ConcurrentHashMap<Long, ReentrantLock>'
       ],
@@ -31,8 +30,8 @@ export default {
         '- seatLocks: ConcurrentHashMap<String, ReentrantLock>'
       ],
       methods: [
-        '+ holdSeats(showId, seatIds, userId, duration, repo, notifier)',
-        '+ confirmSeats(showId, seatIds, userId, repo, notifier)',
+        '+ holdSeats(showId, seatIds, userId, duration, repo)',
+        '+ confirmSeats(showId, seatIds, userId, repo)',
         '+ releaseSeats(...)',
         '+ expireStaleHolds(...)'
       ]
@@ -168,23 +167,6 @@ export default {
       ]
     },
     {
-      name: 'SeatMapNotifier',
-      fields: [
-        '- observers: List<SeatAvailabilityObserver>'
-      ],
-      methods: [
-        '+ notifyStatusChange(...)'
-      ]
-    },
-    {
-      name: 'SeatAvailabilityObserver',
-      stereotype: 'interface',
-      fields: [],
-      methods: [
-        '+ onSeatStatusChanged(...)'
-      ]
-    },
-    {
       name: 'MovieTicketPaymentProcessor',
       fields: [
         '- shouldFail: boolean'
@@ -214,11 +196,6 @@ export default {
       from: 'MovieTicketService',
       to: 'PricingStrategyFactory',
       label: 'resolves pricing via'
-    },
-    {
-      from: 'MovieTicketService',
-      to: 'SeatMapNotifier',
-      label: 'notifies'
     },
     {
       from: 'PricingStrategyFactory',
