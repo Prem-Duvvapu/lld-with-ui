@@ -699,6 +699,29 @@ shared `apiFetch` (it previously hand-rolled its own `fetch`/error handling).
 - 5 tabs: ☕ Order & Customize (Interactive Barista Console), 🎛️ Ingredient Inventory & Refill (Admin), 🔒 Concurrency Simulation, 📐 Class Diagram, 📋 Design Details.
 - Dynamic liquid layer cup visualizer, live decorator price builder, hopper fill gauges with low-stock badges, and 8-step educational concurrency simulation sandbox.
 
+## Traffic Signal Module
+### Backend
+- `TrafficSignalService` owns the live auto-ticking intersections and a separate `simIntersection`
+  driven by `ManualSignalTicker`; `simReset`/`simTick`/`simEmergencyOverride`/`simResume`/
+  `simManualTransition` return snapshots containing the sandbox intersection, command events, and
+  observer phase-change telemetry.
+- `Intersection` holds one aggregate `ReentrantLock` across each phase transition or override so
+  exactly one direction is GREEN/YELLOW. The State hierarchy (`RedState`, `GreenState`,
+  `YellowState`) owns legal successors; `SignalChangeNotifier` publishes each transition.
+- `TrafficSignalServiceTest#completeSimWalkthroughNeverTouchesProduction` runs the same eight
+  actions as the UI and proves every live light state/timer, active index, and override flag is
+  unchanged.
+
+### Frontend
+- The operational tab remains on `/api/traffic/status`, `/transition`, and `/emergency`.
+- The Simulation tab (RCA-065) is an eight-step backend-driven walkthrough using only
+  `/api/traffic/sim/*`: reset → green countdown → yellow clearance/rotation → mid-phase tick →
+  emergency preemption → frozen override clock → resume → return to ordinary rotation. It renders
+  the returned snapshot and both telemetry streams; transport errors remain on the current step
+  for retry and are never replaced by mock state.
+- `trafficSignalApi.test.js` pins every live and simulation URL separately and asserts that all
+  simulation helpers remain under the `/traffic/sim/*` namespace.
+
 ## Logging Framework Module
 ### Backend
 - `LoggingService`: Singleton facade managing hierarchical loggers, formatters, and multi-appender sinks with isolated simulation engine (`/sim/*`).

@@ -5770,11 +5770,10 @@ silently inferred.
 
 ## RCA-065: Traffic Signal's Simulation Tab Bypasses Its Isolated Backend Engine
 
-**Overview & Severity** — High, **Open** (verified by the 2026-09-08 portfolio audit; no wiring was
-changed by that read-only pass). The frontend labels a tab as a simulation, but it reads and
-mutates the live traffic intersection while the backend's purpose-built `/sim/*` sandbox remains
-unused. Backend failures are also replaced with hardcoded state, making the demo look healthy when
-the API is unavailable.
+**Overview & Severity** — High, **Resolved 2026-09-09** (found by the 2026-09-08 portfolio audit).
+The frontend labeled a tab as a simulation, but it read and mutated the live traffic intersection
+while the backend's purpose-built `/sim/*` sandbox remained unused. Backend failures were also
+replaced with hardcoded state, making the demo look healthy when the API was unavailable.
 
 **Symptoms & Error Logs** — `AnimatedFlow` imports the same `getStatus`, `transition`, and
 `emergency` wrappers used by the operational tab. Those wrappers call `/traffic/status`,
@@ -5802,13 +5801,26 @@ rg -n "simReset|simTick|simEmergency|simResume|simManualTransition|getSimSnapsho
   backend/src/main/java/com/lld/trafficsignal
 ```
 
-**Step-by-Step Resolution** — **Not yet applied.** Add thin frontend wrappers for the existing sim
-endpoints, reset the sandbox when the walkthrough starts, drive each of at least eight explicit
-steps from backend responses, and render the returned snapshot/event telemetry as the HUD. Remove
-the mock-data fallback and surface a retryable error state. Keep the operational tab on live
-endpoints. Add frontend tests that spy on requests and prove the simulation uses only `/sim/*`,
-plus a backend isolation test proving a full simulated walkthrough leaves the live intersection
-unchanged. Run frontend tests/build and the backend suite before changing this RCA to `Resolved`.
+**Step-by-Step Resolution**
+
+1. Added thin API wrappers for all existing sandbox endpoints: reset, tick, emergency, resume,
+   manual transition, events, and snapshot. Every wrapper is rooted at `/traffic/sim/*`; the
+   operational helpers remain on their original live endpoints.
+2. Replaced `AnimatedFlow`'s live polling and live mutations with an eight-step walkthrough whose
+   every action consumes the backend-returned sandbox snapshot: reset, GREEN countdown, YELLOW
+   clearance/rotation, mid-phase tick, West emergency preemption, frozen override tick, resume,
+   and return to ordinary rotation.
+3. Removed invented fallback lights and swallowed mutation errors. A failed step now displays the
+   transport/domain reason and stays current so the same action can be retried safely.
+4. Rendered the sandbox's real `intersection`, command `events`, and observer `phaseChangeLog` as
+   the animation state and telemetry HUD. The scene no longer manufactures light state locally.
+5. Added `trafficSignalApi.test.js` to pin live URLs separately and assert every simulation helper
+   stays under `/traffic/sim/*`. Added a backend full-walkthrough test that snapshots every live
+   light state/timer plus aggregate state before the eight sandbox actions and proves nothing
+   changes. Focused validation passed `19` backend and `2` frontend tests. The full backend suite
+   passed `2,277` tests, frontend Vitest passed `396`, and the production build completed with the
+   entry chunk at `268.34 kB`, below the `500 kB` budget. Backend validation ran from an explicit
+   Linux-filesystem copy because javac stalls on the OneDrive mount; no server was started.
 
 **Preventative Measures** — Treat endpoint namespace isolation as a testable contract. Every
 interactive simulation should have an API-layer test forbidding live endpoint calls and a service

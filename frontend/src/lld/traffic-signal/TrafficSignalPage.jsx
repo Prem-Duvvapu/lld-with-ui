@@ -1,6 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import LldPage from '../../components/LldPage';
-import { getStatus, transition, emergency } from './api';
+import {
+  getStatus, transition, emergency,
+  simReset, simTick, simEmergency, simResume,
+} from './api';
 import { usePolling } from '../../hooks/usePolling';
 
 const CSS = `
@@ -36,54 +39,75 @@ const CSS = `
 .ts-btn.primary { background: var(--accent-gradient); color: #fff; }
 .ts-btn.danger { background: var(--danger); color: #fff; }
 .ts-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.ts-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.ts-step-track { display: flex; gap: 6px; justify-content: center; margin: 0 0 12px; }
+.ts-step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-primary); }
+.ts-step-dot.done { background: var(--success); }
+.ts-step-dot.active { background: var(--accent); transform: scale(1.3); }
+.ts-error { margin: 0 auto 16px; padding: 10px 14px; border-radius: 8px; background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); font-size: 13px; font-weight: 600; }
 `;
 
+const SIM_STEPS = [
+  { title: 'Cold Boot', detail: 'Reset a fresh four-way sandbox; North starts GREEN.' },
+  { title: 'Green Countdown', detail: 'Advance 8 simulated seconds so North moves GREEN → YELLOW.' },
+  { title: 'Rotate Right-of-Way', detail: 'Advance the 3-second clearance; North turns RED and South turns GREEN.' },
+  { title: 'Mid-Phase Tick', detail: 'Advance 4 seconds while South remains GREEN, proving countdown state comes from the backend.' },
+  { title: 'Emergency Preemption', detail: 'Give West (light 3) immediate priority and freeze ordinary cycling.' },
+  { title: 'Frozen Clock', detail: 'Advance 5 seconds during the override; West remains GREEN because tick is intentionally a no-op.' },
+  { title: 'Resume Safely', detail: 'Clear the override and move West GREEN → YELLOW.' },
+  { title: 'Return to Rotation', detail: 'Finish West\'s 3-second clearance and hand GREEN back to North.' },
+];
+
+const CARS = {
+  NORTH: { x: 'calc(50% - 30px)', y: 20 },
+  SOUTH: { x: 'calc(50% + 10px)', y: 360 },
+  WEST: { x: 20, y: 'calc(50% + 10px)' },
+  EAST: { x: 800, y: 'calc(50% - 30px)' },
+};
+
 function AnimatedFlow() {
-  const [lightsData, setLightsData] = useState(null);
-  const [cars, setCars] = useState({
-    NORTH: { x: 'calc(50% - 30px)', y: 20, icon: '🚗' },
-    SOUTH: { x: 'calc(50% + 10px)', y: 360, icon: '🚙' },
-    WEST: { x: 20, y: 'calc(50% + 10px)', icon: '🚕' },
-    EAST: { x: 800, y: 'calc(50% - 30px)', icon: '🏎️' },
-  });
-  const [logs, setLogs] = useState([]);
+  const [step, setStep] = useState(0);
+  const [snapshot, setSnapshot] = useState(null);
+  const [error, setError] = useState(null);
+  const [running, setRunning] = useState(false);
 
-  const addLog = (msg) => setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 4)]);
-
-  const fetchStatus = async () => {
+  const runStep = async () => {
+    if (running || step >= SIM_STEPS.length) return;
+    setRunning(true);
     try {
-      const res = await getStatus();
-      if (res && res.lights) setLightsData(res);
-    } catch {
-      // Mock fallback state if backend endpoint pending
-      setLightsData({
-        lights: [
-          { id: '1', position: 'NORTH', currentState: 'GREEN', timer: 15 },
-          { id: '2', position: 'SOUTH', currentState: 'GREEN', timer: 15 },
-          { id: '3', position: 'EAST', currentState: 'RED', timer: 20 },
-          { id: '4', position: 'WEST', currentState: 'RED', timer: 20 },
-        ]
-      });
+      let nextSnapshot;
+      if (step === 0) nextSnapshot = await simReset();
+      else if (step === 1) nextSnapshot = await simTick(8, 2);
+      else if (step === 2) nextSnapshot = await simTick(3, 3);
+      else if (step === 3) nextSnapshot = await simTick(4, 4);
+      else if (step === 4) nextSnapshot = await simEmergency(3, 5);
+      else if (step === 5) nextSnapshot = await simTick(5, 6);
+      else if (step === 6) nextSnapshot = await simResume(7);
+      else nextSnapshot = await simTick(3, 8);
+
+      setSnapshot(nextSnapshot);
+      setError(null);
+      setStep((current) => current + 1);
+    } catch (err) {
+      setError(err?.message || 'Simulation step failed');
+    } finally {
+      setRunning(false);
     }
   };
 
-  usePolling(fetchStatus, 1500, []);
-
-  const handleCycle = async () => {
-    addLog('State Machine Transition Triggered');
-    try { await transition(); } catch { /* ignore */ }
-    fetchStatus();
+  const restart = () => {
+    setStep(0);
+    setSnapshot(null);
+    setError(null);
   };
 
-  const handleEmergencyBtn = async (pos) => {
-    addLog(`🚑 Emergency Vehicle Override Signal Sent for ${pos}`);
-    try { await emergency(pos); } catch { /* ignore */ }
-    fetchStatus();
-  };
+  const lightsData = snapshot?.intersection;
+  const events = snapshot?.events || [];
+  const phaseChanges = snapshot?.phaseChangeLog || [];
 
   const getLightState = (pos) => {
     if (!lightsData || !lightsData.lights) return 'RED';
-    const l = lightsData.lights.find(item => item.position === pos || item.id === pos);
+    const l = lightsData.lights.find(item => item.position?.toUpperCase() === pos || String(item.id) === String(pos));
     return l ? l.currentState : 'RED';
   };
 
@@ -96,6 +120,20 @@ function AnimatedFlow() {
   return (
     <div className="ts-container">
       <style>{CSS}</style>
+
+      <div className="ts-step-track">
+        {SIM_STEPS.map((_, index) => (
+          <div key={index} className={`ts-step-dot ${index < step ? 'done' : index === step ? 'active' : ''}`} />
+        ))}
+      </div>
+      <div style={{ textAlign: 'center', marginBottom: 14, color: 'var(--text-secondary)', fontSize: 13 }}>
+        {step < SIM_STEPS.length ? (
+          <><b>Step {step + 1}/{SIM_STEPS.length}: {SIM_STEPS[step].title}</b> — {SIM_STEPS[step].detail}</>
+        ) : (
+          <><b>Walkthrough complete.</b> The live intersection was never touched.</>
+        )}
+      </div>
+      {error && <div className="ts-error">⚠ {error} — retry the same step below.</div>}
 
       <div className="ts-stage">
         {/* Roads */}
@@ -133,39 +171,41 @@ function AnimatedFlow() {
 
         {/* Moving Animated Vehicles */}
         <div className="car" style={{
-          left: cars.NORTH.x,
+          left: CARS.NORTH.x,
           top: northState === 'GREEN' ? 380 : 100,
         }}>🚗</div>
 
         <div className="car" style={{
-          left: cars.SOUTH.x,
+          left: CARS.SOUTH.x,
           top: southState === 'GREEN' ? 10 : 280,
         }}>🚙</div>
 
         <div className="car" style={{
-          top: cars.WEST.y,
+          top: CARS.WEST.y,
           left: westState === 'GREEN' ? '85%' : 100,
         }}>🚕</div>
 
         <div className="car" style={{
-          top: cars.EAST.y,
+          top: CARS.EAST.y,
           left: eastState === 'GREEN' ? '5%' : 'calc(100% - 140px)',
         }}>🏎️</div>
       </div>
 
       <div className="ts-controls">
-        <button className="ts-btn primary" onClick={handleCycle}>
-          🔄 Next Signal Phase Cycle
+        <button className="ts-btn primary" onClick={runStep} disabled={running || step >= SIM_STEPS.length}>
+          {running ? 'Running…' : error ? 'Retry Step' : step === 0 ? 'Start Simulation' : step >= SIM_STEPS.length ? 'Done' : 'Next Step →'}
         </button>
-        <button className="ts-btn danger" onClick={() => handleEmergencyBtn('NORTH')}>
-          🚑 Emergency Vehicle Priority (North-South)
-        </button>
+        {step >= SIM_STEPS.length && <button className="ts-btn danger" onClick={restart}>Restart</button>}
       </div>
 
       <div style={{ marginTop: 16, background: 'var(--bg-primary)', padding: 12, borderRadius: 8, border: '1px solid var(--border-primary)', fontFamily: 'monospace', fontSize: 12 }}>
-        <div style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>State Machine Event Log:</div>
-        {logs.length === 0 ? <div style={{ color: 'var(--text-muted)' }}>Ready. Click Cycle or Emergency.</div> : logs.map((l, idx) => (
-          <div key={idx} style={{ color: idx === 0 ? 'var(--info)' : 'var(--text-muted)' }}>{l}</div>
+        <div style={{ fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
+          Sandbox Telemetry — {events.length} command events / {phaseChanges.length} phase changes
+        </div>
+        {events.length === 0 ? <div style={{ color: 'var(--text-muted)' }}>Ready. Start the isolated walkthrough.</div> : events.slice().reverse().map((event, idx) => (
+          <div key={event.id} style={{ color: event.status === 'ERROR' ? 'var(--danger)' : idx === 0 ? 'var(--info)' : 'var(--text-muted)', padding: '2px 0' }}>
+            [Step {event.stepNumber}] {event.eventType}: {event.description}
+          </div>
         ))}
       </div>
     </div>

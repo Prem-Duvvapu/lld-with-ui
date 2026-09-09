@@ -19,12 +19,13 @@ export default {
     'Emergency override — force exactly one light to GREEN and every other light to RED immediately, freezing normal cycling until resumeNormalOperation() is called explicitly; a second override while one is active is rejected, not queued',
     'Multiple intersection support — TrafficRepository stores any number of independently-ticking Intersection instances',
     'Phase-change notifications — every transition (automatic, manual, or emergency-induced) is published to registered observers for in-app display and server-side logging',
-    'Deterministic testability — the passage of time is abstracted behind SignalTicker, so tests drive an intersection with a ManualSignalTicker instead of sleeping for a real scheduler'
+    'Deterministic testability — the passage of time is abstracted behind SignalTicker, so tests drive an intersection with a ManualSignalTicker instead of sleeping for a real scheduler',
+    'Isolated simulation — the eight-step UI walkthrough calls only /traffic/sim/* and renders the returned sandbox snapshot, command events, and observer phase-change log without touching live intersections'
   ],
   entities: [
     {
       name: 'TrafficSignalService',
-      description: 'Facade the controller delegates to wholesale. Owns one production Intersection auto-ticking on a real ScheduledExecutorSignalTicker, plus any extra intersections created via createIntersection().',
+      description: 'Facade the controller delegates to wholesale. Owns production intersections auto-ticking on a ScheduledExecutorSignalTicker and a separate simIntersection driven only by ManualSignalTicker calls from the isolated /sim/* walkthrough.',
       fields: [
         {
           name: 'repository',
@@ -35,6 +36,11 @@ export default {
           name: 'productionTicker',
           type: 'SignalTicker',
           description: 'ScheduledExecutorSignalTicker in production; a test constructor accepts a ManualSignalTicker instead for deterministic timing tests'
+        },
+        {
+          name: 'simIntersection, simTicker, simEvents',
+          type: 'Intersection, ManualSignalTicker, List<SimEvent>',
+          description: 'Independent sandbox aggregate, deterministic clock, and command telemetry returned to the Simulation tab'
         }
       ],
       methods: [
@@ -52,6 +58,11 @@ export default {
           name: 'manualTransition(intersectionId, lightId, requested)',
           returns: 'Intersection',
           description: 'Delegates to Intersection.manualTransition(); rejected with IllegalSignalTransitionException unless requested is that light\'s one legal next phase'
+        },
+        {
+          name: 'simReset / simTick / simEmergencyOverride / simResume',
+          returns: 'Map<String, Object>',
+          description: 'Drive only the isolated intersection and return its snapshot, command events, and observer phase-change log to the UI'
         }
       ]
     },

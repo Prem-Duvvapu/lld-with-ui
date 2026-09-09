@@ -18,7 +18,10 @@ export default {
       fields: [
         '- repository: TrafficRepository',
         '- productionTicker: SignalTicker',
-        '- mainIntersection: Intersection'
+        '- mainIntersection: Intersection',
+        '- simIntersection: Intersection',
+        '- simTicker: ManualSignalTicker',
+        '- simEvents: List<SimEvent>'
       ],
       methods: [
         '+ listIntersections(): List<Intersection>',
@@ -26,7 +29,11 @@ export default {
         '+ createIntersection(name, positions): Intersection',
         '+ requestEmergencyOverride(intersectionId, lightId): Intersection',
         '+ resumeNormalOperation(intersectionId): Intersection',
-        '+ manualTransition(intersectionId, lightId, requested): Intersection'
+        '+ manualTransition(intersectionId, lightId, requested): Intersection',
+        '+ simReset(): Snapshot',
+        '+ simTick(seconds, step): Snapshot',
+        '+ simEmergencyOverride(lightId, step): Snapshot',
+        '+ simResume(step): Snapshot'
       ]
     },
     {
