@@ -1,5 +1,6 @@
 package com.lld.splitwise.strategy;
 
+import com.lld.splitwise.exception.InvalidSplitException;
 import com.lld.splitwise.model.SplitType;
 import org.springframework.stereotype.Component;
 
@@ -19,7 +20,7 @@ public class SplitStrategyFactory {
     public SplitStrategy getStrategy(SplitType type) {
         SplitStrategy strategy = strategies.get(type);
         if (strategy == null) {
-            throw new IllegalArgumentException("Unsupported split type: " + type);
+            throw new InvalidSplitException("Unsupported split type: " + type);
         }
         return strategy;
     }

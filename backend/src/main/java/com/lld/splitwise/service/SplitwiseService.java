@@ -1,5 +1,9 @@
 package com.lld.splitwise.service;
 
+import com.lld.splitwise.exception.GroupNotFoundException;
+import com.lld.splitwise.exception.InvalidExpenseException;
+import com.lld.splitwise.exception.InvalidSettlementException;
+import com.lld.splitwise.exception.UserNotFoundException;
 import com.lld.splitwise.model.*;
 import com.lld.splitwise.repository.SplitwiseRepository;
 import com.lld.splitwise.strategy.SplitStrategy;
@@ -61,8 +65,7 @@ public class SplitwiseService {
         lock.lock();
         try {
             List<User> members = memberIds.stream()
-                    .map(repository::getUser)
-                    .filter(Objects::nonNull)
+                    .map(memberId -> requireUser(repository, memberId))
                     .collect(Collectors.toList());
             Group group = new Group();
             group.setName(name);
@@ -78,10 +81,8 @@ public class SplitwiseService {
     public Group addMemberToGroup(long groupId, long userId) {
         lock.lock();
         try {
-            User user = repository.getUser(userId);
-            if (user == null) throw new RuntimeException("User not found: " + userId);
-            Group group = repository.getGroup(groupId);
-            if (group == null) throw new RuntimeException("Group not found: " + groupId);
+            Group group = requireGroup(repository, groupId);
+            User user = requireUser(repository, userId);
             repository.addMemberToGroup(groupId, user);
             Group updated = repository.getGroup(groupId);
             logEvent(eventLog, eventIdCounter, ExpenseEventType.MEMBER_ADDED, user.getName(), "Added " + user.getName() + " to group " + group.getName(), Map.of("groupId", groupId, "userId", userId), repository);
@@ -94,10 +95,13 @@ public class SplitwiseService {
     public Expense addExpense(String description, double amount, Long paidByUserId, Long groupId, List<Split> splits) {
         lock.lock();
         try {
-            User paidBy = repository.getUser(paidByUserId);
-            if (paidBy == null) throw new RuntimeException("User not found: " + paidByUserId);
-            Group group = repository.getGroup(groupId);
-            if (group == null) throw new RuntimeException("Group not found: " + groupId);
+            validateExpenseRequest(description, amount, paidByUserId, groupId);
+            User paidBy = requireUser(repository, paidByUserId);
+            Group group = requireGroup(repository, groupId);
+            if (!isMember(group, paidBy.getId())) {
+                throw new InvalidExpenseException(
+                        "Paying user " + paidBy.getId() + " is not a member of group " + group.getId());
+            }
 
             SplitType splitType = (splits == null || splits.isEmpty()) ? SplitType.EQUAL : splits.get(0).getType();
             SplitStrategy strategy = strategyFactory.getStrategy(splitType);
@@ -126,6 +130,7 @@ public class SplitwiseService {
     }
 
     public Map<String, Double> getBalances(long userId) {
+        requireUser(repository, userId);
         Map<String, Double> netBalance = repository.getNetBalance(userId);
         Map<String, Double> result = new HashMap<>();
         for (Map.Entry<String, Double> entry : netBalance.entrySet()) {
@@ -141,10 +146,10 @@ public class SplitwiseService {
     public Settlement settleUp(long fromUserId, long toUserId, long groupId, double amount) {
         lock.lock();
         try {
-            User fromUser = repository.getUser(fromUserId);
-            User toUser = repository.getUser(toUserId);
-            if (fromUser == null) throw new RuntimeException("User not found: " + fromUserId);
-            if (toUser == null) throw new RuntimeException("User not found: " + toUserId);
+            Group group = requireGroup(repository, groupId);
+            User fromUser = requireUser(repository, fromUserId);
+            User toUser = requireUser(repository, toUserId);
+            validateSettlementRequest(fromUserId, toUserId, amount, group);
 
             Settlement settlement = new Settlement();
             settlement.setFromUser(fromUser);
@@ -171,15 +176,17 @@ public class SplitwiseService {
     }
 
     public List<Object> getTransactionHistory(long userId) {
+        requireUser(repository, userId);
         return repository.getTransactionHistory(userId);
     }
 
     public List<Expense> getGroupExpenses(long groupId) {
+        requireGroup(repository, groupId);
         return repository.getExpensesByGroup(groupId);
     }
 
     public User getUser(long id) {
-        return repository.getUser(id);
+        return requireUser(repository, id);
     }
 
     public List<User> getAllUsers() {
@@ -187,7 +194,7 @@ public class SplitwiseService {
     }
 
     public Group getGroup(long id) {
-        return repository.getGroup(id);
+        return requireGroup(repository, id);
     }
 
     public List<Group> getAllGroups() {
@@ -224,8 +231,7 @@ public class SplitwiseService {
         lock.lock();
         try {
             List<User> members = memberIds.stream()
-                    .map(simRepository::getUser)
-                    .filter(Objects::nonNull)
+                    .map(memberId -> requireUser(simRepository, memberId))
                     .collect(Collectors.toList());
             Group group = new Group();
             group.setName(name);
@@ -241,10 +247,13 @@ public class SplitwiseService {
     public Expense simAddExpense(String description, double amount, Long paidByUserId, Long groupId, List<Split> splits) {
         lock.lock();
         try {
-            User paidBy = simRepository.getUser(paidByUserId);
-            if (paidBy == null) throw new RuntimeException("User not found: " + paidByUserId);
-            Group group = simRepository.getGroup(groupId);
-            if (group == null) throw new RuntimeException("Group not found: " + groupId);
+            validateExpenseRequest(description, amount, paidByUserId, groupId);
+            User paidBy = requireUser(simRepository, paidByUserId);
+            Group group = requireGroup(simRepository, groupId);
+            if (!isMember(group, paidBy.getId())) {
+                throw new InvalidExpenseException(
+                        "Paying user " + paidBy.getId() + " is not a member of group " + group.getId());
+            }
 
             SplitType splitType = (splits == null || splits.isEmpty()) ? SplitType.EQUAL : splits.get(0).getType();
             SplitStrategy strategy = strategyFactory.getStrategy(splitType);
@@ -275,10 +284,10 @@ public class SplitwiseService {
     public Settlement simSettleUp(long fromUserId, long toUserId, long groupId, double amount) {
         lock.lock();
         try {
-            User fromUser = simRepository.getUser(fromUserId);
-            User toUser = simRepository.getUser(toUserId);
-            if (fromUser == null) throw new RuntimeException("User not found: " + fromUserId);
-            if (toUser == null) throw new RuntimeException("User not found: " + toUserId);
+            Group group = requireGroup(simRepository, groupId);
+            User fromUser = requireUser(simRepository, fromUserId);
+            User toUser = requireUser(simRepository, toUserId);
+            validateSettlementRequest(fromUserId, toUserId, amount, group);
 
             Settlement settlement = new Settlement();
             settlement.setFromUser(fromUser);
@@ -321,8 +330,7 @@ public class SplitwiseService {
     }
 
     private List<SuggestedSettlement> calculateSimplifiedDebts(long groupId, SplitwiseRepository targetRepo) {
-        Group group = targetRepo.getGroup(groupId);
-        if (group == null) return List.of();
+        Group group = requireGroup(targetRepo, groupId);
 
         List<User> members = group.getMembers();
         Map<Long, Double> netBalances = new HashMap<>();
@@ -385,6 +393,54 @@ public class SplitwiseService {
         }
 
         return suggested;
+    }
+
+    private User requireUser(SplitwiseRepository targetRepo, long userId) {
+        User user = targetRepo.getUser(userId);
+        if (user == null) {
+            throw new UserNotFoundException(userId);
+        }
+        return user;
+    }
+
+    private Group requireGroup(SplitwiseRepository targetRepo, long groupId) {
+        Group group = targetRepo.getGroup(groupId);
+        if (group == null) {
+            throw new GroupNotFoundException(groupId);
+        }
+        return group;
+    }
+
+    private void validateExpenseRequest(String description, double amount, Long paidByUserId, Long groupId) {
+        if (description == null || description.isBlank()) {
+            throw new InvalidExpenseException("Expense description must not be blank");
+        }
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new InvalidExpenseException("Expense amount must be finite and greater than zero");
+        }
+        if (paidByUserId == null) {
+            throw new InvalidExpenseException("Expense requires a paying user");
+        }
+        if (groupId == null) {
+            throw new InvalidExpenseException("Expense requires a group");
+        }
+    }
+
+    private void validateSettlementRequest(long fromUserId, long toUserId, double amount, Group group) {
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new InvalidSettlementException("Settlement amount must be finite and greater than zero");
+        }
+        if (fromUserId == toUserId) {
+            throw new InvalidSettlementException("A user cannot settle with themselves");
+        }
+        if (!isMember(group, fromUserId) || !isMember(group, toUserId)) {
+            throw new InvalidSettlementException("Both settlement users must belong to group " + group.getId());
+        }
+    }
+
+    private boolean isMember(Group group, long userId) {
+        return group.getMembers() != null
+                && group.getMembers().stream().anyMatch(member -> member.getId() == userId);
     }
 
     private void logEvent(List<ExpenseEvent> targetLog, AtomicLong counter, ExpenseEventType type, String actor, String description, Map<String, Object> data, SplitwiseRepository targetRepo) {

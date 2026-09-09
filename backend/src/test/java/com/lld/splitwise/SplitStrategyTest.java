@@ -1,5 +1,7 @@
 package com.lld.splitwise;
 
+import com.lld.splitwise.exception.InvalidSplitException;
+import com.lld.splitwise.exception.UserNotFoundException;
 import com.lld.splitwise.model.*;
 import com.lld.splitwise.repository.SplitwiseRepository;
 import com.lld.splitwise.strategy.*;
@@ -71,12 +73,13 @@ public class SplitStrategyTest {
     }
 
     @Test
-    @DisplayName("EqualSplitStrategy: Empty group throws RuntimeException")
+    @DisplayName("EqualSplitStrategy: Empty group throws typed InvalidSplitException")
     void testEqualSplitEmptyGroup() {
         EqualSplitStrategy strategy = new EqualSplitStrategy();
         Group emptyGroup = Group.builder().name("Empty").members(List.of()).build();
 
-        assertThrows(RuntimeException.class, () -> strategy.calculateSplits(100.0, emptyGroup, List.of(), repository));
+        assertThrows(InvalidSplitException.class,
+                () -> strategy.calculateSplits(100.0, emptyGroup, List.of(), repository));
     }
 
     @Test
@@ -98,7 +101,7 @@ public class SplitStrategyTest {
     }
 
     @Test
-    @DisplayName("PercentageSplitStrategy: Percentages not summing to 100% throws RuntimeException")
+    @DisplayName("PercentageSplitStrategy: Percentages not summing to 100% throws InvalidSplitException")
     void testPercentageSplitInvalidSum() {
         PercentageSplitStrategy strategy = new PercentageSplitStrategy();
         List<Split> input = List.of(
@@ -107,7 +110,7 @@ public class SplitStrategyTest {
             // sum is 80%, not 100%
         );
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
+        InvalidSplitException ex = assertThrows(InvalidSplitException.class, () ->
             strategy.calculateSplits(1000.0, group, input, repository)
         );
         assertTrue(ex.getMessage().contains("Percentages must sum to 100"));
@@ -132,7 +135,7 @@ public class SplitStrategyTest {
     }
 
     @Test
-    @DisplayName("ExactSplitStrategy: Exact amounts mismatching total throws RuntimeException")
+    @DisplayName("ExactSplitStrategy: Exact amounts mismatching total throws InvalidSplitException")
     void testExactSplitMismatchSum() {
         ExactSplitStrategy strategy = new ExactSplitStrategy();
         List<Split> input = List.of(
@@ -141,9 +144,38 @@ public class SplitStrategyTest {
             // sum is 700, but amount is 1000
         );
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () ->
+        InvalidSplitException ex = assertThrows(InvalidSplitException.class, () ->
             strategy.calculateSplits(1000.0, group, input, repository)
         );
         assertTrue(ex.getMessage().contains("Exact amounts must sum to total amount"));
+    }
+
+    @Test
+    @DisplayName("PercentageSplitStrategy: Unknown participant throws UserNotFoundException")
+    void percentageSplitUnknownUserIsTyped() {
+        User unknown = User.builder().id(999L).name("Ghost").build();
+        List<Split> input = List.of(
+                Split.builder().user(u1).percentage(50.0).type(SplitType.PERCENTAGE).build(),
+                Split.builder().user(unknown).percentage(50.0).type(SplitType.PERCENTAGE).build());
+
+        assertThrows(UserNotFoundException.class,
+                () -> new PercentageSplitStrategy().calculateSplits(100.0, group, input, repository));
+    }
+
+    @Test
+    @DisplayName("ExactSplitStrategy: Duplicate participant is rejected")
+    void exactSplitRejectsDuplicateParticipant() {
+        List<Split> input = List.of(
+                Split.builder().user(u1).amount(50.0).type(SplitType.EXACT).build(),
+                Split.builder().user(u1).amount(50.0).type(SplitType.EXACT).build());
+
+        assertThrows(InvalidSplitException.class,
+                () -> new ExactSplitStrategy().calculateSplits(100.0, group, input, repository));
+    }
+
+    @Test
+    @DisplayName("Factory rejects a missing split type with InvalidSplitException")
+    void factoryRejectsMissingType() {
+        assertThrows(InvalidSplitException.class, () -> factory.getStrategy(null));
     }
 }

@@ -1,11 +1,13 @@
 package com.lld.splitwise.controller;
 
+import com.lld.splitwise.exception.InvalidSplitException;
 import com.lld.splitwise.model.*;
 import com.lld.splitwise.service.SplitwiseService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -31,9 +33,7 @@ public class SplitwiseController {
 
     @GetMapping("/users/{id}")
     public ResponseEntity<User> getUser(@PathVariable long id) {
-        User user = splitwiseService.getUser(id);
-        if (user == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(splitwiseService.getUser(id));
     }
 
     @PostMapping("/groups")
@@ -52,9 +52,7 @@ public class SplitwiseController {
 
     @GetMapping("/groups/{id}")
     public ResponseEntity<Group> getGroup(@PathVariable long id) {
-        Group group = splitwiseService.getGroup(id);
-        if (group == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(group);
+        return ResponseEntity.ok(splitwiseService.getGroup(id));
     }
 
     @PutMapping("/groups/{groupId}/members/{userId}")
@@ -78,7 +76,7 @@ public class SplitwiseController {
             split.setUser(user);
             split.setAmount(s.get("amount") != null ? ((Number) s.get("amount")).doubleValue() : 0);
             split.setPercentage(s.get("percentage") != null ? ((Number) s.get("percentage")).doubleValue() : 0);
-            split.setType(SplitType.valueOf((String) s.get("type")));
+            split.setType(parseSplitType(s.get("type")));
             return split;
         }).toList();
 
@@ -158,7 +156,7 @@ public class SplitwiseController {
             split.setUser(user);
             split.setAmount(s.get("amount") != null ? ((Number) s.get("amount")).doubleValue() : 0);
             split.setPercentage(s.get("percentage") != null ? ((Number) s.get("percentage")).doubleValue() : 0);
-            split.setType(SplitType.valueOf((String) s.get("type")));
+            split.setType(parseSplitType(s.get("type")));
             return split;
         }).toList();
 
@@ -189,5 +187,16 @@ public class SplitwiseController {
     @GetMapping("/sim/groups/{groupId}/simplified-debts")
     public ResponseEntity<List<SuggestedSettlement>> simGetSimplifiedDebts(@PathVariable long groupId) {
         return ResponseEntity.ok(splitwiseService.simGetSimplifiedDebts(groupId));
+    }
+
+    private SplitType parseSplitType(Object rawType) {
+        if (!(rawType instanceof String value) || value.isBlank()) {
+            throw new InvalidSplitException("Split type is required");
+        }
+        try {
+            return SplitType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new InvalidSplitException("Unsupported split type: " + value);
+        }
     }
 }

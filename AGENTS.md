@@ -143,6 +143,13 @@ shape as elevator/ludo.
 - Audit Event Logging: Type-safe `ExpenseEventType` enum (`USER_CREATED`, `GROUP_CREATED`, `MEMBER_ADDED`, `EXPENSE_ADDED`, `SETTLEMENT`) with IST (`Asia/Kolkata`) timestamps and balance snapshots.
 - Models: Clean Lombok `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor` entity models.
 - Thread Safety: `ConcurrentHashMap` repository + `ReentrantLock` for atomic balance ledger mutations.
+- Exception hierarchy (RCA-063): `SplitwiseException` (abstract) extends
+  `com.lld.config.DomainException`, with `UserNotFoundException`/`GroupNotFoundException` (404),
+  `InvalidExpenseException`/`InvalidSettlementException` (400), and `InvalidSplitException` (422).
+  Live and simulation paths use the same typed validation; strategies no longer throw raw
+  `RuntimeException`, missing read resources no longer return null/empty sentinels, and
+  `GlobalExceptionHandler` returns the shared `ErrorResponse` body. `SplitwiseControllerIntegrationTest`
+  pins the live and `/sim/*` status/code/body contract through MockMvc.
 
 ### Frontend
 - 6 tabs: 💰 Expense Manager, 📊 Balance Dashboard, 📜 Activity Feed, 🕹️ Interactive 2D Simulation, Class Diagram, Design Details.

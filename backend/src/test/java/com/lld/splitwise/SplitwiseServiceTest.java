@@ -1,5 +1,10 @@
 package com.lld.splitwise;
 
+import com.lld.splitwise.exception.GroupNotFoundException;
+import com.lld.splitwise.exception.InvalidExpenseException;
+import com.lld.splitwise.exception.InvalidSettlementException;
+import com.lld.splitwise.exception.InvalidSplitException;
+import com.lld.splitwise.exception.UserNotFoundException;
 import com.lld.splitwise.model.*;
 import com.lld.splitwise.repository.SplitwiseRepository;
 import com.lld.splitwise.service.SplitwiseService;
@@ -80,7 +85,8 @@ class SplitwiseServiceTest {
             Split.builder().user(u2).amount(300.0).type(SplitType.EXACT).build()
         );
 
-        assertThrows(RuntimeException.class, () -> service.addExpense("Food", 1000.0, u1.getId(), group.getId(), invalidSplits));
+        assertThrows(InvalidSplitException.class,
+                () -> service.addExpense("Food", 1000.0, u1.getId(), group.getId(), invalidSplits));
     }
 
     @Test
@@ -169,5 +175,56 @@ class SplitwiseServiceTest {
 
         assertEquals(1, service.getAllUsers().size());
         assertEquals("MainAlice", service.getAllUsers().get(0).getName());
+    }
+
+    @Test
+    @DisplayName("Missing users and groups use the typed 404 exception hierarchy")
+    void missingResourcesUseTypedExceptions() {
+        User user = service.createUser("Alice", "a@test.com");
+        Group group = service.createGroup("Dinner", List.of(user.getId()));
+
+        assertThrows(UserNotFoundException.class, () -> service.getUser(999L));
+        assertThrows(UserNotFoundException.class, () -> service.getBalances(999L));
+        assertThrows(UserNotFoundException.class, () -> service.addMemberToGroup(group.getId(), 999L));
+        assertThrows(GroupNotFoundException.class, () -> service.addMemberToGroup(999L, user.getId()));
+        assertThrows(GroupNotFoundException.class, () -> service.getGroup(999L));
+        assertThrows(GroupNotFoundException.class, () -> service.getGroupExpenses(999L));
+        assertThrows(GroupNotFoundException.class, () -> service.getSimplifiedDebts(999L));
+        assertThrows(GroupNotFoundException.class,
+                () -> service.addExpense("Dinner", 100.0, user.getId(), 999L, List.of()));
+    }
+
+    @Test
+    @DisplayName("Invalid expense requests reject before mutating balances")
+    void invalidExpenseRequestsAreTypedAndSideEffectFree() {
+        User member = service.createUser("Alice", "a@test.com");
+        User outsider = service.createUser("Mallory", "m@test.com");
+        Group group = service.createGroup("Dinner", List.of(member.getId()));
+
+        assertThrows(InvalidExpenseException.class,
+                () -> service.addExpense(" ", 100.0, member.getId(), group.getId(), List.of()));
+        assertThrows(InvalidExpenseException.class,
+                () -> service.addExpense("Dinner", 0.0, member.getId(), group.getId(), List.of()));
+        assertThrows(InvalidExpenseException.class,
+                () -> service.addExpense("Dinner", 100.0, outsider.getId(), group.getId(), List.of()));
+        assertTrue(service.getGroupExpenses(group.getId()).isEmpty());
+        assertTrue(service.getBalances(member.getId()).isEmpty());
+    }
+
+    @Test
+    @DisplayName("Invalid settlements use InvalidSettlementException in live and simulation state")
+    void invalidSettlementsAreTypedForLiveAndSim() {
+        User alice = service.createUser("Alice", "a@test.com");
+        User bob = service.createUser("Bob", "b@test.com");
+        Group group = service.createGroup("Dinner", List.of(alice.getId(), bob.getId()));
+
+        assertThrows(InvalidSettlementException.class,
+                () -> service.settleUp(alice.getId(), alice.getId(), group.getId(), 10.0));
+        assertThrows(InvalidSettlementException.class,
+                () -> service.settleUp(alice.getId(), bob.getId(), group.getId(), -1.0));
+
+        service.simReset();
+        assertThrows(GroupNotFoundException.class,
+                () -> service.simSettleUp(1L, 2L, 1L, 10.0));
     }
 }
