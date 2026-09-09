@@ -5572,10 +5572,10 @@ is finally acquired.
 
 ## RCA-062: Blackjack's Table Actions Have an Unlocked Check-Then-Act Race
 
-**Overview & Severity** — High, **Open** (verified by the 2026-09-08 portfolio audit; no code
-change was made by that read-only pass). Concurrent actions against one blackjack table can make
-decisions from the same stale round status and then interleave mutations to the table's hands,
-status, and outcome. This is separate from the shared shoe's lock-free correctness.
+**Overview & Severity** — High, **Resolved 2026-09-09**. The 2026-09-08 portfolio audit found
+that concurrent actions against one blackjack table could make decisions from the same stale
+round status and then interleave mutations to the table's hands, status, and outcome. This was
+separate from the shared shoe's lock-free correctness.
 
 **Symptoms & Error Logs** — There is no deterministic production error log because the defect is
 schedule-dependent and the current blackjack test suite does not race two actions against the same
@@ -5608,15 +5608,34 @@ rg -n "doDeal|doHit|doStand|tableLocks|ReentrantLock" \
   backend/src/main/java/com/lld/blackjack backend/src/test/java/com/lld/blackjack
 sed -n '1,180p' backend/src/main/java/com/lld/blackjack/service/BlackjackService.java
 sed -n '1,120p' backend/src/main/java/com/lld/blackjack/model/Table.java
+# Run from an explicit Linux-filesystem copy when the OneDrive mount stalls javac:
+mvn -Dtest=BlackjackConcurrencyTest,BlackjackServiceTest test
+mvn test
 ```
 
-**Step-by-Step Resolution** — **Not yet applied.** Add a per-table fair `ReentrantLock`, keyed by
-table id and scoped to each repository/sandbox state. Acquire it before reading the table status
-and hold it through the final hand/status/outcome mutation in `doDeal`, `doHit`, and `doStand`.
-Keep the shared shoe lock-free so actions on different tables still contend only on its atomic
-draw cursor. Add latch-synchronized regression tests for deal-vs-deal, hit-vs-stand, and disjoint
-tables; assert one coherent outcome for a contested action and continued parallel progress for
-independent tables. Run the full backend suite before changing this RCA to `Resolved`.
+**Step-by-Step Resolution** —
+
+1. Added a fair `ReentrantLock` per table id in `BlackjackService`, with independent lock maps for
+   the live repository and isolated simulation repository. A simulation reset replaces only the
+   simulation lock map, so sandbox lifecycle cannot leak into live coordination state.
+2. Parameterized the shared `doDeal`/`doHit`/`doStand` paths with their matching lock map. Each
+   method now acquires the table lock before reading `RoundStatus` and holds it through the final
+   hand, status, and outcome mutation, releasing it in `finally` on success or rejection.
+3. Kept `Shoe#draw()` lock-free. Different tables acquire different locks and still reach the one
+   shared shoe concurrently; its `AtomicInteger#getAndIncrement` remains the card-identity
+   boundary.
+4. Added three controlled, latch-based regression cases to `BlackjackConcurrencyTest`: a paused
+   deal makes a second deal wait and then reject from committed state; a paused hit makes stand
+   wait before settling; and a second table completes its deal while the first remains paused,
+   proving the fix did not introduce a module-wide lock.
+5. Updated the module documentation, class diagram, and shared-shoe sequence to distinguish the
+   aggregate lock from the shoe's atomic cursor instead of implying that no lock exists anywhere
+   in the service.
+6. Verified the focused suite (`15` tests) and the full backend suite (`2,257` tests), both with
+   zero failures, errors, or skips. Frontend Vitest (`394` tests) and the production build also
+   passed; the entry chunk remained `268.34 kB`, below the `500 kB` budget. Because Maven
+   compilation stalls on the OneDrive-mounted path, the same backend source tree was copied to an
+   explicit `/tmp/blackjack-validation.*` Linux directory for validation; no server was started.
 
 **Preventative Measures** — Document concurrency invariants at the aggregate boundary, not only
 at the lowest-level data structure. An atomic allocator protects allocation uniqueness; it does

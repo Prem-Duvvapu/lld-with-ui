@@ -1861,6 +1861,13 @@ Engine). Package `com.lld.blackjack`.
   threads fully drain a 52-card shoe (every card dealt to exactly one thread, none ever
   duplicated, the shoe ending exactly drained), plus a 200-round "more racers than cards" test
   with 30 threads racing a 10-card shoe.
+- **Per-table action lock (RCA-062)**: the shoe's atomic cursor protects card identity, but it
+  cannot make a table's larger read/validate/mutate transaction atomic. `BlackjackService` now
+  holds a fair `ReentrantLock` keyed by table id across the full `deal`/`hit`/`stand` action, from
+  the status check through the final hand/status/outcome mutation. Live and simulation state use
+  separate lock maps; different tables still progress concurrently and meet only at the shared
+  shoe's lock-free cursor. Three latch-controlled tests prove deal-vs-deal serialization,
+  hit-vs-stand serialization, and disjoint-table progress while another table is paused mid-deal.
 - **Factory**: `Deck.of(deckCount)` — a static factory method, not a Spring-managed bean, since
   a shoe is built on demand (table-group creation, or `/sim/reset`) rather than resolved
   repeatedly from a shared singleton.
@@ -1885,8 +1892,8 @@ Engine). Package `com.lld.blackjack`.
   well-formed request simply lost the race for the last cards).
 - Isolated `/api/blackjack/sim/*` engine: a second `BlackjackRepository` instance with its own
   deliberately scarce single-deck (52-card) shoe, so the race demo has real exhaustion to show.
-- Tests (7 files): `BlackjackServiceTest`, `BlackjackConcurrencyTest` (the load-bearing suite
-  above), `HandTest`, `RoundStatusTest`, `DealerStrategyTest`, `ShoeTest`,
+- Tests (7 files): `BlackjackServiceTest`, `BlackjackConcurrencyTest` (the shared-shoe stress
+  suite plus the three per-table locking regressions above), `HandTest`, `RoundStatusTest`, `DealerStrategyTest`, `ShoeTest`,
   `BlackjackRepositoryTest`.
 
 ### Frontend

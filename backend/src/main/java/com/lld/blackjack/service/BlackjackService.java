@@ -23,18 +23,23 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Facade owning every table and the isolated simulation engine. {@link Shoe#draw()} is the
  * concurrency centerpiece — see its javadoc. Every action here (deal/hit/stand) draws from the
  * ONE {@link Shoe} shared by every table in the same repository, so two tables dealt
- * concurrently can never receive the same physical card.
+ * concurrently can never receive the same physical card. A fair per-table lock separately makes
+ * each round action atomic from status validation through its final hand/status/outcome mutation;
+ * unrelated tables still progress concurrently and only meet at the shoe's atomic cursor.
  */
 @Service
 public class BlackjackService {
@@ -45,10 +50,12 @@ public class BlackjackService {
     private final BlackjackRepository repository;
     private final DealerStrategyFactory dealerStrategyFactory;
     private final AtomicLong tableIdGen = new AtomicLong(1001);
+    private final ConcurrentMap<String, ReentrantLock> tableLocks = new ConcurrentHashMap<>();
 
     // Isolated Simulation Engine State
     private final BlackjackRepository simRepository = new BlackjackRepository();
     private final AtomicLong simTableIdGen = new AtomicLong(1);
+    private volatile ConcurrentMap<String, ReentrantLock> simTableLocks = new ConcurrentHashMap<>();
     private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
     private final AtomicLong simEventIdGen = new AtomicLong(1);
 
@@ -72,15 +79,15 @@ public class BlackjackService {
     }
 
     public Table deal(String tableId) {
-        return doDeal(repository, tableId);
+        return doDeal(repository, tableLocks, tableId);
     }
 
     public Table hit(String tableId) {
-        return doHit(repository, tableId);
+        return doHit(repository, tableLocks, tableId);
     }
 
     public Table stand(String tableId) {
-        return doStand(repository, tableId);
+        return doStand(repository, tableLocks, tableId);
     }
 
     private Table doCreateTable(BlackjackRepository targetRepository, AtomicLong idGen, DealerStrategyType dealerStrategyType) {
@@ -89,55 +96,83 @@ public class BlackjackService {
         return table;
     }
 
-    private Table doDeal(BlackjackRepository targetRepository, String tableId) {
+    private Table doDeal(BlackjackRepository targetRepository,
+                         ConcurrentMap<String, ReentrantLock> targetLocks,
+                         String tableId) {
         Table table = targetRepository.getTable(tableId);
-        if (table.getStatus() != RoundStatus.BETTING) {
-            throw new InvalidActionException("Table " + tableId + " cannot deal from status " + table.getStatus());
-        }
-        Shoe shoe = targetRepository.getShoe();
-        table.transitionTo(RoundStatus.DEALING);
-        table.getPlayerHand().addCard(shoe.draw());
-        table.getDealerHand().addCard(shoe.draw());
-        table.getPlayerHand().addCard(shoe.draw());
-        table.getDealerHand().addCard(shoe.draw());
-        table.transitionTo(RoundStatus.PLAYER_TURN);
-
-        if (table.getPlayerHand().isBlackjack()) {
-            table.transitionTo(RoundStatus.DEALER_TURN);
-            table.transitionTo(RoundStatus.SETTLEMENT);
-            table.setOutcome(table.getDealerHand().isBlackjack() ? RoundOutcome.PUSH : RoundOutcome.PLAYER_BLACKJACK);
-        }
-        return table;
-    }
-
-    private Table doHit(BlackjackRepository targetRepository, String tableId) {
-        Table table = targetRepository.getTable(tableId);
-        if (table.getStatus() != RoundStatus.PLAYER_TURN) {
-            throw new InvalidActionException("Table " + tableId + " cannot hit from status " + table.getStatus());
-        }
-        table.getPlayerHand().addCard(targetRepository.getShoe().draw());
-        if (table.getPlayerHand().isBust()) {
-            table.transitionTo(RoundStatus.DEALER_TURN);
-            table.transitionTo(RoundStatus.SETTLEMENT);
-            table.setOutcome(RoundOutcome.DEALER_WIN);
-        }
-        return table;
-    }
-
-    private Table doStand(BlackjackRepository targetRepository, String tableId) {
-        Table table = targetRepository.getTable(tableId);
-        if (table.getStatus() != RoundStatus.PLAYER_TURN) {
-            throw new InvalidActionException("Table " + tableId + " cannot stand from status " + table.getStatus());
-        }
-        table.transitionTo(RoundStatus.DEALER_TURN);
-        DealerStrategy strategy = dealerStrategyFactory.forType(table.getDealerStrategyType());
-        Shoe shoe = targetRepository.getShoe();
-        while (!table.getDealerHand().isBust() && strategy.shouldHit(table.getDealerHand())) {
+        ReentrantLock lock = lockFor(targetLocks, tableId);
+        lock.lock();
+        try {
+            if (table.getStatus() != RoundStatus.BETTING) {
+                throw new InvalidActionException("Table " + tableId + " cannot deal from status " + table.getStatus());
+            }
+            Shoe shoe = targetRepository.getShoe();
+            table.transitionTo(RoundStatus.DEALING);
+            table.getPlayerHand().addCard(shoe.draw());
             table.getDealerHand().addCard(shoe.draw());
+            table.getPlayerHand().addCard(shoe.draw());
+            table.getDealerHand().addCard(shoe.draw());
+            table.transitionTo(RoundStatus.PLAYER_TURN);
+
+            if (table.getPlayerHand().isBlackjack()) {
+                table.transitionTo(RoundStatus.DEALER_TURN);
+                table.transitionTo(RoundStatus.SETTLEMENT);
+                table.setOutcome(table.getDealerHand().isBlackjack() ? RoundOutcome.PUSH : RoundOutcome.PLAYER_BLACKJACK);
+            }
+            return table;
+        } finally {
+            lock.unlock();
         }
-        table.transitionTo(RoundStatus.SETTLEMENT);
-        table.setOutcome(determineOutcome(table));
-        return table;
+    }
+
+    private Table doHit(BlackjackRepository targetRepository,
+                        ConcurrentMap<String, ReentrantLock> targetLocks,
+                        String tableId) {
+        Table table = targetRepository.getTable(tableId);
+        ReentrantLock lock = lockFor(targetLocks, tableId);
+        lock.lock();
+        try {
+            if (table.getStatus() != RoundStatus.PLAYER_TURN) {
+                throw new InvalidActionException("Table " + tableId + " cannot hit from status " + table.getStatus());
+            }
+            table.getPlayerHand().addCard(targetRepository.getShoe().draw());
+            if (table.getPlayerHand().isBust()) {
+                table.transitionTo(RoundStatus.DEALER_TURN);
+                table.transitionTo(RoundStatus.SETTLEMENT);
+                table.setOutcome(RoundOutcome.DEALER_WIN);
+            }
+            return table;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private Table doStand(BlackjackRepository targetRepository,
+                          ConcurrentMap<String, ReentrantLock> targetLocks,
+                          String tableId) {
+        Table table = targetRepository.getTable(tableId);
+        ReentrantLock lock = lockFor(targetLocks, tableId);
+        lock.lock();
+        try {
+            if (table.getStatus() != RoundStatus.PLAYER_TURN) {
+                throw new InvalidActionException("Table " + tableId + " cannot stand from status " + table.getStatus());
+            }
+            table.transitionTo(RoundStatus.DEALER_TURN);
+            DealerStrategy strategy = dealerStrategyFactory.forType(table.getDealerStrategyType());
+            Shoe shoe = targetRepository.getShoe();
+            while (!table.getDealerHand().isBust() && strategy.shouldHit(table.getDealerHand())) {
+                table.getDealerHand().addCard(shoe.draw());
+            }
+            table.transitionTo(RoundStatus.SETTLEMENT);
+            table.setOutcome(determineOutcome(table));
+            return table;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private ReentrantLock lockFor(ConcurrentMap<String, ReentrantLock> locks, String tableId) {
+        return locks.computeIfAbsent(tableId, ignored -> new ReentrantLock(true));
     }
 
     private RoundOutcome determineOutcome(Table table) {
@@ -162,6 +197,7 @@ public class BlackjackService {
     public final synchronized void initSimState() {
         simRepository.reset();
         simRepository.setShoe(Deck.of(SIM_DECK_COUNT));
+        simTableLocks = new ConcurrentHashMap<>();
         simEventLog.clear();
         logSimEvent("SIM_RESET", "System", String.format(
                 "Sandbox reset -- fresh %d-card shoe (%d deck(s)), no tables", SIM_DECK_COUNT * 52, SIM_DECK_COUNT), null);
@@ -175,7 +211,7 @@ public class BlackjackService {
 
     public Map<String, Object> simDeal(String tableId) {
         try {
-            Table table = doDeal(simRepository, tableId);
+            Table table = doDeal(simRepository, simTableLocks, tableId);
             logSimEvent("DEALT", "System", tableId + " dealt: player=" + table.getPlayerHand().getValue()
                     + ", dealer=" + table.getDealerHand().getValue()
                     + (table.getOutcome() != null ? " -- " + table.getOutcome() : ""), null);
@@ -186,14 +222,14 @@ public class BlackjackService {
     }
 
     public Map<String, Object> simHit(String tableId) {
-        Table table = doHit(simRepository, tableId);
+        Table table = doHit(simRepository, simTableLocks, tableId);
         logSimEvent("HIT", "System", tableId + " hit: player now " + table.getPlayerHand().getValue()
                 + (table.getPlayerHand().isBust() ? " -- BUST" : ""), null);
         return getSimSnapshots();
     }
 
     public Map<String, Object> simStand(String tableId) {
-        Table table = doStand(simRepository, tableId);
+        Table table = doStand(simRepository, simTableLocks, tableId);
         logSimEvent("STAND", "System", tableId + " stood: dealer played out to " + table.getDealerHand().getValue()
                 + " -- " + table.getOutcome(), null);
         return getSimSnapshots();
@@ -221,7 +257,7 @@ public class BlackjackService {
             executor.submit(() -> {
                 try {
                     startLatch.await();
-                    doDeal(simRepository, table.getId());
+                    doDeal(simRepository, simTableLocks, table.getId());
                     dealt.incrementAndGet();
                     logSimEvent("DEALT", table.getId(), table.getId() + " dealt successfully from the shared shoe", null);
                 } catch (ShoeExhaustedException e) {
