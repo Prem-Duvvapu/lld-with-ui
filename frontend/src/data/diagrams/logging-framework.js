@@ -171,6 +171,36 @@ export default {
       methods: [
         '+ dispatch(msg, appenders, formatter): boolean'
       ]
+    },
+    {
+      name: 'LoggingException',
+      stereotype: 'abstract exception',
+      fields: [],
+      methods: []
+    },
+    {
+      name: 'InvalidLogLevelException',
+      stereotype: '400',
+      fields: [],
+      methods: []
+    },
+    {
+      name: 'InvalidFormatterException',
+      stereotype: '400',
+      fields: [],
+      methods: []
+    },
+    {
+      name: 'InvalidLoggingRequestException',
+      stereotype: '400',
+      fields: [],
+      methods: []
+    },
+    {
+      name: 'AppenderNotFoundException',
+      stereotype: '404',
+      fields: [],
+      methods: []
     }
   ],
   relationships: [
@@ -259,6 +289,30 @@ export default {
       from: 'PatternFormatter',
       to: 'LogFormatter',
       label: 'implements',
+      dashed: true
+    },
+    {
+      from: 'InvalidLogLevelException',
+      to: 'LoggingException',
+      label: 'extends',
+      dashed: true
+    },
+    {
+      from: 'InvalidFormatterException',
+      to: 'LoggingException',
+      label: 'extends',
+      dashed: true
+    },
+    {
+      from: 'InvalidLoggingRequestException',
+      to: 'LoggingException',
+      label: 'extends',
+      dashed: true
+    },
+    {
+      from: 'AppenderNotFoundException',
+      to: 'LoggingException',
+      label: 'extends',
       dashed: true
     }
   ]

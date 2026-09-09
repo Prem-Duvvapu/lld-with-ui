@@ -1,5 +1,9 @@
 package com.lld.logging;
 
+import com.lld.logging.exception.AppenderNotFoundException;
+import com.lld.logging.exception.InvalidFormatterException;
+import com.lld.logging.exception.InvalidLogLevelException;
+import com.lld.logging.exception.InvalidLoggingRequestException;
 import com.lld.logging.formatter.LogFormatterFactory;
 import com.lld.logging.model.*;
 import com.lld.logging.repository.LogRepository;
@@ -91,5 +95,36 @@ public class LoggingServiceTest {
 
         assertEquals(1, simService.simGetLogs().size());
         assertEquals("SimLogger", simService.simGetLogs().get(0).getLoggerName());
+    }
+
+    @Test
+    @DisplayName("String configuration rejects unknown levels and formatters with typed exceptions")
+    void invalidConfigurationValuesAreTyped() {
+        assertThrows(InvalidLogLevelException.class, () -> service.configure("VERBOSE"));
+        assertThrows(InvalidLogLevelException.class,
+                () -> service.log("Orders", "NOTICE", "message", null));
+        assertThrows(InvalidFormatterException.class, () -> service.setFormatter("XML"));
+        assertThrows(InvalidLoggingRequestException.class,
+                () -> service.setLoggerLevel(" ", "INFO"));
+        assertThrows(InvalidLoggingRequestException.class, () -> service.triggerBurstLogs(0));
+    }
+
+    @Test
+    @DisplayName("Unknown live and simulation appenders fail instead of returning successful empty results")
+    void unknownAppendersAreTyped404Failures() {
+        assertThrows(AppenderNotFoundException.class,
+                () -> service.toggleAppender("KafkaAppender", true));
+        assertThrows(AppenderNotFoundException.class,
+                () -> service.getAppenderLogs("KAFKA"));
+        assertThrows(AppenderNotFoundException.class,
+                () -> simService.simGetAppenderLogs("KAFKA"));
+    }
+
+    @Test
+    @DisplayName("Appender lookup accepts both enum type and configured appender name")
+    void appenderLookupSupportsDocumentedAliases() {
+        assertDoesNotThrow(() -> service.getAppenderLogs("CONSOLE"));
+        assertDoesNotThrow(() -> service.getAppenderLogs("ConsoleAppender"));
+        assertDoesNotThrow(() -> simService.simGetAppenderLogs("SimConsoleAppender"));
     }
 }

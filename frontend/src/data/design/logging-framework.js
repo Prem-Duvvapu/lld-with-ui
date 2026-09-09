@@ -11,6 +11,7 @@ export default {
     'Formatter Strategy Pattern: SimpleTextFormatter, JsonFormatter, and PatternFormatter with MDC context tags (traceId, userId, threadName)',
     'Asynchronous non-blocking logging via AsyncLogDispatcher using bounded ArrayBlockingQueue (capacity 50) with drop metrics',
     'Hierarchical Loggers: Named parent-child inheritance (Root -> com.lld -> auth / payment) with per-logger level overrides',
+    'Expose typed 400/404 domain failures for invalid levels, formatters, requests, and unknown appenders through the shared ErrorResponse contract',
     'Thread safety using ReentrantLock, ConcurrentHashMap, CopyOnWriteArrayList, and AtomicLong counters'
   ],
   entities: [
@@ -145,6 +146,18 @@ export default {
           name: 'dispatch(msg, appenders, formatter)',
           returns: 'boolean',
           description: 'Enqueues task into queue or increments drop counter if full'
+        }
+      ]
+    },
+    {
+      name: 'LoggingException (Domain Error Boundary)',
+      description: 'Abstract DomainException base for stable logging API failures. Invalid values map to HTTP 400 and unknown appenders map to HTTP 404 in both live and simulation reads.',
+      fields: [],
+      methods: [
+        {
+          name: 'LoggingException(message)',
+          returns: 'ErrorResponse via GlobalExceptionHandler',
+          description: 'Carries a typed module failure into the shared HTTP error contract'
         }
       ]
     }

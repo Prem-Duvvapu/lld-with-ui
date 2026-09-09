@@ -58,6 +58,10 @@ public class LoggingSimulationService {
         return logger.log(level, message, context);
     }
 
+    public LogMessage simEmitLog(String loggerName, String level, String message, Map<String, Object> context) {
+        return simEmitLog(loggerName, LoggingService.parseLogLevel(level), message, context);
+    }
+
     public List<LogMessage> simGetLogs() {
         return simRepository.findAll();
     }
@@ -81,11 +85,6 @@ public class LoggingSimulationService {
     }
 
     public List<String> simGetAppenderLogs(String appenderType) {
-        for (LogAppender appender : simAppenders) {
-            if (appender.getType().name().equalsIgnoreCase(appenderType) || appender.getName().equalsIgnoreCase(appenderType)) {
-                return appender.getAppenderLogs();
-            }
-        }
-        return Collections.emptyList();
+        return LoggingService.findAppender(simAppenders, appenderType).getAppenderLogs();
     }
 }
