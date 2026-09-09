@@ -8,24 +8,24 @@ export default {
     'Multi-entity online food delivery service connecting Customers, Restaurants, and Delivery Agents',
     'Full order state machine lifecycle: PLACED → CONFIRMED → PREPARING → READY_FOR_PICKUP → OUT_FOR_DELIVERY → DELIVERED (or CANCELLED)',
     'Security-verified OTP delivery handoff (4-digit random OTP generated on order creation, verified by agent on delivery)',
-    'Multi-payment support (UPI, Credit Card, Debit Card, NetBanking, COD, Wallet) with transaction status tracking & automatic refunds on cancellation',
+    'Multi-payment support (UPI, Credit Card, Debit Card, COD, Wallet) with transaction status tracking & automatic refunds on cancellation',
     'Thread-safe in-memory ConcurrentHashMap repository guarded by ReentrantLock for high-concurrency order placement and agent matching',
-    'Real-time Notification Service broadcasting events to Customer, Restaurant, and Delivery Agent'
+    'Queryable notification records persisted for Customers, Restaurants, and Delivery Agents'
   ],
   requirements: [
     'Customer Management: Registration, profile details, delivery address, and order history tracking',
     'Restaurant Catalog: Browse restaurants, view cuisine/rating, toggle open/closed status, manage menus with veg/non-veg flags & price updates',
     'Menu Management: Categorized items (Appetizers, Main Course, Desserts, Beverages) with individual stock availability',
-    'Order Placement: Select items & quantities, apply delivery fee (₹35) & tax (5%), choose payment method (UPI/Card/COD/Wallet)',
+    'Order Placement: Select items and quantities, resolve free/standard/surge delivery pricing, apply 5% tax, and choose a payment method',
     '4-Digit OTP Handoff: Secret verification PIN generated per order for secure delivery completion',
     'Delivery Agent Matching: Automatic/manual assignment of available agents upon kitchen marking order READY_FOR_PICKUP',
     'State Machine & Order Tracking: PLACED → CONFIRMED → PREPARING → READY_FOR_PICKUP → OUT_FOR_DELIVERY → DELIVERED / CANCELLED',
-    'Real-time Notifications: Event-driven notifications dispatched to Customer, Restaurant, and Delivery Agent'
+    'Notification Records: Persist order-event messages for Customer, Restaurant, and Delivery Agent queries'
   ],
   entities: [
     {
       name: 'ZomatoService',
-      description: 'Core domain service layer implementing Singleton business logic for customer registration, menu management, order placement, state machine transitions, OTP verification, agent matching, and notification dispatching.',
+      description: 'Core domain service layer for customer registration, menu management, order placement, state transitions, OTP verification, agent matching, and notification persistence.',
       fields: [
         {
           name: 'repository',
@@ -240,7 +240,7 @@ export default {
         {
           name: 'deliveryFee',
           type: 'double',
-          description: 'Delivery surcharge (₹35)'
+          description: 'Fee selected by the free, standard, or surge DeliveryFeeStrategy'
         },
         {
           name: 'tax',
@@ -390,39 +390,29 @@ export default {
   ],
   designPatterns: [
     {
-      name: 'Singleton Pattern',
-      used: true,
-      explanation: 'ZomatoService serves as the central singleton service managing all domain operations.'
-    },
-    {
       name: 'State Machine Pattern',
       used: true,
       explanation: 'Order state transitions (PLACED → CONFIRMED → PREPARING → READY_FOR_PICKUP → OUT_FOR_DELIVERY → DELIVERED) enforced with guard conditions.'
     },
     {
-      name: 'Factory Pattern',
+      name: 'Strategy + Factory Pattern',
       used: true,
-      explanation: 'Generates unique IDs, 4-digit OTPs, and payment transaction references.'
+      explanation: 'DeliveryFeeStrategyFactory selects FreeDeliveryStrategy, StandardDeliveryFeeStrategy, or SurgeDeliveryFeeStrategy from order value, pending demand, and available-agent supply for both live and simulation orders.'
     },
     {
       name: 'Repository Pattern',
       used: true,
       explanation: 'ZomatoRepository abstracts memory storage behind clean CRUD operations.'
-    },
-    {
-      name: 'Observer / Notification Pattern',
-      used: true,
-      explanation: 'Dispatches event notification records to Customer, Restaurant, and Agent channels upon state changes.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility Principle (SRP)',
-      description: 'ZomatoService manages order lifecycle, ZomatoRepository handles thread-safe data persistence, and PaymentProcessor manages payments.'
+      description: 'ZomatoService manages the order lifecycle, ZomatoRepository handles thread-safe persistence, and DeliveryAssignmentService owns per-agent assignment locking.'
     },
     {
       name: 'Open/Closed Principle (OCP)',
-      description: 'New payment methods or assignment strategies can be added without altering existing order processing logic.'
+      description: 'New delivery-fee policies can implement DeliveryFeeStrategy and be selected centrally by DeliveryFeeStrategyFactory without changing fee consumers.'
     },
     {
       name: 'Interface Segregation Principle (ISP)',
@@ -430,7 +420,7 @@ export default {
     },
     {
       name: 'Dependency Inversion Principle (DIP)',
-      description: 'High-level ZomatoService depends on repository abstractions rather than concrete storage mechanisms.'
+      description: 'Fee computation is consumed through the DeliveryFeeStrategy interface while the factory owns concrete policy selection.'
     }
   ],
   oopConcepts: [
@@ -444,7 +434,7 @@ export default {
     },
     {
       name: 'Polymorphism',
-      description: 'PaymentProcessor handles diverse payment methods using a unified processPayment() contract.'
+      description: 'FreeDeliveryStrategy, StandardDeliveryFeeStrategy, and SurgeDeliveryFeeStrategy execute through the shared DeliveryFeeStrategy contract.'
     }
   ],
   extensibility: [
@@ -468,6 +458,6 @@ export default {
     'Used explicit OTP delivery verification to mirror real-world contactless/secure delivery handoffs.',
     'Decoupled agent assignment: if no delivery agent is online during READY_FOR_PICKUP, order remains queued until an agent comes online.',
     'In-memory ConcurrentHashMap + ReentrantLock chosen over external database for zero-latency SDE-2 interactive interview simulation.',
-    'Synchronous payment authorization during placeOrder simplifies transaction guarantees while supporting immediate cancellation refunds.'
+    'Payment is modeled as a synchronously completed record during placeOrder; cancellation updates that record to REFUNDED without claiming a separate gateway Strategy.'
   ]
 };

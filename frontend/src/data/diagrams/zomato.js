@@ -7,9 +7,9 @@ export default {
   classes: [
     {
       name: 'ZomatoService',
-      stereotype: 'singleton',
       fields: [
-        '- repository: ZomatoRepository'
+        '- repository: ZomatoRepository',
+        '- deliveryAssignmentService: DeliveryAssignmentService'
       ],
       methods: [
         '+ registerCustomer(name, email, phone, addr): Customer',
@@ -21,6 +21,58 @@ export default {
         '+ markReadyForPickup(orderId): Order',
         '+ verifyOtpAndDeliver(orderId, otp): Order',
         '+ cancelOrder(orderId, reason): Order'
+      ]
+    },
+    {
+      name: 'DeliveryFeeStrategy',
+      stereotype: 'interface',
+      fields: [],
+      methods: [
+        '+ getName(): String',
+        '+ computeFee(distanceKm, orderValue): double'
+      ]
+    },
+    {
+      name: 'DeliveryAssignmentService',
+      fields: [
+        '- repository: ZomatoRepository',
+        '- agentLocks: ConcurrentHashMap<String, ReentrantLock>',
+        '- orderLocks: ConcurrentHashMap<String, ReentrantLock>'
+      ],
+      methods: [
+        '+ assignAgent(orderId): DeliveryAgent',
+        '+ assign(orderId, agentId): DeliveryAgent',
+        '+ releaseAgent(agentId): void'
+      ]
+    },
+    {
+      name: 'StandardDeliveryFeeStrategy',
+      fields: [],
+      methods: [
+        '+ computeFee(distanceKm, orderValue): double'
+      ]
+    },
+    {
+      name: 'SurgeDeliveryFeeStrategy',
+      fields: [
+        '- multiplier: double'
+      ],
+      methods: [
+        '+ computeFee(distanceKm, orderValue): double'
+      ]
+    },
+    {
+      name: 'FreeDeliveryStrategy',
+      fields: [],
+      methods: [
+        '+ computeFee(distanceKm, orderValue): double'
+      ]
+    },
+    {
+      name: 'DeliveryFeeStrategyFactory',
+      fields: [],
+      methods: [
+        '+ {static} forConditions(orderValue, pendingOrders, availableAgents): DeliveryFeeStrategy'
       ]
     },
     {
@@ -205,6 +257,41 @@ export default {
       from: 'ZomatoService',
       to: 'ZomatoRepository',
       label: 'uses'
+    },
+    {
+      from: 'ZomatoService',
+      to: 'DeliveryAssignmentService',
+      label: 'delegates assignment'
+    },
+    {
+      from: 'DeliveryAssignmentService',
+      to: 'ZomatoRepository',
+      label: 'claims atomically'
+    },
+    {
+      from: 'ZomatoService',
+      to: 'DeliveryFeeStrategyFactory',
+      label: 'selects fee policy'
+    },
+    {
+      from: 'DeliveryFeeStrategyFactory',
+      to: 'DeliveryFeeStrategy',
+      label: 'returns'
+    },
+    {
+      from: 'StandardDeliveryFeeStrategy',
+      to: 'DeliveryFeeStrategy',
+      label: 'implements'
+    },
+    {
+      from: 'SurgeDeliveryFeeStrategy',
+      to: 'DeliveryFeeStrategy',
+      label: 'implements'
+    },
+    {
+      from: 'FreeDeliveryStrategy',
+      to: 'DeliveryFeeStrategy',
+      label: 'implements'
     },
     {
       from: 'ZomatoService',

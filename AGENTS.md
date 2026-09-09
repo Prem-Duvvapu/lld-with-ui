@@ -114,7 +114,16 @@ shape as elevator/ludo.
 - `ZomatoInitializer`: Sample customers, restaurants with categorized menus, and delivery partners.
 - `ZomatoService`: placeOrder, confirmOrder, startPreparingOrder, markReadyForPickup, verifyOtpAndDeliver, cancelOrder, toggleMenuAvailability, toggleAgentAvailability.
 - `OrderStatus`: PLACED, CONFIRMED, PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, CANCELLED.
-- `PaymentProcessor`: Processes payments (`UPI`, `CREDIT_CARD`, `DEBIT_CARD`, `WALLET`, `CASH_ON_DELIVERY`) and handles cancellation refunds.
+- **Delivery-fee Strategy + Factory (RCA-066)**: `DeliveryFeeStrategy` has three production
+  implementations: `StandardDeliveryFeeStrategy` (₹30 + ₹8/km), `SurgeDeliveryFeeStrategy`
+  (2x standard fee when no agent is available or pending demand is at least 3x supply), and
+  `FreeDeliveryStrategy` (orders of at least ₹500). `DeliveryFeeStrategyFactory#forConditions`
+  selects the policy for both live and simulation order placement; `DeliveryFeeStrategyTest`
+  pins selection boundaries, fee math, rounding, and polymorphic execution.
+- Payments are represented by `PaymentMethod`/`PaymentStatus`; `ZomatoService` creates the payment
+  record synchronously and marks it refunded during cancellation. There is no payment Strategy or
+  `PaymentProcessor`. Notifications are also records persisted directly by `sendNotification`,
+  not an Observer subject/subscriber pipeline.
 
 ### Frontend
 - 6 tabs: 🍕 Food Ordering, 🏪 Restaurant Dashboard, 🛵 Delivery Partner, Interactive 2D Simulation, Class Diagram, Design Details.
