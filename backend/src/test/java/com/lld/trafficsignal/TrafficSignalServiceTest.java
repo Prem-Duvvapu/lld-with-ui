@@ -7,6 +7,7 @@ import com.lld.trafficsignal.exception.InvalidOverrideException;
 import com.lld.trafficsignal.model.Intersection;
 import com.lld.trafficsignal.model.LightState;
 import com.lld.trafficsignal.model.SimEvent;
+import com.lld.trafficsignal.model.TrafficLight;
 import com.lld.trafficsignal.repository.TrafficRepository;
 import com.lld.trafficsignal.service.TrafficSignalService;
 import org.junit.jupiter.api.BeforeEach;
@@ -199,5 +200,33 @@ class TrafficSignalServiceTest {
         assertNotNull(snapshot.get("intersection"));
         assertNotNull(snapshot.get("events"));
         assertNotNull(snapshot.get("phaseChangeLog"));
+    }
+
+    @Test
+    @DisplayName("A complete eight-step simulation walkthrough leaves every live field untouched")
+    void completeSimWalkthroughNeverTouchesProduction() {
+        Intersection main = service.getMainIntersection();
+        List<LightState> liveStatesBefore = main.getLights().stream()
+                .map(TrafficLight::getCurrentState)
+                .toList();
+        List<Integer> liveTimersBefore = main.getLights().stream()
+                .map(TrafficLight::getTimer)
+                .toList();
+        int liveActiveIndexBefore = main.getActiveIndex();
+
+        service.simReset();
+        service.simTick(8, 2);
+        service.simTick(3, 3);
+        service.simTick(4, 4);
+        service.simEmergencyOverride(3, 5);
+        service.simTick(5, 6);
+        service.simResume(7);
+        service.simTick(3, 8);
+
+        assertEquals(liveStatesBefore, main.getLights().stream().map(TrafficLight::getCurrentState).toList());
+        assertEquals(liveTimersBefore, main.getLights().stream().map(TrafficLight::getTimer).toList());
+        assertEquals(liveActiveIndexBefore, main.getActiveIndex());
+        assertFalse(main.isEmergencyActive());
+        assertEquals(8, service.simGetEvents().size());
     }
 }

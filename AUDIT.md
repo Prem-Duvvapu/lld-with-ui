@@ -84,7 +84,7 @@ Traffic Signal's live-state simulation wiring
 and the three pattern-claim mismatches
 ([RCA-066](RCA.md#rca-066-three-modules-overstate-or-lack-the-design-patterns-used-at-runtime)).
 The audit itself was read-only. Post-audit remediation status as of 2026-09-09: RCA-062 through
-RCA-064 are now resolved; RCA-065 and RCA-066 remain open. RCA-067, found during the follow-up
+RCA-065 are now resolved; RCA-066 remains open. RCA-067, found during the follow-up
 Digital Wallet review, is also resolved.
 
 1. **Blackjack: unlocked check-then-act race (resolved 2026-09-09, RCA-062).** The audited code
@@ -98,9 +98,9 @@ Digital Wallet review, is also resolved.
    `DomainException` subclasses and silently accepted unknown appenders. It now parses transport
    values at the service boundary, returns typed 400/404 `ErrorResponse`s, and applies the same
    appender/level contract to live and simulation endpoints.
-4. **TrafficSignal: the frontend Simulation tab never calls its own backend `/sim/*` engine.**
-   It hits live endpoints instead and falls back to hardcoded mock data on failure — the backend
-   sandbox was built and is simply unused.
+4. **TrafficSignal simulation wiring (resolved 2026-09-09, RCA-065).** The audited frontend hit
+   live endpoints and hid failures behind hardcoded state. Its eight-step walkthrough now uses
+   only `/traffic/sim/*`, renders backend snapshot/event telemetry, and exposes retryable errors.
 5. **Dead/false pattern claims**: MovieTicket's `SeatAvailabilityObserver` interface has zero
    implementations; Zomato's docs claim an Observer and a payment Strategy that don't exist in
    code; TicTacToe has no GoF pattern anywhere despite needing one for criterion 3.
@@ -112,8 +112,8 @@ Digital Wallet review, is also resolved.
    latch-controlled regression tests.
 2. **Splitwise + Logging's missing exception hierarchies (completed 2026-09-09)** — both modules
    now expose typed domain failures through the shared `ErrorResponse` contract.
-3. **TrafficSignal's dead sim engine** — wire the frontend to the `/sim/*` endpoints that already
-   exist rather than mutating live state with a mock-data fallback.
+3. **TrafficSignal's dead sim engine (completed 2026-09-09)** — the frontend now drives the
+   existing isolated engine exclusively, with API namespace and full-walkthrough isolation tests.
 
 Everything else (hex-literal cleanup, tab-count nits, missing repo/strategy test files, `LldPage`
 migration for the six modules that bypass it) is real but lower severity — candidates for batched
