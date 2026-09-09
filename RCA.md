@@ -5973,3 +5973,51 @@ operations, not arbitrary mutations of stored values. APIs must return immutable
 snapshots when serialization happens after a lock is released. Multi-aggregate reads must acquire
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
+
+## RCA-068: Stray Comment Marker Broke the FooBar Trace Comparator
+
+**Overview & Severity** — High, **Resolved** (2026-09-09). An accidental `//` inside the
+`TraceEvent::sequence` method reference made `FooBarService` syntactically invalid and prevented
+the entire backend from compiling.
+
+**Symptoms & Error Logs** — Maven failed during main-source compilation before any tests could
+run:
+
+```text
+[ERROR] FooBarService.java:[82,67] ')' expected
+[ERROR] Failed to execute goal maven-compiler-plugin:3.11.0:compile
+[ERROR] BUILD FAILURE
+```
+
+The affected statement was
+`orderedTrace.sort(Comparator.comparingLong(TraceEvent::seq//uence));`. Java treated `//uence));`
+as a line comment, leaving an incomplete method reference and unmatched parentheses.
+
+**Root Cause** — The `sequence` accessor name was split by an unintended line-comment marker in
+an uncommitted working-tree edit. Because Java comments are processed before parsing, the visible
+suffix was discarded and the comparator expression could not be parsed. The defect was unrelated
+to FooBar's synchronization or trace-ordering algorithm.
+
+**Diagnostic Commands**
+```bash
+git diff -- backend/src/main/java/com/lld/concurrency/foobar/service/FooBarService.java
+sed -n '1,140p' backend/src/main/java/com/lld/concurrency/foobar/service/FooBarService.java
+mvn -Dtest=FooBarServiceTest,FooBarPrinterTest test
+```
+
+**Step-by-Step Resolution**
+
+1. Inspected the only outstanding working-tree diff and isolated the malformed method reference.
+2. Reproduced the failure with the focused FooBar Maven command and captured javac's exact
+   `')' expected` diagnostic at line 82.
+3. Restored `Comparator.comparingLong(TraceEvent::sequence)`, preserving the intended stable
+   ordering by each event's monotonic sequence number.
+4. Re-ran the focused FooBar tests (`8` passed), the complete backend suite (`2,282` passed),
+   frontend Vitest (`396` passed), and the production build (`268.34 kB` entry chunk). Backend
+   validation ran from an isolated Linux-filesystem copy after javac stalled on the OneDrive mount;
+   no server was started.
+
+**Preventative Measures** — Keep compiler-backed validation in the pre-merge workflow and run at
+least the affected module's tests before leaving a source edit pending. Review the actual diff for
+comment delimiters inside identifiers or expressions; formatting and lint checks alone cannot
+validate code that does not parse.
