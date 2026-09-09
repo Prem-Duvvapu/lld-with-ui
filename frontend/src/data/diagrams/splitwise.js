@@ -181,6 +181,24 @@ export default {
         '+ updateBalance()',
         '+ getNetBalance()'
       ]
+    },
+    {
+      name: 'SplitwiseException',
+      stereotype: 'abstract exception',
+      fields: ['extends DomainException'],
+      methods: []
+    },
+    {
+      name: 'Typed Splitwise Failures',
+      stereotype: 'exceptions',
+      fields: [
+        'UserNotFoundException (404)',
+        'GroupNotFoundException (404)',
+        'InvalidExpenseException (400)',
+        'InvalidSettlementException (400)',
+        'InvalidSplitException (422)'
+      ],
+      methods: []
     }
   ],
   relationships: [
@@ -256,6 +274,22 @@ export default {
       from: 'Settlement',
       to: 'User',
       label: 'from / to'
+    },
+    {
+      from: 'Typed Splitwise Failures',
+      to: 'SplitwiseException',
+      label: 'extend',
+      dashed: true
+    },
+    {
+      from: 'SplitwiseService',
+      to: 'Typed Splitwise Failures',
+      label: 'throws'
+    },
+    {
+      from: 'SplitStrategy',
+      to: 'Typed Splitwise Failures',
+      label: 'rejects invalid definitions with'
     }
   ]
 };

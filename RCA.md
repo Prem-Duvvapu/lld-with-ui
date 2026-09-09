@@ -5646,10 +5646,9 @@ must have both same-aggregate contention tests and disjoint-aggregate progress t
 
 ## RCA-063: Splitwise's Raw `RuntimeException`s Bypass the Shared Domain Error Contract
 
-**Overview & Severity** — High, **Open** (verified by the 2026-09-08 portfolio audit; not changed by
-that read-only pass). Splitwise is presented as a reference module, but expected user and business
-rule failures can escape as generic HTTP 500 responses rather than the repository-wide typed 4xx
-contract.
+**Overview & Severity** — High, **Resolved 2026-09-09**. The 2026-09-08 portfolio audit found that
+Splitwise was presented as a reference module even though expected user and business-rule failures
+could escape as generic HTTP 500 responses rather than the repository-wide typed 4xx contract.
 
 **Symptoms & Error Logs** — `SplitwiseService` throws raw `RuntimeException` for missing users and
 groups in live and simulation paths. `EqualSplitStrategy`, `PercentageSplitStrategy`, and
@@ -5678,13 +5677,31 @@ sed -n '20,125p' backend/src/main/java/com/lld/config/GlobalExceptionHandler.jav
 mvn -f backend/pom.xml test -Dtest=com.lld.config.DomainExceptionContractTest
 ```
 
-**Step-by-Step Resolution** — **Not yet applied.** Introduce an abstract
-`SplitwiseException extends DomainException`, then concrete, status-annotated exceptions for at
-least missing user (404), missing group (404), invalid split definition (400 or 422), and invalid
-settlement/expense requests (400). Replace raw runtime throws in both the service and every split
-strategy. Keep controllers as transport-only delegates and let `GlobalExceptionHandler` create
-`ErrorResponse`. Extend service and MockMvc coverage to pin the exception class, status, and body
-for live and `/sim/*` endpoints, then run the full backend suite and change this RCA to `Resolved`.
+**Step-by-Step Resolution** —
+
+1. Added abstract `SplitwiseException extends DomainException` plus
+   `UserNotFoundException`/`GroupNotFoundException` (404),
+   `InvalidExpenseException`/`InvalidSettlementException` (400), and
+   `InvalidSplitException` (422). Every concrete type carries `@ResponseStatus` and is discovered
+   by `DomainExceptionContractTest`.
+2. Replaced every direct `RuntimeException` and generic unsupported-strategy throw in the service
+   and all three split strategies. Missing resource reads now throw typed 404s instead of returning
+   null or an empty missing-group result.
+3. Added shared live/simulation validation for positive finite amounts, nonblank expense
+   descriptions, group membership, self-settlement, unresolved users/groups, missing or mixed
+   split types, invalid totals, negative/non-finite shares, duplicate participants, and split
+   participants outside the group.
+4. Removed the controller's manual null-to-empty-404 branches and mapped split-type parsing to
+   `InvalidSplitException`; all domain failures now flow through `GlobalExceptionHandler` into the
+   standard `ErrorResponse(error, code, status, timestamp)` body.
+5. Expanded the strategy and service suites and added `SplitwiseControllerIntegrationTest`.
+   MockMvc now pins live 404, invalid-split 422, invalid-settlement 400, and isolated `/sim/*` 404
+   responses including stable codes and readable messages.
+6. Verified the focused Splitwise/contract suite (`40` tests), the full backend suite (`2,267`
+   tests), frontend Vitest (`394` tests), and the production build. All passed with zero failures,
+   errors, or skips; the entry chunk remained `268.34 kB`, below the `500 kB` budget. Backend tests
+   ran from the explicit Linux-filesystem validation copy because javac stalls on the OneDrive
+   mount; no server was started.
 
 **Preventative Measures** — Make the contract test assert that every backend module exposing REST
 endpoints either owns a module exception base or explicitly documents why it has no domain

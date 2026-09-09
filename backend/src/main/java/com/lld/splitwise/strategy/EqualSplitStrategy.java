@@ -1,5 +1,6 @@
 package com.lld.splitwise.strategy;
 
+import com.lld.splitwise.exception.InvalidSplitException;
 import com.lld.splitwise.model.Group;
 import com.lld.splitwise.model.Split;
 import com.lld.splitwise.model.SplitType;
@@ -15,7 +16,7 @@ public class EqualSplitStrategy implements SplitStrategy {
         List<User> members = group.getMembers();
         int totalMembers = members.size();
         if (totalMembers == 0) {
-            throw new RuntimeException("Group has no members to split expense");
+            throw new InvalidSplitException("Group has no members to split expense");
         }
         double share = Math.round((amount / totalMembers) * 100.0) / 100.0;
         double remainder = Math.round((amount - share * totalMembers) * 100.0) / 100.0;

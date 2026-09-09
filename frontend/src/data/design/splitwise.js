@@ -16,6 +16,7 @@ export default {
     'Balance Ledger: Track pairwise net balances (who owes whom) with atomic updates.',
     'Debt Simplification: Algorithmically calculate minimal settlements required to clear all group debts.',
     'Settlement Processing: Support full and partial settlements between users.',
+    'Typed Error Contract: Missing users/groups return 404, malformed expense/settlement requests return 400, and invalid split allocations return 422 through the shared ErrorResponse shape.',
     'Simulation & Event Log: Real-time event log with full timeline replay.'
   ],
   entities: [
@@ -109,6 +110,12 @@ export default {
           description: 'Returns appropriate strategy (Equal, Percentage, Exact) for the given SplitType'
         }
       ]
+    },
+    {
+      name: 'SplitwiseException',
+      description: 'Abstract DomainException base for every expected Splitwise rejection; GlobalExceptionHandler resolves each concrete class\'s @ResponseStatus into ErrorResponse.',
+      fields: [],
+      methods: [],
     },
     {
       name: 'SplitStrategy (Interface)',
@@ -414,11 +421,12 @@ export default {
     'Implemented greedy min-cash-flow algorithm (producing ≤ N-1 transactions) for optimal performance instead of NP-hard subset-sum solver.',
     'Decoupled simulation state into an isolated simRepository engine to allow real API simulation without mutating main business data.'
   ],
-  summary: 'Multi-actor expense sharing engine supporting group & non-group expenses, 3 split strategies (Equal, Percentage, Exact), balance ledger tracking, graph-based debt simplification, real-time event logging, and thread-safe settlement processing.',
+  summary: 'Multi-actor group-expense engine supporting 3 split strategies (Equal, Percentage, Exact), balance ledger tracking, graph-based debt simplification, real-time event logging, thread-safe settlement processing, and typed 4xx domain failures.',
   highlights: [
     'Extensible Strategy Pattern for split calculations (EqualSplitStrategy, PercentageSplitStrategy, ExactSplitStrategy) encapsulated by SplitStrategyFactory',
     'Graph-based greedy Min-Cash-Flow debt simplification algorithm reducing settlement transactions to O(N log N) time complexity',
     'Thread-safe ledger mutations using ConcurrentHashMap and fine-grained ReentrantLock',
-    'Real-time event logging capturing balance snapshots for interactive 2D simulation replay'
+    'Real-time event logging capturing balance snapshots for interactive 2D simulation replay',
+    'Shared DomainException contract across live and simulation APIs: stable 404/400/422 statuses and ErrorResponse codes instead of raw RuntimeException 500s'
   ]
 };
