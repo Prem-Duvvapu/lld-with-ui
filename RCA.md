@@ -1058,7 +1058,7 @@ mvn -o test -Dtest='InventoryServiceTest#alreadyBelowLevel_doesNotRefire'
    rather than silently doubling every alert again.
 2. `emitAlert`'s javadoc states the rule at the exact line most likely to reintroduce it: the
    in-app feed is one of the notifier's observers, not a second delivery path.
-3. General lesson for this repo's Observer-pattern modules (cricinfo, zomato's notification path):
+3. General lesson for this repo's Observer-pattern modules (CricInfo, Inventory, Traffic Signal):
    whenever a caller holds both a `Notifier`/`Publisher` reference and a direct reference to one
    of its own registered observers, check whether that direct reference is being invoked *outside*
    the publish/fan-out call — that duplication is easy to introduce by accident and, because
@@ -5845,7 +5845,8 @@ runtime exception:
   implemented.
 - Zomato writes `Notification` records directly through `ZomatoService#sendNotification`; there is
   no observer subject/subscriber contract. Its README summary says `Strategy (payment)`, but
-  payment is handled by a concrete processor rather than interchangeable payment strategies.
+  payment is modeled directly with `PaymentMethod`/`PaymentStatus` rather than interchangeable
+  payment strategies.
   Zomato does have a real delivery-fee Strategy family, which does not make the payment-Strategy
   claim accurate.
 - Tic Tac Toe has service, repository, model, and exception packages, but no pattern package or
@@ -5854,8 +5855,8 @@ runtime exception:
 
 **Root Cause** — Pattern names were accepted from intent, interface shape, or nearby behavior
 without tracing a complete runtime path. A subject with no concrete subscriber was counted as
-Observer; direct notification persistence was labeled Observer; a concrete payment helper was
-labeled Strategy; and ordinary state/history structures were allowed to imply a named pattern.
+Observer; direct notification persistence was labeled Observer; payment enums and direct service
+logic were labeled Strategy; and ordinary state/history structures were allowed to imply a named pattern.
 Documentation review checked vocabulary rather than construction, registration, injection, and
 invocation evidence.
 
@@ -5881,9 +5882,14 @@ renaming existing code.
    demonstrate its genuine pricing Strategy + Factory and seat Factory patterns. Validation:
    all 29 focused Movie Ticket tests, all 2,277 backend tests, all 396 frontend tests, and the
    production build passed; the entry chunk remained 268.34 kB.
-2. **Zomato — pending.** Correct the README/design material to identify the existing delivery-fee
-   Strategy and remove Observer/payment-Strategy claims unless real implementations are added and
-   wired.
+2. **Zomato — resolved 2026-09-09.** Replaced the README's payment-Strategy/Observer labels with
+   the production-wired delivery-fee Strategy + Factory. Updated repository context and frontend
+   design/diagram data to show the three concrete fee policies, their selection boundaries, and
+   the live/simulation call path. Payment and notification prose now accurately describes direct
+   `PaymentMethod`/`PaymentStatus` modeling and persisted `Notification` records rather than
+   nonexistent `PaymentProcessor` or Observer abstractions. Validation: all 14 focused delivery-fee
+   tests, all 381 design-data checks, all 2,277 backend tests, all 396 frontend tests, and the
+   production build passed; the entry chunk remained 268.34 kB.
 3. **Tic Tac Toe — pending.** Introduce a pattern only where it improves the model (for example
    Command objects that own execute/undo for moves) and test runtime behavior; do not add a
    one-implementation interface solely to satisfy scoring.

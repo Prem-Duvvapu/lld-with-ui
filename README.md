@@ -9,7 +9,7 @@ SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects**
 | # | Project | Domain | Key Design Patterns & Features |
 |---|---------|--------|--------------------------------|
 | 1 | [Parking Lot](#1-parking-lot) | Multi-level parking | Singleton, Strategy (pricing/spot), Factory, ReentrantLock |
-| 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy (payment), Observer, OTP Handoff |
+| 2 | [Zomato](#2-zomato) | Food delivery | State Machine, Strategy + Factory (delivery fees), OTP Handoff |
 | 3 | [Uber](#3-uber) | Ride-hailing | State Machine (transition table), Strategy (standard/surge pricing), Per-Driver Lock, Haversine Distance, OTP |
 | 4 | [Stack Overflow](#4-stack-overflow) | Q&A platform | Strategy + Factory (reputation), deterministic Question≤Answer≤User lock ordering, Votable interface, State Machine (question status) |
 | 5 | [Tic Tac Toe](#5-tic-tac-toe) | 2-player game | State Machine, Exception Hierarchy, Undo History, Isolated Sim Engine |
@@ -262,7 +262,8 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 #### Key Features
 - **Multi-Entity Domain**: Customer, Restaurant, MenuItem, DeliveryAgent, Order, Payment, and Notification.
 - **Guarded Order Lifecycle**: State machine (`PLACED` ➔ `CONFIRMED` ➔ `PREPARING` ➔ `READY_FOR_PICKUP` ➔ `OUT_FOR_DELIVERY` ➔ `DELIVERED` / `CANCELLED`).
-- **OTP Verification & Payment Strategies**: 4-digit delivery handoff OTP with UPI, Card, Wallet, COD support.
+- **OTP Verification & Payment Methods**: 4-digit delivery handoff OTP with UPI, Card, Wallet, and COD enum support; payment is modeled directly rather than as interchangeable strategies.
+- **Delivery-Fee Strategy + Factory**: `DeliveryFeeStrategyFactory` selects free delivery for orders of at least ₹500, a 2x surge when demand overwhelms available agents, or the standard ₹30 + ₹8/km policy.
 - **Interactive 2D Simulation**: Night city map with kitchen smoke particles, animated delivery agent, and live HUD.
 
 #### API Endpoints
