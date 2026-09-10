@@ -29,6 +29,7 @@ import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
+import GithubSourceLinks from '../../components/GithubSourceLinks';
 import { usePolling } from '../../hooks/usePolling';
 
 export default function LinkedInPage() {
@@ -353,6 +354,7 @@ export default function LinkedInPage() {
               ))}
             </select>
           </div>
+          <GithubSourceLinks module="linkedin" />
           <ThemeToggle />
         </div>
       </header>

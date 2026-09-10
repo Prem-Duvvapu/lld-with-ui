@@ -20,6 +20,7 @@ import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import ThemeToggle from '../../components/ThemeToggle';
+import GithubSourceLinks from '../../components/GithubSourceLinks';
 import { usePolling } from '../../hooks/usePolling';
 
 const SIM_STEPS = [
@@ -391,6 +392,7 @@ export default function AirlinePage() {
               <option value="user-charlie" style={{ background: 'var(--bg-secondary)' }}>Charlie Kim (user-charlie)</option>
             </select>
           </div>
+          <GithubSourceLinks module="airline" />
           <ThemeToggle />
         </div>
       </header>

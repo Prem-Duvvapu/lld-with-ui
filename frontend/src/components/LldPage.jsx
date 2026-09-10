@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import DesignDetails from './DesignDetails';
 import ClassDiagram from './ClassDiagram';
 import SequenceDiagram from './SequenceDiagram';
+import GithubSourceLinks from './GithubSourceLinks';
 import './LldPage.css';
 
 export default function LldPage({ module, title, icon, tabs: customTabs, children }) {
@@ -51,9 +52,12 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
   return (
     <div className="lld-page">
       <nav className="lld-page-breadcrumb">
-        <Link to="/">← Home</Link>
-        <span>/</span>
-        <span>{title}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Link to="/">← Home</Link>
+          <span>/</span>
+          <span>{title}</span>
+        </div>
+        <GithubSourceLinks module={module} />
       </nav>
 
       <header className="lld-page-header">

@@ -7,6 +7,7 @@ import {
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import GithubSourceLinks from '../../components/GithubSourceLinks';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -519,7 +520,10 @@ export default function LudoPage() {
   return (
     <div className="ludo-page">
       <style>{styles}</style>
-      <Link to="/" className="back-home">← Back to Home</Link>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <Link to="/" className="back-home">← Back to Home</Link>
+        <GithubSourceLinks module="ludo" />
+      </div>
       <div className="ludo-header">
         <h1>🎲 Ludo</h1>
         <p>Low-Level Design</p>
