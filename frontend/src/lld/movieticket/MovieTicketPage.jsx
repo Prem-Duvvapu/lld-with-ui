@@ -9,6 +9,7 @@ import SequenceDiagram from '../../components/SequenceDiagram';
 import { usePolling } from '../../hooks/usePolling';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
+import GithubSourceLinks from '../../components/GithubSourceLinks';
 
 const MOVIE_POSTERS = {
   'Inception': { bg: 'linear-gradient(135deg, #2c3e50, #000000)', emoji: '🌀' },
@@ -301,6 +302,7 @@ export default function MovieTicketPage() {
               <option key={u.id} value={u.id}>👤 User: {u.name} ({u.id})</option>
             ))}
           </select>
+          <GithubSourceLinks module="movieticket" />
           <ThemeToggle />
         </div>
       </div>

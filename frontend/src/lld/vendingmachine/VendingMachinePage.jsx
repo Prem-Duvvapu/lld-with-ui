@@ -24,6 +24,7 @@ import SequenceDiagram from '../../components/SequenceDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import { usePolling } from '../../hooks/usePolling';
 import ThemeToggle from '../../components/ThemeToggle';
+import GithubSourceLinks from '../../components/GithubSourceLinks';
 
 const DENOMINATIONS = [
   { val: 1, label: '₹1', type: 'coin' },
@@ -79,6 +80,7 @@ export default function VendingMachinePage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <GithubSourceLinks module="vendingmachine" />
           <ThemeToggle />
         </div>
       </div>

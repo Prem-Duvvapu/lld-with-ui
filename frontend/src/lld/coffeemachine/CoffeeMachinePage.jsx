@@ -29,6 +29,7 @@ import SequenceDiagram from '../../components/SequenceDiagram';
 import { usePolling } from '../../hooks/usePolling';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
+import GithubSourceLinks from '../../components/GithubSourceLinks';
 
 const ADD_ONS = [
   { id: 'EXTRA_SHOT', name: 'Extra Espresso Shot', price: 40, emoji: '⚡', desc: '+10g Beans, +30ml Water' },
@@ -81,6 +82,7 @@ export default function CoffeeMachinePage() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <GithubSourceLinks module="coffeemachine" />
           <ThemeToggle />
         </div>
       </div>
