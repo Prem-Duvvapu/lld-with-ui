@@ -1,9 +1,11 @@
-import { useState, useMemo, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useProgress } from '../hooks/useProgress'
+import { useRevisit } from '../hooks/useRevisit'
 import { useTour } from '../hooks/useTour'
 import WebsiteTour from '../components/WebsiteTour'
 import { ALL_DESIGN_PATTERNS, getModulePatterns } from '../data/modulePatterns'
+import { downloadProgress, readProgressFile, importProgress } from '../utils/progressData'
 import './Home.css'
 
 const TOUR_STEPS = [
@@ -64,6 +66,15 @@ const CAT_COLORS = {
   Games: 'rgba(234,179,8,0.15)',
   'Real-world': 'rgba(249,115,22,0.15)',
   Concurrency: 'rgba(59,130,246,0.15)',
+}
+
+const CAT_FILL_COLORS = {
+  Core: '#667eea',
+  Platforms: '#ec4899',
+  'Design Patterns & Systems': '#22c55e',
+  Games: '#eab308',
+  'Real-world': '#f97316',
+  Concurrency: '#3b82f6',
 }
 
 const ALL_LLDS = [
@@ -227,14 +238,31 @@ const routeMap = {
   'Workflow / Approval Engine': 'workflow',
 }
 
+function itemPath(item) {
+  return item.key || routeMap[item.title]
+}
+
+function formatReviewedDate(ts) {
+  if (!ts) return null
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 export default function Home() {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [difficulty, setDifficulty] = useState('All')
   const [pattern, setPattern] = useState('All')
   const [unreviewedOnly, setUnreviewedOnly] = useState(false)
-  const { toggle: toggleReviewed, isReviewed, count: reviewedCount } = useProgress()
+  const [revisitOnly, setRevisitOnly] = useState(false)
+  const { toggle: toggleReviewed, isReviewed, reviewedAt, count: reviewedCount } = useProgress()
+  const { toggleRevisit, isRevisit } = useRevisit()
   const { hasSeenTour, markSeen } = useTour()
   const [tourOpen, setTourOpen] = useState(false)
+  const [importStatus, setImportStatus] = useState(null)
+
+  const searchInputRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const cardRefs = useRef([])
 
   useEffect(() => {
     if (!hasSeenTour) {
@@ -255,14 +283,90 @@ export default function Home() {
         item.desc.toLowerCase().includes(query.toLowerCase()) ||
         item.category.toLowerCase().includes(query.toLowerCase())
       const matchDiff = difficulty === 'All' || item.difficulty === difficulty
-      const path = item.key || routeMap[item.title]
+      const path = itemPath(item)
       const matchPattern = pattern === 'All' || getModulePatterns(path).includes(pattern)
       const matchReviewed = !unreviewedOnly || !isReviewed(path)
-      return matchSearch && matchDiff && matchPattern && matchReviewed
+      const matchRevisit = !revisitOnly || isRevisit(path)
+      return matchSearch && matchDiff && matchPattern && matchReviewed && matchRevisit
     })
-  }, [query, difficulty, pattern, unreviewedOnly, isReviewed])
+  }, [query, difficulty, pattern, unreviewedOnly, revisitOnly, isReviewed, isRevisit])
+
+  useEffect(() => {
+    cardRefs.current.length = filtered.length
+  }, [filtered])
 
   const progressPct = ALL_LLDS.length > 0 ? Math.round((reviewedCount / ALL_LLDS.length) * 100) : 0
+
+  const categoryStats = useMemo(() => {
+    const stats = {}
+    ALL_LLDS.forEach(item => {
+      const path = itemPath(item)
+      if (!stats[item.category]) stats[item.category] = { total: 0, reviewed: 0 }
+      stats[item.category].total += 1
+      if (isReviewed(path)) stats[item.category].reviewed += 1
+    })
+    return stats
+  }, [isReviewed])
+
+  const handleSurpriseMe = () => {
+    const allPaths = ALL_LLDS.map(itemPath)
+    const unreviewed = allPaths.filter(p => !isReviewed(p))
+    const pool = unreviewed.length > 0 ? unreviewed : allPaths
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    navigate(`/${pick}`)
+  }
+
+  const handleImportClick = () => fileInputRef.current?.click()
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const payload = await readProgressFile(file)
+      importProgress(payload)
+      setImportStatus({ type: 'success', message: 'Progress imported — reloading…' })
+      setTimeout(() => window.location.reload(), 900)
+    } catch (err) {
+      setImportStatus({ type: 'error', message: err.message || 'Could not import that file.' })
+      setTimeout(() => setImportStatus(null), 4000)
+    }
+  }
+
+  // Keyboard shortcuts: "/" focuses search, Esc clears it, arrow keys move
+  // focus between cards (native <a> focus, so Enter opens the focused card
+  // for free). Skipped entirely while typing in any field.
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const active = document.activeElement
+      const isTyping = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)
+
+      if (e.key === '/' && !isTyping) {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+        return
+      }
+      if (e.key === 'Escape') {
+        if (isTyping) active.blur()
+        setQuery('')
+        return
+      }
+      if (isTyping) return
+
+      const cards = cardRefs.current
+      if (cards.length === 0) return
+      const currentIndex = cards.indexOf(active)
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        cards[Math.min(currentIndex + 1, cards.length - 1)]?.focus()
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        cards[Math.max(currentIndex - 1, 0)]?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   return (
     <div className="home">
@@ -272,10 +376,32 @@ export default function Home() {
             <h1>Low Level Design Patterns</h1>
             <p className="home-subtitle">60 interactive modules — each with a live UI, class diagram, and working Java backend</p>
           </div>
-          <button type="button" className="tour-launch-btn" onClick={() => setTourOpen(true)}>
-            🧭 Take a tour
-          </button>
+          <div className="home-actions">
+            <button type="button" className="home-action-btn" onClick={handleSurpriseMe}>
+              🎲 Surprise me
+            </button>
+            <button type="button" className="home-action-btn" onClick={downloadProgress}>
+              ⬇️ Export progress
+            </button>
+            <button type="button" className="home-action-btn" onClick={handleImportClick}>
+              ⬆️ Import progress
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json"
+              onChange={handleImportFile}
+              hidden
+            />
+            <button type="button" className="home-action-btn" onClick={() => setTourOpen(true)}>
+              🧭 Take a tour
+            </button>
+          </div>
         </div>
+
+        {importStatus && (
+          <p className={`import-status import-status-${importStatus.type}`}>{importStatus.message}</p>
+        )}
 
         <div className="progress-summary" data-tour="progress">
           <div className="progress-summary-label">
@@ -285,18 +411,39 @@ export default function Home() {
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
+          <div className="category-breakdown">
+            {Object.keys(CAT_COLORS).filter(cat => categoryStats[cat]).map(cat => {
+              const stat = categoryStats[cat]
+              const pct = stat.total > 0 ? Math.round((stat.reviewed / stat.total) * 100) : 0
+              return (
+                <div key={cat} className="category-stat">
+                  <div className="category-stat-label">
+                    <span>{cat}</span>
+                    <span>{stat.reviewed}/{stat.total}</span>
+                  </div>
+                  <div className="category-stat-track">
+                    <div className="category-stat-fill" style={{ width: `${pct}%`, background: CAT_FILL_COLORS[cat] }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         <div className="home-controls">
-          <div className="search-bar" data-tour="search">
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Search by name, description, or category..."
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-            />
-            {query && <button className="search-clear" onClick={() => setQuery('')}>✕</button>}
+          <div className="search-wrap">
+            <div className="search-bar" data-tour="search">
+              <span className="search-icon">🔍</span>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search by name, description, or category..."
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+              {query && <button className="search-clear" onClick={() => setQuery('')}>✕</button>}
+            </div>
+            <span className="kbd-hint"><kbd>/</kbd> to search · <kbd>Esc</kbd> to clear · <kbd>←↑↓→</kbd> to browse</span>
           </div>
 
           <div className="diff-filters" data-tour="difficulty">
@@ -339,6 +486,15 @@ export default function Home() {
             />
             Show only what's left to review
           </label>
+
+          <label className="unreviewed-toggle">
+            <input
+              type="checkbox"
+              checked={revisitOnly}
+              onChange={e => setRevisitOnly(e.target.checked)}
+            />
+            🔖 Flagged for revisit only
+          </label>
         </div>
 
         <p className="home-result-count">{filtered.length} module{filtered.length !== 1 ? 's' : ''} found</p>
@@ -350,11 +506,14 @@ export default function Home() {
           const catBg = CAT_COLORS[item.category]
           const path = item.key || routeMap[item.title]
           const reviewed = isReviewed(path)
+          const revisit = isRevisit(path)
+          const reviewedDate = formatReviewedDate(reviewedAt(path))
           return (
             <Link
               key={path}
               to={`/${path}`}
-              className={`lld-card${reviewed ? ' reviewed' : ''}`}
+              className={`lld-card${reviewed ? ' reviewed' : ''}${revisit ? ' flagged-revisit' : ''}`}
+              ref={el => { cardRefs.current[i] = el }}
               {...(i === 0 ? { 'data-tour': 'first-card' } : {})}
             >
               <button
@@ -362,10 +521,20 @@ export default function Home() {
                 className="review-toggle"
                 aria-label={reviewed ? `Mark ${item.title} as not reviewed` : `Mark ${item.title} as reviewed`}
                 aria-pressed={reviewed}
-                title={reviewed ? 'Reviewed — click to unmark' : 'Mark as reviewed'}
+                title={reviewed ? `Reviewed ${reviewedDate} — click to unmark` : 'Mark as reviewed'}
                 onClick={e => { e.preventDefault(); e.stopPropagation(); toggleReviewed(path) }}
               >
                 {reviewed ? '✓' : ''}
+              </button>
+              <button
+                type="button"
+                className="revisit-toggle"
+                aria-label={revisit ? `Unflag ${item.title} for revisit` : `Flag ${item.title} for revisit`}
+                aria-pressed={revisit}
+                title={revisit ? 'Flagged for revisit — click to unflag' : 'Flag for revisit'}
+                onClick={e => { e.preventDefault(); e.stopPropagation(); toggleRevisit(path) }}
+              >
+                🔖
               </button>
               <span className="lld-icon">{item.icon}</span>
               <h2>{item.title}</h2>
