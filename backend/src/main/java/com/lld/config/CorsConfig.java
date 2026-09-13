@@ -16,6 +16,18 @@ public class CorsConfig {
                         .allowedOrigins("*")
                         .allowedMethods("*")
                         .allowedHeaders("*");
+                // Swagger UI's own JS fetches the OpenAPI document client-side. If it's ever
+                // loaded against this backend's own origin from a different origin (e.g. the
+                // deployed doc page embedded/linked from elsewhere) rather than through the
+                // frontend's same-origin proxy, that fetch needs CORS too.
+                registry.addMapping("/v3/api-docs/**")
+                        .allowedOrigins("*")
+                        .allowedMethods("GET")
+                        .allowedHeaders("*");
+                registry.addMapping("/swagger-ui/**")
+                        .allowedOrigins("*")
+                        .allowedMethods("GET")
+                        .allowedHeaders("*");
             }
         };
     }
