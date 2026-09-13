@@ -1,8 +1,53 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useProgress } from '../hooks/useProgress'
+import { useTour } from '../hooks/useTour'
+import WebsiteTour from '../components/WebsiteTour'
 import { ALL_DESIGN_PATTERNS, getModulePatterns } from '../data/modulePatterns'
 import './Home.css'
+
+const TOUR_STEPS = [
+  {
+    selector: null,
+    title: '👋 Welcome to the LLD portfolio',
+    body: "60 interactive Low-Level-Design modules, each with a working Java backend and a live UI. This quick tour points out the tools on this page — skip anytime with Esc or the ✕.",
+  },
+  {
+    selector: '[data-tour="search"]',
+    title: 'Search',
+    body: 'Search by name, description, or category to jump straight to a module.',
+  },
+  {
+    selector: '[data-tour="difficulty"]',
+    title: 'Filter by difficulty',
+    body: 'Narrow the list to Easy, Medium, or Hard modules — handy for pacing an interview-prep session.',
+  },
+  {
+    selector: '[data-tour="pattern"]',
+    title: 'Filter by design pattern',
+    body: "Only want to drill Strategy or Observer today? Pick a GoF pattern and the grid filters to modules that actually use it.",
+  },
+  {
+    selector: '[data-tour="progress"]',
+    title: 'Track your progress',
+    body: "Mark a module reviewed with the checkmark on its card — your progress is saved in this browser and shown here.",
+  },
+  {
+    selector: '[data-tour="unreviewed"]',
+    title: "What's left",
+    body: 'Toggle this to hide everything you\'ve already reviewed and focus on what remains.',
+  },
+  {
+    selector: '[data-tour="first-card"]',
+    title: 'Try it yourself first',
+    body: "Open any module and its Class Diagram, Sequence Diagram, and design breakdown stay hidden until you reveal them — read the requirements, think through the design, then compare.",
+  },
+  {
+    selector: null,
+    title: "You're set",
+    body: "That's the tour. Replay it anytime from the \"Take a tour\" button up top.",
+  },
+]
 
 const DIFFICULTIES = ['All', 'Easy', 'Medium', 'Hard']
 
@@ -188,6 +233,20 @@ export default function Home() {
   const [pattern, setPattern] = useState('All')
   const [unreviewedOnly, setUnreviewedOnly] = useState(false)
   const { toggle: toggleReviewed, isReviewed, count: reviewedCount } = useProgress()
+  const { hasSeenTour, markSeen } = useTour()
+  const [tourOpen, setTourOpen] = useState(false)
+
+  useEffect(() => {
+    if (!hasSeenTour) {
+      const t = setTimeout(() => setTourOpen(true), 500)
+      return () => clearTimeout(t)
+    }
+  }, [hasSeenTour])
+
+  const closeTour = () => {
+    setTourOpen(false)
+    markSeen()
+  }
 
   const filtered = useMemo(() => {
     return ALL_LLDS.filter(item => {
@@ -208,10 +267,17 @@ export default function Home() {
   return (
     <div className="home">
       <header className="home-header">
-        <h1>Low Level Design Patterns</h1>
-        <p className="home-subtitle">60 interactive modules — each with a live UI, class diagram, and working Java backend</p>
+        <div className="home-title-row">
+          <div>
+            <h1>Low Level Design Patterns</h1>
+            <p className="home-subtitle">60 interactive modules — each with a live UI, class diagram, and working Java backend</p>
+          </div>
+          <button type="button" className="tour-launch-btn" onClick={() => setTourOpen(true)}>
+            🧭 Take a tour
+          </button>
+        </div>
 
-        <div className="progress-summary">
+        <div className="progress-summary" data-tour="progress">
           <div className="progress-summary-label">
             <span>📈 Your progress</span>
             <span>{reviewedCount} / {ALL_LLDS.length} reviewed</span>
@@ -222,7 +288,7 @@ export default function Home() {
         </div>
 
         <div className="home-controls">
-          <div className="search-bar">
+          <div className="search-bar" data-tour="search">
             <span className="search-icon">🔍</span>
             <input
               type="text"
@@ -233,7 +299,7 @@ export default function Home() {
             {query && <button className="search-clear" onClick={() => setQuery('')}>✕</button>}
           </div>
 
-          <div className="diff-filters">
+          <div className="diff-filters" data-tour="difficulty">
             {DIFFICULTIES.map(d => {
               const c = DIFF_COLORS[d]
               const active = difficulty === d
@@ -256,6 +322,7 @@ export default function Home() {
 
           <select
             className="pattern-select"
+            data-tour="pattern"
             value={pattern}
             onChange={e => setPattern(e.target.value)}
             aria-label="Filter by design pattern"
@@ -264,7 +331,7 @@ export default function Home() {
             {ALL_DESIGN_PATTERNS.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
 
-          <label className="unreviewed-toggle">
+          <label className="unreviewed-toggle" data-tour="unreviewed">
             <input
               type="checkbox"
               checked={unreviewedOnly}
@@ -278,13 +345,18 @@ export default function Home() {
       </header>
 
       <div className="lld-grid">
-        {filtered.map(item => {
+        {filtered.map((item, i) => {
           const dc = DIFF_COLORS[item.difficulty]
           const catBg = CAT_COLORS[item.category]
           const path = item.key || routeMap[item.title]
           const reviewed = isReviewed(path)
           return (
-            <Link key={path} to={`/${path}`} className={`lld-card${reviewed ? ' reviewed' : ''}`}>
+            <Link
+              key={path}
+              to={`/${path}`}
+              className={`lld-card${reviewed ? ' reviewed' : ''}`}
+              {...(i === 0 ? { 'data-tour': 'first-card' } : {})}
+            >
               <button
                 type="button"
                 className="review-toggle"
@@ -312,6 +384,8 @@ export default function Home() {
           )
         })}
       </div>
+
+      {tourOpen && <WebsiteTour steps={TOUR_STEPS} onFinish={closeTour} />}
     </div>
   )
 }
