@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useProgress } from '../hooks/useProgress'
 import './Home.css'
 
 const DIFFICULTIES = ['All', 'Easy', 'Medium', 'Hard']
@@ -183,6 +184,8 @@ const routeMap = {
 export default function Home() {
   const [query, setQuery] = useState('')
   const [difficulty, setDifficulty] = useState('All')
+  const [unreviewedOnly, setUnreviewedOnly] = useState(false)
+  const { toggle: toggleReviewed, isReviewed, count: reviewedCount } = useProgress()
 
   const filtered = useMemo(() => {
     return ALL_LLDS.filter(item => {
@@ -191,15 +194,29 @@ export default function Home() {
         item.desc.toLowerCase().includes(query.toLowerCase()) ||
         item.category.toLowerCase().includes(query.toLowerCase())
       const matchDiff = difficulty === 'All' || item.difficulty === difficulty
-      return matchSearch && matchDiff
+      const path = item.key || routeMap[item.title]
+      const matchReviewed = !unreviewedOnly || !isReviewed(path)
+      return matchSearch && matchDiff && matchReviewed
     })
-  }, [query, difficulty])
+  }, [query, difficulty, unreviewedOnly, isReviewed])
+
+  const progressPct = ALL_LLDS.length > 0 ? Math.round((reviewedCount / ALL_LLDS.length) * 100) : 0
 
   return (
     <div className="home">
       <header className="home-header">
         <h1>Low Level Design Patterns</h1>
         <p className="home-subtitle">60 interactive modules — each with a live UI, class diagram, and working Java backend</p>
+
+        <div className="progress-summary">
+          <div className="progress-summary-label">
+            <span>📈 Your progress</span>
+            <span>{reviewedCount} / {ALL_LLDS.length} reviewed</span>
+          </div>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
 
         <div className="home-controls">
           <div className="search-bar">
@@ -233,6 +250,15 @@ export default function Home() {
               )
             })}
           </div>
+
+          <label className="unreviewed-toggle">
+            <input
+              type="checkbox"
+              checked={unreviewedOnly}
+              onChange={e => setUnreviewedOnly(e.target.checked)}
+            />
+            Show only what's left to review
+          </label>
         </div>
 
         <p className="home-result-count">{filtered.length} module{filtered.length !== 1 ? 's' : ''} found</p>
@@ -243,8 +269,19 @@ export default function Home() {
           const dc = DIFF_COLORS[item.difficulty]
           const catBg = CAT_COLORS[item.category]
           const path = item.key || routeMap[item.title]
+          const reviewed = isReviewed(path)
           return (
-            <Link key={path} to={`/${path}`} className="lld-card">
+            <Link key={path} to={`/${path}`} className={`lld-card${reviewed ? ' reviewed' : ''}`}>
+              <button
+                type="button"
+                className="review-toggle"
+                aria-label={reviewed ? `Mark ${item.title} as not reviewed` : `Mark ${item.title} as reviewed`}
+                aria-pressed={reviewed}
+                title={reviewed ? 'Reviewed — click to unmark' : 'Mark as reviewed'}
+                onClick={e => { e.preventDefault(); e.stopPropagation(); toggleReviewed(path) }}
+              >
+                {reviewed ? '✓' : ''}
+              </button>
               <span className="lld-icon">{item.icon}</span>
               <h2>{item.title}</h2>
               <p>{item.desc}</p>
