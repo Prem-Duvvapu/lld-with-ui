@@ -18,6 +18,51 @@
   line-height: 1.5;
 }
 
+.progress-summary {
+  max-width: 500px;
+  margin: 0 auto 24px;
+  text-align: left;
+}
+
+.progress-summary-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.progress-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s ease;
+}
+
+.unreviewed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.unreviewed-toggle input {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
 .home-controls {
   display: flex;
   flex-direction: column;
@@ -139,6 +184,41 @@
   transform: translateY(-3px);
   border-color: var(--accent);
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
+}
+
+.lld-card.reviewed {
+  border-color: rgba(34,197,94,0.4);
+  background: linear-gradient(180deg, rgba(34,197,94,0.05), var(--bg-card) 40%);
+}
+
+.review-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--border-primary);
+  background: var(--bg-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.review-toggle:hover {
+  border-color: #22c55e;
+}
+
+.lld-card.reviewed .review-toggle {
+  background: #22c55e;
+  border-color: #22c55e;
 }
 
 .lld-icon { font-size: 42px; margin-bottom: 14px; }
