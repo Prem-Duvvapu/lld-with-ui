@@ -6,6 +6,7 @@ import {
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import SolutionGate from '../../components/SolutionGate';
 import { usePolling } from '../../hooks/usePolling';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -723,12 +724,12 @@ export default function MovieTicketPage() {
         {/* ========================================================================= */}
         {/* TAB 4: CLASS DIAGRAM */}
         {/* ========================================================================= */}
-        {activeTab === 'diagram' && <ClassDiagram module="movieticket" />}
+        {activeTab === 'diagram' && <SolutionGate module="movieticket" label="the class diagram"><ClassDiagram module="movieticket" /></SolutionGate>}
 
         {/* ========================================================================= */}
         {/* TAB 5: SEQUENCE DIAGRAM */}
         {/* ========================================================================= */}
-        {activeTab === 'sequence' && <SequenceDiagram module="movieticket" />}
+        {activeTab === 'sequence' && <SolutionGate module="movieticket" label="the sequence diagram"><SequenceDiagram module="movieticket" /></SolutionGate>}
 
         {/* ========================================================================= */}
         {/* TAB 6: DESIGN DETAILS */}

@@ -19,6 +19,7 @@ import { BACKEND_PORT } from '../../utils/api';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import SolutionGate from '../../components/SolutionGate';
 import ThemeToggle from '../../components/ThemeToggle';
 import GithubSourceLinks from '../../components/GithubSourceLinks';
 import { usePolling } from '../../hooks/usePolling';
@@ -976,12 +977,12 @@ export default function AirlinePage() {
         {/* =================================================================== */}
         {/* TAB 4: CLASS DIAGRAM */}
         {/* =================================================================== */}
-        {activeTab === 'diagram' && <ClassDiagram module="airline" />}
+        {activeTab === 'diagram' && <SolutionGate module="airline" label="the class diagram"><ClassDiagram module="airline" /></SolutionGate>}
 
         {/* =================================================================== */}
         {/* TAB 5: SEQUENCE DIAGRAM */}
         {/* =================================================================== */}
-        {activeTab === 'sequence' && <SequenceDiagram module="airline" />}
+        {activeTab === 'sequence' && <SolutionGate module="airline" label="the sequence diagram"><SequenceDiagram module="airline" /></SolutionGate>}
 
         {/* =================================================================== */}
         {/* TAB 6: DESIGN DETAILS */}
