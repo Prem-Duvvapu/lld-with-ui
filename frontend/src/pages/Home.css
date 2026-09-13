@@ -48,6 +48,25 @@
   transition: width 0.3s ease;
 }
 
+.pattern-select {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pattern-select:hover,
+.pattern-select:focus {
+  border-color: var(--accent);
+  color: var(--text-primary);
+  outline: none;
+}
+
 .unreviewed-toggle {
   display: flex;
   align-items: center;
