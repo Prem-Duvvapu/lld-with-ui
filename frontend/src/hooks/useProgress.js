@@ -1,19 +1,27 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'lld-progress-v1';
 
-function loadReviewed() {
+function loadReviewedMap() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? new Set(JSON.parse(raw)) : new Set();
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      // pre-timestamp format: a bare array of reviewed paths. Migrate in place —
+      // there's no way to recover the real reviewed date, so stamp it as "now".
+      const now = Date.now();
+      return Object.fromEntries(parsed.map((path) => [path, now]));
+    }
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
-    return new Set();
+    return {};
   }
 }
 
-function saveReviewed(set) {
+function saveReviewedMap(map) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
     // localStorage unavailable (private browsing, quota, blocked) -- progress just won't persist
   }
@@ -25,19 +33,21 @@ function saveReviewed(set) {
  * whoever's browser is viewing the site and does not sync across devices.
  */
 export function useProgress() {
-  const [reviewed, setReviewed] = useState(loadReviewed);
+  const [reviewedMap, setReviewedMap] = useState(loadReviewedMap);
 
   const toggle = useCallback((path) => {
-    setReviewed((prev) => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      saveReviewed(next);
+    setReviewedMap((prev) => {
+      const next = { ...prev };
+      if (next[path]) delete next[path];
+      else next[path] = Date.now();
+      saveReviewedMap(next);
       return next;
     });
   }, []);
 
-  const isReviewed = useCallback((path) => reviewed.has(path), [reviewed]);
+  const isReviewed = useCallback((path) => Boolean(reviewedMap[path]), [reviewedMap]);
+  const reviewedAt = useCallback((path) => reviewedMap[path] || null, [reviewedMap]);
+  const reviewed = useMemo(() => new Set(Object.keys(reviewedMap)), [reviewedMap]);
 
-  return { reviewed, toggle, isReviewed, count: reviewed.size };
+  return { reviewed, toggle, isReviewed, reviewedAt, count: reviewed.size };
 }
