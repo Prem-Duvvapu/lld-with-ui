@@ -4,6 +4,7 @@ import DesignDetails from './DesignDetails';
 import ClassDiagram from './ClassDiagram';
 import SequenceDiagram from './SequenceDiagram';
 import GithubSourceLinks from './GithubSourceLinks';
+import SolutionGate from './SolutionGate';
 import './LldPage.css';
 
 export default function LldPage({ module, title, icon, tabs: customTabs, children }) {
@@ -84,8 +85,16 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
 
       <main className="lld-page-main">
         {(tab === 'design' || tab === 'details') && <DesignDetails module={module} />}
-        {tab === 'diagram' && <ClassDiagram module={module} />}
-        {tab === 'sequence' && <SequenceDiagram module={module} />}
+        {tab === 'diagram' && (
+          <SolutionGate module={module} label="the class diagram">
+            <ClassDiagram module={module} />
+          </SolutionGate>
+        )}
+        {tab === 'sequence' && (
+          <SolutionGate module={module} label="the sequence diagram">
+            <SequenceDiagram module={module} />
+          </SolutionGate>
+        )}
         {!isBuiltIn && (
           typeof children === 'function'
             ? children(tab, setTab)

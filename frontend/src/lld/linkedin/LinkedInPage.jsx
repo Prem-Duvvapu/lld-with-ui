@@ -27,6 +27,7 @@ import {
 import { BACKEND_PORT } from '../../utils/api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import SolutionGate from '../../components/SolutionGate';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 import GithubSourceLinks from '../../components/GithubSourceLinks';
@@ -1026,12 +1027,12 @@ export default function LinkedInPage() {
         {/* =================================================================== */}
         {/* TAB 5: CLASS DIAGRAM */}
         {/* =================================================================== */}
-        {activeTab === 'diagram' && <ClassDiagram module="linkedin" />}
+        {activeTab === 'diagram' && <SolutionGate module="linkedin" label="the class diagram"><ClassDiagram module="linkedin" /></SolutionGate>}
 
         {/* =================================================================== */}
         {/* TAB 6: SEQUENCE DIAGRAM */}
         {/* =================================================================== */}
-        {activeTab === 'sequence' && <SequenceDiagram module="linkedin" />}
+        {activeTab === 'sequence' && <SolutionGate module="linkedin" label="the sequence diagram"><SequenceDiagram module="linkedin" /></SolutionGate>}
 
         {/* =================================================================== */}
         {/* TAB 7: DESIGN DETAILS */}

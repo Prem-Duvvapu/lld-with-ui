@@ -7,6 +7,7 @@ import {
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import SolutionGate from '../../components/SolutionGate';
 import GithubSourceLinks from '../../components/GithubSourceLinks';
 
 const styles = `
@@ -536,8 +537,8 @@ export default function LudoPage() {
       <div className="ludo-main">
         {tab === 'game' && <GameTab />}
         {tab === 'simulation' && <SimulationTab />}
-        {tab === 'diagram' && <ClassDiagram module="ludo" />}
-        {tab === 'sequence' && <SequenceDiagram module="ludo" />}
+        {tab === 'diagram' && <SolutionGate module="ludo" label="the class diagram"><ClassDiagram module="ludo" /></SolutionGate>}
+        {tab === 'sequence' && <SolutionGate module="ludo" label="the sequence diagram"><SequenceDiagram module="ludo" /></SolutionGate>}
         {tab === 'design' && <DesignDetails module="ludo" />}
       </div>
     </div>

@@ -22,6 +22,7 @@ import {
 import { BACKEND_PORT } from '../../utils/api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import SolutionGate from '../../components/SolutionGate';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 import GithubSourceLinks from '../../components/GithubSourceLinks';
@@ -950,12 +951,12 @@ export default function LibraryPage() {
         {/* =================================================================== */}
         {/* TAB 5: CLASS DIAGRAM */}
         {/* =================================================================== */}
-        {activeTab === 'diagram' && <ClassDiagram module="library" />}
+        {activeTab === 'diagram' && <SolutionGate module="library" label="the class diagram"><ClassDiagram module="library" /></SolutionGate>}
 
         {/* =================================================================== */}
         {/* TAB 6: SEQUENCE DIAGRAM */}
         {/* =================================================================== */}
-        {activeTab === 'sequence' && <SequenceDiagram module="library" />}
+        {activeTab === 'sequence' && <SolutionGate module="library" label="the sequence diagram"><SequenceDiagram module="library" /></SolutionGate>}
 
         {/* =================================================================== */}
         {/* TAB 7: DESIGN DETAILS */}

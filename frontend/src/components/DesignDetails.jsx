@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import designDetails from '../data/designDetails';
 import { resolveModuleData } from '../data/moduleKeys';
+import { useReveal } from '../hooks/useReveal';
 import RequirementsTab from './design/RequirementsTab';
 import EntitiesTab from './design/EntitiesTab';
 import PatternsTab from './design/PatternsTab';
 import PrinciplesTab from './design/PrinciplesTab';
 import ExtensibilityTab from './design/ExtensibilityTab';
+import RevealGate from './RevealGate';
 
 export default function DesignDetails({ module, customData }) {
   const data = customData || resolveModuleData(designDetails, module);
+  const { isRevealed, reveal, hide } = useReveal();
+  const revealed = isRevealed(module);
 
   if (import.meta.env?.DEV && !data && module) {
     console.warn(`[designDetails] no entry for module "${module}" — add src/data/design/<module>.js and register it in the barrel.`);
@@ -73,7 +77,7 @@ export default function DesignDetails({ module, customData }) {
               gap: 'var(--space-1)'
             }}
           >
-            <span>{t.label}</span>
+            <span>{t.id !== 'reqs' && !revealed ? '🔒 ' : ''}{t.label}</span>
             {t.count !== undefined && (
               <span style={{
                 fontSize: 'var(--font-xs)',
@@ -94,17 +98,25 @@ export default function DesignDetails({ module, customData }) {
         {subTab === 'reqs' && (
           <RequirementsTab requirements={data.requirements} tldr={data.tldr} />
         )}
-        {subTab === 'entities' && (
-          <EntitiesTab entities={data.entities} />
+        {subTab !== 'reqs' && !revealed && (
+          <RevealGate onReveal={() => reveal(module)} label="the design" />
         )}
-        {subTab === 'patterns' && (
-          <PatternsTab designPatterns={data.designPatterns} />
-        )}
-        {subTab === 'principles' && (
-          <PrinciplesTab principles={data.principles} oopConcepts={data.oopConcepts} />
-        )}
-        {subTab === 'extensibility' && (
-          <ExtensibilityTab extensibility={data.extensibility} tradeoffs={data.tradeoffs} />
+        {subTab !== 'reqs' && revealed && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-2)' }}>
+              <button
+                type="button"
+                onClick={() => hide(module)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 'var(--font-xs)', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                🔒 Hide again
+              </button>
+            </div>
+            {subTab === 'entities' && <EntitiesTab entities={data.entities} />}
+            {subTab === 'patterns' && <PatternsTab designPatterns={data.designPatterns} />}
+            {subTab === 'principles' && <PrinciplesTab principles={data.principles} oopConcepts={data.oopConcepts} />}
+            {subTab === 'extensibility' && <ExtensibilityTab extensibility={data.extensibility} tradeoffs={data.tradeoffs} />}
+          </>
         )}
       </div>
     </div>

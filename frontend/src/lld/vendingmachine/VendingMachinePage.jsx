@@ -21,6 +21,7 @@ import {
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import SolutionGate from '../../components/SolutionGate';
 import DesignDetails from '../../components/DesignDetails';
 import { usePolling } from '../../hooks/usePolling';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -126,8 +127,8 @@ export default function VendingMachinePage() {
         {activeTab === 'machine' && <MachineHardwareTab />}
         {activeTab === 'admin' && <AdminDashboardTab />}
         {activeTab === 'simulation' && <SimulationTab />}
-        {activeTab === 'diagram' && <ClassDiagram module="vendingmachine" />}
-        {activeTab === 'sequence' && <SequenceDiagram module="vendingmachine" />}
+        {activeTab === 'diagram' && <SolutionGate module="vendingmachine" label="the class diagram"><ClassDiagram module="vendingmachine" /></SolutionGate>}
+        {activeTab === 'sequence' && <SolutionGate module="vendingmachine" label="the sequence diagram"><SequenceDiagram module="vendingmachine" /></SolutionGate>}
         {activeTab === 'design' && <DesignDetails module="vendingmachine" />}
       </div>
     </div>

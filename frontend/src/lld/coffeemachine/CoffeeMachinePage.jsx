@@ -26,6 +26,7 @@ import {
 } from './api';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
+import SolutionGate from '../../components/SolutionGate';
 import { usePolling } from '../../hooks/usePolling';
 import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
@@ -128,8 +129,8 @@ export default function CoffeeMachinePage() {
         {activeTab === 'order' && <OrderBaristaTab />}
         {activeTab === 'admin' && <AdminInventoryTab />}
         {activeTab === 'concurrency' && <ConcurrencySimulationTab />}
-        {activeTab === 'diagram' && <ClassDiagram module="coffeemachine" />}
-        {activeTab === 'sequence' && <SequenceDiagram module="coffeemachine" />}
+        {activeTab === 'diagram' && <SolutionGate module="coffeemachine" label="the class diagram"><ClassDiagram module="coffeemachine" /></SolutionGate>}
+        {activeTab === 'sequence' && <SolutionGate module="coffeemachine" label="the sequence diagram"><SequenceDiagram module="coffeemachine" /></SolutionGate>}
         {activeTab === 'design' && <DesignDetails module="coffeemachine" />}
       </div>
     </div>
