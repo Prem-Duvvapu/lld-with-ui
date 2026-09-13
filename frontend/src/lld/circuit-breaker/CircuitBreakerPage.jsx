@@ -26,6 +26,9 @@ const CSS = `
 .cb-btn:hover { opacity: 0.85; }
 .cb-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .cb-error { padding: 8px 12px; background: var(--danger-bg); color: var(--danger); border-radius: 8px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+.cb-loading { text-align: center; padding: 40px; color: var(--text-muted); }
+.cb-danger-text { color: var(--danger) !important; }
+.cb-open-hint { font-size: 11px; color: var(--danger); margin-top: 8px; }
 
 .cb-sim-stage { background: var(--bg-secondary); border: 2px solid var(--border-primary); border-radius: 12px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .cb-flow { display: flex; align-items: center; gap: 16px; }
@@ -66,7 +69,10 @@ function ServiceCard({ breaker, onCall, onReset, busy }) {
       <div className="cb-policy">Trips on: {breaker.tripPolicy?.describe ? breaker.tripPolicy.describe() : `${breaker.tripPolicy?.threshold ?? '?'} consecutive failures`}</div>
       <div className="cb-stat-row"><span>Consecutive failures</span><b>{breaker.consecutiveFailures}</b></div>
       <div className="cb-stat-row"><span>Failure rate (window)</span><b>{(breaker.failureRate * 100).toFixed(0)}%</b></div>
-      <div className="cb-stat-row"><span>Total calls / rejected</span><b>{breaker.totalCalls} / {breaker.totalRejections}</b></div>
+      <div className="cb-stat-row">
+        <span>Total calls / rejected</span>
+        <b className={breaker.totalRejections > 0 ? 'cb-danger-text' : ''}>{breaker.totalCalls} / {breaker.totalRejections}</b>
+      </div>
       {phase === 'OPEN' && (
         <div className="cb-stat-row"><span>Cooldown remaining</span><b>{Math.ceil(breaker.remainingCooldownMillis / 1000)}s</b></div>
       )}
@@ -75,6 +81,9 @@ function ServiceCard({ breaker, onCall, onReset, busy }) {
         <button className="cb-btn danger" disabled={busy} onClick={() => onCall(breaker.name, false)}>✗ Simulate Failure</button>
         <button className="cb-btn" disabled={busy} onClick={() => onReset(breaker.name)}>↺ Reset</button>
       </div>
+      {phase === 'OPEN' && (
+        <div className="cb-open-hint">⛔ Circuit is open — calls below will be rejected immediately until the cooldown ends.</div>
+      )}
     </div>
   );
 }
@@ -82,7 +91,9 @@ function ServiceCard({ breaker, onCall, onReset, busy }) {
 function ServicesTab() {
   const [services, setServices] = useState([]);
   const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
+  // Keyed by service name so a call in flight for one breaker doesn't
+  // disable the buttons on every other card in the grid.
+  const [busyNames, setBusyNames] = useState(() => new Set());
 
   const load = async () => {
     try {
@@ -95,41 +106,52 @@ function ServicesTab() {
 
   usePolling(load, 3000, []);
 
+  const setNameBusy = (name, isBusy) => {
+    setBusyNames((prev) => {
+      const next = new Set(prev);
+      if (isBusy) next.add(name);
+      else next.delete(name);
+      return next;
+    });
+  };
+
   const handleCall = async (name, simulateSuccess) => {
-    setBusy(true);
+    setNameBusy(name, true);
     setError(null);
     try {
       await callService(name, simulateSuccess);
     } catch (err) {
       setError(`${name}: ${err.message || 'call failed'}`);
     } finally {
-      setBusy(false);
+      setNameBusy(name, false);
       load();
     }
   };
 
   const handleReset = async (name) => {
-    setBusy(true);
+    setNameBusy(name, true);
+    setError(null);
     try {
       await resetService(name);
     } catch (err) {
-      setError(err.message || 'reset failed');
+      setError(`${name}: ${err.message || 'reset failed'}`);
     } finally {
-      setBusy(false);
+      setNameBusy(name, false);
       load();
     }
   };
 
   return (
     <div className="cb-container">
+      <style>{CSS}</style>
       {error && <div className="cb-error">⚠ {error}</div>}
       <div className="cb-grid">
         {services.map((s) => (
-          <ServiceCard key={s.name} breaker={s} onCall={handleCall} onReset={handleReset} busy={busy} />
+          <ServiceCard key={s.name} breaker={s} onCall={handleCall} onReset={handleReset} busy={busyNames.has(s.name)} />
         ))}
       </div>
       {services.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>⏳ Loading services…</div>
+        <div className="cb-loading">⏳ Loading services…</div>
       )}
     </div>
   );
