@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useProgress } from '../hooks/useProgress'
+import { ALL_DESIGN_PATTERNS, getModulePatterns } from '../data/modulePatterns'
 import './Home.css'
 
 const DIFFICULTIES = ['All', 'Easy', 'Medium', 'Hard']
@@ -184,6 +185,7 @@ const routeMap = {
 export default function Home() {
   const [query, setQuery] = useState('')
   const [difficulty, setDifficulty] = useState('All')
+  const [pattern, setPattern] = useState('All')
   const [unreviewedOnly, setUnreviewedOnly] = useState(false)
   const { toggle: toggleReviewed, isReviewed, count: reviewedCount } = useProgress()
 
@@ -195,10 +197,11 @@ export default function Home() {
         item.category.toLowerCase().includes(query.toLowerCase())
       const matchDiff = difficulty === 'All' || item.difficulty === difficulty
       const path = item.key || routeMap[item.title]
+      const matchPattern = pattern === 'All' || getModulePatterns(path).includes(pattern)
       const matchReviewed = !unreviewedOnly || !isReviewed(path)
-      return matchSearch && matchDiff && matchReviewed
+      return matchSearch && matchDiff && matchPattern && matchReviewed
     })
-  }, [query, difficulty, unreviewedOnly, isReviewed])
+  }, [query, difficulty, pattern, unreviewedOnly, isReviewed])
 
   const progressPct = ALL_LLDS.length > 0 ? Math.round((reviewedCount / ALL_LLDS.length) * 100) : 0
 
@@ -250,6 +253,16 @@ export default function Home() {
               )
             })}
           </div>
+
+          <select
+            className="pattern-select"
+            value={pattern}
+            onChange={e => setPattern(e.target.value)}
+            aria-label="Filter by design pattern"
+          >
+            <option value="All">All patterns</option>
+            {ALL_DESIGN_PATTERNS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
 
           <label className="unreviewed-toggle">
             <input
