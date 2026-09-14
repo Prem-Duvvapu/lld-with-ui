@@ -1,5 +1,6 @@
 package com.lld.splitwise.controller;
 
+import com.lld.config.RequestFields;
 import com.lld.splitwise.exception.InvalidSplitException;
 import com.lld.splitwise.model.*;
 import com.lld.splitwise.service.SplitwiseService;
@@ -22,7 +23,7 @@ public class SplitwiseController {
 
     @PostMapping("/users")
     public ResponseEntity<User> createUser(@RequestBody Map<String, String> body) {
-        User user = splitwiseService.createUser(body.get("name"), body.get("email"));
+        User user = splitwiseService.createUser(RequestFields.requireString(body, "name"), RequestFields.requireString(body, "email"));
         return ResponseEntity.ok(user);
     }
 
@@ -38,9 +39,9 @@ public class SplitwiseController {
 
     @PostMapping("/groups")
     public ResponseEntity<Group> createGroup(@RequestBody Map<String, Object> body) {
-        String name = (String) body.get("name");
-        List<Integer> memberIdsRaw = (List<Integer>) body.get("memberIds");
-        List<Long> memberIds = memberIdsRaw.stream().map(Integer::longValue).toList();
+        String name = RequestFields.requireString(body, "name");
+        List<Number> memberIdsRaw = RequestFields.requireList(body, "memberIds");
+        List<Long> memberIds = memberIdsRaw.stream().map(Number::longValue).toList();
         Group group = splitwiseService.createGroup(name, memberIds);
         return ResponseEntity.ok(group);
     }
@@ -63,19 +64,20 @@ public class SplitwiseController {
 
     @PostMapping("/expenses")
     public ResponseEntity<Expense> addExpense(@RequestBody Map<String, Object> body) {
-        String description = (String) body.get("description");
-        double amount = ((Number) body.get("amount")).doubleValue();
-        Long paidBy = ((Number) body.get("paidBy")).longValue();
-        Long groupId = ((Number) body.get("groupId")).longValue();
+        String description = RequestFields.requireString(body, "description");
+        double amount = RequestFields.requireDouble(body, "amount");
+        long paidBy = RequestFields.requireLong(body, "paidBy");
+        long groupId = RequestFields.requireLong(body, "groupId");
+        // `splits` stays optional: an EQUAL split is expressed by omitting it entirely.
         List<Map<String, Object>> splitsRaw = (List<Map<String, Object>>) body.get("splits");
 
         List<Split> splits = (splitsRaw == null) ? List.of() : splitsRaw.stream().map(s -> {
             Split split = new Split();
             User user = new User();
-            user.setId(((Number) s.get("userId")).longValue());
+            user.setId(RequestFields.requireLong(s, "userId"));
             split.setUser(user);
-            split.setAmount(s.get("amount") != null ? ((Number) s.get("amount")).doubleValue() : 0);
-            split.setPercentage(s.get("percentage") != null ? ((Number) s.get("percentage")).doubleValue() : 0);
+            split.setAmount(s.get("amount") != null ? RequestFields.requireDouble(s, "amount") : 0);
+            split.setPercentage(s.get("percentage") != null ? RequestFields.requireDouble(s, "percentage") : 0);
             split.setType(parseSplitType(s.get("type")));
             return split;
         }).toList();
@@ -96,10 +98,10 @@ public class SplitwiseController {
 
     @PostMapping("/settle")
     public ResponseEntity<Settlement> settleUp(@RequestBody Map<String, Object> body) {
-        long fromUserId = ((Number) body.get("fromUserId")).longValue();
-        long toUserId = ((Number) body.get("toUserId")).longValue();
-        long groupId = ((Number) body.get("groupId")).longValue();
-        double amount = ((Number) body.get("amount")).doubleValue();
+        long fromUserId = RequestFields.requireLong(body, "fromUserId");
+        long toUserId = RequestFields.requireLong(body, "toUserId");
+        long groupId = RequestFields.requireLong(body, "groupId");
+        double amount = RequestFields.requireDouble(body, "amount");
         Settlement settlement = splitwiseService.settleUp(fromUserId, toUserId, groupId, amount);
         return ResponseEntity.ok(settlement);
     }
@@ -128,34 +130,35 @@ public class SplitwiseController {
 
     @PostMapping("/sim/users")
     public ResponseEntity<User> simCreateUser(@RequestBody Map<String, String> body) {
-        User user = splitwiseService.simCreateUser(body.get("name"), body.get("email"));
+        User user = splitwiseService.simCreateUser(RequestFields.requireString(body, "name"), RequestFields.requireString(body, "email"));
         return ResponseEntity.ok(user);
     }
 
     @PostMapping("/sim/groups")
     public ResponseEntity<Group> simCreateGroup(@RequestBody Map<String, Object> body) {
-        String name = (String) body.get("name");
-        List<Integer> memberIdsRaw = (List<Integer>) body.get("memberIds");
-        List<Long> memberIds = memberIdsRaw.stream().map(Integer::longValue).toList();
+        String name = RequestFields.requireString(body, "name");
+        List<Number> memberIdsRaw = RequestFields.requireList(body, "memberIds");
+        List<Long> memberIds = memberIdsRaw.stream().map(Number::longValue).toList();
         Group group = splitwiseService.simCreateGroup(name, memberIds);
         return ResponseEntity.ok(group);
     }
 
     @PostMapping("/sim/expenses")
     public ResponseEntity<Expense> simAddExpense(@RequestBody Map<String, Object> body) {
-        String description = (String) body.get("description");
-        double amount = ((Number) body.get("amount")).doubleValue();
-        Long paidBy = ((Number) body.get("paidBy")).longValue();
-        Long groupId = ((Number) body.get("groupId")).longValue();
+        String description = RequestFields.requireString(body, "description");
+        double amount = RequestFields.requireDouble(body, "amount");
+        long paidBy = RequestFields.requireLong(body, "paidBy");
+        long groupId = RequestFields.requireLong(body, "groupId");
+        // `splits` stays optional: an EQUAL split is expressed by omitting it entirely.
         List<Map<String, Object>> splitsRaw = (List<Map<String, Object>>) body.get("splits");
 
         List<Split> splits = (splitsRaw == null) ? List.of() : splitsRaw.stream().map(s -> {
             Split split = new Split();
             User user = new User();
-            user.setId(((Number) s.get("userId")).longValue());
+            user.setId(RequestFields.requireLong(s, "userId"));
             split.setUser(user);
-            split.setAmount(s.get("amount") != null ? ((Number) s.get("amount")).doubleValue() : 0);
-            split.setPercentage(s.get("percentage") != null ? ((Number) s.get("percentage")).doubleValue() : 0);
+            split.setAmount(s.get("amount") != null ? RequestFields.requireDouble(s, "amount") : 0);
+            split.setPercentage(s.get("percentage") != null ? RequestFields.requireDouble(s, "percentage") : 0);
             split.setType(parseSplitType(s.get("type")));
             return split;
         }).toList();
@@ -166,10 +169,10 @@ public class SplitwiseController {
 
     @PostMapping("/sim/settle")
     public ResponseEntity<Settlement> simSettleUp(@RequestBody Map<String, Object> body) {
-        long fromUserId = ((Number) body.get("fromUserId")).longValue();
-        long toUserId = ((Number) body.get("toUserId")).longValue();
-        long groupId = ((Number) body.get("groupId")).longValue();
-        double amount = ((Number) body.get("amount")).doubleValue();
+        long fromUserId = RequestFields.requireLong(body, "fromUserId");
+        long toUserId = RequestFields.requireLong(body, "toUserId");
+        long groupId = RequestFields.requireLong(body, "groupId");
+        double amount = RequestFields.requireDouble(body, "amount");
         Settlement settlement = splitwiseService.simSettleUp(fromUserId, toUserId, groupId, amount);
         return ResponseEntity.ok(settlement);
     }
