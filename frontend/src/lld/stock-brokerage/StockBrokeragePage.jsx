@@ -70,7 +70,6 @@ function AppTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   usePolling(refresh, 4000, [selectedSymbol, accountId]);
 
   const handlePlaceOrder = async (e) => {

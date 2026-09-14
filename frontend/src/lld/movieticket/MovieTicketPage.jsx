@@ -214,7 +214,9 @@ export default function MovieTicketPage() {
         // Bob tries to hold P2, P3 (seats 2, 3) -> CONFLICT!
         try {
           await simHold(1, [2, 3], 'user2', 'Bob 👨');
-        } catch (ignored) {}
+        } catch {
+          // Expected: this step exists to demonstrate the seat-hold conflict.
+        }
       } else if (stepNumber === 3) {
         // Bob retries with G1, G2 (seats 7, 8) -> SUCCESS
         await simHold(1, [7, 8], 'user2', 'Bob 👨');

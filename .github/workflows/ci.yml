@@ -52,6 +52,15 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      # 67k lines of JS had no linter at all. The 289 pre-existing violations are
+      # recorded in frontend/eslint-suppressions.json rather than the rules being
+      # weakened to accommodate them: this step fails on any NEW violation, and the
+      # baseline file is the burn-down list. `npm run lint:prune` shrinks it as they
+      # are fixed.
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
       - name: Test
         working-directory: frontend
         run: npx vitest run
