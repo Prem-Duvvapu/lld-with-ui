@@ -60,15 +60,31 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      # The eager-glob regression put all 45 module pages in one 1,474 kB entry
-      # chunk. Fail the build if the entry chunk creeps back over 500 kB.
-      - name: Check entry chunk size
+      # Two budgets, because the entry-chunk one alone missed a real regression.
+      #
+      # 1. Entry chunk: the eager-glob regression once put all 45 module pages into a
+      #    single 1,474 kB entry chunk.
+      # 2. Largest chunk: statically importing the three data barrels put all 60
+      #    modules' design content into one 1,142 kB *shared* chunk that every module
+      #    page pulled in. The entry chunk stayed well inside budget the whole time,
+      #    so this check passed while a third of the build shipped on every page view.
+      - name: Check chunk size budgets
         working-directory: frontend
         run: |
           entry=$(ls -1 dist/assets/index-*.js | head -1)
           size=$(stat -c%s "$entry")
           limit=$((500 * 1024))
           printf 'entry chunk %s = %s bytes (limit %s)\n' "$entry" "$size" "$limit"
+
+          biggest=$(ls -S dist/assets/*.js | grep -v '/index-' | head -1)
+          bsize=$(stat -c%s "$biggest")
+          blimit=$((250 * 1024))
+          printf 'largest non-entry chunk %s = %s bytes (limit %s)\n' "$biggest" "$bsize" "$blimit"
+          if [ "$bsize" -gt "$blimit" ]; then
+            echo "::error::$biggest is $bsize bytes, over the ${blimit}-byte budget. Is shared data being imported statically instead of through a lazy barrel?"
+            exit 1
+          fi
+
           if [ "$size" -gt "$limit" ]; then
             echo "::error::Entry chunk is $size bytes, over the ${limit}-byte budget. Is a module page being imported eagerly?"
             exit 1
