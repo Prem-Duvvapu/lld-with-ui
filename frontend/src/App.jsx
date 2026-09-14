@@ -3,6 +3,7 @@ import { Routes, Route, Link } from 'react-router-dom'
 import Home from './pages/Home'
 import ThemeToggle from './components/ThemeToggle'
 import Skeleton from './components/ui/Skeleton'
+import BackendStatusBanner from './components/BackendStatusBanner'
 
 // Lazy on purpose: an eager glob put all 45 module pages in the entry chunk, so
 // every visitor downloaded ~1.5 MB to look at one of them. Each page is now its
@@ -210,6 +211,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      <BackendStatusBanner />
     </Layout>
   )
 }
