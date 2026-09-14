@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import sequenceDiagrams from '../data/sequenceDiagrams';
-import { resolveModuleData } from '../data/moduleKeys';
+import { useModuleData } from '../hooks/useModuleData';
+import ModuleDataState from './ModuleDataState';
 
 const COL_WIDTH = 190;
 const ROW_HEIGHT = 54;
@@ -10,22 +11,14 @@ const BOTTOM_PAD = 40;
 const ACTIVATION_WIDTH = 12;
 
 export default function SequenceDiagram({ module, customData }) {
-  const data = customData || resolveModuleData(sequenceDiagrams, module);
-
-  if (import.meta.env?.DEV && !data && module) {
-    console.warn(`[sequenceDiagrams] no entry for module "${module}" — add src/data/sequences/<module>.js and register it in the barrel.`);
-  }
+  const { status, data } = useModuleData(sequenceDiagrams, module, customData, 'sequenceDiagrams');
 
   const flows = data?.flows || [];
   const [flowIdx, setFlowIdx] = useState(0);
   const [hoveredStep, setHoveredStep] = useState(null);
 
-  if (!data || flows.length === 0) {
-    return (
-      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 32, fontSize: 14 }}>
-        Sequence diagram not available for this module yet.
-      </div>
-    );
+  if (status !== 'ready' || flows.length === 0) {
+    return <ModuleDataState status={status === 'ready' ? 'missing' : status} label="Sequence diagram" />;
   }
 
   const flow = flows[flowIdx];

@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import classDiagrams from '../data/classDiagrams';
-import { resolveModuleData } from '../data/moduleKeys';
+import { useModuleData } from '../hooks/useModuleData';
+import ModuleDataState from './ModuleDataState';
 
 const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
 
 export default function ClassDiagram({ module, customData }) {
-  const data = customData || resolveModuleData(classDiagrams, module);
-
-  if (import.meta.env?.DEV && !data && module) {
-    console.warn(`[classDiagrams] no entry for module "${module}" — add src/data/diagrams/<module>.js and register it in the barrel.`);
-  }
+  const { status, data } = useModuleData(classDiagrams, module, customData, 'classDiagrams');
 
   const containerRef = useRef(null);
   const [hoveredClass, setHoveredClass] = useState(null);
@@ -96,12 +93,8 @@ export default function ClassDiagram({ module, customData }) {
     };
   }, [module, viewMode, updateLineCoords]);
 
-  if (!data) {
-    return (
-      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 32, fontSize: 14 }}>
-        Class diagram not available for this module yet.
-      </div>
-    );
+  if (status !== 'ready') {
+    return <ModuleDataState status={status} label="Class diagram" />;
   }
 
   const title = data.title || `${module} Class Diagram`;

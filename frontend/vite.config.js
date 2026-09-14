@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    test: {
+      // Per-file `// @vitest-environment jsdom` opts component tests into a DOM; the
+      // source-scanning suites stay on the faster node environment.
+      setupFiles: ['./vitest.setup.js'],
+    },
     define: {
       // Lets client-side code (error banners) report the *actual* configured
       // backend port instead of a hardcoded default.

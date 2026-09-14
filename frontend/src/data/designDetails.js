@@ -1,131 +1,76 @@
-// designDetails — barrel index.
+// designDetails — lazy barrel index.
 // Content lives in ./design/<module>.js, one file per module.
+//
+// Each value is a LOADER, not the data: these files total ~1.7 MB across the three
+// barrels, and static imports pulled all 60 modules into one shared chunk that every
+// module page downloaded (1,142 kB / 317 kB gzip) to show exactly one of them.
+// Dynamic import gives each module its own chunk, fetched only when opened.
+// Read them through hooks/useModuleData.js; resolveModuleKey still works unchanged
+// because the keys here are identical to the ones the static barrel used.
+//
 // Add a module by creating its file and registering it here.
 
-import _airline from './design/airline.js';
-import _atm from './design/atm.js';
-import _auction from './design/auction.js';
-import _blockingQueue from './design/blocking-queue.js';
-import _bloomFilter from './design/bloom-filter.js';
-import _carRental from './design/car-rental.js';
-import _meetingScheduler from './design/meeting-scheduler.js';
-import _chess from './design/chess.js';
-import _circuitBreaker from './design/circuit-breaker.js';
-import _coffee from './design/coffee.js';
-import _concertTicket from './design/concert-ticket.js';
-import _concurrentHashmap from './design/concurrent-hashmap.js';
-import _courseRegistration from './design/course-registration.js';
-import _cricinfo from './design/cricinfo.js';
-import _elevator from './design/elevator.js';
-import _featureflag from './design/featureflag.js';
-import _fizzBuzz from './design/fizz-buzz.js';
-import _fooBar from './design/foo-bar.js';
-import _h2o from './design/h2o.js';
-import _hotel from './design/hotel.js';
-import _inventory from './design/inventory.js';
-import _jobscheduler from './design/jobscheduler.js';
-import _locker from './design/locker.js';
-import _payment from './design/payment.js';
-import _webcrawler from './design/webcrawler.js';
-import _cachelibrary from './design/cachelibrary.js';
-import _kvstore from './design/kvstore.js';
-import _coupon from './design/coupon.js';
-import _blackjack from './design/blackjack.js';
-import _workflow from './design/workflow.js';
-import _library from './design/library.js';
-import _linkedin from './design/linkedin.js';
-import _loggingFramework from './design/logging-framework.js';
-import _lru_cache from './design/lru-cache.js';
-import _ludo from './design/ludo.js';
-import _mergeSort from './design/merge-sort.js';
-import _minesweeper from './design/minesweeper.js';
-import _notification from './design/notification.js';
-import _movieticket from './design/movieticket.js';
-import _musicStreaming from './design/music-streaming.js';
-import _parking from './design/parking.js';
-import _pubsub from './design/pubsub.js';
-import _rateLimiter from './design/rate-limiter.js';
-import _restaurant from './design/restaurant.js';
-import _shoppingcart from './design/shoppingcart.js';
-import _snakeladders from './design/snakeladders.js';
-import _socialNetwork from './design/social-network.js';
-import _splitwise from './design/splitwise.js';
-import _stackoverflow from './design/stackoverflow.js';
-import _stockbroker from './design/stockbroker.js';
-import _taskManagement from './design/task-management.js';
-import _tictactoe from './design/tictactoe.js';
-import _trafficSignal from './design/traffic-signal.js';
-import _ttlCache from './design/ttl-cache.js';
-import _uber from './design/uber.js';
-import _vendingmachine from './design/vendingmachine.js';
-import _wallet from './design/wallet.js';
-import _zeroEvenOdd from './design/zero-even-odd.js';
-import _zomato from './design/zomato.js';
-import _threadPool from './design/thread-pool.js';
-
 const designDetails = {
-  airline: _airline,
-  atm: _atm,
-  auction: _auction,
-  blockingQueue: _blockingQueue,
-  bloomFilter: _bloomFilter,
-  carRental: _carRental,
-  meetingScheduler: _meetingScheduler,
-  chess: _chess,
-  circuitBreaker: _circuitBreaker,
-  coffee: _coffee,
-  concertTicket: _concertTicket,
-  concurrentHashmap: _concurrentHashmap,
-  courseRegistration: _courseRegistration,
-  cricinfo: _cricinfo,
-  elevator: _elevator,
-  featureflag: _featureflag,
-  fizzBuzz: _fizzBuzz,
-  fooBar: _fooBar,
-  h2o: _h2o,
-  hotel: _hotel,
-  inventory: _inventory,
-  jobscheduler: _jobscheduler,
-  locker: _locker,
-  payment: _payment,
-  webcrawler: _webcrawler,
-  cachelibrary: _cachelibrary,
-  kvstore: _kvstore,
-  coupon: _coupon,
-  blackjack: _blackjack,
-  workflow: _workflow,
-  library: _library,
-  linkedin: _linkedin,
-  loggingFramework: _loggingFramework,
-  'lru-cache': _lru_cache,
-  ludo: _ludo,
-  mergeSort: _mergeSort,
-  minesweeper: _minesweeper,
-  notification: _notification,
-  movieticket: _movieticket,
-  musicStreaming: _musicStreaming,
-  parking: _parking,
-  pubsub: _pubsub,
-  rateLimiter: _rateLimiter,
-  restaurant: _restaurant,
-  shoppingcart: _shoppingcart,
-  snakeladders: _snakeladders,
-  socialNetwork: _socialNetwork,
-  splitwise: _splitwise,
-  stackoverflow: _stackoverflow,
-  stockbroker: _stockbroker,
-  taskManagement: _taskManagement,
-  tictactoe: _tictactoe,
-  trafficSignal: _trafficSignal,
-  ttlCache: _ttlCache,
-  uber: _uber,
-  vendingmachine: _vendingmachine,
-  wallet: _wallet,
-  zeroEvenOdd: _zeroEvenOdd,
-  zomato: _zomato,
-  threadPool: _threadPool,
+  airline: () => import('./design/airline.js'),
+  atm: () => import('./design/atm.js'),
+  auction: () => import('./design/auction.js'),
+  blockingQueue: () => import('./design/blocking-queue.js'),
+  bloomFilter: () => import('./design/bloom-filter.js'),
+  carRental: () => import('./design/car-rental.js'),
+  meetingScheduler: () => import('./design/meeting-scheduler.js'),
+  chess: () => import('./design/chess.js'),
+  circuitBreaker: () => import('./design/circuit-breaker.js'),
+  coffee: () => import('./design/coffee.js'),
+  concertTicket: () => import('./design/concert-ticket.js'),
+  concurrentHashmap: () => import('./design/concurrent-hashmap.js'),
+  courseRegistration: () => import('./design/course-registration.js'),
+  cricinfo: () => import('./design/cricinfo.js'),
+  elevator: () => import('./design/elevator.js'),
+  featureflag: () => import('./design/featureflag.js'),
+  fizzBuzz: () => import('./design/fizz-buzz.js'),
+  fooBar: () => import('./design/foo-bar.js'),
+  h2o: () => import('./design/h2o.js'),
+  hotel: () => import('./design/hotel.js'),
+  inventory: () => import('./design/inventory.js'),
+  jobscheduler: () => import('./design/jobscheduler.js'),
+  locker: () => import('./design/locker.js'),
+  payment: () => import('./design/payment.js'),
+  webcrawler: () => import('./design/webcrawler.js'),
+  cachelibrary: () => import('./design/cachelibrary.js'),
+  kvstore: () => import('./design/kvstore.js'),
+  coupon: () => import('./design/coupon.js'),
+  blackjack: () => import('./design/blackjack.js'),
+  workflow: () => import('./design/workflow.js'),
+  library: () => import('./design/library.js'),
+  linkedin: () => import('./design/linkedin.js'),
+  loggingFramework: () => import('./design/logging-framework.js'),
+  'lru-cache': () => import('./design/lru-cache.js'),
+  ludo: () => import('./design/ludo.js'),
+  mergeSort: () => import('./design/merge-sort.js'),
+  minesweeper: () => import('./design/minesweeper.js'),
+  notification: () => import('./design/notification.js'),
+  movieticket: () => import('./design/movieticket.js'),
+  musicStreaming: () => import('./design/music-streaming.js'),
+  parking: () => import('./design/parking.js'),
+  pubsub: () => import('./design/pubsub.js'),
+  rateLimiter: () => import('./design/rate-limiter.js'),
+  restaurant: () => import('./design/restaurant.js'),
+  shoppingcart: () => import('./design/shoppingcart.js'),
+  snakeladders: () => import('./design/snakeladders.js'),
+  socialNetwork: () => import('./design/social-network.js'),
+  splitwise: () => import('./design/splitwise.js'),
+  stackoverflow: () => import('./design/stackoverflow.js'),
+  stockbroker: () => import('./design/stockbroker.js'),
+  taskManagement: () => import('./design/task-management.js'),
+  tictactoe: () => import('./design/tictactoe.js'),
+  trafficSignal: () => import('./design/traffic-signal.js'),
+  ttlCache: () => import('./design/ttl-cache.js'),
+  uber: () => import('./design/uber.js'),
+  vendingmachine: () => import('./design/vendingmachine.js'),
+  wallet: () => import('./design/wallet.js'),
+  zeroEvenOdd: () => import('./design/zero-even-odd.js'),
+  zomato: () => import('./design/zomato.js'),
+  threadPool: () => import('./design/thread-pool.js'),
 };
-
-export const ATM_DETAILS = designDetails.atm;
 
 export default designDetails;

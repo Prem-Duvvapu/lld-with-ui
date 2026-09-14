@@ -1,129 +1,76 @@
-// classDiagrams — barrel index.
+// classDiagrams — lazy barrel index.
 // Content lives in ./diagrams/<module>.js, one file per module.
+//
+// Each value is a LOADER, not the data: these files total ~1.7 MB across the three
+// barrels, and static imports pulled all 60 modules into one shared chunk that every
+// module page downloaded (1,142 kB / 317 kB gzip) to show exactly one of them.
+// Dynamic import gives each module its own chunk, fetched only when opened.
+// Read them through hooks/useModuleData.js; resolveModuleKey still works unchanged
+// because the keys here are identical to the ones the static barrel used.
+//
 // Add a module by creating its file and registering it here.
 
-import _airline from './diagrams/airline.js';
-import _atm from './diagrams/atm.js';
-import _auction from './diagrams/auction.js';
-import _blockingQueue from './diagrams/blocking-queue.js';
-import _bloomFilter from './diagrams/bloom-filter.js';
-import _carRental from './diagrams/car-rental.js';
-import _meetingScheduler from './diagrams/meeting-scheduler.js';
-import _chess from './diagrams/chess.js';
-import _circuitBreaker from './diagrams/circuit-breaker.js';
-import _coffee from './diagrams/coffee.js';
-import _concertTicket from './diagrams/concert-ticket.js';
-import _concurrentHashmap from './diagrams/concurrent-hashmap.js';
-import _courseRegistration from './diagrams/course-registration.js';
-import _cricinfo from './diagrams/cricinfo.js';
-import _elevator from './diagrams/elevator.js';
-import _featureflag from './diagrams/featureflag.js';
-import _fizzBuzz from './diagrams/fizz-buzz.js';
-import _fooBar from './diagrams/foo-bar.js';
-import _h2o from './diagrams/h2o.js';
-import _hotel from './diagrams/hotel.js';
-import _inventory from './diagrams/inventory.js';
-import _jobscheduler from './diagrams/jobscheduler.js';
-import _locker from './diagrams/locker.js';
-import _payment from './diagrams/payment.js';
-import _webcrawler from './diagrams/webcrawler.js';
-import _cachelibrary from './diagrams/cachelibrary.js';
-import _kvstore from './diagrams/kvstore.js';
-import _coupon from './diagrams/coupon.js';
-import _blackjack from './diagrams/blackjack.js';
-import _workflow from './diagrams/workflow.js';
-import _library from './diagrams/library.js';
-import _linkedin from './diagrams/linkedin.js';
-import _loggingFramework from './diagrams/logging-framework.js';
-import _lru_cache from './diagrams/lru-cache.js';
-import _ludo from './diagrams/ludo.js';
-import _mergeSort from './diagrams/merge-sort.js';
-import _minesweeper from './diagrams/minesweeper.js';
-import _notification from './diagrams/notification.js';
-import _movieticket from './diagrams/movieticket.js';
-import _musicStreaming from './diagrams/music-streaming.js';
-import _parking from './diagrams/parking.js';
-import _pubsub from './diagrams/pubsub.js';
-import _rateLimiter from './diagrams/rate-limiter.js';
-import _restaurant from './diagrams/restaurant.js';
-import _shoppingcart from './diagrams/shoppingcart.js';
-import _snakeladders from './diagrams/snakeladders.js';
-import _socialNetwork from './diagrams/social-network.js';
-import _splitwise from './diagrams/splitwise.js';
-import _stackoverflow from './diagrams/stackoverflow.js';
-import _stockbroker from './diagrams/stockbroker.js';
-import _taskManagement from './diagrams/task-management.js';
-import _tictactoe from './diagrams/tictactoe.js';
-import _trafficSignal from './diagrams/traffic-signal.js';
-import _ttlCache from './diagrams/ttl-cache.js';
-import _uber from './diagrams/uber.js';
-import _vendingmachine from './diagrams/vendingmachine.js';
-import _wallet from './diagrams/wallet.js';
-import _zeroEvenOdd from './diagrams/zero-even-odd.js';
-import _zomato from './diagrams/zomato.js';
-import _threadPool from './diagrams/thread-pool.js';
-
 const classDiagrams = {
-  airline: _airline,
-  atm: _atm,
-  auction: _auction,
-  blockingQueue: _blockingQueue,
-  bloomFilter: _bloomFilter,
-  carRental: _carRental,
-  meetingScheduler: _meetingScheduler,
-  chess: _chess,
-  circuitBreaker: _circuitBreaker,
-  coffee: _coffee,
-  concertTicket: _concertTicket,
-  concurrentHashmap: _concurrentHashmap,
-  courseRegistration: _courseRegistration,
-  cricinfo: _cricinfo,
-  elevator: _elevator,
-  featureflag: _featureflag,
-  fizzBuzz: _fizzBuzz,
-  fooBar: _fooBar,
-  h2o: _h2o,
-  hotel: _hotel,
-  inventory: _inventory,
-  jobscheduler: _jobscheduler,
-  locker: _locker,
-  payment: _payment,
-  webcrawler: _webcrawler,
-  cachelibrary: _cachelibrary,
-  kvstore: _kvstore,
-  coupon: _coupon,
-  blackjack: _blackjack,
-  workflow: _workflow,
-  library: _library,
-  linkedin: _linkedin,
-  loggingFramework: _loggingFramework,
-  'lru-cache': _lru_cache,
-  ludo: _ludo,
-  mergeSort: _mergeSort,
-  minesweeper: _minesweeper,
-  notification: _notification,
-  movieticket: _movieticket,
-  musicStreaming: _musicStreaming,
-  parking: _parking,
-  pubsub: _pubsub,
-  rateLimiter: _rateLimiter,
-  restaurant: _restaurant,
-  shoppingcart: _shoppingcart,
-  snakeladders: _snakeladders,
-  socialNetwork: _socialNetwork,
-  splitwise: _splitwise,
-  stackoverflow: _stackoverflow,
-  stockbroker: _stockbroker,
-  taskManagement: _taskManagement,
-  tictactoe: _tictactoe,
-  trafficSignal: _trafficSignal,
-  ttlCache: _ttlCache,
-  uber: _uber,
-  vendingmachine: _vendingmachine,
-  wallet: _wallet,
-  zeroEvenOdd: _zeroEvenOdd,
-  zomato: _zomato,
-  threadPool: _threadPool,
+  airline: () => import('./diagrams/airline.js'),
+  atm: () => import('./diagrams/atm.js'),
+  auction: () => import('./diagrams/auction.js'),
+  blockingQueue: () => import('./diagrams/blocking-queue.js'),
+  bloomFilter: () => import('./diagrams/bloom-filter.js'),
+  carRental: () => import('./diagrams/car-rental.js'),
+  meetingScheduler: () => import('./diagrams/meeting-scheduler.js'),
+  chess: () => import('./diagrams/chess.js'),
+  circuitBreaker: () => import('./diagrams/circuit-breaker.js'),
+  coffee: () => import('./diagrams/coffee.js'),
+  concertTicket: () => import('./diagrams/concert-ticket.js'),
+  concurrentHashmap: () => import('./diagrams/concurrent-hashmap.js'),
+  courseRegistration: () => import('./diagrams/course-registration.js'),
+  cricinfo: () => import('./diagrams/cricinfo.js'),
+  elevator: () => import('./diagrams/elevator.js'),
+  featureflag: () => import('./diagrams/featureflag.js'),
+  fizzBuzz: () => import('./diagrams/fizz-buzz.js'),
+  fooBar: () => import('./diagrams/foo-bar.js'),
+  h2o: () => import('./diagrams/h2o.js'),
+  hotel: () => import('./diagrams/hotel.js'),
+  inventory: () => import('./diagrams/inventory.js'),
+  jobscheduler: () => import('./diagrams/jobscheduler.js'),
+  locker: () => import('./diagrams/locker.js'),
+  payment: () => import('./diagrams/payment.js'),
+  webcrawler: () => import('./diagrams/webcrawler.js'),
+  cachelibrary: () => import('./diagrams/cachelibrary.js'),
+  kvstore: () => import('./diagrams/kvstore.js'),
+  coupon: () => import('./diagrams/coupon.js'),
+  blackjack: () => import('./diagrams/blackjack.js'),
+  workflow: () => import('./diagrams/workflow.js'),
+  library: () => import('./diagrams/library.js'),
+  linkedin: () => import('./diagrams/linkedin.js'),
+  loggingFramework: () => import('./diagrams/logging-framework.js'),
+  'lru-cache': () => import('./diagrams/lru-cache.js'),
+  ludo: () => import('./diagrams/ludo.js'),
+  mergeSort: () => import('./diagrams/merge-sort.js'),
+  minesweeper: () => import('./diagrams/minesweeper.js'),
+  notification: () => import('./diagrams/notification.js'),
+  movieticket: () => import('./diagrams/movieticket.js'),
+  musicStreaming: () => import('./diagrams/music-streaming.js'),
+  parking: () => import('./diagrams/parking.js'),
+  pubsub: () => import('./diagrams/pubsub.js'),
+  rateLimiter: () => import('./diagrams/rate-limiter.js'),
+  restaurant: () => import('./diagrams/restaurant.js'),
+  shoppingcart: () => import('./diagrams/shoppingcart.js'),
+  snakeladders: () => import('./diagrams/snakeladders.js'),
+  socialNetwork: () => import('./diagrams/social-network.js'),
+  splitwise: () => import('./diagrams/splitwise.js'),
+  stackoverflow: () => import('./diagrams/stackoverflow.js'),
+  stockbroker: () => import('./diagrams/stockbroker.js'),
+  taskManagement: () => import('./diagrams/task-management.js'),
+  tictactoe: () => import('./diagrams/tictactoe.js'),
+  trafficSignal: () => import('./diagrams/traffic-signal.js'),
+  ttlCache: () => import('./diagrams/ttl-cache.js'),
+  uber: () => import('./diagrams/uber.js'),
+  vendingmachine: () => import('./diagrams/vendingmachine.js'),
+  wallet: () => import('./diagrams/wallet.js'),
+  zeroEvenOdd: () => import('./diagrams/zero-even-odd.js'),
+  zomato: () => import('./diagrams/zomato.js'),
+  threadPool: () => import('./diagrams/thread-pool.js'),
 };
 
 export default classDiagrams;
