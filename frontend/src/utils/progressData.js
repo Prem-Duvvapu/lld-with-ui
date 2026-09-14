@@ -1,4 +1,4 @@
-const PROGRESS_KEYS = ['lld-progress-v1', 'lld-revealed-v1', 'lld-revisit-v1'];
+const PROGRESS_KEYS = ['lld-progress-v1', 'lld-revealed-v1', 'lld-revisit-v1', 'lld-attempt-v1'];
 
 /**
  * Everything that makes up a visitor's local progress state, bundled into one

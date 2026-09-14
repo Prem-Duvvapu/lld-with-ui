@@ -1,3 +1,14 @@
+import { afterEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
+
+// React Testing Library only auto-registers its cleanup when vitest runs with
+// `globals: true`, which this project doesn't. Without it, every render leaks into the
+// next test's DOM and `screen` queries match components a previous test mounted — which
+// silently turns "this element is absent" assertions into false passes.
+afterEach(() => {
+  cleanup();
+});
+
 // ClassDiagram uses ResizeObserver in a layout effect to keep relationship lines
 // attached to their boxes. Stub the DOM APIs the test environment doesn't provide so
 // component tests exercise the real component instead of crashing on mount.
