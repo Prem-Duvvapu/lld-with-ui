@@ -58,7 +58,14 @@ export function subscribeBackendStatus(listener) {
  */
 function withTimeout(callerSignal) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(new Error('timeout')), TIMEOUT_MS);
+  // Whether the timeout fired is tracked here rather than read back off the rejected
+  // error: what fetch rejects with on abort varies by runtime, so branching on the
+  // error's shape silently mislabels a timeout as a generic network failure.
+  const state = { timedOut: false };
+  const timeoutId = setTimeout(() => {
+    state.timedOut = true;
+    controller.abort();
+  }, TIMEOUT_MS);
 
   const onCallerAbort = () => controller.abort(callerSignal.reason);
   if (callerSignal) {
@@ -68,6 +75,7 @@ function withTimeout(callerSignal) {
 
   return {
     signal: controller.signal,
+    state,
     cleanup() {
       clearTimeout(timeoutId);
       callerSignal?.removeEventListener('abort', onCallerAbort);
@@ -77,7 +85,7 @@ function withTimeout(callerSignal) {
 
 export async function apiFetch(path, options = {}) {
   const url = path.startsWith('/api') ? path : `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
-  const { signal, cleanup } = withTimeout(options.signal);
+  const { signal, state, cleanup } = withTimeout(options.signal);
 
   inFlight += 1;
   const slowTimer = setTimeout(() => setBackendStatus(BACKEND_STATUS.WAKING), SLOW_MS);
@@ -106,7 +114,7 @@ export async function apiFetch(path, options = {}) {
     if (inFlight === 0) setBackendStatus(BACKEND_STATUS.DOWN);
     throw new ApiError(
       0,
-      err?.message === 'timeout'
+      state.timedOut
         ? 'The server did not respond in time. It may be waking up from idle — try again in a moment.'
         : 'Could not reach the server. Check your connection and try again.',
       null,
