@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import designDetails from '../data/designDetails';
-import { resolveModuleData } from '../data/moduleKeys';
+import { useModuleData } from '../hooks/useModuleData';
+import ModuleDataState from './ModuleDataState';
 import { useReveal } from '../hooks/useReveal';
 import RequirementsTab from './design/RequirementsTab';
 import EntitiesTab from './design/EntitiesTab';
@@ -10,22 +11,14 @@ import ExtensibilityTab from './design/ExtensibilityTab';
 import RevealGate from './RevealGate';
 
 export default function DesignDetails({ module, customData }) {
-  const data = customData || resolveModuleData(designDetails, module);
+  const { status, data } = useModuleData(designDetails, module, customData, 'designDetails');
   const { isRevealed, reveal, hide } = useReveal();
   const revealed = isRevealed(module);
 
-  if (import.meta.env?.DEV && !data && module) {
-    console.warn(`[designDetails] no entry for module "${module}" — add src/data/design/<module>.js and register it in the barrel.`);
-  }
-
   const [subTab, setSubTab] = useState('reqs');
 
-  if (!data) {
-    return (
-      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 32, fontSize: 14 }}>
-        Design details not available for this module yet.
-      </div>
-    );
+  if (status !== 'ready') {
+    return <ModuleDataState status={status} label="Design details" />;
   }
 
   const subTabs = [

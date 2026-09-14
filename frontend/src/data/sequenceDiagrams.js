@@ -1,123 +1,73 @@
-// sequenceDiagrams — barrel index.
+// sequenceDiagrams — lazy barrel index.
 // Content lives in ./sequences/<module>.js, one file per module.
-// Complete 45-module sequence diagram coverage for LLD-with-UI portfolio.
+//
+// Each value is a LOADER, not the data: these files total ~1.7 MB across the three
+// barrels, and static imports pulled all 60 modules into one shared chunk that every
+// module page downloaded (1,142 kB / 317 kB gzip) to show exactly one of them.
+// Dynamic import gives each module its own chunk, fetched only when opened.
+// Read them through hooks/useModuleData.js; resolveModuleKey still works unchanged
+// because the keys here are identical to the ones the static barrel used.
+//
 // Add a module by creating its file and registering it here.
 
-import _airline from './sequences/airline.js';
-import _atm from './sequences/atm.js';
-import _auction from './sequences/auction.js';
-import _blockingQueue from './sequences/blocking-queue.js';
-import _bloomFilter from './sequences/bloom-filter.js';
-import _carRental from './sequences/car-rental.js';
-import _meetingScheduler from './sequences/meeting-scheduler.js';
-import _chess from './sequences/chess.js';
-import _circuitBreaker from './sequences/circuit-breaker.js';
-import _coffee from './sequences/coffee.js';
-import _concertTicket from './sequences/concert-ticket.js';
-import _concurrentHashmap from './sequences/concurrent-hashmap.js';
-import _courseRegistration from './sequences/course-registration.js';
-import _cricinfo from './sequences/cricinfo.js';
-import _elevator from './sequences/elevator.js';
-import _fizzBuzz from './sequences/fizz-buzz.js';
-import _fooBar from './sequences/foo-bar.js';
-import _h2o from './sequences/h2o.js';
-import _hotel from './sequences/hotel.js';
-import _inventory from './sequences/inventory.js';
-import _library from './sequences/library.js';
-import _linkedin from './sequences/linkedin.js';
-import _locker from './sequences/locker.js';
-import _payment from './sequences/payment.js';
-import _webcrawler from './sequences/webcrawler.js';
-import _cachelibrary from './sequences/cachelibrary.js';
-import _kvstore from './sequences/kvstore.js';
-import _coupon from './sequences/coupon.js';
-import _blackjack from './sequences/blackjack.js';
-import _workflow from './sequences/workflow.js';
-import _loggingFramework from './sequences/logging-framework.js';
-import _lru_cache from './sequences/lru-cache.js';
-import _ludo from './sequences/ludo.js';
-import _mergeSort from './sequences/merge-sort.js';
-import _minesweeper from './sequences/minesweeper.js';
-import _movieticket from './sequences/movieticket.js';
-import _musicStreaming from './sequences/music-streaming.js';
-import _parking from './sequences/parking.js';
-import _pubsub from './sequences/pubsub.js';
-import _restaurant from './sequences/restaurant.js';
-import _shoppingcart from './sequences/shoppingcart.js';
-import _snakeladders from './sequences/snakeladders.js';
-import _socialNetwork from './sequences/social-network.js';
-import _splitwise from './sequences/splitwise.js';
-import _stackoverflow from './sequences/stackoverflow.js';
-import _stockbroker from './sequences/stock-brokerage.js';
-import _taskManagement from './sequences/task-management.js';
-import _tictactoe from './sequences/tictactoe.js';
-import _trafficSignal from './sequences/traffic-signal.js';
-import _ttlCache from './sequences/ttl-cache.js';
-import _uber from './sequences/uber.js';
-import _vendingmachine from './sequences/vendingmachine.js';
-import _wallet from './sequences/wallet.js';
-import _zeroEvenOdd from './sequences/zero-even-odd.js';
-import _zomato from './sequences/zomato.js';
-import _threadPool from './sequences/thread-pool.js';
-
 const sequenceDiagrams = {
-  airline: _airline,
-  atm: _atm,
-  auction: _auction,
-  blockingQueue: _blockingQueue,
-  bloomFilter: _bloomFilter,
-  carRental: _carRental,
-  meetingScheduler: _meetingScheduler,
-  chess: _chess,
-  circuitBreaker: _circuitBreaker,
-  coffee: _coffee,
-  concertTicket: _concertTicket,
-  concurrentHashmap: _concurrentHashmap,
-  courseRegistration: _courseRegistration,
-  cricinfo: _cricinfo,
-  elevator: _elevator,
-  fizzBuzz: _fizzBuzz,
-  fooBar: _fooBar,
-  h2o: _h2o,
-  hotel: _hotel,
-  inventory: _inventory,
-  library: _library,
-  linkedin: _linkedin,
-  locker: _locker,
-  payment: _payment,
-  webcrawler: _webcrawler,
-  cachelibrary: _cachelibrary,
-  kvstore: _kvstore,
-  coupon: _coupon,
-  blackjack: _blackjack,
-  workflow: _workflow,
-  loggingFramework: _loggingFramework,
-  'lru-cache': _lru_cache,
-  ludo: _ludo,
-  mergeSort: _mergeSort,
-  minesweeper: _minesweeper,
-  movieticket: _movieticket,
-  musicStreaming: _musicStreaming,
-  parking: _parking,
-  pubsub: _pubsub,
-  restaurant: _restaurant,
-  shoppingcart: _shoppingcart,
-  snakeladders: _snakeladders,
-  socialNetwork: _socialNetwork,
-  splitwise: _splitwise,
-  stackoverflow: _stackoverflow,
-  stockbroker: _stockbroker,
-  taskManagement: _taskManagement,
-  'task-management': _taskManagement,
-  tictactoe: _tictactoe,
-  trafficSignal: _trafficSignal,
-  ttlCache: _ttlCache,
-  uber: _uber,
-  vendingmachine: _vendingmachine,
-  wallet: _wallet,
-  zeroEvenOdd: _zeroEvenOdd,
-  zomato: _zomato,
-  threadPool: _threadPool,
+  airline: () => import('./sequences/airline.js'),
+  atm: () => import('./sequences/atm.js'),
+  auction: () => import('./sequences/auction.js'),
+  blockingQueue: () => import('./sequences/blocking-queue.js'),
+  bloomFilter: () => import('./sequences/bloom-filter.js'),
+  carRental: () => import('./sequences/car-rental.js'),
+  meetingScheduler: () => import('./sequences/meeting-scheduler.js'),
+  chess: () => import('./sequences/chess.js'),
+  circuitBreaker: () => import('./sequences/circuit-breaker.js'),
+  coffee: () => import('./sequences/coffee.js'),
+  concertTicket: () => import('./sequences/concert-ticket.js'),
+  concurrentHashmap: () => import('./sequences/concurrent-hashmap.js'),
+  courseRegistration: () => import('./sequences/course-registration.js'),
+  cricinfo: () => import('./sequences/cricinfo.js'),
+  elevator: () => import('./sequences/elevator.js'),
+  fizzBuzz: () => import('./sequences/fizz-buzz.js'),
+  fooBar: () => import('./sequences/foo-bar.js'),
+  h2o: () => import('./sequences/h2o.js'),
+  hotel: () => import('./sequences/hotel.js'),
+  inventory: () => import('./sequences/inventory.js'),
+  library: () => import('./sequences/library.js'),
+  linkedin: () => import('./sequences/linkedin.js'),
+  locker: () => import('./sequences/locker.js'),
+  payment: () => import('./sequences/payment.js'),
+  webcrawler: () => import('./sequences/webcrawler.js'),
+  cachelibrary: () => import('./sequences/cachelibrary.js'),
+  kvstore: () => import('./sequences/kvstore.js'),
+  coupon: () => import('./sequences/coupon.js'),
+  blackjack: () => import('./sequences/blackjack.js'),
+  workflow: () => import('./sequences/workflow.js'),
+  loggingFramework: () => import('./sequences/logging-framework.js'),
+  'lru-cache': () => import('./sequences/lru-cache.js'),
+  ludo: () => import('./sequences/ludo.js'),
+  mergeSort: () => import('./sequences/merge-sort.js'),
+  minesweeper: () => import('./sequences/minesweeper.js'),
+  movieticket: () => import('./sequences/movieticket.js'),
+  musicStreaming: () => import('./sequences/music-streaming.js'),
+  parking: () => import('./sequences/parking.js'),
+  pubsub: () => import('./sequences/pubsub.js'),
+  restaurant: () => import('./sequences/restaurant.js'),
+  shoppingcart: () => import('./sequences/shoppingcart.js'),
+  snakeladders: () => import('./sequences/snakeladders.js'),
+  socialNetwork: () => import('./sequences/social-network.js'),
+  splitwise: () => import('./sequences/splitwise.js'),
+  stackoverflow: () => import('./sequences/stackoverflow.js'),
+  stockbroker: () => import('./sequences/stock-brokerage.js'),
+  taskManagement: () => import('./sequences/task-management.js'),
+  'task-management': () => import('./sequences/task-management.js'),
+  tictactoe: () => import('./sequences/tictactoe.js'),
+  trafficSignal: () => import('./sequences/traffic-signal.js'),
+  ttlCache: () => import('./sequences/ttl-cache.js'),
+  uber: () => import('./sequences/uber.js'),
+  vendingmachine: () => import('./sequences/vendingmachine.js'),
+  wallet: () => import('./sequences/wallet.js'),
+  zeroEvenOdd: () => import('./sequences/zero-even-odd.js'),
+  zomato: () => import('./sequences/zomato.js'),
+  threadPool: () => import('./sequences/thread-pool.js'),
 };
 
 export default sequenceDiagrams;

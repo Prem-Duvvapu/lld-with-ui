@@ -3,11 +3,32 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import designDetails from '../data/designDetails.js';
-import classDiagrams from '../data/classDiagrams.js';
+import designLoaders from '../data/designDetails.js';
+import diagramLoaders from '../data/classDiagrams.js';
 import { ALIAS_MAP, resolveModuleKey, resolveModuleData } from '../data/moduleKeys.js';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * The barrels map key -> `() => import(...)` so a module page only downloads its own
+ * content. Tests want every module resolved at once, which is exactly what the barrels
+ * used to do eagerly — so pull them all here and assert against the same shapes as before.
+ * Awaiting every loader also makes a broken path in a barrel a test failure rather than a
+ * runtime 404 on one page.
+ */
+async function loadAll(loaders) {
+  const out = {};
+  await Promise.all(
+    Object.entries(loaders).map(async ([key, load]) => {
+      const mod = await load();
+      out[key] = mod.default;
+    }),
+  );
+  return out;
+}
+
+const designDetails = await loadAll(designLoaders);
+const classDiagrams = await loadAll(diagramLoaders);
 
 /**
  * Modules that deliberately have no design content yet. Removing a module from
@@ -160,8 +181,8 @@ describe('classDiagrams entry shape', () => {
 
 describe('data barrels', () => {
   const cases = [
-    { label: 'designDetails', barrel: 'designDetails.js', dir: 'design', store: designDetails },
-    { label: 'classDiagrams', barrel: 'classDiagrams.js', dir: 'diagrams', store: classDiagrams },
+    { label: 'designDetails', barrel: 'designDetails.js', dir: 'design', store: designDetails, loaders: designLoaders },
+    { label: 'classDiagrams', barrel: 'classDiagrams.js', dir: 'diagrams', store: classDiagrams, loaders: diagramLoaders },
   ];
 
   it.each(cases)('$label registers every file in its directory', ({ barrel, dir, store }) => {
@@ -182,9 +203,17 @@ describe('data barrels', () => {
     expect(dupes).toEqual([]);
   });
 
+  // Every loader in the barrel was awaited at module load; a bad path or a file with no
+  // default export shows up here rather than as a 404 on whichever page opens that module.
   it.each(cases)('$label has no module file that fails to resolve', ({ store }) => {
     for (const [key, value] of Object.entries(store)) {
       expect(value, `${key} resolved to nothing`).toBeTruthy();
+    }
+  });
+
+  it.each(cases)('$label registers loaders, not eagerly imported data', ({ loaders }) => {
+    for (const [key, load] of Object.entries(loaders)) {
+      expect(typeof load, `${key} must be a () => import(...) loader`).toBe('function');
     }
   });
 });
