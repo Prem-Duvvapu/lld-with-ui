@@ -12,7 +12,7 @@ export default function SolutionGate({ module, label, children }) {
   const revealed = isRevealed(module);
 
   if (!revealed) {
-    return <RevealGate onReveal={() => reveal(module)} label={label} />;
+    return <RevealGate onReveal={() => reveal(module)} label={label} module={module} />;
   }
 
   return (

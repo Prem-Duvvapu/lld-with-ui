@@ -1,5 +1,7 @@
+import AttemptBox from './AttemptBox';
+
 const cardStyle = {
-  maxWidth: '480px',
+  maxWidth: '560px',
   margin: '40px auto',
   padding: '32px 28px',
   textAlign: 'center',
@@ -13,7 +15,7 @@ const cardStyle = {
  * (Entities/Patterns/Principles/Extensibility sub-tabs, or the whole Class/Sequence Diagram tab)
  * until the visitor explicitly reveals it. See hooks/useReveal.js.
  */
-export default function RevealGate({ onReveal, label }) {
+export default function RevealGate({ onReveal, label, module }) {
   return (
     <div style={cardStyle}>
       <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔒</div>
@@ -40,6 +42,8 @@ export default function RevealGate({ onReveal, label }) {
       >
         🔓 Reveal Solution
       </button>
+
+      {module && <AttemptBox module={module} />}
     </div>
   );
 }

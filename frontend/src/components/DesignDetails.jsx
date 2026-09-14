@@ -9,6 +9,7 @@ import PatternsTab from './design/PatternsTab';
 import PrinciplesTab from './design/PrinciplesTab';
 import ExtensibilityTab from './design/ExtensibilityTab';
 import RevealGate from './RevealGate';
+import AttemptComparison from './AttemptComparison';
 
 export default function DesignDetails({ module, customData }) {
   const { status, data } = useModuleData(designDetails, module, customData, 'designDetails');
@@ -92,7 +93,7 @@ export default function DesignDetails({ module, customData }) {
           <RequirementsTab requirements={data.requirements} tldr={data.tldr} />
         )}
         {subTab !== 'reqs' && !revealed && (
-          <RevealGate onReveal={() => reveal(module)} label="the design" />
+          <RevealGate onReveal={() => reveal(module)} label="the design" module={module} />
         )}
         {subTab !== 'reqs' && revealed && (
           <>
@@ -105,6 +106,7 @@ export default function DesignDetails({ module, customData }) {
                 🔒 Hide again
               </button>
             </div>
+            <AttemptComparison module={module} />
             {subTab === 'entities' && <EntitiesTab entities={data.entities} />}
             {subTab === 'patterns' && <PatternsTab designPatterns={data.designPatterns} />}
             {subTab === 'principles' && <PrinciplesTab principles={data.principles} oopConcepts={data.oopConcepts} />}
