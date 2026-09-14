@@ -4,6 +4,6 @@
     { "source": "/swagger-ui/:path*", "destination": "https://lld-backend-e5e7.onrender.com/swagger-ui/:path*" },
     { "source": "/swagger-ui.html", "destination": "https://lld-backend-e5e7.onrender.com/swagger-ui.html" },
     { "source": "/v3/api-docs/:path*", "destination": "https://lld-backend-e5e7.onrender.com/v3/api-docs/:path*" },
-    { "source": "/((?!api/|swagger-ui|v3/api-docs).*)", "destination": "/index.html" }
+    { "source": "/((?!api/|swagger-ui|v3/api-docs|robots.txt|sitemap.xml|og.png|favicon.svg).*)", "destination": "/index.html" }
   ]
 }

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lld-with-ui.vercel.app/sitemap.xml
