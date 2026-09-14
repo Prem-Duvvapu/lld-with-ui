@@ -13,26 +13,41 @@ this document has been fixed by writing it.
 Every claim below is backed by a command that was run against this tree at commit `2649aa8`.
 Counts are reproducible; opinions are labelled as such.
 
+> **Update, 2026-09-14.** The P0 and P1 backlog has since been worked through in PRs #123–#128.
+> The findings below are left exactly as they were written, in the present tense, because the
+> evidence is the point — but see **[Prioritised backlog](#prioritised-backlog)** at the end for
+> per-item status, and **Corrections from implementation** for the four findings that changed
+> shape once measured against the code. One item (A1, periodic demo reset) was deliberately
+> *not* built; the reasoning is recorded there.
+
 ---
 
 ## Scorecard
 
-| Dimension | Grade | One-line verdict |
-|---|:---:|---|
-| Backend engineering | **A−** | Genuinely strong concurrency work; input validation is declared but unused |
-| Architecture | **B+** | Clean, consistent module shape; duplicated registries and doc sprawl are the debt |
-| Frontend engineering | **C+** | Works well, but ships 317 kB gzip of other modules' data on every page view |
-| UI/UX | **B−** | Good interaction design; 1,092 hex literals mean dark mode is still a coin flip |
-| QA | **C** | Backend testing is excellent; frontend has effectively no behavioural tests and no linter |
-| Product | **B−** | Great substance, but a cold-start backend and zero social preview undercut the demo |
-| LLD-candidate value | **A−** | Best-in-class reference material; thin on *active recall* mechanics |
+Graded at audit time (2026-09-14, commit `2649aa8`). The "after" column reflects PRs
+#123–#128, which closed the P0/P1 backlog below.
 
-**Overall: B.** This is a serious, unusually deep portfolio project whose weakest links are not in
-the domain code — they're in the delivery path around it.
+| Dimension | Grade | → after | One-line verdict |
+|---|:---:|:---:|---|
+| Backend engineering | **A−** | **A−** | Strong concurrency work; malformed bodies no longer 500, but ~290 raw-map reads still unguarded |
+| Architecture | **B+** | **B+** | Clean, consistent module shape; duplicated registries and doc sprawl are the debt |
+| Frontend engineering | **C+** | **A−** | Was shipping 317 kB gzip of other modules' data on every page view; now 12.9 kB |
+| UI/UX | **B−** | **B−** | Good interaction design; 1,092 hex literals and 187 measured a11y violations remain |
+| QA | **C** | **B** | Backend testing excellent; frontend went from 0 behavioural tests and no linter to 32 and a CI gate |
+| Product | **B−** | **B+** | Cold start is now honest rather than broken-looking, and shared links render properly |
+| LLD-candidate value | **A−** | **A** | Attempt-then-compare closes the loop the reveal gate opened |
+
+**Overall: B → B+.** This is a serious, unusually deep portfolio project whose weakest links were
+never in the domain code — they were in the delivery path around it, which is what the P0/P1 work
+addressed. What remains is mostly volume work: the hex-literal sweep, the a11y backlog, and the
+~290 raw-map request reads.
 
 ---
 
 ## The five findings that matter most
+
+*(All five are now fixed — see the backlog status at the end. They are left stated in the
+present tense as they were found, because the evidence is the point.)*
 
 1. **Every module page downloads all 60 modules' design content** — a 1,142 kB chunk (317 kB
    gzipped), 41% of the entire build output. The CI size gate doesn't see it.
@@ -389,25 +404,79 @@ cost more than it returns.
 
 ## Prioritised backlog
 
-**P0 — do these first**
+> **Status, 2026-09-14.** P0 and P1 are done bar one item, which investigation reclassified —
+> see *Corrections from implementation* below. Delivered in PRs #123–#128.
 
-| # | Item | Why | Est. |
-|---|---|---|---|
-| 1 | Cold-start banner + uptime pinger (F2, P1) | The demo currently looks broken to first-time visitors | 2h |
-| 2 | Lazy-load design/diagram/sequence barrels (F1) | ~300 kB gzip saved on every module page | 4h |
-| 3 | `AbortSignal` timeout + poll backoff (F2) | Stops request pile-up on a cold or slow backend | 3h |
-| 4 | OG tags, meta description, favicon (P2) | Every shared link currently renders as a grey box | 1h |
+**P0 — done**
 
-**P1 — next**
+| # | Item | Why | Est. | Status |
+|---|---|---|---|---|
+| 1 | Cold-start banner (F2, P1) | The demo looked broken to first-time visitors | 2h | ✅ #125 |
+| 2 | Lazy-load design/diagram/sequence barrels (F1) | ~300 kB gzip saved on every module page | 4h | ✅ #123 |
+| 3 | `AbortSignal` timeout + poll backoff (F2) | Stops request pile-up on a cold or slow backend | 3h | ✅ #125 |
+| 4 | OG tags, meta description, favicon (P2) | Every shared link rendered as a grey box | 1h | ✅ #124 |
 
-| # | Item | Why | Est. |
-|---|---|---|---|
-| 5 | ESLint + `jsx-a11y` + `react-hooks`, wired into CI (F3, U2, Q2) | 67k lines with no automated enforcement | 3h |
-| 6 | Tests for the 5 untested hooks/utils (Q1) | Pure logic, includes a live data migration | 4h |
-| 7 | Request validation on controllers (B1) | A declared dependency doing nothing | 6h |
-| 8 | Periodic reset-to-seed for the public demo (A1) | Stops one visitor breaking it for the next | 2h |
-| 9 | CI gate on largest chunk, not entry chunk (Q4, F1) | The current budget measures the wrong thing | 1h |
-| 10 | "Compare my design" attempt box (L1) | Highest learning-value feature remaining | 6h |
+**P1 — done, except #8**
+
+| # | Item | Why | Est. | Status |
+|---|---|---|---|---|
+| 5 | ESLint + `jsx-a11y` + `react-hooks`, wired into CI (F3, U2, Q2) | 67k lines with no automated enforcement | 3h | ✅ #127 |
+| 6 | Tests for the 5 untested hooks/utils (Q1) | Pure logic, includes a live data migration | 4h | ✅ #127 |
+| 7 | Request validation on controllers (B1) | A declared dependency doing nothing | 6h | ✅ #126 — *reframed* |
+| 8 | Periodic reset-to-seed for the public demo (A1) | Stops one visitor breaking it for the next | 2h | ⛔ **not built** — *reclassified* |
+| 9 | CI gate on largest chunk, not entry chunk (Q4, F1) | The current budget measured the wrong thing | 1h | ✅ #123 |
+| 10 | "Compare my design" attempt box (L1) | Highest learning-value feature remaining | 6h | ✅ #128 |
+
+### Corrections from implementation
+
+Four findings changed shape once measured properly. Recording them because an audit that
+isn't corrected by contact with the code is just a list of guesses.
+
+**B1 — request validation. The prescription was wrong; the defect was real and worse.**
+"Add `@Valid` + constraints to request DTOs" would have been a **no-op on 83% of the
+surface**: 299 of the 360 `@RequestBody` parameters are raw `Map<String, Object>`, and
+`@Valid` has nothing to validate on a Map. Only ~15 request DTOs exist at all.
+
+The actual defect, found by probing endpoints rather than reading them: a missing key
+threw `NullPointerException`, a wrong-typed field threw `ClassCastException`, and both
+surfaced as **HTTP 500** — a client error reported as a server failure, naming no field.
+Fixed at the same boundary with `config.RequestFields` (#126), applied to the reference
+module. **~290 raw-map reads elsewhere still carry this bug**; the pattern is established
+but the rollout is a real project, not the 6h estimated.
+
+**A1 — periodic demo reset. Reclassified: not worth building.** Two things the audit
+missed. First, **0** live-state reset endpoints exist (the 50 `/reset` endpoints are all
+`/sim/reset`, which reset the isolated sandbox, not live state), and only 2 of 38
+initializers expose a callable `seed()` — so a scheduled reset needs a clear + re-seed
+path added to each of 60 modules, not the 2h estimated. Second, the free tier **already
+destroys all state whenever the instance idles out**, which for a portfolio link is most
+of the time. The residual exposure — two visitors active in the same window — doesn't
+justify a 60-module change. A half-built version covering a few modules would be worse
+than none, since it implies a guarantee that doesn't hold.
+
+**U4 — font weights. The finding overstated the win.** It claimed 12 weights loaded and
+"most" unused. Measured: **10** loaded, and 5 of the 6 Inter cuts genuinely used
+(400 ×1, 500 ×7, 600 ×134, 700 ×188, 800 ×47). Only Inter 300 was dead. Trimmed to 7
+weights in #124, not the 2–3 suggested.
+
+**U2 — accessibility, now measured exactly.** The audit estimated thinness; ESLint counts
+it: **187 a11y violations** (119 `label-has-associated-control`, 34
+`click-events-have-key-events`, 34 `no-static-element-interactions`), all recorded in
+`frontend/eslint-suppressions.json` as a burn-down list.
+
+### Two bugs found by the tests written for this work
+
+Both would have shipped silently, and both are the kind the audit's Q1 finding predicted:
+
+1. **`apiFetch`'s timeout message** branched on the rejected error's `message` being
+   `"timeout"`, relying on `fetch` propagating the abort *reason* — which varies by
+   runtime. A genuine timeout could be reported as a generic network failure, in the one
+   case where the message matters most.
+2. **React Testing Library's cleanup was never registered**, because that only happens
+   automatically under `globals: true`, which this project doesn't use. Every render
+   leaked into the next test's DOM, so "this element is absent" assertions were passing
+   against a previous test's markup. Fixed in #128; the component tests added earlier in
+   the same session were passing partly by luck.
 
 **P2 — worth doing, not urgent**
 
@@ -424,19 +493,19 @@ coverage reporting (Q3) · CORS de-duplication (B3) · `.mailmap` (A4) · font-w
 | Backend Java files / LOC | 1,436 / 69,364 |
 | Backend test classes / tests | 276 / 2,282 (all passing) |
 | Frontend JS+JSX files / LOC | 340 / 67,752 |
-| Frontend test files / hand-written `it()` / reported tests | 4 / 33 / 396 |
+| Frontend test files / hand-written `it()` / reported tests | 4 / 33 / 396 → **8 / 65 / 428** |
 | Module pages | 60 |
 | Spring singletons (`@Service`/`@Component`/`@Repository`) | 311 |
 | Request/session-scoped beans | 0 |
 | `ReentrantLock` files / `synchronized` files | 87 / 63 |
-| `@Valid` usages | 1 |
+| `@Valid` usages | 1 (see B1 correction — 299 of 360 bodies are raw Maps, which `@Valid` cannot reach) |
 | Controllers with `@CrossOrigin(origins = "*")` | 60 of 60 |
 | Hex colour literals in `src/lld/**` | 1,092 |
 | `aria-*` / `role=` attributes (`<img>` tags: 0, icons are emoji) | 18 / 16 |
 | Pages injecting a runtime `<style>` block | 41 |
 | Parallel per-module registries | 5 |
 | Build output / chunk count | 2.8 MB / 67 |
-| Largest chunk (loaded on every module page) | 1,142 kB (317 kB gzip), 41% of dist |
+| Largest chunk (loaded on every module page) | 1,142 kB (317 kB gzip), 41% of dist → **48 kB / 12.9 kB gzip** |
 | Entry chunk (the only one CI measures) | 275 kB |
 | Raw design + diagram + sequence data | 1.75 MB (904 + 452 + 396 KB) |
 | Markdown documentation | ~800 KB (RCA 425, AGENTS 240, README 120) |
