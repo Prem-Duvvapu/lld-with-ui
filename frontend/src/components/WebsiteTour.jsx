@@ -1,61 +1,97 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useReveal } from '../hooks/useReveal'
+import { waitForSelector } from './tour/waitForSelector'
 import './WebsiteTour.css'
 
 const PADDING = 8
 
-function getTargetRect(selector) {
-  if (!selector) return null
-  const el = document.querySelector(selector)
-  if (!el) return null
-  return el.getBoundingClientRect()
+function rectOf(el) {
+  return el ? el.getBoundingClientRect() : null
 }
 
 /**
- * Hand-rolled spotlight walkthrough — no external tour library, keeps the
- * bundle small. `steps` is an array of { selector, title, body }; a step
- * with selector: null renders as a centered modal (welcome/closing steps).
+ * Hand-rolled spotlight walkthrough — no external tour library, keeps the bundle small.
+ *
+ * Steps are { selector, title, body, prepare? }. `prepare({ navigate, reveal, isRevealed })`
+ * runs before the step is shown and may change route or switch tabs; the step then waits
+ * for its target to exist rather than querying once, because a module page's controls only
+ * appear after the route change and that page's lazy chunk have both landed.
  */
 export default function WebsiteTour({ steps, onFinish }) {
   const [index, setIndex] = useState(0)
   const [rect, setRect] = useState(null)
+  const navigate = useNavigate()
+  const { reveal, isRevealed } = useReveal()
+
+  // Steps read this inside an effect. It's a ref rather than a dependency because
+  // `isRevealed` changes the moment a step calls `reveal()` — as a dep that would
+  // re-run the step effect and fire `prepare` a second time. Assigned in an effect,
+  // not during render: mutating a ref while rendering isn't safe under concurrent React.
+  const ctxRef = useRef({ navigate, reveal, isRevealed })
+  useEffect(() => {
+    ctxRef.current = { navigate, reveal, isRevealed }
+  })
 
   const step = steps[index]
 
   useEffect(() => {
-    const selector = step.selector
-    if (!selector) {
-      setRect(null)
-      return
-    }
-    const el = document.querySelector(selector)
-    if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    let cancelled = false
+    let target = null
 
-    const update = () => setRect(getTargetRect(selector))
-    update()
-    const t = setTimeout(update, 260) // after scroll settles
-    window.addEventListener('resize', update)
-    window.addEventListener('scroll', update, true)
-    return () => {
-      clearTimeout(t)
-      window.removeEventListener('resize', update)
-      window.removeEventListener('scroll', update, true)
+    const cleanups = []
+
+    const run = async () => {
+      setRect(null)
+
+      if (step.prepare) {
+        try {
+          await step.prepare(ctxRef.current)
+        } catch (err) {
+          // A step that can't set itself up should still show its text rather than
+          // stranding the visitor mid-tour.
+          console.error('[WebsiteTour] step prepare failed', err)
+        }
+      }
+      if (cancelled || !step.selector) return
+
+      target = await waitForSelector(step.selector)
+      if (cancelled || !target) return
+
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+
+      const update = () => setRect(rectOf(target))
+      update()
+      const settle = setTimeout(update, 280) // after the smooth scroll lands
+      window.addEventListener('resize', update)
+      window.addEventListener('scroll', update, true)
+
+      cleanups.push(() => {
+        clearTimeout(settle)
+        window.removeEventListener('resize', update)
+        window.removeEventListener('scroll', update, true)
+      })
     }
-  }, [step.selector])
+
+    run()
+
+    return () => {
+      cancelled = true
+      cleanups.forEach((fn) => fn())
+    }
+  }, [step])
 
   const goNext = useCallback(() => {
-    if (index >= steps.length - 1) {
-      onFinish()
-    } else {
-      setIndex(i => i + 1)
-    }
+    if (index >= steps.length - 1) onFinish()
+    else setIndex((i) => i + 1)
   }, [index, steps.length, onFinish])
 
   const goBack = useCallback(() => {
-    setIndex(i => Math.max(0, i - 1))
+    setIndex((i) => Math.max(0, i - 1))
   }, [])
 
   useEffect(() => {
-    const onKey = e => {
+    const onKey = (e) => {
       if (e.key === 'Escape') onFinish()
       if (e.key === 'ArrowRight') goNext()
       if (e.key === 'ArrowLeft') goBack()
@@ -67,20 +103,23 @@ export default function WebsiteTour({ steps, onFinish }) {
   const isLast = index === steps.length - 1
   const isCentered = !step.selector || !rect
 
-  const spotlightStyle = !isCentered ? {
-    top: rect.top - PADDING,
-    left: rect.left - PADDING,
-    width: rect.width + PADDING * 2,
-    height: rect.height + PADDING * 2,
-  } : null
+  const spotlightStyle = !isCentered
+    ? {
+        top: rect.top - PADDING,
+        left: rect.left - PADDING,
+        width: rect.width + PADDING * 2,
+        height: rect.height + PADDING * 2,
+      }
+    : null
 
   let tooltipStyle = {}
   if (!isCentered) {
     const spaceBelow = window.innerHeight - rect.bottom
     const placeBelow = spaceBelow > 220 || rect.top < 220
+    const left = Math.min(Math.max(rect.left, 16), Math.max(16, window.innerWidth - 340))
     tooltipStyle = placeBelow
-      ? { top: rect.bottom + PADDING + 12, left: Math.min(Math.max(rect.left, 16), window.innerWidth - 340) }
-      : { top: rect.top - PADDING - 12, left: Math.min(Math.max(rect.left, 16), window.innerWidth - 340), transform: 'translateY(-100%)' }
+      ? { top: rect.bottom + PADDING + 12, left }
+      : { top: rect.top - PADDING - 12, left, transform: 'translateY(-100%)' }
   }
 
   return (
@@ -95,11 +134,12 @@ export default function WebsiteTour({ steps, onFinish }) {
         <p>{step.body}</p>
         <div className="tour-footer">
           <div className="tour-dots">
-            {steps.map((_, i) => (
-              <span key={i} className={`tour-dot${i === index ? ' active' : ''}`} />
+            {steps.map((s, i) => (
+              <span key={s.title} className={`tour-dot${i === index ? ' active' : ''}`} />
             ))}
           </div>
           <div className="tour-actions">
+            <span className="tour-count">{index + 1}/{steps.length}</span>
             {index > 0 && <button className="tour-btn tour-btn-ghost" onClick={goBack}>Back</button>}
             <button className="tour-btn tour-btn-primary" onClick={goNext}>
               {isLast ? 'Done' : 'Next'}

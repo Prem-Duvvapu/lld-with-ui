@@ -17,7 +17,7 @@ const cardStyle = {
  */
 export default function RevealGate({ onReveal, label, module }) {
   return (
-    <div style={cardStyle}>
+    <div style={cardStyle} data-tour="reveal-gate">
       <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔒</div>
       <h3 style={{ margin: '0 0 8px', fontSize: 'var(--font-lg, 18px)', color: 'var(--text-primary)' }}>
         Try it yourself first

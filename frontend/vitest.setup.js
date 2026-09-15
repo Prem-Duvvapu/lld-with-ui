@@ -1,13 +1,13 @@
-import { afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
-
-// React Testing Library only auto-registers its cleanup when vitest runs with
-// `globals: true`, which this project doesn't. Without it, every render leaks into the
-// next test's DOM and `screen` queries match components a previous test mounted — which
-// silently turns "this element is absent" assertions into false passes.
-afterEach(() => {
-  cleanup();
-});
+// Between-test DOM cleanup is React Testing Library's own afterEach(cleanup), which it
+// registers when it finds a global `afterEach` — hence `test.globals: true` in
+// vite.config.js.
+//
+// Calling cleanup() from this file instead does NOT work, though it looks like it should:
+// the setup file resolves its own instance of RTL whose container registry is a different
+// object from the one the test files populate, so it dutifully cleans an empty set while
+// every real render leaks into the next test. A two-test probe (render a marker, then
+// assert the next test's body is empty) fails with the setup-file version and passes with
+// globals. Without either, "this element is absent" assertions pass against stale DOM.
 
 // ClassDiagram uses ResizeObserver in a layout effect to keep relationship lines
 // attached to their boxes. Stub the DOM APIs the test environment doesn't provide so

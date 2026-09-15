@@ -43,7 +43,7 @@ export default function DesignDetails({ module, customData }) {
       </h3>
 
       {/* Sub-tab Navigation */}
-      <nav style={{
+      <nav data-tour="design-subtabs" style={{
         display: 'flex',
         gap: 'var(--space-2)',
         justifyContent: 'center',
