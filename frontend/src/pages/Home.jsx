@@ -34,125 +34,125 @@ const CAT_FILL_COLORS = {
 }
 
 const ALL_LLDS = [
-  { title: 'Parking Lot', icon: '🅿️', difficulty: 'Easy', category: 'Core',
+  { title: 'Parking Lot', order: 3, icon: '🅿️', difficulty: 'Easy', category: 'Core',
     desc: 'Multi-level parking with gates, spot tracking, and ticket-based pricing' },
-  { title: 'Splitwise', icon: '💰', difficulty: 'Medium', category: 'Core',
+  { title: 'Splitwise', order: 12, icon: '💰', difficulty: 'Medium', category: 'Core',
     desc: 'Expense sharing with EQUAL/PERCENTAGE/EXACT split strategies' },
-  { title: 'Elevator', icon: '🛗', difficulty: 'Medium', category: 'Core',
+  { title: 'Elevator', order: 21, icon: '🛗', difficulty: 'Medium', category: 'Core',
     desc: 'Elevator control system with SCAN scheduling and animated movement' },
-  { title: 'ATM', icon: '🏧', difficulty: 'Medium', category: 'Core',
+  { title: 'ATM', order: 13, icon: '🏧', difficulty: 'Medium', category: 'Core',
     desc: 'Banking ATM with card authentication, withdraw, deposit, and transaction history' },
-  { title: 'Library', icon: '📖', difficulty: 'Medium', category: 'Core',
+  { title: 'Library', order: 14, icon: '📖', difficulty: 'Medium', category: 'Core',
     desc: 'Book inventory, member management, borrow/return with fine calculation' },
-  { title: 'Movie Ticket', icon: '🎬', difficulty: 'Medium', category: 'Core',
+  { title: 'Movie Ticket', order: 15, icon: '🎬', difficulty: 'Medium', category: 'Core',
     desc: 'Movie listings, show timings, seat selection, and ticket booking' },
-  { title: 'Hotel Management', icon: '🏨', difficulty: 'Medium', category: 'Core',
+  { title: 'Hotel Management', order: 16, icon: '🏨', difficulty: 'Medium', category: 'Core',
     desc: 'Hotel search, room booking, check-in/check-out with status tracking' },
-  { title: 'Airline Reservation', icon: '✈️', difficulty: 'Hard', category: 'Core',
+  { title: 'Airline Reservation', order: 42, icon: '✈️', difficulty: 'Hard', category: 'Core',
     desc: 'Flight search, seat map, booking with multi-class fare system' },
-  { title: 'Cab Booking', icon: '🚗', difficulty: 'Medium', category: 'Core',
+  { title: 'Cab Booking', order: 40, icon: '🚗', difficulty: 'Medium', category: 'Core',
     desc: 'Ride-hailing with fare estimation, driver assignment, and ride tracking', key: 'uber' },
-  { title: 'Food Delivery', icon: '🍕', difficulty: 'Medium', category: 'Core',
+  { title: 'Food Delivery', order: 41, icon: '🍕', difficulty: 'Medium', category: 'Core',
     desc: 'Food delivery with restaurant browsing, cart, and order state machine', key: 'zomato' },
-  { title: 'Restaurant Management', icon: '🍽️', difficulty: 'Easy', category: 'Core',
+  { title: 'Restaurant Management', order: 9, icon: '🍽️', difficulty: 'Easy', category: 'Core',
     desc: 'Table booking, order management, kitchen display, menu catalog, billing' },
-  { title: 'Car Rental', icon: '🚙', difficulty: 'Medium', category: 'Core',
+  { title: 'Car Rental', order: 17, icon: '🚙', difficulty: 'Medium', category: 'Core',
     desc: 'Vehicle fleet management with branch-based reservations, pricing tiers' },
-  { title: 'Online Auction', icon: '🏷️', difficulty: 'Hard', category: 'Core',
+  { title: 'Online Auction', order: 43, icon: '🏷️', difficulty: 'Hard', category: 'Core',
     desc: 'Real-time bidding with auction lifecycle, bid validation, auto-outbidding' },
-  { title: 'Concert Ticket', icon: '🎫', difficulty: 'Easy', category: 'Core',
+  { title: 'Concert Ticket', order: 10, icon: '🎫', difficulty: 'Easy', category: 'Core',
     desc: 'Event-based seat booking with venue layout, dynamic pricing, waitlist' },
-  { title: 'Stack Overflow', icon: '📚', difficulty: 'Hard', category: 'Platforms',
+  { title: 'Stack Overflow', order: 44, icon: '📚', difficulty: 'Hard', category: 'Platforms',
     desc: 'Q&A platform with voting, reputation system, and tag-based search' },
-  { title: 'LinkedIn', icon: '💼', difficulty: 'Hard', category: 'Platforms',
+  { title: 'LinkedIn', order: 45, icon: '💼', difficulty: 'Hard', category: 'Platforms',
     desc: 'Professional network with profiles, connections, feed posts, notifications' },
-  { title: 'Social Network', icon: '🌐', difficulty: 'Hard', category: 'Platforms',
+  { title: 'Social Network', order: 46, icon: '🌐', difficulty: 'Hard', category: 'Platforms',
     desc: 'User profiles, friend requests, news feed, posts/comments/likes' },
-  { title: 'CricInfo', icon: '🏏', difficulty: 'Hard', category: 'Platforms',
+  { title: 'CricInfo', order: 47, icon: '🏏', difficulty: 'Hard', category: 'Platforms',
     desc: 'Cricket scoring with real-time scorecards, ball-by-ball commentary' },
-  { title: 'Music Streaming', icon: '🎵', difficulty: 'Hard', category: 'Platforms',
+  { title: 'Music Streaming', order: 48, icon: '🎵', difficulty: 'Hard', category: 'Platforms',
     desc: 'Song catalog, playlists, recommendations, offline, tiered subscriptions' },
-  { title: 'Course Registration', icon: '📚', difficulty: 'Easy', category: 'Platforms',
+  { title: 'Course Registration', order: 11, icon: '📚', difficulty: 'Easy', category: 'Platforms',
     desc: 'Student enrollment with schedule conflict detection, waitlist, prerequisites' },
-  { title: 'Stock Brokerage', icon: '📈', difficulty: 'Hard', category: 'Platforms',
+  { title: 'Stock Brokerage', order: 49, icon: '📈', difficulty: 'Hard', category: 'Platforms',
     desc: 'Trading platform with buy/sell orders, portfolio tracking, order matching' },
-  { title: 'Logging Framework', icon: '📝', difficulty: 'Easy', category: 'Design Patterns & Systems',
+  { title: 'Logging Framework', order: 5, icon: '📝', difficulty: 'Easy', category: 'Design Patterns & Systems',
     desc: 'Pluggable logging levels, appenders, formatted output, singleton logger' },
-  { title: 'Traffic Signal', icon: '🚦', difficulty: 'Medium', category: 'Design Patterns & Systems',
+  { title: 'Traffic Signal', order: 20, icon: '🚦', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'State machine for traffic lights with timer-based transitions, emergency override' },
-  { title: 'Circuit Breaker', icon: '🔌', difficulty: 'Medium', category: 'Design Patterns & Systems',
+  { title: 'Circuit Breaker', order: 39, icon: '🔌', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'Closed/Open/Half-Open state machine guarding calls, pluggable trip policies, cooldown recovery' },
-  { title: 'Task Management', icon: '✅', difficulty: 'Easy', category: 'Design Patterns & Systems',
+  { title: 'Task Management', order: 8, icon: '✅', difficulty: 'Easy', category: 'Design Patterns & Systems',
     desc: 'Kanban-style board with status workflow, priority levels, user assignment' },
-  { title: 'Pub Sub System', icon: '📡', difficulty: 'Medium', category: 'Design Patterns & Systems',
+  { title: 'Pub Sub System', order: 23, icon: '📡', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'Publish-subscribe messaging with topics, subscriber groups, async delivery' },
-  { title: 'LRU Cache', icon: '⚡', difficulty: 'Easy', category: 'Design Patterns & Systems',
+  { title: 'LRU Cache', order: 6, icon: '⚡', difficulty: 'Easy', category: 'Design Patterns & Systems',
     desc: 'Fixed-size cache with LRU eviction using doubly linked list + hashmap' },
-  { title: 'Snake & Ladders', icon: '🐍', difficulty: 'Medium', category: 'Games',
+  { title: 'Snake & Ladders', order: 26, icon: '🐍', difficulty: 'Medium', category: 'Games',
     desc: 'Multiplayer board game with dice roll and snake/ladder mappings' },
-  { title: 'Tic Tac Toe', icon: '❌', difficulty: 'Easy', category: 'Games',
+  { title: 'Tic Tac Toe', order: 2, icon: '❌', difficulty: 'Easy', category: 'Games',
     desc: '2-player game on a 3x3 grid with win/draw detection' },
-  { title: 'Chess', icon: '♟️', difficulty: 'Hard', category: 'Games',
+  { title: 'Chess', order: 50, icon: '♟️', difficulty: 'Hard', category: 'Games',
     desc: 'Full chess engine with piece validation, check/checkmate detection' },
-  { title: 'Ludo', icon: '🎲', difficulty: 'Hard', category: 'Games',
+  { title: 'Ludo', order: 51, icon: '🎲', difficulty: 'Hard', category: 'Games',
     desc: 'Multiplayer board game with dice roll, token movement, captures and safe spots' },
-  { title: 'Minesweeper', icon: '💣', difficulty: 'Medium', category: 'Games',
+  { title: 'Minesweeper', order: 27, icon: '💣', difficulty: 'Medium', category: 'Games',
     desc: 'Minefield grid with reveal, flagging, flood-fill and win/loss detection' },
-  { title: 'Vending Machine', icon: '🏪', difficulty: 'Easy', category: 'Real-world',
+  { title: 'Vending Machine', order: 1, icon: '🏪', difficulty: 'Easy', category: 'Real-world',
     desc: 'Product slots, coin insertion, dispensing with cancel support' },
-  { title: 'Coffee Machine', icon: '☕', difficulty: 'Easy', category: 'Real-world',
+  { title: 'Coffee Machine', order: 4, icon: '☕', difficulty: 'Easy', category: 'Real-world',
     desc: 'Beverage menu, ingredient management, brewing with state machine' },
-  { title: 'Digital Wallet', icon: '💳', difficulty: 'Medium', category: 'Real-world',
+  { title: 'Digital Wallet', order: 18, icon: '💳', difficulty: 'Medium', category: 'Real-world',
     desc: 'Wallet balance, send/receive money, transaction history with UPI/CARD' },
-  { title: 'Inventory Management', icon: '📦', difficulty: 'Medium', category: 'Real-world',
+  { title: 'Inventory Management', order: 19, icon: '📦', difficulty: 'Medium', category: 'Real-world',
     desc: 'Stock tracking, inbound/outbound movements, low stock alerts' },
-  { title: 'Shopping Cart', icon: '🛒', difficulty: 'Easy', category: 'Real-world',
+  { title: 'Shopping Cart', order: 7, icon: '🛒', difficulty: 'Easy', category: 'Real-world',
     desc: 'Product catalog, cart management, checkout flow with order tracking' },
-  { title: 'FooBar Alternately', icon: '🔄', difficulty: 'Easy', category: 'Concurrency',
+  { title: 'FooBar Alternately', order: 31, icon: '🔄', difficulty: 'Easy', category: 'Concurrency',
     desc: 'Two threads print "foo" and "bar" alternately using semaphores' },
-  { title: 'Zero Even Odd', icon: '0️⃣', difficulty: 'Medium', category: 'Concurrency',
+  { title: 'Zero Even Odd', order: 34, icon: '0️⃣', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Three threads print 0, even, odd numbers in sequence using semaphore coordination' },
-  { title: 'Fizz Buzz Multithreaded', icon: '🧮', difficulty: 'Easy', category: 'Concurrency',
+  { title: 'Fizz Buzz Multithreaded', order: 32, icon: '🧮', difficulty: 'Easy', category: 'Concurrency',
     desc: 'Four threads collaboratively print Fizz/Buzz/FizzBuzz/numbers' },
-  { title: 'Building H2O', icon: '💧', difficulty: 'Medium', category: 'Concurrency',
+  { title: 'Building H2O', order: 35, icon: '💧', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Hydrogen and oxygen threads bond to form H2O molecules using barriers' },
-  { title: 'Thread-Safe TTL Cache', icon: '⏱️', difficulty: 'Medium', category: 'Concurrency',
+  { title: 'Thread-Safe TTL Cache', order: 36, icon: '⏱️', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Concurrent cache with time-to-live expiration, scheduled eviction' },
-  { title: 'Concurrent HashMap', icon: '🗺️', difficulty: 'Hard', category: 'Concurrency',
+  { title: 'Concurrent HashMap', order: 52, icon: '🗺️', difficulty: 'Hard', category: 'Concurrency',
     desc: 'Thread-safe hashmap using segment-based locking for fine-grained concurrency' },
-  { title: 'Blocking Queue', icon: '📤', difficulty: 'Easy', category: 'Concurrency',
+  { title: 'Blocking Queue', order: 33, icon: '📤', difficulty: 'Easy', category: 'Concurrency',
     desc: 'Bounded blocking queue with wait/notify for producer-consumer patterns' },
-  { title: 'Concurrent Bloom Filter', icon: '🌸', difficulty: 'Hard', category: 'Concurrency',
+  { title: 'Concurrent Bloom Filter', order: 53, icon: '🌸', difficulty: 'Hard', category: 'Concurrency',
     desc: 'Probabilistic set membership with thread-safe bit operations' },
-  { title: 'Multi-threaded Merge Sort', icon: '🔀', difficulty: 'Medium', category: 'Concurrency',
+  { title: 'Multi-threaded Merge Sort', order: 37, icon: '🔀', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Parallel divide-and-conquer sort using ForkJoinPool for efficient multi-core sorting' },
-  { title: 'Rate Limiter', icon: '🚧', difficulty: 'Medium', category: 'Concurrency',
+  { title: 'Rate Limiter', order: 38, icon: '🚧', difficulty: 'Medium', category: 'Concurrency',
     desc: 'Per-client throttling with Token Bucket and Sliding Window Counter strategies' },
-  { title: 'Meeting Scheduler', icon: '📅', difficulty: 'Medium', category: 'Core',
+  { title: 'Meeting Scheduler', order: 22, icon: '📅', difficulty: 'Medium', category: 'Core',
     desc: 'Room booking with room- and attendee-level conflict detection across overlapping time ranges' },
-  { title: 'Thread Pool', icon: '🧵', difficulty: 'Hard', category: 'Concurrency',
+  { title: 'Thread Pool', order: 54, icon: '🧵', difficulty: 'Hard', category: 'Concurrency',
     desc: 'Custom-built worker pool with core/max sizing, bounded queue, and pluggable rejection policies' },
-  { title: 'Feature Flag', icon: '🚩', difficulty: 'Medium', category: 'Design Patterns & Systems',
+  { title: 'Feature Flag', order: 29, icon: '🚩', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'Composite targeting rules (country, user id, attribute, percentage rollout) with a race-free atomic rule swap' },
-  { title: 'Notification System', icon: '🔔', difficulty: 'Medium', category: 'Design Patterns & Systems',
+  { title: 'Notification System', order: 30, icon: '🔔', difficulty: 'Medium', category: 'Design Patterns & Systems',
     desc: 'Priority-ordered multi-channel dispatch with idempotent sends, preference-based suppression, and retry with backoff' },
-  { title: 'Job Scheduler', icon: '⏰', difficulty: 'Hard', category: 'Design Patterns & Systems',
+  { title: 'Job Scheduler', order: 59, icon: '⏰', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'Cron-expression parsing, priority-queue dispatch, and misfire policies with a race-free cancel/dispatch guard' },
-  { title: 'Locker Management', icon: '🔐', difficulty: 'Medium', category: 'Real-world',
+  { title: 'Locker Management', order: 24, icon: '🔐', difficulty: 'Medium', category: 'Real-world',
     desc: 'Amazon-style parcel lockers with size-fit allocation strategies and a race-free deposit/pickup lifecycle' },
-  { title: 'Payment Gateway', icon: '💳', difficulty: 'Hard', category: 'Design Patterns & Systems',
+  { title: 'Payment Gateway', order: 58, icon: '💳', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'Stripe-style charge/refund with a Chain-of-Responsibility fraud pipeline and idempotency-key-safe double-submit protection' },
-  { title: 'Web Crawler', icon: '🕷️', difficulty: 'Hard', category: 'Design Patterns & Systems',
+  { title: 'Web Crawler', order: 55, icon: '🕷️', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'Frontier-queue worker pool with an atomic dedup claim and per-domain politeness locking, plus a Strategy-based URL filter policy' },
-  { title: 'Generic Cache Library', icon: '🧰', difficulty: 'Hard', category: 'Design Patterns & Systems',
+  { title: 'Generic Cache Library', order: 56, icon: '🧰', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'A pluggable Cache<K,V> library — Builder-composed eviction policy, TTL and stats, backed by a segment/shard-locked cache for real concurrent throughput' },
-  { title: 'Key-Value Store', icon: '🗃️', difficulty: 'Hard', category: 'Design Patterns & Systems',
+  { title: 'Key-Value Store', order: 57, icon: '🗃️', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'A toy Redis-shaped store — Command-pattern write-ahead log for durability, versioned entries, and a fully lock-free compare-and-swap race' },
-  { title: 'Coupon / Promotion Engine', icon: '🏷️', difficulty: 'Medium', category: 'Real-world',
+  { title: 'Coupon / Promotion Engine', order: 25, icon: '🏷️', difficulty: 'Medium', category: 'Real-world',
     desc: 'Percentage/flat/BOGO discount strategies, a Chain-of-Responsibility eligibility check, and a race-free per-coupon redemption limit' },
-  { title: 'Blackjack / Deck of Cards', icon: '🃏', difficulty: 'Medium', category: 'Real-world',
+  { title: 'Blackjack / Deck of Cards', order: 28, icon: '🃏', difficulty: 'Medium', category: 'Real-world',
     desc: 'A real game loop over a Factory-shuffled shoe — Strategy dealer house rules, a declared round state machine, and a lock-free shared-shoe draw across tables' },
-  { title: 'Workflow / Approval Engine', icon: '✅', difficulty: 'Hard', category: 'Design Patterns & Systems',
+  { title: 'Workflow / Approval Engine', order: 60, icon: '✅', difficulty: 'Hard', category: 'Design Patterns & Systems',
     desc: 'Multi-step amount-based approval routing via Chain of Responsibility, a declared instance state machine, an escalation Strategy, and a race-free per-instance approve-vs-timeout-escalate lock' }
 ]
 
@@ -210,6 +210,7 @@ export default function Home() {
   const [pattern, setPattern] = useState('All')
   const [unreviewedOnly, setUnreviewedOnly] = useState(false)
   const [revisitOnly, setRevisitOnly] = useState(false)
+  const [sortByOrder, setSortByOrder] = useState(false)
   const { toggle: toggleReviewed, isReviewed, reviewedAt, count: reviewedCount } = useProgress()
   const { toggleRevisit, isRevisit } = useRevisit()
   const { startTour } = useSiteTour()
@@ -220,7 +221,7 @@ export default function Home() {
   const cardRefs = useRef([])
 
   const filtered = useMemo(() => {
-    return ALL_LLDS.filter(item => {
+    const result = ALL_LLDS.filter(item => {
       const matchSearch = !query ||
         item.title.toLowerCase().includes(query.toLowerCase()) ||
         item.desc.toLowerCase().includes(query.toLowerCase()) ||
@@ -232,7 +233,8 @@ export default function Home() {
       const matchRevisit = !revisitOnly || isRevisit(path)
       return matchSearch && matchDiff && matchPattern && matchReviewed && matchRevisit
     })
-  }, [query, difficulty, pattern, unreviewedOnly, revisitOnly, isReviewed, isRevisit])
+    return sortByOrder ? [...result].sort((a, b) => a.order - b.order) : result
+  }, [query, difficulty, pattern, unreviewedOnly, revisitOnly, sortByOrder, isReviewed, isRevisit])
 
   useEffect(() => {
     cardRefs.current.length = filtered.length
@@ -438,7 +440,24 @@ export default function Home() {
             />
             🔖 Flagged for revisit only
           </label>
+
+          <label className="unreviewed-toggle">
+            <input
+              type="checkbox"
+              checked={sortByOrder}
+              onChange={e => setSortByOrder(e.target.checked)}
+            />
+            📚 Suggested learning order
+          </label>
         </div>
+
+        {sortByOrder && (
+          <p className="learn-order-hint">
+            Sorted beginner → advanced: OOP fundamentals first, then patterns and state
+            machines, concurrency primitives, and finally the hard platform-scale and
+            concurrency-heavy modules.
+          </p>
+        )}
 
         <p className="home-result-count">{filtered.length} module{filtered.length !== 1 ? 's' : ''} found</p>
       </header>
@@ -483,6 +502,9 @@ export default function Home() {
               <h2>{item.title}</h2>
               <p>{item.desc}</p>
               <div className="lld-tags">
+                {sortByOrder && (
+                  <span className="lld-tag lld-order-tag">Step {item.order}</span>
+                )}
                 <span className="lld-tag lld-cat-tag" style={{ background: catBg }}>
                   {item.category}
                 </span>

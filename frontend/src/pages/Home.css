@@ -418,3 +418,15 @@
 .lld-diff-tag {
   border: 1px solid transparent;
 }
+
+.lld-order-tag {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.learn-order-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: -8px 0 12px;
+}
