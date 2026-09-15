@@ -19,7 +19,7 @@ function homeTargets() {
   return [...new Set([...mapped, ...keyed])];
 }
 
-const cards = [...homeSrc.matchAll(/\{\s*title:\s*'([^']+)',\s*icon:/g)].map((m) => m[1]);
+const cards = [...homeSrc.matchAll(/\{\s*title:\s*'([^']+)',(?:\s*order:\s*\d+,)?\s*icon:/g)].map((m) => m[1]);
 
 describe('routing', () => {
   it('parses routes and home cards', () => {
@@ -76,5 +76,14 @@ describe('routing', () => {
     const paths = routes.map((r) => r.path);
     const dupes = paths.filter((p, i) => paths.indexOf(p) !== i);
     expect(dupes).toEqual([]);
+  });
+
+  // Powers the "suggested learning order" sort on the home page — every card needs a
+  // position, and a duplicate or gap would put two modules at the same step or skip one.
+  it('gives every card a unique suggested-learning-order position covering 1..N', () => {
+    const orders = [...homeSrc.matchAll(/\{\s*title:\s*'[^']+',\s*order:\s*(\d+),/g)].map((m) => Number(m[1]));
+    expect(orders.length).toBe(cards.length);
+    const sorted = [...orders].sort((a, b) => a - b);
+    expect(sorted).toEqual(Array.from({ length: cards.length }, (_, i) => i + 1));
   });
 });
