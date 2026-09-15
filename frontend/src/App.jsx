@@ -97,7 +97,7 @@ const LLD_ROUTES = [
 
 function Layout({ children }) {
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div style={{
         position: 'fixed', top: 12, right: 12, zIndex: 1000,
         display: 'flex', gap: 8, alignItems: 'center',
@@ -127,7 +127,17 @@ function Layout({ children }) {
         </a>
         <ThemeToggle />
       </div>
-      {children}
+      <div style={{ flex: 1 }}>
+        {children}
+      </div>
+      <footer style={{
+        textAlign: 'center',
+        padding: '24px 16px',
+        fontSize: 13,
+        color: 'var(--text-muted)',
+      }}>
+        Developed by Prem Duvvapu
+      </footer>
     </div>
   )
 }
