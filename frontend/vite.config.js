@@ -14,9 +14,15 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     test: {
-      // Per-file `// @vitest-environment jsdom` opts component tests into a DOM; the
+      // Per-file `// @vitest-environment happy-dom` opts component tests into a DOM; the
       // source-scanning suites stay on the faster node environment.
       setupFiles: ['./vitest.setup.js'],
+      // React Testing Library registers its own afterEach(cleanup) only when a global
+      // `afterEach` exists. Without this, every render leaked into the next test's DOM —
+      // and calling cleanup() from the setup file did NOT fix it, because the setup file
+      // resolves its own instance of RTL whose container registry is a different object
+      // from the one the test files populate. Verified with a two-test probe.
+      globals: true,
     },
     define: {
       // Lets client-side code (error banners) report the *actual* configured

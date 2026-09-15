@@ -12,11 +12,6 @@
       "count": 1
     }
   },
-  "src/components/WebsiteTour.jsx": {
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/components/design/EntitiesTab.jsx": {
     "jsx-a11y/click-events-have-key-events": {
       "count": 1

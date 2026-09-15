@@ -58,7 +58,9 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
           <span>/</span>
           <span>{title}</span>
         </div>
-        <GithubSourceLinks module={module} />
+        <span data-tour="source-links">
+          <GithubSourceLinks module={module} />
+        </span>
       </nav>
 
       <header className="lld-page-header">
@@ -75,6 +77,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
                 aria-selected={tab === tabId}
                 className={tab === tabId ? 'active' : ''}
                 onClick={() => setTab(tabId)}
+                data-tour={`tab-${tabId}`}
               >
                 {label}
               </button>
