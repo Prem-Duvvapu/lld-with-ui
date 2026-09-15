@@ -6,8 +6,7 @@
 // Dependency Injection) -- those don't discriminate anything, so including them would make every
 // filter match nearly every module. A module with an empty array here (course-registration,
 // library, shopping-cart, stock-brokerage) genuinely has no standout GoF pattern in its own
-// design doc -- that's accurate, not a bug; see AUDIT.md for the modules already flagged as
-// weaker on this exact criterion.
+// design doc -- that's accurate, not a bug.
 //
 // Regenerate by re-running the extraction if a module's designPatterns array changes.
 
