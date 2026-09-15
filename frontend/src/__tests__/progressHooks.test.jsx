@@ -14,9 +14,9 @@ import { buildProgressExport, importProgress } from '../utils/progressData';
  * backend copy to fall back on, so a bug in these five modules silently destroys the
  * only record of someone's progress.
  *
- * None of them had a single test before this file (PROJECT_AUDIT.md Q1), including
- * useProgress's migration, which rewrites every existing user's stored format the first
- * time they load the page after deploy.
+ * None of them had a single test before this file, including useProgress's migration,
+ * which rewrites every existing user's stored format the first time they load the page
+ * after deploy.
  */
 beforeEach(() => {
   localStorage.clear();

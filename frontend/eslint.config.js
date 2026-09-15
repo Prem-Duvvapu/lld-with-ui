@@ -6,7 +6,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 /**
- * 67k lines of JavaScript previously had no linter of any kind (PROJECT_AUDIT.md F3).
+ * 67k lines of JavaScript previously had no linter of any kind.
  *
  * `react-hooks/exhaustive-deps` is the rule that earns its keep here: much of this app
  * is polling effects, and a stale closure in one is invisible until the UI quietly stops

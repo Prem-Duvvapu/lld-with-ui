@@ -13,7 +13,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # full suite — 2252 tests, 273 classes
+mvn test                                  # full suite — 2286 tests, 277 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -21,7 +21,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # full suite — 394 tests, 3 files
+npx vitest run                            # full suite — 439 tests, 9 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -129,7 +129,7 @@ around it:
 
 - `config/DomainExceptionContractTest` — every concrete `DomainException` declares
   `@ResponseStatus`, and none maps to 5xx.
-- `config/GlobalExceptionHandlerTest` — all 23 exception→status mappings, explicitly.
+- `config/GlobalExceptionHandlerTest` — all 54 exception→status mappings, explicitly.
 - `config/ErrorContractIntegrationTest` — real MockMvc requests, proving the advice is registered
   and framework routing is untouched.
 - `__tests__/designDataCoverage.test.js` — every id any page requests resolves; no duplicate barrel
