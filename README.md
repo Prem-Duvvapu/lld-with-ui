@@ -242,7 +242,7 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 
 ```bash
 cd backend  && mvn test        # 2286 tests across 277 classes
-cd frontend && npx vitest run  # 439 tests across 9 files
+cd frontend && npx vitest run  # 444 tests across 10 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
