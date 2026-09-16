@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const appSrc = fs.readFileSync(path.join(SRC, 'App.jsx'), 'utf8');
-const homeSrc = fs.readFileSync(path.join(SRC, 'pages', 'Home.jsx'), 'utf8');
+const catalogSrc = fs.readFileSync(path.join(SRC, 'data', 'moduleCatalog.js'), 'utf8');
 
 const routes = [...appSrc.matchAll(/\{\s*path:\s*'([^']+)',\s*title:\s*'[^']*',\s*module:\s*'([^']+)'\s*\}/g)].map(
   (m) => ({ path: m[1], module: m[2] }),
@@ -13,13 +13,13 @@ const routes = [...appSrc.matchAll(/\{\s*path:\s*'([^']+)',\s*title:\s*'[^']*',\
 
 /** Every destination a home-page card can navigate to: routeMap values plus per-item `key` overrides. */
 function homeTargets() {
-  const routeMapBlock = homeSrc.slice(homeSrc.indexOf('const routeMap'), homeSrc.indexOf('export default function Home'));
+  const routeMapBlock = catalogSrc.slice(catalogSrc.indexOf('export const routeMap'), catalogSrc.indexOf('export function itemPath'));
   const mapped = [...routeMapBlock.matchAll(/'[^']+':\s*'([a-z0-9-]+)'/g)].map((m) => m[1]);
-  const keyed = [...homeSrc.matchAll(/key:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]);
+  const keyed = [...catalogSrc.matchAll(/key:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]);
   return [...new Set([...mapped, ...keyed])];
 }
 
-const cards = [...homeSrc.matchAll(/\{\s*title:\s*'([^']+)',(?:\s*order:\s*\d+,)?\s*icon:/g)].map((m) => m[1]);
+const cards = [...catalogSrc.matchAll(/\{\s*title:\s*'([^']+)',(?:\s*order:\s*\d+,)?\s*icon:/g)].map((m) => m[1]);
 
 describe('routing', () => {
   it('parses routes and home cards', () => {
@@ -38,11 +38,11 @@ describe('routing', () => {
 
   // A card with neither a routeMap entry nor an inline `key` renders <Link to="/undefined">.
   it('every card has a link target', () => {
-    const routeMapBlock = homeSrc.slice(homeSrc.indexOf('const routeMap'), homeSrc.indexOf('export default function Home'));
+    const routeMapBlock = catalogSrc.slice(catalogSrc.indexOf('export const routeMap'), catalogSrc.indexOf('export function itemPath'));
     const missing = cards.filter((title) => {
       if (routeMapBlock.includes(`'${title}':`)) return false;
-      const start = homeSrc.indexOf(`title: '${title}'`);
-      const block = homeSrc.slice(start, homeSrc.indexOf('},', start));
+      const start = catalogSrc.indexOf(`title: '${title}'`);
+      const block = catalogSrc.slice(start, catalogSrc.indexOf('},', start));
       return !/key:\s*'/.test(block);
     });
     expect(missing).toEqual([]);
@@ -78,12 +78,26 @@ describe('routing', () => {
     expect(dupes).toEqual([]);
   });
 
-  // Powers the "suggested learning order" sort on the home page — every card needs a
-  // position, and a duplicate or gap would put two modules at the same step or skip one.
+  // Powers the "suggested learning order" sort on the home page and the Learning Path
+  // page — every card needs a position, and a duplicate or gap would put two modules at
+  // the same step or skip one.
   it('gives every card a unique suggested-learning-order position covering 1..N', () => {
-    const orders = [...homeSrc.matchAll(/\{\s*title:\s*'[^']+',\s*order:\s*(\d+),/g)].map((m) => Number(m[1]));
+    const orders = [...catalogSrc.matchAll(/\{\s*title:\s*'[^']+',\s*order:\s*(\d+),/g)].map((m) => Number(m[1]));
     expect(orders.length).toBe(cards.length);
     const sorted = [...orders].sort((a, b) => a - b);
+    expect(sorted).toEqual(Array.from({ length: cards.length }, (_, i) => i + 1));
+  });
+
+  // LEARNING_PHASES must partition 1..60 with no gaps, no overlaps and no duplicate
+  // module across two phases -- LearningPath.jsx trusts this to group every card exactly once.
+  it('learning phases form a contiguous, non-overlapping partition of 1..60', () => {
+    const ranges = [...catalogSrc.matchAll(/range:\s*\[(\d+),\s*(\d+)\]/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    expect(ranges.length).toBeGreaterThan(0);
+    const covered = [];
+    for (const [start, end] of ranges) {
+      for (let n = start; n <= end; n++) covered.push(n);
+    }
+    const sorted = [...covered].sort((a, b) => a - b);
     expect(sorted).toEqual(Array.from({ length: cards.length }, (_, i) => i + 1));
   });
 });
