@@ -211,6 +211,9 @@ export default function Home() {
   const [unreviewedOnly, setUnreviewedOnly] = useState(false)
   const [revisitOnly, setRevisitOnly] = useState(false)
   const [sortByOrder, setSortByOrder] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [progressOpen, setProgressOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const { toggle: toggleReviewed, isReviewed, reviewedAt, count: reviewedCount } = useProgress()
   const { toggleRevisit, isRevisit } = useRevisit()
   const { startTour } = useSiteTour()
@@ -219,6 +222,7 @@ export default function Home() {
   const searchInputRef = useRef(null)
   const fileInputRef = useRef(null)
   const cardRefs = useRef([])
+  const menuRef = useRef(null)
 
   const filtered = useMemo(() => {
     const result = ALL_LLDS.filter(item => {
@@ -241,6 +245,9 @@ export default function Home() {
   }, [filtered])
 
   const progressPct = ALL_LLDS.length > 0 ? Math.round((reviewedCount / ALL_LLDS.length) * 100) : 0
+
+  const activeFilterCount = [pattern !== 'All', unreviewedOnly, revisitOnly, sortByOrder]
+    .filter(Boolean).length
 
   const categoryStats = useMemo(() => {
     const stats = {}
@@ -313,6 +320,16 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  // Close the actions menu on an outside click, same as any dropdown.
+  useEffect(() => {
+    if (!menuOpen) return undefined
+    const onClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [menuOpen])
+
   return (
     <div className="home">
       <header className="home-header">
@@ -321,16 +338,33 @@ export default function Home() {
             <h1>Low Level Design Patterns</h1>
             <p className="home-subtitle">60 interactive modules — each with a live UI, class diagram, and working Java backend</p>
           </div>
-          <div className="home-actions">
-            <button type="button" className="home-action-btn" onClick={handleSurpriseMe}>
-              🎲 Surprise me
+          <div className="home-menu" ref={menuRef}>
+            <button
+              type="button"
+              className="menu-toggle"
+              aria-label="More actions"
+              aria-haspopup="true"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen(o => !o)}
+            >
+              ☰
             </button>
-            <button type="button" className="home-action-btn" onClick={downloadProgress}>
-              ⬇️ Export progress
-            </button>
-            <button type="button" className="home-action-btn" onClick={handleImportClick}>
-              ⬆️ Import progress
-            </button>
+            {menuOpen && (
+              <div className="home-menu-panel" role="menu">
+                <button type="button" className="home-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); handleSurpriseMe() }}>
+                  🎲 Surprise me
+                </button>
+                <button type="button" className="home-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); downloadProgress() }}>
+                  ⬇️ Export progress
+                </button>
+                <button type="button" className="home-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); handleImportClick() }}>
+                  ⬆️ Import progress
+                </button>
+                <button type="button" className="home-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); startTour() }}>
+                  🧭 Take a tour
+                </button>
+              </div>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -338,9 +372,6 @@ export default function Home() {
               onChange={handleImportFile}
               hidden
             />
-            <button type="button" className="home-action-btn" onClick={startTour}>
-              🧭 Take a tour
-            </button>
           </div>
         </div>
 
@@ -349,30 +380,37 @@ export default function Home() {
         )}
 
         <div className="progress-summary" data-tour="progress">
-          <div className="progress-summary-label">
+          <button
+            type="button"
+            className="progress-summary-label progress-toggle"
+            aria-expanded={progressOpen}
+            onClick={() => setProgressOpen(o => !o)}
+          >
             <span>📈 Your progress</span>
-            <span>{reviewedCount} / {ALL_LLDS.length} reviewed</span>
-          </div>
+            <span>{reviewedCount} / {ALL_LLDS.length} reviewed {progressOpen ? '▲' : '▾'}</span>
+          </button>
           <div className="progress-track">
             <div className="progress-fill" style={{ width: `${progressPct}%` }} />
           </div>
-          <div className="category-breakdown">
-            {Object.keys(CAT_COLORS).filter(cat => categoryStats[cat]).map(cat => {
-              const stat = categoryStats[cat]
-              const pct = stat.total > 0 ? Math.round((stat.reviewed / stat.total) * 100) : 0
-              return (
-                <div key={cat} className="category-stat">
-                  <div className="category-stat-label">
-                    <span>{cat}</span>
-                    <span>{stat.reviewed}/{stat.total}</span>
+          {progressOpen && (
+            <div className="category-breakdown">
+              {Object.keys(CAT_COLORS).filter(cat => categoryStats[cat]).map(cat => {
+                const stat = categoryStats[cat]
+                const pct = stat.total > 0 ? Math.round((stat.reviewed / stat.total) * 100) : 0
+                return (
+                  <div key={cat} className="category-stat">
+                    <div className="category-stat-label">
+                      <span>{cat}</span>
+                      <span>{stat.reviewed}/{stat.total}</span>
+                    </div>
+                    <div className="category-stat-track">
+                      <div className="category-stat-fill" style={{ width: `${pct}%`, background: CAT_FILL_COLORS[cat] }} />
+                    </div>
                   </div>
-                  <div className="category-stat-track">
-                    <div className="category-stat-fill" style={{ width: `${pct}%`, background: CAT_FILL_COLORS[cat] }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         <div className="home-controls">
@@ -412,44 +450,58 @@ export default function Home() {
             })}
           </div>
 
-          <select
-            className="pattern-select"
-            data-tour="pattern"
-            value={pattern}
-            onChange={e => setPattern(e.target.value)}
-            aria-label="Filter by design pattern"
+          <button
+            type="button"
+            className={`filters-toggle${activeFilterCount > 0 ? ' has-active' : ''}`}
+            data-tour="filters-toggle"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen(o => !o)}
           >
-            <option value="All">All patterns</option>
-            {ALL_DESIGN_PATTERNS.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-
-          <label className="unreviewed-toggle" data-tour="unreviewed">
-            <input
-              type="checkbox"
-              checked={unreviewedOnly}
-              onChange={e => setUnreviewedOnly(e.target.checked)}
-            />
-            Show only what's left to review
-          </label>
-
-          <label className="unreviewed-toggle">
-            <input
-              type="checkbox"
-              checked={revisitOnly}
-              onChange={e => setRevisitOnly(e.target.checked)}
-            />
-            🔖 Flagged for revisit only
-          </label>
-
-          <label className="unreviewed-toggle">
-            <input
-              type="checkbox"
-              checked={sortByOrder}
-              onChange={e => setSortByOrder(e.target.checked)}
-            />
-            📚 Suggested learning order
-          </label>
+            ⚙️ Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          </button>
         </div>
+
+        {filtersOpen && (
+          <div className="filters-panel">
+            <select
+              className="pattern-select"
+              data-tour="pattern"
+              value={pattern}
+              onChange={e => setPattern(e.target.value)}
+              aria-label="Filter by design pattern"
+            >
+              <option value="All">All patterns</option>
+              {ALL_DESIGN_PATTERNS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+
+            <label className="unreviewed-toggle" data-tour="unreviewed">
+              <input
+                type="checkbox"
+                checked={unreviewedOnly}
+                onChange={e => setUnreviewedOnly(e.target.checked)}
+              />
+              Show only what's left to review
+            </label>
+
+            <label className="unreviewed-toggle">
+              <input
+                type="checkbox"
+                checked={revisitOnly}
+                onChange={e => setRevisitOnly(e.target.checked)}
+              />
+              🔖 Flagged for revisit only
+            </label>
+
+            <label className="unreviewed-toggle">
+              <input
+                type="checkbox"
+                checked={sortByOrder}
+                onChange={e => setSortByOrder(e.target.checked)}
+              />
+              📚 Suggested learning order
+            </label>
+          </div>
+        )}
 
         {sortByOrder && (
           <p className="learn-order-hint">

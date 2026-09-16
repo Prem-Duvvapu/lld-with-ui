@@ -42,12 +42,13 @@ export const TOUR_STEPS = [
   {
     selector: '[data-tour="pattern"]',
     title: 'Filter by design pattern',
-    body: 'Drilling Strategy or Observer today? Pick a GoF pattern and the grid filters to the modules that genuinely use it.',
+    body: 'Drilling Strategy or Observer today? Open ⚙️ Filters and pick a GoF pattern — the grid narrows to the modules that genuinely use it.',
+    prepare: () => clickWhenReady('[data-tour="filters-toggle"]'),
   },
   {
     selector: '[data-tour="progress"]',
     title: 'Track what you have covered',
-    body: "Mark a module reviewed with the checkmark on its card, flag one with 🔖 to come back to, and use the toggles below to show only what's left. It's all saved in this browser, and exportable to a file.",
+    body: "Mark a module reviewed with the checkmark on its card, flag one with 🔖 to come back to, and use the toggles in ⚙️ Filters to show only what's left. It's all saved in this browser, and exportable to a file.",
   },
 
   // ---- into a module -------------------------------------------------------
@@ -98,6 +99,6 @@ export const TOUR_STEPS = [
   {
     selector: null,
     title: "That's the tour",
-    body: 'Pick a module and try it attempt-first — that is what the site is for. Replay this anytime from "Take a tour" on the home page.',
+    body: 'Pick a module and try it attempt-first — that is what the site is for. Replay this anytime from ☰ → "Take a tour" on the home page.',
   },
 ];
