@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import ThemeToggle from './components/ThemeToggle'
 import Skeleton from './components/ui/Skeleton'
 import BackendStatusBanner from './components/BackendStatusBanner'
+import { GITHUB_REPO_URL } from './data/moduleSourceLinks'
 
 // Lazy on purpose: an eager glob put all 45 module pages in the entry chunk, so
 // every visitor downloaded ~1.5 MB to look at one of them. Each page is now its
@@ -131,12 +132,32 @@ function Layout({ children }) {
         {children}
       </div>
       <footer style={{
-        textAlign: 'center',
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 10,
         padding: '24px 16px',
         fontSize: 13,
         color: 'var(--text-muted)',
       }}>
-        Developed by Prem Duvvapu
+        <span>Developed by Prem Duvvapu</span>
+        <span aria-hidden="true">·</span>
+        <a
+          href={`${GITHUB_REPO_URL}/issues/new?labels=bug&title=%5BBug%5D%20`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          🐛 Report a bug
+        </a>
+        <span aria-hidden="true">·</span>
+        <a
+          href={`${GITHUB_REPO_URL}/issues/new?labels=feedback&title=%5BFeedback%5D%20`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          💬 Give feedback
+        </a>
       </footer>
     </div>
   )
