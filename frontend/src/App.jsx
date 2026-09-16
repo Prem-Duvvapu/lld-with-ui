@@ -6,6 +6,9 @@ import Skeleton from './components/ui/Skeleton'
 import BackendStatusBanner from './components/BackendStatusBanner'
 import { GITHUB_REPO_URL } from './data/moduleSourceLinks'
 
+// Lazy like every module page: a visitor who never opens it shouldn't pay for it.
+const LearningPath = lazy(() => import('./pages/LearningPath'))
+
 // Lazy on purpose: an eager glob put all 45 module pages in the entry chunk, so
 // every visitor downloaded ~1.5 MB to look at one of them. Each page is now its
 // own chunk, fetched when its route is first visited.
@@ -236,6 +239,7 @@ export default function App() {
       <Suspense fallback={<PageLoading />}>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/learning-path" element={<LearningPath />} />
           {routes.map(({ path, Page }) => (
             <Route key={path} path={`/${path}`} element={<Page />} />
           ))}
