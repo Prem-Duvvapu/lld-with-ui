@@ -2040,15 +2040,15 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2225 tests, 268 classes
-cd frontend && npx vitest run # 388 tests, 3 files
+cd backend && mvn test        # 2286 tests, 277 classes
+cd frontend && npx vitest run # 439 tests, 9 files
 ```
 
 ### Cross-cutting suites — keep these green
 | Suite | Guards |
 |---|---|
 | `config/DomainExceptionContractTest` | Every concrete `DomainException` declares `@ResponseStatus`, and none maps to a 5xx. A new exception cannot silently become a 500. |
-| `config/GlobalExceptionHandlerTest` | All 23 exception→status mappings, explicitly. Changing a documented status is now a visible edit. |
+| `config/GlobalExceptionHandlerTest` | All 54 exception→status mappings, explicitly. Changing a documented status is now a visible edit. |
 | `config/ErrorContractIntegrationTest` | Drives real MockMvc requests, proving the advice is registered and that framework routing is untouched. |
 | `config/ErrorResponseTest` | Null/blank-message safety, including an assertion that the old `Map.of` idiom throws. |
 | `__tests__/designDataCoverage.test.js` | Every module id any page requests resolves to design data and a diagram; entry shape; no duplicate barrel keys; no dangling diagram edges. |
