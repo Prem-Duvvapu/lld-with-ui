@@ -206,3 +206,17 @@ a:hover {
 @media (prefers-reduced-motion: reduce) {
   .module-data-spinner { animation-duration: 2s; }
 }
+
+/* Two-panel "main + sidebar" dashboard grids (coffeemachine, vendingmachine, tictactoe,
+   movieticket, zomato) hardcode a fixed-px or minmax() floor per column, which is correct
+   for a desktop layout but forces the page wider than the viewport on a phone instead of
+   stacking. The desktop column ratio stays fully inline-controlled (it varies per usage);
+   this only overrides it below 900px, same breakpoint AtmPage.css already uses for its own
+   two-column layouts. `!important` is required because a plain class rule can't outrank the
+   inline `gridTemplateColumns`. `minmax(0, 1fr)` rather than plain `1fr`: a bare `1fr`
+   track's minimum size still defaults to `auto` (its content's min-content width), so a
+   child wide enough -- a seat map, a card row -- keeps the "single column" exactly as wide
+   as it was; minmax(0, ...) is what actually lets the track shrink below that. */
+@media (max-width: 900px) {
+  .responsive-two-col-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}

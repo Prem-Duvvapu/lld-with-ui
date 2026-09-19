@@ -131,7 +131,7 @@ function Layout({ children }) {
         </a>
         <ThemeToggle />
       </div>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {children}
       </div>
       <footer style={{

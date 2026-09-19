@@ -245,7 +245,7 @@ function OrderBaristaTab() {
   const isDispensed = status?.stateName === 'DISPENSED';
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1.3fr) minmax(320px, 1fr)', gap: 24, alignItems: 'start' }}>
+    <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(400px, 1.3fr) minmax(320px, 1fr)', gap: 24, alignItems: 'start' }}>
       {/* LEFT: ARTISAN MENU & DECORATOR BUILDER */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* Base Coffee Menu */}
@@ -789,7 +789,7 @@ function ConcurrencySimulationTab() {
       )}
 
       {/* 2D Concurrency Stage & Event HUD */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1.2fr) minmax(320px, 1fr)', gap: 20 }}>
+      <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1.2fr) minmax(320px, 1fr)', gap: 20 }}>
         {/* Visual Stage */}
         <div style={{ background: 'linear-gradient(135deg, #180d2b, #1e1b4b)', borderRadius: 16, padding: 20, border: '2px solid #3730a3', minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div style={{ background: '#090514', padding: 12, borderRadius: 10, border: '1px solid #2e1065', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
