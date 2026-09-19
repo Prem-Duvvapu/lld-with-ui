@@ -23,6 +23,14 @@ export function waitForSelector(selector, timeoutMs = DEFAULT_TIMEOUT_MS) {
 
     const startedAt = Date.now();
     const timer = setInterval(() => {
+      // A poll tick can land after the page (or, in tests, the DOM environment) has
+      // already been torn down -- a slow tab close, a test file finishing before this
+      // step's timeout elapses. `document` gone means there's nothing left to find.
+      if (typeof document === 'undefined') {
+        clearInterval(timer);
+        resolve(null);
+        return;
+      }
       const el = document.querySelector(selector);
       if (el) {
         clearInterval(timer);

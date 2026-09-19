@@ -279,7 +279,7 @@ export default function ZomatoPage() {
             <>
               {/* TAB 1: FOOD ORDERING (CUSTOMER VIEW) */}
               {tab === 'browse' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
+                <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px' }}>
                   {/* Left Column: Restaurants & Menu */}
                   <div>
                     {/* Customer Profile Selector */}
@@ -293,6 +293,8 @@ export default function ZomatoPage() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
                       boxShadow: 'var(--shadow-sm)'
                     }}>
                       <div>
@@ -717,7 +719,7 @@ export default function ZomatoPage() {
 
               {/* TAB 2: RESTAURANT MANAGER DASHBOARD */}
               {tab === 'restaurant' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
+                <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
                   {/* Left Column: Menu Management */}
                   <div style={{
                     background: 'var(--bg-card)',
@@ -853,7 +855,7 @@ export default function ZomatoPage() {
 
               {/* TAB 3: DELIVERY PARTNER DASHBOARD */}
               {tab === 'driver' && (
-                <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
+                <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
                   {/* Agent Selector & Availability */}
                   <div style={{
                     background: 'var(--bg-card)',

@@ -222,7 +222,7 @@ function TicTacToeSimulation() {
       </div>
 
       {/* Board + HUD */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+      <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
         {/* Game Board Preview */}
         <div style={{
           background: '#0f172a',
@@ -366,7 +366,7 @@ export default function TicTacToePage() {
         <>
           {/* ── TAB 1: GAME BOARD ─────────────────────────────────────────── */}
           {tab === 'board' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24 }}>
+            <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24 }}>
               {/* Left: Board */}
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderTop: '4px solid #6366f1', borderRadius: 'var(--radius-lg)', padding: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
                 <h3 style={{ fontWeight: 800, fontSize: 'var(--font-lg)', margin: 0 }}>

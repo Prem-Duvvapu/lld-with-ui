@@ -257,7 +257,7 @@ function MachineHardwareTab() {
     currentTxn && currentTxn.insertedAmount >= currentTxn.itemPrice && currentTxn.itemPrice > 0;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(420px, 1.4fr) minmax(320px, 1fr)', gap: 24, alignItems: 'start' }}>
+    <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(420px, 1.4fr) minmax(320px, 1fr)', gap: 24, alignItems: 'start' }}>
       {/* LEFT: PHYSICAL VENDING MACHINE CABINET */}
       <div
         style={{
@@ -942,7 +942,7 @@ function SimulationTab() {
       )}
 
       {/* 2D Interactive Stage & Telemetry Log */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1.2fr) minmax(320px, 1fr)', gap: 20 }}>
+      <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(380px, 1.2fr) minmax(320px, 1fr)', gap: 20 }}>
         {/* Visual 2D Machine State Canvas */}
         <div
           style={{

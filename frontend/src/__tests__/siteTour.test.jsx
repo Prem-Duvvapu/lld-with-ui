@@ -8,6 +8,7 @@ import { TOUR_STEPS, TOUR_MODULE } from '../components/tour/tourSteps';
 import { waitForSelector, clickWhenReady } from '../components/tour/waitForSelector';
 import { useReveal } from '../hooks/useReveal';
 import { renderHook } from '@testing-library/react';
+import { SiteTourProvider } from '../context/SiteTourContext';
 
 beforeEach(() => {
   localStorage.clear();
@@ -184,5 +185,50 @@ describe('WebsiteTour across routes', () => {
     await waitFor(() => expect(screen.getByText('Done')).toBeDefined());
     fireEvent.click(screen.getByText('Done'));
     expect(onFinish).toHaveBeenCalled();
+  });
+});
+
+describe('SiteTourProvider — auto-open on first visit', () => {
+  it('does not auto-open (and so cannot navigate away) when a first-time visitor lands directly on a module route', async () => {
+    // The welcome step's own `prepare` unconditionally navigates to "/" -- if the
+    // provider auto-opened here too, a first-time visitor's direct/shared link to any
+    // module page would get yanked back to Home before they saw what they came for.
+    render(
+      <MemoryRouter initialEntries={['/elevator']}>
+        <LocationProbe />
+        <Routes>
+          <Route path="/elevator" element={<div>elevator page</div>} />
+          <Route path="/" element={<div>home page</div>} />
+        </Routes>
+        <SiteTourProvider>
+          <span />
+        </SiteTourProvider>
+      </MemoryRouter>,
+    );
+
+    // Give the provider's 500ms auto-open timer a chance to fire if it were going to.
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    expect(screen.getByTestId('path').textContent).toBe('/elevator');
+    expect(screen.queryByText('👋 Welcome to the LLD portfolio')).toBeNull();
+  });
+
+  it('still auto-opens for a first-time visitor who lands on the home route', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <LocationProbe />
+        <Routes>
+          <Route path="/" element={<div>home page</div>} />
+        </Routes>
+        <SiteTourProvider>
+          <span />
+        </SiteTourProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(
+      () => expect(screen.getByText('👋 Welcome to the LLD portfolio')).toBeDefined(),
+      { timeout: 2000 },
+    );
   });
 });

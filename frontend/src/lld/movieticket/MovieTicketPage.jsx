@@ -284,7 +284,7 @@ export default function MovieTicketPage() {
       )}
 
       {/* Header */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <Link to="/" style={{ color: '#8b5cf6', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>← Back to Portfolio</Link>
           <h1 style={{ fontSize: 32, fontWeight: 800, margin: '4px 0', background: 'linear-gradient(90deg, #a78bfa, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
@@ -311,7 +311,7 @@ export default function MovieTicketPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', gap: 8, borderBottom: '1px solid var(--border-primary)', paddingBottom: 12 }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', gap: 8, borderBottom: '1px solid var(--border-primary)', paddingBottom: 12, overflowX: 'auto' }}>
         {[
           { id: 'booking', label: '🎬 Movies & Booking' },
           { id: 'history', label: '📊 Booking History' },
@@ -647,7 +647,7 @@ export default function MovieTicketPage() {
             </div>
 
             {/* Stage Grid & Event Timeline Layout */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
+            <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
               {/* Left: Theatre Seat Canvas */}
               <div style={{ background: 'var(--bg-primary)', borderRadius: 16, padding: 24, border: '1px solid var(--border-primary)' }}>
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
