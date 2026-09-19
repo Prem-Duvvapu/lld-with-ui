@@ -415,7 +415,7 @@ export default function LinkedInPage() {
         {/* TAB 1: PROFILE & NETWORK */}
         {/* =================================================================== */}
         {activeTab === 'network' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
+          <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
             {/* Left Column: Current User Profile Card */}
             <div>
               {currentUser && (
@@ -756,7 +756,7 @@ export default function LinkedInPage() {
         {/* TAB 3: MESSAGING */}
         {/* =================================================================== */}
         {activeTab === 'messages' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20, height: 600, background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+          <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 20, height: 600, background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
             {/* Left: Connected Contacts List */}
             <div style={{ borderRight: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: 16, borderBottom: '1px solid var(--border-primary)', fontWeight: 800, fontSize: 14 }}>

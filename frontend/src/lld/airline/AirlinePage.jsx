@@ -454,7 +454,7 @@ export default function AirlinePage() {
         {activeTab === 'flights' && (
           <div>
             {/* Search Bar */}
-            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 24, background: 'var(--bg-secondary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-primary)' }}>
+            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 24, background: 'var(--bg-secondary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
               <input
                 type="text"
                 placeholder="From (e.g. DEL)"
@@ -474,7 +474,7 @@ export default function AirlinePage() {
               </button>
             </form>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
+            <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
               {/* Flight List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Available Flights</div>
@@ -907,7 +907,7 @@ export default function AirlinePage() {
               </div>
 
               {/* 2D Aircraft Cabin Visualizer & Log */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+              <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 {/* Aircraft Cabin */}
                 <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
