@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import LldPage from '../../components/LldPage';
+import SimulationControls from '../../components/SimulationControls';
+import { useSimulationPlayback } from '../../hooks/useSimulationPlayback';
 import { createGame, makeMove, undoMove, resetGame, simReset, simMove, simUndo } from './api';
 
 // ── Simulation steps ─────────────────────────────────────────────────────────
 
 const SIM_STEPS = [
-  { title: '1. Create Match',   desc: 'POST /api/tictactoe/games — initialize new 3×3 board, assign X to Alice, O to Bob.' },
-  { title: '2. Alice plays X',  desc: 'POST /api/tictactoe/games/{id}/move — Alice places X at [0,0] (top-left corner).' },
-  { title: '3. Bob plays O',    desc: 'POST /api/tictactoe/games/{id}/move — Bob plays O at [1,1] (center cell).' },
+  { title: '1. Create Match',   desc: 'Reset the isolated /api/tictactoe/sim sandbox and create an Alice-vs-Bob match.' },
+  { title: '2. Alice plays X',  desc: 'POST /api/tictactoe/sim/move — Alice places X at [0,0] (top-left corner).' },
+  { title: '3. Bob plays O',    desc: 'POST /api/tictactoe/sim/move — Bob plays O at [1,1] (center cell).' },
   { title: '4. Alice plays X',  desc: 'Alice occupies [0,1] building a threat across the top row.' },
   { title: '5. Bob plays O',    desc: 'Bob blocks at [2,2] — diagonal corner strategy.' },
   { title: '6. Alice wins!',    desc: 'Alice completes [0,0]→[0,1]→[0,2]. Win line detected. Game ends.' },
-  { title: '7. Undo move',      desc: 'POST /api/tictactoe/games/{id}/undo — removes Alice\'s last move, game resumes.' },
-  { title: '8. Reset board',    desc: 'POST /api/tictactoe/games/{id}/reset — board cleared, ready for next match.' },
+  { title: '7. Undo move',      desc: 'POST /api/tictactoe/sim/undo — removes Alice\'s last move, game resumes.' },
+  { title: '8. Reset board',    desc: 'POST /api/tictactoe/sim/reset — sandbox board cleared, ready for next match.' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -101,75 +103,24 @@ function GameGrid({ board, game, onCellClick }) {
 // ── Interactive 2-D Simulation ───────────────────────────────────────────────
 
 function TicTacToeSimulation() {
-  const [step, setStep] = useState(0);
-  const [simGame, setSimGame] = useState(null);
   const [logs, setLogs] = useState([]);
-
-  const log = (msg) => setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 6)]);
-
-  // Every step below drives the isolated /api/tictactoe/sim/* engine — a completely separate
-  // in-memory game from the "Game Board" tab, so replaying the demo can never corrupt a real match.
-  const runStep = async (idx) => {
-    try {
-      if (idx === 0) {
-        log('POST /api/tictactoe/sim/reset');
-        const g = await simReset();
-        setSimGame(g);
-        log(`✅ Sim match #${g.id} created. X=${g.player1.name}, O=${g.player2.name}`);
-      } else if (idx === 1 && simGame) {
-        log('POST …/sim/move — Alice [0,0]');
-        const g = await simMove(0, 0, 'Alice opens the corner');
-        setSimGame(g);
-        log('✅ X placed at [0,0]');
-      } else if (idx === 2 && simGame) {
-        log('POST …/sim/move — Bob [1,1]');
-        const g = await simMove(1, 1, 'Bob takes the center');
-        setSimGame(g);
-        log('✅ O placed at [1,1]');
-      } else if (idx === 3 && simGame) {
-        log('POST …/sim/move — Alice [0,1]');
-        const g = await simMove(0, 1, 'Alice builds the top row');
-        setSimGame(g);
-        log('✅ X placed at [0,1]');
-      } else if (idx === 4 && simGame) {
-        log('POST …/sim/move — Bob [2,2]');
-        const g = await simMove(2, 2, 'Bob blocks the diagonal corner');
-        setSimGame(g);
-        log('✅ O placed at [2,2]');
-      } else if (idx === 5 && simGame) {
-        log('POST …/sim/move — Alice [0,2] (WIN!)');
-        const g = await simMove(0, 2, 'Alice completes the top row');
-        setSimGame(g);
-        log(`🎉 WON! Winner: ${g.winner?.name}. WinLine: [${g.winningLine?.join(',')}]`);
-      } else if (idx === 6 && simGame) {
-        log('POST …/sim/undo');
-        const g = await simUndo();
-        setSimGame(g);
-        log('↩ Last move undone. Game back IN_PROGRESS.');
-      } else if (idx === 7 && simGame) {
-        log('POST …/sim/reset');
-        const g = await simReset();
-        setSimGame(g);
-        log('🔄 Sim board reset. Ready for next match.');
-      }
-    } catch (err) {
-      log(`❌ ${err.message}`);
-    }
-  };
-
-  const handleStart = async () => {
-    setStep(0);
-    setSimGame(null);
-    setLogs([]);
-    await runStep(0);
-  };
-
-  const handleNext = async () => {
-    if (step >= SIM_STEPS.length - 1) return;
-    const next = step + 1;
-    setStep(next);
-    await runStep(next);
-  };
+  const actions = [
+    () => simReset(),
+    () => simMove(0, 0, 'Alice opens the corner'),
+    () => simMove(1, 1, 'Bob takes the center'),
+    () => simMove(0, 1, 'Alice builds the top row'),
+    () => simMove(2, 2, 'Bob blocks the diagonal corner'),
+    () => simMove(0, 2, 'Alice completes the top row'),
+    () => simUndo(),
+    () => simReset(),
+  ];
+  const playback = useSimulationPlayback(SIM_STEPS.length, async (index) => {
+    const message = `[${new Date().toLocaleTimeString()}] Sending: ${SIM_STEPS[index].title}`;
+    setLogs(previous => index === 0 ? [message] : [message, ...previous.slice(0, 6)]);
+    return actions[index]();
+  });
+  const simGame = playback.result;
+  const step = playback.completed;
 
   const board = simGame?.board || Array.from({ length: 3 }, () => Array(3).fill(''));
 
@@ -195,31 +146,7 @@ function TicTacToeSimulation() {
         ))}
       </div>
 
-      {/* Current step card */}
-      <div style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-primary)',
-        borderLeft: '4px solid #6366f1',
-        borderRadius: 'var(--radius-lg)',
-        padding: '16px 20px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
-      }}>
-        <div>
-          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-            Step {step + 1} / {SIM_STEPS.length}
-          </div>
-          <div style={{ fontWeight: 800, marginTop: 2 }}>{SIM_STEPS[step].title}</div>
-          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginTop: 2 }}>{SIM_STEPS[step].desc}</div>
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button onClick={handleStart} style={{ padding: '7px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', background: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-xs)' }}>
-            🔄 Restart
-          </button>
-          <button onClick={handleNext} disabled={step >= SIM_STEPS.length - 1} style={{ padding: '7px 18px', borderRadius: 'var(--radius-sm)', border: 'none', background: step >= SIM_STEPS.length - 1 ? 'var(--bg-secondary)' : '#6366f1', color: step >= SIM_STEPS.length - 1 ? 'var(--text-muted)' : '#fff', cursor: step >= SIM_STEPS.length - 1 ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 'var(--font-xs)' }}>
-            Next ➔
-          </button>
-        </div>
-      </div>
+      <SimulationControls steps={SIM_STEPS} playback={playback} />
 
       {/* Board + HUD */}
       <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import LldPage from '../../components/LldPage';
+import SimulationControls from '../../components/SimulationControls';
+import { useSimulationPlayback } from '../../hooks/useSimulationPlayback';
 import { usePolling } from '../../hooks/usePolling';
 import {
   listPools, submitTask, shutdownPool,
@@ -121,28 +123,19 @@ const STEPS = [
   { title: 'Submit T5', detail: 'Queue full AND workers == max — saturated. AbortPolicy rejects T5.' },
   { title: 'Release Oldest', detail: 'T1 completes. Its worker immediately picks up the queued T3.' },
   { title: 'Shutdown', detail: 'No new tasks accepted. Review the final state.' },
+  { title: 'Summary', detail: 'Fetch the final backend snapshot and review the complete task trace.' },
 ];
 
 function SimulationTab() {
-  const [step, setStep] = useState(0);
-  const [snapshot, setSnapshot] = useState(null);
-  const [error, setError] = useState(null);
-
-  const runStep = async () => {
-    try {
-      let snap;
-      if (step === 0) snap = await simReset();
-      else if (step >= 1 && step <= 5) snap = await simSubmit(step + 1);
-      else if (step === 6) snap = await simRelease(step + 1);
-      else if (step === 7) snap = await simShutdown(step + 1);
-      else snap = await simGetSnapshot();
-      setSnapshot(snap);
-      setError(null);
-      setStep((s) => Math.min(s + 1, STEPS.length - 1));
-    } catch (err) {
-      setError(err?.message || 'Simulation step failed');
-    }
-  };
+  const playback = useSimulationPlayback(STEPS.length, async (index) => {
+    if (index === 0) return simReset();
+    if (index >= 1 && index <= 5) return simSubmit(index + 1);
+    if (index === 6) return simRelease(index + 1);
+    if (index === 7) return simShutdown(index + 1);
+    return simGetSnapshot();
+  });
+  const snapshot = playback.result;
+  const step = playback.completed;
 
   const stats = snapshot?.stats;
   const workerCount = stats?.currentWorkerCount ?? 0;
@@ -159,10 +152,7 @@ function SimulationTab() {
           <div key={i} className={`step-dot ${i < step ? 'done' : i === step ? 'active' : ''}`} />
         ))}
       </div>
-      <div style={{ textAlign: 'center', marginBottom: 12, fontSize: 13, color: 'var(--text-muted)' }}>
-        <b>Step {step + 1}/{STEPS.length}: {STEPS[step].title}</b> — {STEPS[step].detail}
-      </div>
-      {error && <div className="tp-banner err">⚠ {error}</div>}
+      <SimulationControls steps={STEPS} playback={playback} />
 
       <div className="tp-stage">
         <div className="tp-workers">
@@ -185,9 +175,6 @@ function SimulationTab() {
         </div>
       </div>
 
-      <button className="tp-btn" onClick={runStep} disabled={step >= STEPS.length - 1 && snapshot}>
-        {step === 0 ? 'Start Simulation' : step >= STEPS.length - 1 ? 'Done' : 'Next Step →'}
-      </button>
 
       <div className="tp-log" style={{ marginTop: 16 }}>
         {(snapshot?.events ?? []).slice().reverse().map((e) => (

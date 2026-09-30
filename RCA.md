@@ -5974,6 +5974,33 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-071: Simulation Controls Skipped Initialization and Terminal Actions
+
+**Overview & Severity** — Medium, resolved in the first shared playback rollout for Tic Tac
+Toe, Rate Limiter, and Thread Pool. The UI could report progress without executing its steps.
+
+**Symptoms & Error Logs** — Tic Tac Toe's initial Next action incremented past creation
+while its game remained null; failed requests were logged but still advanced the index.
+Rate Limiter disabled its last summary action. Thread Pool disabled its shutdown action
+and had an unreachable snapshot branch. Rapid clicks were not synchronously serialized.
+These were behavioral defects rather than compiler errors.
+
+**Root Cause** — Each module combined displayed-step indices, next-action indices, and
+completion state differently. Button disabling compared an upcoming index with the last
+index rather than counting successful actions. Some indices advanced before awaiting APIs.
+
+**Diagnostic Commands** — Inspect each module's runStep/handleNext implementation; run
+`cd frontend && npx vitest run src/__tests__/simulationPlayback.test.jsx src/__tests__/simulationModules.test.jsx`.
+
+**Step-by-Step Resolution** — Use a shared completed-action counter and synchronous request
+lock. Execute index zero on Start, advance only after success, and run the complete sequence,
+including shutdown and an explicit final snapshot. Stop playback on failure, prevent automatic
+mutation retries, and require reset to recover. Stop timers and ignore late results on unmount.
+
+**Preventative Measures** — Keep progress tied to successful backend responses. Regression
+tests cover rapid clicks, pacing, pause during a request, failure/reset, unmount, and full module
+API sequences. Do not apply linear autoplay to branching flows without adapting their semantics.
+
 ## RCA-070: Module Tab Semantics Did Not Match Keyboard Navigation
 
 **Overview & Severity** — Medium, resolved in the navigation-memory update. The shared module
