@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import sequenceDiagrams from '../data/sequenceDiagrams';
 import { useModuleData } from '../hooks/useModuleData';
 import ModuleDataState from './ModuleDataState';
+import DiagramViewer from './DiagramViewer';
 
 const COL_WIDTH = 190;
 const ROW_HEIGHT = 54;
@@ -16,12 +17,13 @@ export default function SequenceDiagram({ module, customData }) {
   const flows = data?.flows || [];
   const [flowIdx, setFlowIdx] = useState(0);
   const [hoveredStep, setHoveredStep] = useState(null);
+  const markerId = useId();
 
   if (status !== 'ready' || flows.length === 0) {
     return <ModuleDataState status={status === 'ready' ? 'missing' : status} label="Sequence diagram" />;
   }
 
-  const flow = flows[flowIdx];
+  const flow = flows[flowIdx] || flows[0];
   const participants = flow.participants || [];
   const steps = flow.steps || [];
 
@@ -56,7 +58,7 @@ export default function SequenceDiagram({ module, customData }) {
   return (
     <div className="seq-diagram-section">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
-        <div>
+        <div style={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>
           <h3 className="seq-title" style={{ margin: 0 }}>{data.title || `${module} Sequence Diagram`}</h3>
           {data.description && (
             <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '6px 0 0', maxWidth: '70ch' }}>{data.description}</p>
@@ -67,12 +69,13 @@ export default function SequenceDiagram({ module, customData }) {
             {flows.map((f, i) => (
               <button
                 key={f.id || i}
+                aria-pressed={flow === f}
                 onClick={() => { setFlowIdx(i); setHoveredStep(null); }}
                 style={{
-                  padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  border: flowIdx === i ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
-                  background: flowIdx === i ? 'var(--accent)' : 'var(--bg-tertiary)',
-                  color: flowIdx === i ? '#fff' : 'var(--text-primary)'
+                  padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere',
+                  border: flow === f ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
+                  background: flow === f ? 'var(--accent)' : 'var(--bg-tertiary)',
+                  color: flow === f ? '#fff' : 'var(--text-primary)'
                 }}
               >
                 {f.label || f.id || `Flow ${i + 1}`}
@@ -86,13 +89,27 @@ export default function SequenceDiagram({ module, customData }) {
         <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 16px' }}>{flow.description}</p>
       )}
 
+      <DiagramViewer key={`${module}-${flow.id || flows.indexOf(flow)}`} title={`${data.title || 'Sequence diagram'} — ${flow.label || flow.id || 'Flow'}`} width={width}
+        legend={<ul><li>Read from top to bottom: each row is the next message or note.</li><li>Solid arrows are calls; dashed arrows with open heads are returns. A looping arrow calls the same participant.</li><li>Vertical dashed lines are participant lifelines; narrow bars indicate activation spans.</li><li>Boxes across lifelines are notes. Highlighted blocked notes mark waiting or rejection where documented.</li></ul>}
+        transcript={<div>
+          <h5>Participants</h5>
+          <ul>{participants.map(participant => <li key={participant.id}><strong>{participant.name}</strong> — {participant.kind || 'component'}{participant.stereotype ? ` (${participant.stereotype})` : ''}</li>)}</ul>
+          <h5>Step-by-step explanation</h5>
+          <ol>{steps.map((step, index) => <li key={index}>
+            <strong>{step.type === 'note' ? `${step.blocked ? 'Blocked note' : 'Note'}${step.over?.length ? ` over ${step.over.map(id => participants.find(participant => participant.id === id)?.name || id).join(', ')}` : ''}` : `${participants.find(participant => participant.id === step.from)?.name || step.from} → ${participants.find(participant => participant.id === step.to)?.name || step.to} (${step.type === 'return' ? 'return' : 'call'})`}</strong>
+            <p>{step.text}</p>{step.detail && step.detail !== step.text && <p>{step.detail}</p>}
+            {step.activate && <p>Activation starts: {participants.find(participant => participant.id === step.activate)?.name || step.activate}.</p>}
+            {step.deactivate && <p>Activation ends: {participants.find(participant => participant.id === step.deactivate)?.name || step.deactivate}.</p>}
+          </li>)}</ol>
+          {!steps.length && <p>No steps listed for this flow.</p>}
+        </div>}>
       <div className="seq-scroller" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
-        <svg width={width} height={height} style={{ display: 'block' }}>
+        <svg width={width} height={height} style={{ display: 'block' }} aria-hidden="true">
           <defs>
-            <marker id="seq-arrow-solid" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id={`${markerId}-solid`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
             </marker>
-            <marker id="seq-arrow-open" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker id={`${markerId}-open`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 1 L 9 5 L 0 9" fill="none" stroke="var(--text-secondary)" strokeWidth="1.6" />
             </marker>
           </defs>
@@ -140,7 +157,7 @@ export default function SequenceDiagram({ module, customData }) {
             const isDimmed = hoveredStep !== null && hoveredStep !== i;
 
             if (step.type === 'note') {
-              const overIds = step.over || [];
+              const overIds = step.over?.length ? step.over : participants.map(participant => participant.id);
               const xs = overIds.map(colX);
               const x1 = Math.min(...xs) - COL_WIDTH / 2 + 16;
               const x2 = Math.max(...xs) + COL_WIDTH / 2 - 16;
@@ -185,7 +202,7 @@ export default function SequenceDiagram({ module, customData }) {
                     fill="none"
                     stroke="var(--accent)"
                     strokeWidth="1.8"
-                    markerEnd="url(#seq-arrow-solid)"
+                    markerEnd={`url(#${markerId}-solid)`}
                   />
                 ) : (
                   <line
@@ -193,7 +210,7 @@ export default function SequenceDiagram({ module, customData }) {
                     stroke={isReturn ? 'var(--text-secondary)' : 'var(--accent)'}
                     strokeWidth={isReturn ? '1.6' : '2'}
                     strokeDasharray={isReturn ? '6,4' : 'none'}
-                    markerEnd={isReturn ? 'url(#seq-arrow-open)' : 'url(#seq-arrow-solid)'}
+                    markerEnd={`url(#${markerId}-${isReturn ? 'open' : 'solid'})`}
                   />
                 )}
                 <SeqLabel
@@ -207,6 +224,7 @@ export default function SequenceDiagram({ module, customData }) {
           })}
         </svg>
       </div>
+      </DiagramViewer>
 
       {steps[hoveredStep] && (
         <div className="seq-step-detail">

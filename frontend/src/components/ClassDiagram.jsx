@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useId } from 'react';
 import classDiagrams from '../data/classDiagrams';
 import { useModuleData } from '../hooks/useModuleData';
 import ModuleDataState from './ModuleDataState';
+import DiagramViewer from './DiagramViewer';
+
+const EMPTY = [];
 
 const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
 
@@ -9,29 +12,39 @@ export default function ClassDiagram({ module, customData }) {
   const { status, data } = useModuleData(classDiagrams, module, customData, 'classDiagrams');
 
   const containerRef = useRef(null);
+  const markerId = useId();
   const [hoveredClass, setHoveredClass] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
   const [viewMode, setViewMode] = useState('graph'); // 'graph' or 'list'
   const [lineCoords, setLineCoords] = useState([]);
 
-  const classes = data?.classes || [];
-  const relationships = data?.relationships || [];
+  const classes = data?.classes || EMPTY;
+  const relationships = data?.relationships || EMPTY;
 
   const updateLineCoords = useCallback(() => {
     const container = containerRef.current;
     if (!container) return;
     const cRect = container.getBoundingClientRect();
+    const scale = cRect.width / container.offsetWidth || 1;
+    const localRect = element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        left: (rect.left - cRect.left) / scale, right: (rect.right - cRect.left) / scale,
+        top: (rect.top - cRect.top) / scale, bottom: (rect.bottom - cRect.top) / scale,
+        width: rect.width / scale, height: rect.height / scale,
+      };
+    };
 
     const newCoords = relationships.map((rel) => {
       const fromEl = container.querySelector(`[data-class="${rel.from}"]`);
       const toEl = container.querySelector(`[data-class="${rel.to}"]`);
       if (!fromEl || !toEl) return null;
 
-      const fRect = fromEl.getBoundingClientRect();
-      const tRect = toEl.getBoundingClientRect();
+      const fRect = localRect(fromEl);
+      const tRect = localRect(toEl);
 
-      const fCenter = { x: fRect.left + fRect.width / 2 - cRect.left, y: fRect.top + fRect.height / 2 - cRect.top };
-      const tCenter = { x: tRect.left + tRect.width / 2 - cRect.left, y: tRect.top + tRect.height / 2 - cRect.top };
+      const fCenter = { x: fRect.left + fRect.width / 2, y: fRect.top + fRect.height / 2 };
+      const tCenter = { x: tRect.left + tRect.width / 2, y: tRect.top + tRect.height / 2 };
 
       const dx = tCenter.x - fCenter.x;
       const dy = tCenter.y - fCenter.y;
@@ -41,28 +54,28 @@ export default function ClassDiagram({ module, customData }) {
       if (Math.abs(dx) > Math.abs(dy) * 1.1) {
         // Horizontal connection (same row or adjacent columns)
         if (dx > 0) {
-          x1 = fRect.right - cRect.left;
+          x1 = fRect.right;
           y1 = fCenter.y;
-          x2 = tRect.left - cRect.left;
+          x2 = tRect.left;
           y2 = tCenter.y;
         } else {
-          x1 = fRect.left - cRect.left;
+          x1 = fRect.left;
           y1 = fCenter.y;
-          x2 = tRect.right - cRect.left;
+          x2 = tRect.right;
           y2 = tCenter.y;
         }
       } else {
         // Vertical connection (different rows)
         if (dy > 0) {
           x1 = fCenter.x;
-          y1 = fRect.bottom - cRect.top;
+          y1 = fRect.bottom;
           x2 = tCenter.x;
-          y2 = tRect.top - cRect.top;
+          y2 = tRect.top;
         } else {
           x1 = fCenter.x;
-          y1 = fRect.top - cRect.top;
+          y1 = fRect.top;
           x2 = tCenter.x;
-          y2 = tRect.bottom - cRect.top;
+          y2 = tRect.bottom;
         }
       }
 
@@ -147,6 +160,7 @@ export default function ClassDiagram({ module, customData }) {
           )}
           <button
             onClick={() => setViewMode('graph')}
+            aria-pressed={viewMode === 'graph'}
             style={{
               padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               border: viewMode === 'graph' ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
@@ -158,6 +172,7 @@ export default function ClassDiagram({ module, customData }) {
           </button>
           <button
             onClick={() => setViewMode('list')}
+            aria-pressed={viewMode === 'list'}
             style={{
               padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               border: viewMode === 'list' ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
@@ -171,9 +186,21 @@ export default function ClassDiagram({ module, customData }) {
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 20 }}>
-        💡 <em>Hover or click any class box to isolate its specific connections. Labels render on top of lines for 100% clarity.</em>
+        Select a class with a click, Enter, or Space to highlight its connections. The text explanation includes every field, method, and relationship.
       </p>
 
+      <DiagramViewer key={`${module}-${viewMode}`} title={title} width={1100} onLayout={updateLineCoords}
+        legend={<ul><li>Solid arrows represent associations; dashed arrows represent extends / implements in this diagram.</li><li>Arrow direction runs from the source class to its target. Labels describe the relationship.</li><li>Colors identify classes, not severity. Selecting a class dims unrelated connections.</li><li>Class boxes list the name, fields, then methods. Where shown, + means public, − means private, and # means protected.</li></ul>}
+        transcript={<div>
+          <p>{classes.length} classes and {relationships.length} relationships.</p>
+          <h5>Classes</h5>
+          <ul>{classes.map(cls => <li key={cls.name}><strong>{cls.name}</strong>{cls.stereotype ? ` (${cls.stereotype})` : ''}
+            <p>Fields: {Array.isArray(cls.fields) && cls.fields.length ? cls.fields.join('; ') : 'None listed.'}</p>
+            <p>Methods: {Array.isArray(cls.methods) && cls.methods.length ? cls.methods.join('; ') : 'None listed.'}</p>
+          </li>)}</ul>
+          <h5>Relationships</h5>
+          {relationships.length ? <ul>{relationships.map((rel, index) => <li key={index}>{rel.from} → {rel.to}: {rel.label || 'uses'} ({rel.dashed ? 'extends / implements' : 'association'}).</li>)}</ul> : <p>No relationships listed.</p>}
+        </div>}>
       {viewMode === 'list' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginTop: 16 }}>
           {relationships.map((rel, idx) => (
@@ -197,12 +224,12 @@ export default function ClassDiagram({ module, customData }) {
       ) : (
         <div ref={containerRef} className="cd-container" style={{ position: 'relative', minHeight: 520, padding: '24px 30px' }}>
           {/* SVG Overlay placed at zIndex: 10 so relationship line badges ALWAYS sit ON TOP of class cards */}
-          <svg className="cd-lines" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
+          <svg className="cd-lines" aria-hidden="true" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 10 }}>
             <defs>
-              <marker id="cd-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <marker id={`${markerId}-arrow`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
               </marker>
-              <filter id="cd-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <filter id={`${markerId}-glow`} x="-20%" y="-20%" width="140%" height="140%">
                 <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.25)" />
               </filter>
             </defs>
@@ -222,10 +249,10 @@ export default function ClassDiagram({ module, customData }) {
                     stroke={highlighted ? (activeTarget ? 'var(--accent)' : 'var(--border-primary)') : 'var(--border-primary)'}
                     strokeWidth={highlighted ? (activeTarget ? '3' : '1.8') : '1.2'}
                     strokeDasharray={rel.dashed ? '6,4' : 'none'}
-                    markerEnd="url(#cd-arrow)"
+                    markerEnd={`url(#${markerId}-arrow)`}
                   />
                   {labelText && (
-                    <g transform={`translate(${midX}, ${midY})`} filter="url(#cd-glow)">
+                    <g transform={`translate(${midX}, ${midY})`} filter={`url(#${markerId}-glow)`}>
                       <rect
                         x={-labelWidth / 2}
                         y="-11"
@@ -266,11 +293,14 @@ export default function ClassDiagram({ module, customData }) {
                 <div
                   key={cls.name}
                   data-class={cls.name}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Highlight ${cls.name} connections`}
+                  aria-pressed={isSelected}
                   className={`cd-class-box ${highlighted ? 'highlighted' : 'dimmed'}`}
                   style={{
                     borderTopColor: classColors[cls.name],
                     opacity: highlighted ? 1 : 0.18,
-                    transform: (isSelected || isHovered) ? 'scale(1.04)' : 'none',
                     boxShadow: (isSelected || isHovered)
                       ? `0 0 18px ${classColors[cls.name] || 'var(--accent)'}`
                       : 'var(--shadow-md)',
@@ -279,6 +309,9 @@ export default function ClassDiagram({ module, customData }) {
                   onMouseEnter={() => setHoveredClass(cls.name)}
                   onMouseLeave={() => setHoveredClass(null)}
                   onClick={() => handleClassClick(cls.name)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleClassClick(cls.name); }
+                  }}
                 >
                   <div className="cd-class-header" style={{ background: classColors[cls.name] }}>
                     {cls.stereotype && <span className="cd-stereotype">&lt;&lt;{cls.stereotype}&gt;&gt;</span>}
@@ -298,6 +331,7 @@ export default function ClassDiagram({ module, customData }) {
           </div>
         </div>
       )}
+      </DiagramViewer>
 
       <style>{cdStyles}</style>
     </div>
