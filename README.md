@@ -6,6 +6,20 @@ SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects**
 
 ## Projects Overview
 
+### Guided simulation playback
+
+Tic Tac Toe, Rate Limiter, and Thread Pool share Play/Pause, Start/Next step, Reset sandbox,
+and 0.5×/1×/2× pacing controls. Each step waits for its isolated backend response before
+progress advances. Pause stops future requests, not an action already sent; pacing changes
+only the reading delay, not simulated time or backend calculations. Reset executes the first
+sandbox-initialization step again. A failed request stops playback and requires an explicit
+reset because a lost response does not prove that a mutation failed. Leaving the simulation
+stops future playback, but cannot roll back a request already sent.
+
+This is the first rollout, not a site-wide migration. Other modules retain their existing
+controls; branching workflows such as Uber OTP verification and Parking Lot vehicle inputs
+need module-specific treatment before adopting automatic playback.
+
 ### Finding your next module
 
 The homepage combines a guided learning-path entry point with a searchable module library.
