@@ -17,6 +17,7 @@ export default function Home() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [difficulty, setDifficulty] = useState('All')
+  const [category, setCategory] = useState('All')
   const [pattern, setPattern] = useState('All')
   const [unreviewedOnly, setUnreviewedOnly] = useState(false)
   const [revisitOnly, setRevisitOnly] = useState(false)
@@ -35,20 +36,33 @@ export default function Home() {
   const menuRef = useRef(null)
 
   const filtered = useMemo(() => {
+    const search = query.trim().toLowerCase()
     const result = ALL_LLDS.filter(item => {
-      const matchSearch = !query ||
-        item.title.toLowerCase().includes(query.toLowerCase()) ||
-        item.desc.toLowerCase().includes(query.toLowerCase()) ||
-        item.category.toLowerCase().includes(query.toLowerCase())
+      const matchSearch = !search ||
+        [item.title, item.desc, item.category, itemPath(item), ...getModulePatterns(itemPath(item))]
+          .join(' ').toLowerCase().includes(search)
       const matchDiff = difficulty === 'All' || item.difficulty === difficulty
       const path = itemPath(item)
       const matchPattern = pattern === 'All' || getModulePatterns(path).includes(pattern)
       const matchReviewed = !unreviewedOnly || !isReviewed(path)
       const matchRevisit = !revisitOnly || isRevisit(path)
-      return matchSearch && matchDiff && matchPattern && matchReviewed && matchRevisit
+      return matchSearch && matchDiff && matchPattern && matchReviewed && matchRevisit &&
+        (category === 'All' || item.category === category)
     })
     return sortByOrder ? [...result].sort((a, b) => a.order - b.order) : result
-  }, [query, difficulty, pattern, unreviewedOnly, revisitOnly, sortByOrder, isReviewed, isRevisit])
+  }, [query, difficulty, category, pattern, unreviewedOnly, revisitOnly, sortByOrder, isReviewed, isRevisit])
+
+  const nextModule = [...ALL_LLDS].sort((first, second) => first.order - second.order)
+    .find(item => !isReviewed(itemPath(item)))
+  const hasFilters = Boolean(query || difficulty !== 'All' || category !== 'All' || pattern !== 'All' || unreviewedOnly || revisitOnly)
+  const clearFilters = () => {
+    setQuery('')
+    setDifficulty('All')
+    setCategory('All')
+    setPattern('All')
+    setUnreviewedOnly(false)
+    setRevisitOnly(false)
+  }
 
   useEffect(() => {
     cardRefs.current.length = filtered.length
@@ -101,7 +115,7 @@ export default function Home() {
   useEffect(() => {
     const onKeyDown = (e) => {
       const active = document.activeElement
-      const isTyping = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)
+      const isTyping = active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable)
 
       if (e.key === '/' && !isTyping) {
         e.preventDefault()
@@ -109,6 +123,7 @@ export default function Home() {
         return
       }
       if (e.key === 'Escape') {
+        setMenuOpen(false)
         if (isTyping) active.blur()
         setQuery('')
         return
@@ -118,6 +133,7 @@ export default function Home() {
       const cards = cardRefs.current
       if (cards.length === 0) return
       const currentIndex = cards.indexOf(active)
+      if (currentIndex < 0) return
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault()
         cards[Math.min(currentIndex + 1, cards.length - 1)]?.focus()
@@ -141,13 +157,28 @@ export default function Home() {
   }, [menuOpen])
 
   return (
-    <div className="home">
+    <main className="home">
+      <a className="home-skip" href="#module-library">Skip to module library</a>
       <header className="home-header">
         <div className="home-title-row">
           <div>
-            <h1>Low Level Design Patterns</h1>
-            <p className="home-subtitle">60 interactive modules — each with a live UI, class diagram, and working Java backend</p>
+            <p className="home-eyebrow">THE LOW LEVEL DESIGN LAB</p>
+            <h1>Good design starts<br />with <em>trying it.</em></h1>
+            <p className="home-subtitle">Go beyond the class diagram. Explore working systems, experiment with their behavior, and understand the decisions behind the code.</p>
+            <div className="home-hero-actions">
+              <a className="home-primary-action" href="#module-library">Explore {ALL_LLDS.length} modules <span aria-hidden="true">↗</span></a>
+              <Link to="/learning-path">Follow the learning path →</Link>
+            </div>
           </div>
+          <aside className="home-design-preview" aria-label="Parking Lot design example">
+            <div className="home-preview-heading"><span>DESIGN IN PRACTICE</span><span>01 / Parking Lot</span></div>
+            <div className="home-preview-node"><small>THE REQUEST</small><strong>A car arrives at the gate</strong></div>
+            <div className="home-preview-connector" aria-hidden="true">↓</div>
+            <div className="home-preview-node home-preview-strategy"><small>STRATEGY PATTERN</small><strong>Choose how to assign a spot</strong><div><span>Nearest</span><span>Farthest</span></div></div>
+            <div className="home-preview-connector" aria-hidden="true">↓</div>
+            <div className="home-preview-node"><small>THE RESULT</small><strong>Spot assigned. Ticket created.</strong></div>
+            <Link to="/parking-lot">Explore the working system <span aria-hidden="true">→</span></Link>
+          </aside>
           <div className="home-menu" ref={menuRef}>
             <button
               type="button"
@@ -192,6 +223,16 @@ export default function Home() {
           <p className={`import-status import-status-${importStatus.type}`}>{importStatus.message}</p>
         )}
 
+        <div className="home-learning-strip" aria-label="Learning approach">
+          <span><b>01</b> Explore the system</span>
+          <span><b>02</b> Try the simulation</span>
+          <span><b>03</b> Explain the design</span>
+        </div>
+        <div className="home-next-step">
+          <div><p className="home-eyebrow">{reviewedCount ? 'YOUR NEXT CHAPTER' : 'NOT SURE WHERE TO START?'}</p><strong>{nextModule ? nextModule.title : 'Every module explored. Keep your skills fresh.'}</strong><p>{nextModule ? 'The next step in the suggested learning order.' : 'Return to a favorite or explore your revisit list.'}</p></div>
+          <Link to={nextModule ? `/${itemPath(nextModule)}` : '/learning-path'}>{reviewedCount ? 'Keep learning' : 'Start here'} <span aria-hidden="true">→</span></Link>
+        </div>
+
         <div className="progress-summary" data-tour="progress">
           <button
             type="button"
@@ -226,6 +267,17 @@ export default function Home() {
           )}
         </div>
 
+        <div className="home-library-heading" id="module-library" tabIndex={-1}>
+          <div><p className="home-eyebrow">EXPLORE AT YOUR PACE</p><h2>Find your next design challenge.</h2></div>
+          <p>{ALL_LLDS.length} systems. Real Java backends.</p>
+        </div>
+        <div className="home-categories" role="group" aria-label="Filter by category">
+          {['All', ...Object.keys(categoryStats)].map(name => (
+            <button key={name} type="button" aria-pressed={category === name} onClick={() => setCategory(name)}>
+              {name === 'All' ? 'All modules' : name} <span>{name === 'All' ? ALL_LLDS.length : categoryStats[name].total}</span>
+            </button>
+          ))}
+        </div>
         <div className="home-controls">
           <div className="search-wrap">
             <div className="search-bar" data-tour="search">
@@ -233,28 +285,24 @@ export default function Home() {
               <input
                 ref={searchInputRef}
                 type="text"
+                aria-label="Search modules"
                 placeholder="Search by name, description, or category..."
                 value={query}
                 onChange={e => setQuery(e.target.value)}
               />
-              {query && <button className="search-clear" onClick={() => setQuery('')}>✕</button>}
+              {query && <button className="search-clear" aria-label="Clear search" onClick={() => { setQuery(''); searchInputRef.current?.focus() }}>✕</button>}
             </div>
             <span className="kbd-hint"><kbd>/</kbd> to search · <kbd>Esc</kbd> to clear · <kbd>←↑↓→</kbd> to browse</span>
           </div>
 
           <div className="diff-filters" data-tour="difficulty">
             {DIFFICULTIES.map(d => {
-              const c = DIFF_COLORS[d]
               const active = difficulty === d
               return (
                 <button
                   key={d}
                   className="diff-pill"
-                  style={active && c ? {
-                    background: c.bg,
-                    color: c.text,
-                    borderColor: c.border,
-                  } : {}}
+                  aria-pressed={active}
                   onClick={() => setDifficulty(d)}
                 >
                   {d === 'All' ? 'All Levels' : d}
@@ -327,8 +375,10 @@ export default function Home() {
           </p>
         )}
 
-        <p className="home-result-count">{filtered.length} module{filtered.length !== 1 ? 's' : ''} found</p>
+        <div className="home-results-bar"><p className="home-result-count" role="status">{filtered.length} module{filtered.length !== 1 ? 's' : ''} found{category !== 'All' ? ` in ${category}` : ''}</p>{hasFilters && <button type="button" onClick={clearFilters}>Clear all filters</button>}</div>
       </header>
+
+      {filtered.length === 0 && <section className="home-empty"><span aria-hidden="true">⌕</span><h2>No modules match just yet.</h2><p>Try a different name, pattern, or category — or start fresh.</p><button type="button" className="home-primary-action" onClick={clearFilters}>Show all modules</button></section>}
 
       <div className="lld-grid">
         {filtered.map((item, i) => {
@@ -339,11 +389,9 @@ export default function Home() {
           const revisit = isRevisit(path)
           const reviewedDate = formatReviewedDate(reviewedAt(path))
           return (
-            <Link
+            <article
               key={path}
-              to={`/${path}`}
               className={`lld-card${reviewed ? ' reviewed' : ''}${revisit ? ' flagged-revisit' : ''}`}
-              ref={el => { cardRefs.current[i] = el }}
               {...(i === 0 ? { 'data-tour': 'first-card' } : {})}
             >
               <button
@@ -366,8 +414,8 @@ export default function Home() {
               >
                 🔖
               </button>
-              <span className="lld-icon">{item.icon}</span>
-              <h2>{item.title}</h2>
+              <span className="lld-icon" aria-hidden="true">{item.icon}</span>
+              <h2><Link to={`/${path}`} ref={el => { cardRefs.current[i] = el }}>{item.title}</Link></h2>
               <p>{item.desc}</p>
               <div className="lld-tags">
                 {sortByOrder && (
@@ -377,16 +425,18 @@ export default function Home() {
                   {item.category}
                 </span>
                 <span className="lld-tag lld-diff-tag" style={{
-                  background: dc.bg, color: dc.text, borderColor: dc.border,
+                  background: dc.bg, color: 'var(--text-primary)', borderColor: dc.border,
                 }}>
                   {item.difficulty}
                 </span>
               </div>
-            </Link>
+              <span className="home-card-open" aria-hidden="true">Explore module ↗</span>
+            </article>
           )
         })}
       </div>
 
-    </div>
+      <footer className="home-footer">Understand the behavior. Trace the decisions. Make the design your own.</footer>
+    </main>
   )
 }

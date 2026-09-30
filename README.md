@@ -6,6 +6,16 @@ SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects**
 
 ## Projects Overview
 
+### Finding your next module
+
+The homepage combines a guided learning-path entry point with a searchable module library.
+Browse categories, combine difficulty and design-pattern filters, or search names, descriptions,
+patterns, and route names such as `uber`. Empty results offer a one-click filter reset.
+The suggested next module follows the existing learning order and your browser-local review
+checklist; it is not a record of your last visit. Review and revisit actions remain independent
+of module navigation. Press `/` to focus search, and use arrow keys while a module link is
+focused to move between results. Progress import/export and the tour remain under More actions.
+
 | # | Project | Domain | Key Design Patterns & Features |
 |---|---------|--------|--------------------------------|
 | 1 | [Parking Lot](#1-parking-lot) | Multi-level parking | Singleton, Strategy (pricing/spot), Factory, ReentrantLock |

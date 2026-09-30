@@ -5974,6 +5974,29 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-069: Homepage Cards Nested Buttons Inside Navigation Links
+
+**Overview & Severity** — Medium, resolved during the homepage discovery refresh. Module
+cards combined navigation and progress actions in one interactive element.
+
+**Symptoms & Error Logs** — DOM inspection found review/revisit buttons nested inside
+anchors. The global arrow-key handler also moved focus into the grid from unrelated controls.
+No runtime exception was required to trigger either accessibility issue.
+
+**Root Cause** — Each whole card was a React Router Link containing buttons; cancelling click
+events did not correct the invalid interactive nesting. Arrow handling did not require card focus.
+
+**Diagnostic Commands** — Inspect `frontend/src/pages/Home.jsx`; run
+`cd frontend && npx vitest run src/__tests__/homeControls.test.jsx`.
+
+**Step-by-Step Resolution** — Replace the outer link with an article, put the navigation link
+in its heading, and use a stretched CSS hit area without wrapping the action buttons. Restrict
+arrow-key interception to focused module links. Add regression tests for independent actions,
+next-module selection, search recovery, category filtering, and keyboard focus.
+
+**Preventative Measures** — Keep controls as siblings of links; test keyboard behavior from
+both cards and unrelated controls. Preserve visible focus, reduced motion, and named search controls.
+
 ## RCA-068: Stray Comment Marker Broke the FooBar Trace Comparator
 
 **Overview & Severity** — High, **Resolved** (2026-09-09). An accidental `//` inside the
