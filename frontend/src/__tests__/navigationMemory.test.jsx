@@ -60,6 +60,9 @@ describe('Module tab navigation', () => {
     renderTabs();
     const entry = screen.getByRole('tab', { name: 'Entry' });
     entry.focus();
+    fireEvent.keyDown(entry, { key: 'ArrowLeft', altKey: true });
+    expect(document.activeElement).toBe(entry);
+    expect(entry.getAttribute('aria-selected')).toBe('true');
     fireEvent.keyDown(entry, { key: 'ArrowLeft' });
     const history = screen.getByRole('tab', { name: 'Trip History' });
     expect(document.activeElement).toBe(history);

@@ -155,6 +155,7 @@ export default function Home() {
   // for free). Skipped entirely while typing in any field.
   useEffect(() => {
     const onKeyDown = (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return
       const active = document.activeElement
       const isTyping = active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable)
 

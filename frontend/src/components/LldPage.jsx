@@ -67,6 +67,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
   }, [tab]);
 
   const navigateTabs = (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
     const current = tabIds.indexOf(tab);
     const next = {
       ArrowRight: (current + 1) % tabIds.length,
