@@ -5974,6 +5974,33 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-072: Diagram Details Depended on Hover and Flow Changes Could Crash
+
+**Overview & Severity** — Medium, resolved in the shared diagram viewing update. Diagram
+content was difficult to inspect with a keyboard or on small screens.
+
+**Symptoms & Error Logs** — Sequence labels longer than 56 characters were shortened, notes
+were clipped, and extra detail required pointer hover. Class cards handled clicks but lacked
+keyboard selection. Replacing sequence data with fewer flows could leave the selected index
+outside the array and fail when reading `flow.participants`.
+
+**Root Cause** — Visual rendering was the only complete interaction path; there was no full
+text transcript or fallback for a stale flow index. Class connector measurements used screen
+coordinates, which also needed normalization before adding zoom.
+
+**Diagnostic Commands** — Inspect `ClassDiagram.jsx` and `SequenceDiagram.jsx`; run
+`cd frontend && npx vitest run src/__tests__/diagramViewer.test.jsx`.
+
+**Step-by-Step Resolution** — Add a shared scrollable zoom/fullscreen viewer with native
+dialog focus containment and Escape dismissal. Supply legends and full text from the same
+module data; support keyboard class selection; fall back to an existing flow when the index
+is stale. Normalize connector coordinates to unscaled layout units, remove card scaling on
+hover, and use unique SVG marker IDs per instance.
+
+**Preventative Measures** — Test complete text availability, flow replacement, zoom bounds,
+connector geometry, independent markers, and fullscreen focus/scroll restoration. Keep text
+explanations sourced from diagram data so they cannot drift from the visual representation.
+
 ## RCA-071: Simulation Controls Skipped Initialization and Terminal Actions
 
 **Overview & Severity** — Medium, resolved in the first shared playback rollout for Tic Tac

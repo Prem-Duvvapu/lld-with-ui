@@ -6,6 +6,17 @@ SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects**
 
 ## Projects Overview
 
+### Reading diagrams
+
+Shared class and sequence diagrams provide zoom controls, Fit width, Reset view, and a
+fullscreen dialog. Scroll inside the diagram to pan; Escape exits fullscreen and restores
+focus to its control. Fullscreen keeps the current zoom level, and Reset view restores 100%
+zoom and the scroll origin. The legend explains this renderer's notation rather than claiming
+to be a complete UML reference. Text explanation provides unscaled, selectable content:
+class members and relationships, or sequence participants, complete messages, notes, and
+activation details. Class boxes can be selected with Enter or Space. Select a sequence flow
+before opening it fullscreen. Loading states and solution-reveal gates remain unchanged.
+
 ### Guided simulation playback
 
 Tic Tac Toe, Rate Limiter, and Thread Pool share Play/Pause, Start/Next step, Reset sandbox,
