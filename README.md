@@ -16,6 +16,14 @@ checklist; it is not a record of your last visit. Review and revisit actions rem
 of module navigation. Press `/` to focus search, and use arrow keys while a module link is
 focused to move between results. Progress import/export and the tour remain under More actions.
 
+Search, filters, sorting, and library-relative scroll position are remembered in the current
+browser tab. Recently visited modules (up to five) and introduction visibility are saved locally
+across visits. The introduction collapses on your second visit unless you explicitly reopen it.
+These preferences are separate from progress exports and do not sync between devices. Storage
+restrictions do not prevent browsing. Module tabs scroll horizontally on phones, keep the active
+section visible, and support Left/Right, Home, and End keys. The Module library link returns to
+your saved browsing context.
+
 | # | Project | Domain | Key Design Patterns & Features |
 |---|---------|--------|--------------------------------|
 | 1 | [Parking Lot](#1-parking-lot) | Multi-level parking | Singleton, Strategy (pricing/spot), Factory, ReentrantLock |

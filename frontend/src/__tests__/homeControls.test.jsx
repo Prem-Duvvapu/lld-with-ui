@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -27,6 +27,7 @@ function renderHome() {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
 });
 
 describe('Home page — collapsed-by-default controls', () => {
@@ -76,6 +77,46 @@ describe('Home page — collapsed-by-default controls', () => {
 });
 
 describe('Home page — module discovery', () => {
+  it('restores filters on return without expanding advanced controls', () => {
+    const first = renderHome();
+    fireEvent.click(screen.getByRole('button', { name: /^Games / }));
+    fireEvent.click(screen.getByRole('button', { name: 'Easy' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Search modules' }), { target: { value: 'Tic' } });
+    first.unmount();
+    const second = renderHome();
+    expect(screen.getByRole('textbox', { name: 'Search modules' }).value).toBe('Tic');
+    expect(screen.getByRole('button', { name: /^Games / }).getAttribute('aria-pressed')).toBe('true');
+    expect(second.container.querySelectorAll('.lld-card')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear all filters' }));
+    second.unmount();
+    expect(renderHome().container.querySelectorAll('.lld-card')).toHaveLength(60);
+  });
+
+  it('collapses the introduction on return and respects an explicit preference', () => {
+    const first = renderHome();
+    expect(screen.getByRole('button', { name: 'Hide introduction' })).toBeDefined();
+    first.unmount();
+    const second = renderHome();
+    fireEvent.click(screen.getByRole('button', { name: 'Show introduction' }));
+    second.unmount();
+    renderHome();
+    expect(screen.getByRole('button', { name: 'Hide introduction' })).toBeDefined();
+  });
+
+  it('shows only known recent modules in most-recent order', () => {
+    localStorage.setItem('lld-recent-modules', JSON.stringify(['uber', 'bad-path', 'parking-lot']));
+    renderHome();
+    const recent = screen.getByRole('navigation', { name: 'Recently visited modules' });
+    expect([...recent.querySelectorAll('a')].map(link => link.getAttribute('href'))).toEqual(['/uber', '/parking-lot']);
+  });
+
+  it('restores a saved library-relative scroll offset', async () => {
+    sessionStorage.setItem('lld-library-scroll', '280');
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    renderHome();
+    await vi.waitFor(() => expect(scroll).toHaveBeenCalledWith({ top: 280, behavior: 'instant' }));
+    scroll.mockRestore();
+  });
   it('filters by category and difficulty together, then resets all filters', () => {
     const { container } = renderHome();
     fireEvent.click(screen.getByRole('button', { name: /^Games / }));
