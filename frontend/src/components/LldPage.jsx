@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Link } from 'react-router-dom';
 import DesignDetails from './DesignDetails';
 import ClassDiagram from './ClassDiagram';
@@ -39,14 +39,46 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
   };
 
   const storageKey = `lld-tab-${module}`;
+  const navRef = useRef(null);
+  const panelId = useId();
   const [tab, setTab] = useState(() => {
-    const saved = sessionStorage.getItem(storageKey);
+    let saved;
+    try { saved = sessionStorage.getItem(storageKey); } catch { saved = null; }
     return tabIds.includes(saved) ? saved : tabIds[0];
   });
 
   useEffect(() => {
-    sessionStorage.setItem(storageKey, tab);
+    try { sessionStorage.setItem(storageKey, tab); } catch { return; }
   }, [tab, storageKey]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    const active = nav?.querySelector('[aria-selected="true"]');
+    if (!active) return;
+    const keepVisible = () => {
+      const bounds = nav.getBoundingClientRect();
+      const selected = active.getBoundingClientRect();
+      if (selected.left < bounds.left) nav.scrollLeft -= bounds.left - selected.left;
+      else if (selected.right > bounds.right) nav.scrollLeft += selected.right - bounds.right;
+    };
+    keepVisible();
+    window.addEventListener('resize', keepVisible);
+    return () => window.removeEventListener('resize', keepVisible);
+  }, [tab]);
+
+  const navigateTabs = (event) => {
+    const current = tabIds.indexOf(tab);
+    const next = {
+      ArrowRight: (current + 1) % tabIds.length,
+      ArrowLeft: (current - 1 + tabIds.length) % tabIds.length,
+      Home: 0,
+      End: tabIds.length - 1,
+    }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    setTab(tabIds[next]);
+    navRef.current.querySelectorAll('[role="tab"]')[next]?.focus();
+  };
 
   const isBuiltIn = ['design', 'details', 'diagram', 'sequence'].includes(tab);
 
@@ -54,7 +86,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
     <div className="lld-page">
       <nav className="lld-page-breadcrumb">
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Link to="/">← Home</Link>
+          <Link to="/">← Module library</Link>
           <span>/</span>
           <span>{title}</span>
         </div>
@@ -66,7 +98,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
       <header className="lld-page-header">
         <h1>{icon && <span>{icon}</span>} {title}</h1>
         <p className="lld-page-subtitle">Low-Level Design Architecture & Demonstration</p>
-        <nav className="lld-page-nav" role="tablist">
+        <nav className="lld-page-nav" role="tablist" aria-label={`${title} sections`} ref={navRef} onKeyDown={navigateTabs}>
           {tabs.map((t) => {
             const tabId = getTabId(t);
             const label = getTabLabel(t);
@@ -74,6 +106,10 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
               <button
                 key={tabId}
                 role="tab"
+                type="button"
+                id={`${panelId}-${tabId}`}
+                aria-controls={panelId}
+                tabIndex={tab === tabId ? 0 : -1}
                 aria-selected={tab === tabId}
                 className={tab === tabId ? 'active' : ''}
                 onClick={() => setTab(tabId)}
@@ -87,6 +123,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
       </header>
 
       <main className="lld-page-main">
+        <div className="lld-page-panel" role="tabpanel" id={panelId} aria-labelledby={`${panelId}-${tab}`} tabIndex={0}>
         {(tab === 'design' || tab === 'details') && <DesignDetails module={module} />}
         {tab === 'diagram' && (
           <SolutionGate module={module} label="the class diagram">
@@ -105,6 +142,7 @@ export default function LldPage({ module, title, icon, tabs: customTabs, childre
               ? children.map((c) => (typeof c === 'function' ? c(tab, setTab) : c))
               : children
         )}
+        </div>
       </main>
     </div>
   );

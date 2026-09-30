@@ -1,10 +1,12 @@
-import { Suspense, lazy, useMemo } from 'react'
-import { Routes, Route, Link } from 'react-router-dom'
+import { Suspense, lazy, useMemo, useEffect } from 'react'
+import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
 import ThemeToggle from './components/ThemeToggle'
 import Skeleton from './components/ui/Skeleton'
 import BackendStatusBanner from './components/BackendStatusBanner'
 import { GITHUB_REPO_URL } from './data/moduleSourceLinks'
+import { ALL_LLDS, itemPath } from './data/moduleCatalog'
+import { rememberModule } from './utils/navigationMemory'
 
 // Lazy like every module page: a visitor who never opens it shouldn't pay for it.
 const LearningPath = lazy(() => import('./pages/LearningPath'))
@@ -229,6 +231,19 @@ function PageLoading() {
 }
 
 export default function App() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const previous = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+    return () => { window.history.scrollRestoration = previous }
+  }, [])
+  useEffect(() => {
+    if (pathname !== '/') window.scrollTo({ top: 0, behavior: 'instant' })
+    const currentRoute = LLD_ROUTES.find(route => `/${route.path}` === pathname)
+    if (!currentRoute) return
+    const item = ALL_LLDS.find(entry => LLD_ROUTES.some(route => route.path === itemPath(entry) && route.module === currentRoute.module))
+    if (item) rememberModule(itemPath(item))
+  }, [pathname])
   const routes = useMemo(
     () => LLD_ROUTES.map(({ path, module }) => ({ path, Page: lazyPage(module) })).filter((r) => r.Page),
     [],

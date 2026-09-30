@@ -583,6 +583,16 @@
 .home-skip { position: fixed; top: -100px; left: 16px; padding: 12px 20px; background: var(--bg-card); z-index: 1100; }
 .home-skip:focus { top: 12px; }
 
+.home [hidden] { display: none !important; }
+.home-welcome-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 52px 28px 0; font-size: 12px; color: var(--text-muted); }
+.home-welcome-bar button { background: var(--bg-card); color: var(--accent); border: 1px solid var(--border-primary); border-radius: 8px; min-height: 44px; padding: 8px 12px; cursor: pointer; }
+.home .home-menu { top: -72px; }
+.home .home-intro-collapsed { display: block; margin-bottom: 20px; }
+.home .home-header .home-compact-title { font-size: 28px; margin: 0; }
+.home-recents { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 20px; font-size: 12px; }
+.home-recents > span { color: var(--text-muted); margin-right: 8px; }
+.home-recents a { padding: 12px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-card); text-decoration: none; }
+
 @media (max-width: 960px) {
   .home .home-title-row { gap: 28px; grid-template-columns: 1.1fr 1fr; }
   .home .lld-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

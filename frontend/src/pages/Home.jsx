@@ -7,6 +7,7 @@ import { ALL_DESIGN_PATTERNS, getModulePatterns } from '../data/modulePatterns'
 import { downloadProgress, readProgressFile, importProgress } from '../utils/progressData'
 import { ALL_LLDS, routeMap, itemPath, DIFFICULTIES, DIFF_COLORS, CAT_COLORS, CAT_FILL_COLORS } from '../data/moduleCatalog'
 import './Home.css'
+import { readMemory, writeMemory, recentPaths } from '../utils/navigationMemory'
 
 function formatReviewedDate(ts) {
   if (!ts) return null
@@ -15,13 +16,16 @@ function formatReviewedDate(ts) {
 
 export default function Home() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [difficulty, setDifficulty] = useState('All')
-  const [category, setCategory] = useState('All')
-  const [pattern, setPattern] = useState('All')
-  const [unreviewedOnly, setUnreviewedOnly] = useState(false)
-  const [revisitOnly, setRevisitOnly] = useState(false)
-  const [sortByOrder, setSortByOrder] = useState(false)
+  const [saved] = useState(() => readMemory('lld-library', {}) || {})
+  const [query, setQuery] = useState(typeof saved.query === 'string' ? saved.query : '')
+  const [difficulty, setDifficulty] = useState(DIFFICULTIES.includes(saved.difficulty) ? saved.difficulty : 'All')
+  const [category, setCategory] = useState(Object.hasOwn(CAT_COLORS, saved.category) ? saved.category : 'All')
+  const [pattern, setPattern] = useState(ALL_DESIGN_PATTERNS.includes(saved.pattern) ? saved.pattern : 'All')
+  const [unreviewedOnly, setUnreviewedOnly] = useState(saved.unreviewedOnly === true)
+  const [revisitOnly, setRevisitOnly] = useState(saved.revisitOnly === true)
+  const [sortByOrder, setSortByOrder] = useState(saved.sortByOrder === true)
+  const [introOpen, setIntroOpen] = useState(() => readMemory('lld-intro-open', true, true) !== false)
+  const [recent] = useState(() => recentPaths().map(path => ALL_LLDS.find(item => itemPath(item) === path)).filter(Boolean))
   const [menuOpen, setMenuOpen] = useState(false)
   const [progressOpen, setProgressOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -34,6 +38,43 @@ export default function Home() {
   const fileInputRef = useRef(null)
   const cardRefs = useRef([])
   const menuRef = useRef(null)
+
+  useEffect(() => {
+    writeMemory('lld-library', { query, difficulty, category, pattern, unreviewedOnly, revisitOnly, sortByOrder })
+  }, [query, difficulty, category, pattern, unreviewedOnly, revisitOnly, sortByOrder])
+
+  useEffect(() => {
+    if (readMemory('lld-intro-open', null, true) === null) writeMemory('lld-intro-open', false, true)
+    const position = readMemory('lld-library-scroll', null)
+    const frame = requestAnimationFrame(() => {
+      const offset = typeof position === 'number' ? position : position?.offset
+      if (Number.isFinite(offset) && !window.location.hash) {
+        const library = document.getElementById('module-library')
+        const anchor = [...document.querySelectorAll('.lld-card')].find(card => card.dataset.modulePath === position?.anchor)
+        const top = anchor && Number.isFinite(position.top)
+          ? anchor.getBoundingClientRect().top + window.scrollY - position.top
+          : library.getBoundingClientRect().top + window.scrollY + offset
+        window.scrollTo({ top: Math.max(0, top), behavior: 'instant' })
+      }
+    })
+    const savePosition = () => {
+      const library = document.getElementById('module-library')
+      const anchor = [...document.querySelectorAll('.lld-card')].find(card => {
+        const bounds = card.getBoundingClientRect()
+        return bounds.bottom > 0 && bounds.top < window.innerHeight
+      })
+      if (library) writeMemory('lld-library-scroll', {
+        offset: -library.getBoundingClientRect().top,
+        anchor: anchor?.dataset.modulePath,
+        top: anchor?.getBoundingClientRect().top,
+      })
+    }
+    window.addEventListener('scroll', savePosition, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', savePosition)
+    }
+  }, [])
 
   const filtered = useMemo(() => {
     const search = query.trim().toLowerCase()
@@ -160,8 +201,16 @@ export default function Home() {
     <main className="home">
       <a className="home-skip" href="#module-library">Skip to module library</a>
       <header className="home-header">
-        <div className="home-title-row">
-          <div>
+        <div className="home-welcome-bar">
+          <span>Low Level Design · Your learning library</span>
+          <button type="button" aria-expanded={introOpen} aria-controls="home-introduction" onClick={() => {
+            setIntroOpen(!introOpen)
+            writeMemory('lld-intro-open', !introOpen, true)
+          }}>{introOpen ? 'Hide introduction' : 'Show introduction'}</button>
+        </div>
+        <div className={`home-title-row${introOpen ? '' : ' home-intro-collapsed'}`}>
+          <h1 className="home-compact-title" hidden={introOpen}>Your module library</h1>
+          <div id="home-introduction" hidden={!introOpen}>
             <p className="home-eyebrow">THE LOW LEVEL DESIGN LAB</p>
             <h1>Good design starts<br />with <em>trying it.</em></h1>
             <p className="home-subtitle">Go beyond the class diagram. Explore working systems, experiment with their behavior, and understand the decisions behind the code.</p>
@@ -170,7 +219,7 @@ export default function Home() {
               <Link to="/learning-path">Follow the learning path →</Link>
             </div>
           </div>
-          <aside className="home-design-preview" aria-label="Parking Lot design example">
+          <aside className="home-design-preview" aria-label="Parking Lot design example" hidden={!introOpen}>
             <div className="home-preview-heading"><span>DESIGN IN PRACTICE</span><span>01 / Parking Lot</span></div>
             <div className="home-preview-node"><small>THE REQUEST</small><strong>A car arrives at the gate</strong></div>
             <div className="home-preview-connector" aria-hidden="true">↓</div>
@@ -223,7 +272,7 @@ export default function Home() {
           <p className={`import-status import-status-${importStatus.type}`}>{importStatus.message}</p>
         )}
 
-        <div className="home-learning-strip" aria-label="Learning approach">
+        <div className="home-learning-strip" aria-label="Learning approach" hidden={!introOpen}>
           <span><b>01</b> Explore the system</span>
           <span><b>02</b> Try the simulation</span>
           <span><b>03</b> Explain the design</span>
@@ -271,6 +320,10 @@ export default function Home() {
           <div><p className="home-eyebrow">EXPLORE AT YOUR PACE</p><h2>Find your next design challenge.</h2></div>
           <p>{ALL_LLDS.length} systems. Real Java backends.</p>
         </div>
+        {recent.length > 0 && <nav className="home-recents" aria-label="Recently visited modules">
+          <span>Recently visited</span>
+          {recent.map(item => <Link key={itemPath(item)} to={`/${itemPath(item)}`}>{item.title} <span aria-hidden="true">↗</span></Link>)}
+        </nav>}
         <div className="home-categories" role="group" aria-label="Filter by category">
           {['All', ...Object.keys(categoryStats)].map(name => (
             <button key={name} type="button" aria-pressed={category === name} onClick={() => setCategory(name)}>
@@ -391,6 +444,7 @@ export default function Home() {
           return (
             <article
               key={path}
+              data-module-path={path}
               className={`lld-card${reviewed ? ' reviewed' : ''}${revisit ? ' flagged-revisit' : ''}`}
               {...(i === 0 ? { 'data-tour': 'first-card' } : {})}
             >

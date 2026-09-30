@@ -84,3 +84,16 @@
   width: 100%;
   margin: 0 auto;
 }
+
+.lld-page-nav button { min-height: 44px; }
+.lld-page-nav button:focus-visible, .lld-page-breadcrumb a:focus-visible, .lld-page-panel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  .lld-page { padding-top: 68px; }
+  .lld-page-nav { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding: 6px 4px 12px; scroll-padding-inline: 4px; }
+  .lld-page-nav button { flex-shrink: 0; white-space: nowrap; }
+  .lld-page-breadcrumb { align-items: flex-start; }
+}

@@ -5974,6 +5974,29 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-070: Module Tab Semantics Did Not Match Keyboard Navigation
+
+**Overview & Severity** — Medium, resolved in the navigation-memory update. The shared module
+shell exposed tabs without the corresponding keyboard behavior and panel relationships.
+
+**Symptoms & Error Logs** — Every tab was in the sequential tab order; arrow keys did not
+switch sections, panels lacked accessible tab labels, and narrow layouts wrapped long labels
+into multiple rows. Direct sessionStorage access could also throw when storage was blocked.
+
+**Root Cause** — The tab list supplied roles and selected state but lacked roving focus,
+aria-controls/labelledby relationships, and selected-tab visibility management.
+
+**Diagnostic Commands** — Inspect `frontend/src/components/LldPage.jsx` and run
+`cd frontend && npx vitest run src/__tests__/navigationMemory.test.jsx`.
+
+**Step-by-Step Resolution** — Add roving focus with Left/Right and Home/End navigation; link
+each tab to its named panel; keep selected tabs visible by adjusting only the navigation strip's
+horizontal scroll. Preserve existing tab storage keys and guard storage access. Add regression
+coverage for focus wrapping, restored selection, panel relationships, and unavailable storage.
+
+**Preventative Measures** — Treat ARIA roles as behavioral contracts. Test tab selection with
+keyboard input and stored state, and verify narrow layouts without moving the page vertically.
+
 ## RCA-069: Homepage Cards Nested Buttons Inside Navigation Links
 
 **Overview & Severity** — Medium, resolved during the homepage discovery refresh. Module
