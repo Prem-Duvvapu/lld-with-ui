@@ -11,6 +11,7 @@ export function useSimulationPlayback(stepCount, executeStep) {
   const locked = useRef(false);
   const count = useRef(0);
   const failed = useRef(false);
+  const latestResult = useRef(null);
   const executor = useRef(executeStep);
 
   useEffect(() => { executor.current = executeStep; }, [executeStep]);
@@ -27,8 +28,9 @@ export function useSimulationPlayback(stepCount, executeStep) {
     setError('');
     const index = reset ? 0 : count.current;
     try {
-      const response = await executor.current(index);
+      const response = await executor.current(index, reset ? null : latestResult.current);
       if (!mounted.current) return;
+      latestResult.current = response;
       count.current = index + 1;
       failed.current = false;
       setResult(response);

@@ -1,0 +1,17 @@
+.uber-simulation { max-width: 850px; margin: 0 auto; min-width: 0; color: var(--text-primary); }
+.uber-sim-scene-status { position: absolute; bottom: 60px; left: 12px; right: 12px; padding: 8px; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 700; color: #fff; background: #0f172a; z-index: 6; }
+.uber-sim-summary, .uber-sim-events { padding: 18px; margin: 18px 0; border: 1px solid var(--border-primary); border-radius: 12px; background: var(--bg-card); overflow-wrap: anywhere; }
+.uber-sim-summary h3 { font-size: 16px; margin: 0 0 12px; }
+.uber-sim-summary h4 { margin: 16px 0 8px; }
+.uber-sim-summary p, .uber-sim-events p { font-size: 13px; line-height: 1.6; margin: 8px 0; }
+.uber-sim-summary dl { display: grid; gap: 8px; margin: 12px 0; }
+.uber-sim-summary dl > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--border-secondary); padding-bottom: 6px; font-size: 13px; }
+.uber-sim-summary dt { color: var(--text-secondary); }
+.uber-sim-summary dd { margin: 0; font-weight: 700; }
+.uber-sim-summary ul { padding-left: 20px; font-size: 13px; line-height: 1.7; }
+.uber-sim-race { padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--bg-secondary); }
+.uber-sim-events summary { font-weight: 700; cursor: pointer; padding: 8px 0; }
+.uber-sim-events ol { max-height: 260px; overflow: auto; padding-left: 24px; font-size: 12px; }
+.uber-sim-events li { padding: 8px 0; border-bottom: 1px solid var(--border-secondary); }
+.uber-sim-event-WARNING { border-left: 3px solid var(--warning); padding-left: 8px !important; }
+@media (prefers-reduced-motion: reduce) { .uber-simulation * { transition: none !important; animation: none !important; } }

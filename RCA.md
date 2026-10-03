@@ -5974,6 +5974,38 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-073: Parking Scene Diverged from Assigned Spots and Uber Kept a Stale Final Snapshot
+
+**Overview & Severity** — Medium, resolved in the Parking Lot and Uber playback rollout.
+Simulation visuals and summaries could contradict the sandbox's actual state.
+
+**Symptoms & Error Logs** — Parking highlighted the first visually empty cell even when the
+server assigned a different vehicle type or floor. Its delayed animation callbacks survived
+reset and could advance the scene again. Uber refreshed its snapshot only after the driver
+race, so the final activity log missed OTP, arrival, and payment events; the final snapshot
+step was labeled but never fetched. Async action failures were not handled consistently.
+
+**Root Cause** — Independent local step setters, visual spot selection, and untracked timers
+were separate from server responses. Uber kept ride updates and its event/driver snapshot in
+different state variables, without refreshing the latter after subsequent mutations.
+
+**Diagnostic Commands** — Inspect both simulation components and their `/sim/*` response
+contracts; run `cd frontend && npx vitest run src/__tests__/mobilitySimulation.test.jsx`.
+
+**Step-by-Step Resolution** — Replace both per-action control flows with shared serialized
+playback. Initialize on explicit start/reset, derive Parking spaces and assigned highlighting
+from server spot IDs, remove delayed step mutations, and use the payment event's actual receipt.
+Give incorrect and correct OTP attempts separate guided steps. Refresh Uber snapshots after
+each action and at the final step so payment, driver availability, and events stay current.
+Stop after any failed action or follow-up read and require reset before continuing.
+
+**Preventative Measures** — Test server-selected non-default parking assignments, distinct
+preview/paid amounts, duplicate-click serialization, both OTP outcomes, final snapshot contents,
+reset cleanup, and snapshot failure after a mutation. Keep business state in backend responses;
+presentation steps and CSS transitions must never trigger business operations. The shared
+executor receives the last committed result directly, so successive steps do not depend on
+a rendered component closure having caught up with the prior response.
+
 ## RCA-072: Diagram Details Depended on Hover and Flow Changes Could Crash
 
 **Overview & Severity** — Medium, resolved in the shared diagram viewing update. Diagram
