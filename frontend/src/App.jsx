@@ -104,9 +104,9 @@ const LLD_ROUTES = [
 function Layout({ children }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{
-        position: 'fixed', top: 12, right: 12, zIndex: 1000,
-        display: 'flex', gap: 8, alignItems: 'center',
+      <nav aria-label="Site utilities" style={{
+        display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end',
+        flexWrap: 'wrap', padding: 12,
       }}>
         <a
           href={SWAGGER_URL}
@@ -132,7 +132,7 @@ function Layout({ children }) {
           ⚡ Swagger API
         </a>
         <ThemeToggle />
-      </div>
+      </nav>
       <div style={{ flex: 1, minWidth: 0 }}>
         {children}
       </div>

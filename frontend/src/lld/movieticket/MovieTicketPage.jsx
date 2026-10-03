@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  getMovies, getShows, getSeats, holdSeats, bookSeats, cancelBooking, getUserBookings, getUsers,
-  simReset, simGetSeats, simGetEvents, simHold, simBook, simExpire, simCancel
+  getMovies, getShows, getSeats, holdSeats, bookSeats, cancelBooking, getUserBookings, getUsers
 } from './api';
+import MovieTicketSimulation from './MovieTicketSimulation';
 import ClassDiagram from '../../components/ClassDiagram';
 import SequenceDiagram from '../../components/SequenceDiagram';
 import SolutionGate from '../../components/SolutionGate';
@@ -42,13 +42,6 @@ export default function MovieTicketPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [toastMsg, setToastMsg] = useState('');
-
-  // Simulation State
-  const [simStep, setSimStep] = useState(0);
-  const [simSeats, setSimSeats] = useState([]);
-  const [simEvents, setSimEvents] = useState([]);
-  const [simAutoPlay, setSimAutoPlay] = useState(false);
-  const simTimerRef = useRef(null);
 
   // Load initial movies and users
   useEffect(() => {
@@ -195,79 +188,6 @@ export default function MovieTicketPage() {
       setLoading(false);
     }
   };
-
-  // =========================================================================
-  // SIMULATION CONTROLS & SCRIPTED STEPS
-  // =========================================================================
-
-  const runSimStep = async (stepNumber) => {
-    setSimStep(stepNumber);
-    try {
-      if (stepNumber === 0) {
-        await simReset();
-        const s = await simGetSeats(1);
-        setSimSeats(s || []);
-      } else if (stepNumber === 1) {
-        // Alice holds P1, P2 (seats 1, 2)
-        await simHold(1, [1, 2], 'user1', 'Alice 👩');
-      } else if (stepNumber === 2) {
-        // Bob tries to hold P2, P3 (seats 2, 3) -> CONFLICT!
-        try {
-          await simHold(1, [2, 3], 'user2', 'Bob 👨');
-        } catch {
-          // Expected: this step exists to demonstrate the seat-hold conflict.
-        }
-      } else if (stepNumber === 3) {
-        // Bob retries with G1, G2 (seats 7, 8) -> SUCCESS
-        await simHold(1, [7, 8], 'user2', 'Bob 👨');
-      } else if (stepNumber === 4) {
-        // Alice confirms payment for P1, P2 -> BOOKED
-        await simBook(1, [1, 2], 'user1', 'Alice 👩');
-      } else if (stepNumber === 5) {
-        // Charlie holds S1, S2 (seats 19, 20)
-        await simHold(1, [19, 20], 'user3', 'Charlie 🧑');
-      } else if (stepNumber === 6) {
-        // System simulates Hold TTL Timeout on Charlie's hold
-        await simExpire(1, [19, 20], 'System ⏱');
-      } else if (stepNumber === 7) {
-        // Diana holds & books S1 (19), Alice cancels booking P1, P2
-        await simHold(1, [19], 'user4', 'Diana 👧');
-        await simBook(1, [19], 'user4', 'Diana 👧');
-        await simCancel(1, 'Alice 👩');
-      }
-      const updatedSeats = await simGetSeats(1);
-      const updatedEvents = await simGetEvents();
-      setSimSeats(updatedSeats || []);
-      setSimEvents(updatedEvents || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'simulation') {
-      runSimStep(0);
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    if (simAutoPlay) {
-      simTimerRef.current = setInterval(() => {
-        setSimStep(prev => {
-          if (prev >= 7) {
-            setSimAutoPlay(false);
-            return prev;
-          }
-          const next = prev + 1;
-          runSimStep(next);
-          return next;
-        });
-      }, 3500);
-    } else {
-      clearInterval(simTimerRef.current);
-    }
-    return () => clearInterval(simTimerRef.current);
-  }, [simAutoPlay]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', padding: '24px' }}>
@@ -612,116 +532,7 @@ export default function MovieTicketPage() {
         {/* ========================================================================= */}
         {/* TAB 3: INTERACTIVE 2D CONCURRENCY SIMULATION */}
         {/* ========================================================================= */}
-        {activeTab === 'simulation' && (
-          <div>
-            {/* Control Bar */}
-            <div style={{ background: 'var(--bg-secondary)', padding: 20, borderRadius: 16, border: '1px solid var(--border-primary)', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 18, color: '#a78bfa' }}>8-Step Concurrency & Double-Booking Simulation</h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-                  Watch simulated users (Alice 👩, Bob 👨, Charlie 🧑, Diana 👧) compete for seats concurrently.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  onClick={() => runSimStep(0)}
-                  style={{ background: '#334155', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
-                >
-                  ⏮ Reset Sim
-                </button>
-                <button
-                  onClick={() => setSimAutoPlay(!simAutoPlay)}
-                  style={{ background: simAutoPlay ? '#ef4444' : '#10b981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
-                >
-                  {simAutoPlay ? '⏸ Pause' : '▶ Auto-Play'}
-                </button>
-                <button
-                  onClick={() => runSimStep(Math.min(7, simStep + 1))}
-                  disabled={simStep >= 7}
-                  style={{ background: '#8b5cf6', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: 8, cursor: simStep < 7 ? 'pointer' : 'not-allowed', fontWeight: 700 }}
-                >
-                  Next Step ({simStep}/7) →
-                </button>
-              </div>
-            </div>
-
-            {/* Stage Grid & Event Timeline Layout */}
-            <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
-              {/* Left: Theatre Seat Canvas */}
-              <div style={{ background: 'var(--bg-primary)', borderRadius: 16, padding: 24, border: '1px solid var(--border-primary)' }}>
-                <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                  <div style={{ height: 10, background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)', borderRadius: 5, marginBottom: 6 }} />
-                  <span style={{ fontSize: 11, letterSpacing: 2, color: 'var(--text-secondary)', fontWeight: 700 }}>🎬 SIMULATION STAGE</span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, maxWidth: 480, margin: '0 auto 24px auto' }}>
-                  {simSeats.map(seat => {
-                    let bg = 'var(--bg-secondary)';
-                    let border = 'var(--border-primary)';
-                    let textColor = 'var(--text-secondary)';
-
-                    if (seat.status === 'BOOKED') {
-                      bg = '#ef4444'; border = '#dc2626'; textColor = '#fff';
-                    } else if (seat.status === 'HELD') {
-                      bg = '#f59e0b'; border = '#d97706'; textColor = '#000';
-                    } else {
-                      border = seat.seatType === 'GOLD' ? '#eab308' : '#475569';
-                    }
-
-                    const label = `${seat.row}${String.fromCharCode(64 + seat.col)}`;
-
-                    return (
-                      <div
-                        key={seat.id}
-                        style={{
-                          aspectRatio: '1', borderRadius: 8, border: `2px solid ${border}`, background: bg, color: textColor,
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                          fontWeight: 700, fontSize: 12, transition: 'all 0.3s'
-                        }}
-                      >
-                        <span>{label}</span>
-                        {seat.heldByUserId && (
-                          <span style={{ fontSize: 8, marginTop: 2, opacity: 0.9 }}>
-                            {seat.heldByUserId === 'user1' ? '👩' : seat.heldByUserId === 'user2' ? '👨' : seat.heldByUserId === 'user3' ? '🧑' : '👧'}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* HUD Stats */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', background: 'var(--bg-secondary)', padding: 12, borderRadius: 10, fontSize: 13 }}>
-                  <div>🟢 Available: <strong style={{ color: '#10b981' }}>{simSeats.filter(s => s.status === 'AVAILABLE').length}</strong></div>
-                  <div>🟡 Held: <strong style={{ color: '#f59e0b' }}>{simSeats.filter(s => s.status === 'HELD').length}</strong></div>
-                  <div>🔴 Booked: <strong style={{ color: '#ef4444' }}>{simSeats.filter(s => s.status === 'BOOKED').length}</strong></div>
-                </div>
-              </div>
-
-              {/* Right: Simulation Event Log */}
-              <div style={{ background: 'var(--bg-secondary)', borderRadius: 16, padding: 20, border: '1px solid var(--border-primary)', maxHeight: 520, overflowY: 'auto' }}>
-                <h4 style={{ margin: '0 0 16px 0', fontSize: 16, color: '#a78bfa' }}>📜 Event Log Timeline</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {simEvents.slice().reverse().map(e => (
-                    <div key={e.id} style={{
-                      padding: 12, borderRadius: 8, background: 'var(--bg-primary)', borderLeft: `4px solid ${
-                        e.eventType.includes('SUCCESS') || e.eventType.includes('CONFIRMED') ? '#10b981' :
-                        e.eventType.includes('FAILED') ? '#ef4444' : '#f59e0b'
-                      }`
-                    }}>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
-                        <strong>{e.actorName}</strong>
-                        <span>{e.eventType}</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>{e.description}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'simulation' && <MovieTicketSimulation />}
 
         {/* ========================================================================= */}
         {/* TAB 4: CLASS DIAGRAM */}

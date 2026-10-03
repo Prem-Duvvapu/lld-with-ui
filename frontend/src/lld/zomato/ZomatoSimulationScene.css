@@ -1,0 +1,4 @@
+.zomato-sim-scene { border: 1px solid var(--border-primary); border-radius: 12px; overflow: hidden; background: #0f172a; }
+.zomato-sim-scene svg { display: block; width: 100%; height: auto; }
+.zomato-sim-smoke { animation: zomato-sim-smoke-rise 2s ease-in-out infinite; }
+@keyframes zomato-sim-smoke-rise { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-10px); opacity: 0.8; } }

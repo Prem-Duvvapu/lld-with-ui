@@ -5974,6 +5974,81 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-077: Fixed Site Utilities Obscured Page Controls
+
+**Overview & Severity** — Medium, resolved during mobile playback validation. Global
+documentation and theme controls covered page headings and simulation progress.
+
+**Symptoms & Error Logs** — Chromium screenshots at 390px showed the Swagger link
+overlapping "Guided simulation". Desktop screenshots also hid the progress summary
+when the page scrolled. No JavaScript error was required to reproduce the overlap.
+
+**Root Cause** — The application layout positioned its utilities at a fixed top-right
+coordinate with a high stacking order, without reserving space in the document flow.
+
+**Diagnostic Commands** — Inspect `Layout` in `frontend/src/App.jsx`; capture the
+commerce simulation screens at 320px, 390px, and 1280px using Chromium.
+
+**Step-by-Step Resolution** — Keep documentation and theme controls in a named,
+wrapping navigation row before the page content rather than overlaying it. Add a
+layout regression test and repeat the browser walkthrough and screenshot checks.
+
+**Preventative Measures** — Reserve document space for persistent utilities and
+inspect scrolled as well as initial layouts; a lack of horizontal overflow does not
+prove that floating controls leave important content unobscured.
+
+## RCA-076: Commerce Demos Advanced After Failed or Overlapping Actions
+
+**Overview & Severity** — Medium, resolved in the Zomato, Splitwise, and Movie Ticket
+Booking playback rollout. Progress could imply an action succeeded without a committed response.
+
+**Symptoms & Error Logs** — Movie Ticket Booking's interval dispatched the next action from
+inside a state updater regardless of whether the current action had finished. It advanced
+before awaiting responses, swallowed hold failures, and cancelled hardcoded booking ID 1.
+Zomato treated every cancellation failure, including network errors, as an expected 409 guard.
+Splitwise's initial step advanced locally without resetting stale sandbox users and balances.
+
+**Root Cause** — Each demo had independent step setters and error handling. Timer pacing
+was allowed to dispatch mutations, and expected domain failures were not checked against
+the shared status/code contract. IDs and initial state were partly assumed by the UI.
+
+**Diagnostic Commands** — Inspect the old simulation handlers and interval; run
+`cd frontend && npx vitest run src/__tests__/commerceSimulation.test.jsx`.
+
+**Step-by-Step Resolution** — Adopt shared serialized playback and an explicit initialization
+step. Retain IDs and state from committed responses, separate booking/expiry/cancellation actions,
+refresh server snapshots and activity, and cancel future playback on unmount. Require the exact
+expected domain error and status for demonstration guards; stop on unrelated errors or success.
+Provide readable summaries, responsive layouts, and reduced-motion support.
+
+**Preventative Measures** — Test all terminal actions, returned IDs, partial user creation,
+settlement refresh, known versus unrelated rejections, unexpected successful conflicts, and
+reset cleanup. Keep pacing separate from backend time and guard validation on the server.
+
+## RCA-075: Zomato Simulation Delivered Orders Without Verifying the OTP
+
+**Overview & Severity** — Medium, resolved during the simulation controls rollout. The
+sandbox's delivery endpoint claimed OTP verification but accepted incorrect or missing OTPs.
+
+**Symptoms & Error Logs** — `simDeliver(orderId, "0000")` changed an out-for-delivery order
+to DELIVERED, incremented deliveries, released its agent, and logged "OTP verified" without
+checking the supplied value. Live delivery checked the value using a raw exception.
+
+**Root Cause** — The sandbox copied the delivery transition and agent-release logic but
+omitted the live path's OTP comparison before mutation.
+
+**Diagnostic Commands** — Inspect `ZomatoService#simDeliver` and `verifyOtpAndDeliver`;
+run `mvn test -Dtest=ZomatoSimDeliveryTest,ZomatoServiceTest` in `backend`.
+
+**Step-by-Step Resolution** — Use one OTP validator before either path mutates the order.
+Return a typed `InvalidDeliveryOtpException` through the shared 400 error contract. Add
+service tests proving invalid/null OTPs leave status, agent, counters, and events untouched,
+and a MockMvc test for rejected then successful delivery.
+
+**Preventative Measures** — Exercise rejection paths against the real sandbox service and
+HTTP error contract. A visual OTP demonstration must rely on server validation, and a demo
+must distinguish a known domain rejection from transport failures or unrelated errors.
+
 ## RCA-074: Playback Recovery Test Observed Reset Start Instead of Completion
 
 **Overview & Severity** — Low, intermittent frontend CI test failure during the playback

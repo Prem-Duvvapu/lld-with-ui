@@ -1,0 +1,8 @@
+.movie-sim-screen { padding: 12px; margin: 12px 0 20px; text-align: center; border-top: 4px solid var(--accent); border-radius: 50% 50% 0 0; color: var(--text-secondary); font-size: 13px; }
+.movie-sim-seats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.movie-sim-seat { min-width: 0; min-height: 70px; padding: 10px 4px; border: 1px solid var(--border-primary); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; background: var(--bg-secondary); color: var(--text-primary); overflow-wrap: anywhere; }
+.movie-sim-seat span { font-size: 10px; }
+.movie-sim-seat.status-HELD { background: var(--warning-bg); border-color: var(--warning); }
+.movie-sim-seat.status-BOOKED { background: var(--danger-bg); border-color: var(--danger); }
+.movie-sim-legend { display: flex; flex-wrap: wrap; justify-content: space-around; gap: 12px; margin-top: 16px; font-size: 13px; }
+@media (max-width: 480px) { .movie-sim-seats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
