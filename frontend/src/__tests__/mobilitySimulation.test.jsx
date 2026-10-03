@@ -126,9 +126,9 @@ describe('Parking and Uber guided playback', () => {
     expect(screen.getByRole('button', { name: 'Play' }).disabled).toBe(true);
     expect(parking.simPay).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Reset sandbox' }));
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    await waitFor(() => expect(screen.getByRole('progressbar').getAttribute('value')).toBe('1'));
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(parking.simScan).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('progressbar').getAttribute('value')).toBe('1');
   });
 
   it('executes both OTP outcomes and refreshes completion, payment, driver availability and final events', async () => {
@@ -167,8 +167,8 @@ describe('Parking and Uber guided playback', () => {
     expect(uber.simRace).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Next step' }).disabled).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Reset sandbox' }));
-    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    await waitFor(() => expect(screen.getByRole('progressbar').getAttribute('value')).toBe('1'));
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(uber.simRequest).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('progressbar').getAttribute('value')).toBe('1');
   });
 });

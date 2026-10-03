@@ -5974,6 +5974,28 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-074: Playback Recovery Test Observed Reset Start Instead of Completion
+
+**Overview & Severity** — Low, intermittent frontend CI test failure during the playback
+rollout. The application reset worked, but its recovery test could assert too early.
+
+**Symptoms & Error Logs** — One CI run failed in `mobilitySimulation.test.jsx` with
+`expected '5' to be '1'` after reset; the parallel run and local suite passed.
+
+**Root Cause** — Playback clears the error when reset starts, then commits progress after
+the reset response. The test waited only for the alert to disappear and assumed progress
+had already changed, making its assertion depend on scheduling.
+
+**Diagnostic Commands** — `gh run view 37148761647 --job 111278023281 --log-failed`;
+`cd frontend && npx vitest run src/__tests__/mobilitySimulation.test.jsx`.
+
+**Step-by-Step Resolution** — Make both recovery tests wait for reset's committed progress
+of one completed step, then assert that the error has cleared and no mutation was retried.
+
+**Preventative Measures** — Await the outcome that proves an asynchronous operation has
+completed. Clearing a loading indicator or an old error can signal only that a new operation
+has started; it is not evidence that the response has been committed.
+
 ## RCA-073: Parking Scene Diverged from Assigned Spots and Uber Kept a Stale Final Snapshot
 
 **Overview & Severity** — Medium, resolved in the Parking Lot and Uber playback rollout.
