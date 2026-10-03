@@ -224,9 +224,7 @@ public class ZomatoService {
             throw new InvalidOrderTransitionException("Cannot deliver order from status: " + order.getStatus());
         }
 
-        if (order.getDeliveryOtp() != null && !order.getDeliveryOtp().equals(inputOtp)) {
-            throw new IllegalArgumentException("Invalid delivery OTP. Please verify with customer.");
-        }
+        validateDeliveryOtp(order, inputOtp);
 
         order.setStatus(OrderStatus.DELIVERED);
         repository.saveOrder(order);
@@ -440,6 +438,8 @@ public class ZomatoService {
             throw new InvalidOrderTransitionException("Cannot deliver sim order from status: " + order.getStatus());
         }
 
+        validateDeliveryOtp(order, otp);
+
         order.setStatus(OrderStatus.DELIVERED);
         simRepository.saveOrder(order);
 
@@ -455,6 +455,12 @@ public class ZomatoService {
         addSimEvent("DELIVERED", "CUSTOMER", "Order " + orderId + " successfully delivered! OTP verified.",
                 Map.of("orderId", orderId));
         return order;
+    }
+
+    private void validateDeliveryOtp(Order order, String otp) {
+        if (order.getDeliveryOtp() == null || !order.getDeliveryOtp().equals(otp)) {
+            throw new InvalidDeliveryOtpException();
+        }
     }
 
     public Order simCancel(String orderId, String reason) {

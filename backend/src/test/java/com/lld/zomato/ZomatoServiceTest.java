@@ -212,7 +212,7 @@ class ZomatoServiceTest {
     }
 
     @Test
-    @DisplayName("Deliver order with incorrect OTP throws IllegalArgumentException")
+    @DisplayName("Deliver order with incorrect OTP throws InvalidDeliveryOtpException")
     void deliverOrderWrongOtpThrows() {
         Customer c = service.getCustomers().get(0);
         Order order = service.placeOrder(c.getId(), "REST-1", List.of(new OrderItem("ITEM-1", "Test Burger", 150.0, 1)), "123 Test St", "UPI");
@@ -220,7 +220,7 @@ class ZomatoServiceTest {
         service.startPreparingOrder(order.getId());
         service.markReadyForPickup(order.getId());
 
-        assertThrows(IllegalArgumentException.class, () -> service.verifyOtpAndDeliver(order.getId(), "0000"));
+        assertThrows(InvalidDeliveryOtpException.class, () -> service.verifyOtpAndDeliver(order.getId(), "0000"));
     }
 
     @Test
