@@ -281,9 +281,6 @@
     }
   },
   "src/lld/parking/ParkingLotPage.jsx": {
-    "jsx-a11y/label-has-associated-control": {
-      "count": 5
-    },
     "react-hooks/purity": {
       "count": 1
     }

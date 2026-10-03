@@ -19,17 +19,20 @@ before opening it fullscreen. Loading states and solution-reveal gates remain un
 
 ### Guided simulation playback
 
-Tic Tac Toe, Rate Limiter, and Thread Pool share Play/Pause, Start/Next step, Reset sandbox,
-and 0.5×/1×/2× pacing controls. Each step waits for its isolated backend response before
+Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, and Uber share Play/Pause, Start/Next step, Reset sandbox,
+and 0.5×/1×/2× pacing controls. Each action waits for its isolated backend response before
 progress advances. Pause stops future requests, not an action already sent; pacing changes
 only the reading delay, not simulated time or backend calculations. Reset executes the first
 sandbox-initialization step again. A failed request stops playback and requires an explicit
 reset because a lost response does not prove that a mutation failed. Leaving the simulation
 stops future playback, but cannot roll back a request already sent.
 
-This is the first rollout, not a site-wide migration. Other modules retain their existing
-controls; branching workflows such as Uber OTP verification and Parking Lot vehicle inputs
-need module-specific treatment before adopting automatic playback.
+Parking Lot settings stay editable until the ticket is issued; reset to try another vehicle,
+assignment strategy, pricing strategy, or payment method. Its layout highlights the server's
+assigned spot, and its receipt uses the paid amount rather than the earlier preview. Presentation
+steps explain parking and returning without changing the server's clock. Uber includes separate
+wrong-OTP and correct-OTP steps, refreshes driver availability after each action, and fetches a
+final snapshot with payment and complete activity. Other modules retain their existing controls.
 
 ### Finding your next module
 

@@ -13,18 +13,18 @@ describe('Simulation playback', () => {
     const { result } = renderHook(() => useSimulationPlayback(2, execute));
     act(() => { void result.current.next(); void result.current.next(); void result.current.reset(); });
     expect(execute).toHaveBeenCalledTimes(1);
-    expect(execute).toHaveBeenCalledWith(0);
+    expect(execute).toHaveBeenCalledWith(0, null);
     expect(result.current.completed).toBe(0);
     await act(async () => { finish('first'); });
     expect(result.current.completed).toBe(1);
     await act(async () => { await result.current.next(); });
-    expect(execute).toHaveBeenLastCalledWith(1);
+    expect(execute).toHaveBeenLastCalledWith(1, 'first');
     expect(result.current.done).toBe(true);
     expect(result.current.result).toBe('final');
     await act(async () => { await result.current.next(); });
     expect(execute).toHaveBeenCalledTimes(2);
     await act(async () => { await result.current.reset(); });
-    expect(execute).toHaveBeenLastCalledWith(0);
+    expect(execute).toHaveBeenLastCalledWith(0, null);
     expect(result.current.completed).toBe(1);
     expect(result.current.done).toBe(false);
   });
@@ -73,7 +73,7 @@ describe('Simulation playback', () => {
     expect(execute).toHaveBeenCalledTimes(2);
     await act(async () => { await result.current.reset(); });
     expect(result.current.error).toBe('');
-    expect(execute).toHaveBeenLastCalledWith(0);
+    expect(execute).toHaveBeenLastCalledWith(0, null);
   });
 
   it('stops timers and ignores late responses when the simulation unmounts', async () => {
