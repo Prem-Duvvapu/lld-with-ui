@@ -1,0 +1,16 @@
+.simulation-panel { min-width: 0; color: var(--text-primary); }
+.simulation-panel-card { min-width: 0; padding: 18px; margin: 16px 0; border: 1px solid var(--border-primary); border-radius: 12px; background: var(--bg-card); overflow-wrap: anywhere; }
+.simulation-panel-card h3, .simulation-panel-card h4 { margin: 0 0 12px; font-size: 16px; }
+.simulation-panel-card p { margin: 8px 0; font-size: 13px; line-height: 1.6; }
+.simulation-panel-card dl { display: grid; gap: 8px; }
+.simulation-panel-card dl > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border-secondary); font-size: 13px; }
+.simulation-panel-card dt { color: var(--text-secondary); }
+.simulation-panel-card dd { margin: 0; font-weight: 700; }
+.simulation-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px; }
+.simulation-panel-grid > div { padding: 12px; border: 1px solid var(--border-primary); border-radius: 8px; }
+.simulation-panel-card summary { font-weight: 700; cursor: pointer; padding: 8px 0; font-size: 14px; }
+.simulation-panel-card ol { max-height: 260px; overflow: auto; padding-left: 24px; font-size: 12px; }
+.simulation-panel-card li { padding: 8px 0; overflow-wrap: anywhere; }
+.simulation-panel-note { padding: 10px 14px; background: var(--bg-secondary); border-left: 3px solid var(--accent); }
+.simulation-panel :is(button, summary, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .simulation-panel *, .simulation-panel *::before, .simulation-panel *::after { transition: none !important; animation: none !important; } }

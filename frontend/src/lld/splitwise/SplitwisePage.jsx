@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { getUsers, createUser, getGroups, createGroup, addExpense, getGroupExpenses, getBalances, getTransactions, settleUp, getSimplifiedDebts, getEvents, simReset, simCreateUser, simCreateGroup, simAddExpense, simSettleUp, simGetBalances, simGetEvents, simGetSimplifiedDebts } from './api';
+import { getUsers, createUser, getGroups, createGroup, addExpense, getGroupExpenses, getBalances, getTransactions, settleUp, getSimplifiedDebts, getEvents } from './api';
+import SplitwiseSimulation from './SplitwiseSimulation';
 import { usePolling } from '../../hooks/usePolling';
 import LldPage from '../../components/LldPage';
 import ClassDiagram from '../../components/ClassDiagram';
@@ -901,193 +902,6 @@ function ActivityFeed() {
   );
 }
 
-/* --- TAB 4: 8-STEP INTERACTIVE 2D SIMULATION --- */
-function InteractiveSimulation() {
-  const [step, setStep] = useState(0);
-  const [users, setUsers] = useState([]);
-  const [group, setGroup] = useState(null);
-  const [expense, setExpense] = useState(null);
-  const [debts, setDebts] = useState([]);
-  const [balances, setBalances] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const steps = [
-    { title: 'Idle Engine', label: 'Start Engine' },
-    { title: 'Create Sim Users', label: '👥 Spawn 4 Users' },
-    { title: 'Form Group', label: '📁 Create Goa Group' },
-    { title: 'Expense 1 (Equal)', label: '🏨 Add ₹4000 Hotel' },
-    { title: 'Expense 2 (Percentage)', label: '🍕 Add ₹1200 Dinner' },
-    { title: 'Expense 3 (Exact)', label: '🚕 Add ₹800 Cab' },
-    { title: 'Debt Graph Topology', label: '📊 Analyze Simplification' },
-    { title: 'Settlement Ray Flow', label: '💸 Diana Settles ₹1000' },
-    { title: 'Simulation Complete', label: '✅ Restart' },
-  ];
-
-  const resetSim = async () => {
-    setLoading(true); setError('');
-    try {
-      await simReset();
-      setStep(0); setUsers([]); setGroup(null); setExpense(null); setDebts([]); setBalances({});
-    } catch { setError('Failed to reset sim'); }
-    finally { setLoading(false); }
-  };
-
-  const handleStepAction = async () => {
-    setLoading(true); setError('');
-    try {
-      if (step === 0) {
-        setStep(1);
-      } else if (step === 1) {
-        const u1 = await simCreateUser('Alice', 'alice@sim.com');
-        const u2 = await simCreateUser('Bob', 'bob@sim.com');
-        const u3 = await simCreateUser('Charlie', 'charlie@sim.com');
-        const u4 = await simCreateUser('Diana', 'diana@sim.com');
-        setUsers([u1, u2, u3, u4]);
-        setStep(2);
-      } else if (step === 2) {
-        const g = await simCreateGroup('Goa Trip 2026', users.map(u => u.id));
-        setGroup(g);
-        setStep(3);
-      } else if (step === 3) {
-        const exp1 = await simAddExpense('Hotel Booking', 4000.0, users[0].id, group.id, []);
-        setExpense(exp1);
-        const b = await simGetBalances(); setBalances(b);
-        setStep(4);
-      } else if (step === 4) {
-        const pctSplits = [
-          { userId: users[0].id, type: 'PERCENTAGE', percentage: 20 },
-          { userId: users[1].id, type: 'PERCENTAGE', percentage: 40 },
-          { userId: users[2].id, type: 'PERCENTAGE', percentage: 20 },
-          { userId: users[3].id, type: 'PERCENTAGE', percentage: 20 },
-        ];
-        const exp2 = await simAddExpense('Beach Dinner', 1200.0, users[1].id, group.id, pctSplits);
-        setExpense(exp2);
-        const b = await simGetBalances(); setBalances(b);
-        setStep(5);
-      } else if (step === 5) {
-        const exactSplits = [
-          { userId: users[0].id, type: 'EXACT', amount: 200 },
-          { userId: users[1].id, type: 'EXACT', amount: 200 },
-          { userId: users[2].id, type: 'EXACT', amount: 200 },
-          { userId: users[3].id, type: 'EXACT', amount: 200 },
-        ];
-        const exp3 = await simAddExpense('Cab Fare', 800.0, users[2].id, group.id, exactSplits);
-        setExpense(exp3);
-        const b = await simGetBalances(); setBalances(b);
-        setStep(6);
-      } else if (step === 6) {
-        const d = await simGetSimplifiedDebts(group.id);
-        setDebts(d);
-        setStep(7);
-      } else if (step === 7) {
-        await simSettleUp(users[3].id, users[0].id, group.id, 1000.0);
-        const d = await simGetSimplifiedDebts(group.id);
-        setDebts(d);
-        const b = await simGetBalances(); setBalances(b);
-        setStep(8);
-      } else {
-        await resetSim();
-      }
-    } catch (err) {
-      setError(err.message || 'Error executing step');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const userPositions = [
-    { top: '15%', left: '15%', color: '#667eea' }, // Alice
-    { top: '15%', right: '15%', color: '#764ba2' }, // Bob
-    { bottom: '20%', left: '15%', color: '#f093fb' }, // Charlie
-    { bottom: '20%', right: '15%', color: '#4facfe' }, // Diana
-  ];
-
-  return (
-    <div>
-      <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={i} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s.title} />
-        ))}
-      </div>
-
-      <div className="sw-scene">
-        {/* Central Group Node */}
-        {step >= 2 && group && (
-          <div className="sw-group-node">
-            <div style={{ fontSize: 24 }}>📁</div>
-            <div style={{ fontSize: 11, fontWeight: 700 }}>{group.name}</div>
-          </div>
-        )}
-
-        {/* User Nodes Orbit */}
-        {users.map((u, i) => {
-          const pos = userPositions[i];
-          return (
-            <div key={u.id} className="sw-node" style={{ ...pos, background: pos.color }}>
-              <div>{u.name[0]}</div>
-              <div style={{ fontSize: 9, marginTop: 2 }}>{u.name}</div>
-            </div>
-          );
-        })}
-
-        {/* Debt Graph Vectors (Step 6 & 7) */}
-        {step >= 6 && debts.map((d, idx) => (
-          <div key={idx} className="sw-debt-label" style={{ top: `${35 + idx * 15}%`, left: '50%' }}>
-            ⚡ {d.fromUser?.name} owe {d.toUser?.name}: ₹{d.amount?.toFixed(2)}
-          </div>
-        ))}
-
-        {/* Main Expense Popup Cards */}
-        {step >= 3 && step <= 5 && expense && (
-          <div className="sw-sim-card" style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 13, color: '#94a3b8' }}>EXPENSE EVENT RECORDED</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#38bdf8', margin: '4px 0' }}>{expense.description}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#4ade80' }}>₹{expense.amount?.toFixed(2)}</div>
-            <div style={{ fontSize: 12, color: '#cbd5e1' }}>Paid by {expense.paidBy?.name} ({expense.splits?.[0]?.type || 'EQUAL'})</div>
-          </div>
-        )}
-
-        {/* Step 8 Complete Summary */}
-        {step === 8 && (
-          <div className="sw-sim-card" style={{ marginTop: 20, border: '2px solid #22c55e' }}>
-            <div style={{ fontSize: 32 }}>🎉</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#22c55e' }}>Simulation Complete!</div>
-            <div style={{ fontSize: 12, color: '#cbd5e1', margin: '8px 0' }}>Executed 3 real REST expenses, strategy split validation, greedy debt simplification, and live settlement handoff.</div>
-          </div>
-        )}
-
-        {/* Live Balance HUD */}
-        {users.length > 0 && (
-          <div className="sw-hud">
-            {users.map((u) => {
-              const uBal = balances[u.name] || {};
-              const netTotal = Object.values(uBal).reduce((a, b) => a + b, 0);
-              return (
-                <div key={u.id} style={{ textAlign: 'center' }}>
-                  <div style={{ fontWeight: 700, color: '#e2e8f0' }}>{u.name}</div>
-                  <div style={{ color: netTotal >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>
-                    {netTotal >= 0 ? '+' : ''}₹{netTotal.toFixed(2)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
-        <button className="sw-btn" onClick={handleStepAction} disabled={loading}>
-          {loading ? 'Processing...' : steps[step]?.label || 'Next Step'}
-        </button>
-        <button className="sw-btn sw-btn-secondary" onClick={resetSim} disabled={loading}>
-          ↺ Reset Sim State
-        </button>
-      </div>
-      {error && <div className="sw-error" style={{ marginTop: 12 }}>{error}</div>}
-    </div>
-  );
-}
 
 export default function SplitwisePage() {
   const [view, setView] = useState('users');
@@ -1128,7 +942,7 @@ export default function SplitwisePage() {
             )}
             {activeTab === 'dashboard' && <BalanceDashboard />}
             {activeTab === 'activity' && <ActivityFeed />}
-            {activeTab === 'simulation' && <InteractiveSimulation />}
+            {activeTab === 'simulation' && <SplitwiseSimulation />}
             {activeTab === 'diagram' && <ClassDiagram module="splitwise" />}
             {activeTab === 'design' && <DesignDetails module="splitwise" />}
           </main>

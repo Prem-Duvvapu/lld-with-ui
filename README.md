@@ -19,7 +19,8 @@ before opening it fullscreen. Loading states and solution-reveal gates remain un
 
 ### Guided simulation playback
 
-Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, and Uber share Play/Pause, Start/Next step, Reset sandbox,
+Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, Uber, Zomato, Splitwise, and Movie Ticket
+Booking share Play/Pause, Start/Next step, Reset sandbox,
 and 0.5×/1×/2× pacing controls. Each action waits for its isolated backend response before
 progress advances. Pause stops future requests, not an action already sent; pacing changes
 only the reading delay, not simulated time or backend calculations. Reset executes the first
@@ -32,7 +33,18 @@ assignment strategy, pricing strategy, or payment method. Its layout highlights 
 assigned spot, and its receipt uses the paid amount rather than the earlier preview. Presentation
 steps explain parking and returning without changing the server's clock. Uber includes separate
 wrong-OTP and correct-OTP steps, refreshes driver availability after each action, and fetches a
-final snapshot with payment and complete activity. Other modules retain their existing controls.
+final snapshot with payment and complete activity.
+
+Zomato walks through assignment contention, order preparation, the cancellation guard, and
+incorrect/correct delivery OTPs before fetching the final delivery state. Its payment method
+can be selected before placing the order. Splitwise creates participants and expenses with
+equal, percentage, and exact splits, then refreshes the ledger and suggested transfers after
+settlement. Movie Ticket Booking demonstrates an overlapping hold, alternate seats, explicit
+hold release, bookings, and cancellation using the actual booking ID. Its walkthrough is
+sequential; backend contention and thread safety have independent service tests. Expected
+rejections must match the server's HTTP status and domain error code; connection failures,
+other domain errors, and unexpected successful actions stop playback and require reset.
+Leaving these simulation tabs cancels future playback. Other modules retain existing controls.
 
 ### Finding your next module
 

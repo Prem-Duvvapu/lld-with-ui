@@ -264,9 +264,6 @@
     },
     "react-hooks/immutability": {
       "count": 1
-    },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
     }
   },
   "src/lld/music-streaming/MusicStreamingPage.jsx": {
@@ -353,7 +350,7 @@
       "count": 4
     },
     "no-unused-vars": {
-      "count": 3
+      "count": 2
     }
   },
   "src/lld/stackoverflow/StackOverflowPage.jsx": {
@@ -457,10 +454,10 @@
       "count": 1
     },
     "no-unused-vars": {
-      "count": 7
+      "count": 6
     },
     "react-hooks/set-state-in-effect": {
-      "count": 2
+      "count": 1
     }
   }
 }
