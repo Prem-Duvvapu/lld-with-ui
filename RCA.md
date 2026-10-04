@@ -5974,6 +5974,48 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-081: Resilience Walkthroughs Continued After Failures or Leaving the Page
+
+**Overview & Severity** — Medium. Circuit Breaker and LRU Cache had independent demo
+controllers that could advance after failed requests or keep mutating a sandbox after the
+visitor left the simulation tab.
+
+**Symptoms & Error Logs** — Circuit Breaker's catch path incremented progress after any
+exception, treating transport failures like an expected rejected call. LRU's fixed-delay
+workload had no cancellation or catch/finally recovery, and manual writes, policy changes,
+reset, and background polling could overlap it. A cache miss claimed to query a persistent
+database even though the backend is entirely in memory. Placeholder-only inputs and fixed
+dark scene styling made the controls less accessible and inconsistent in light mode.
+
+**Root Cause** — The pages coordinated side effects with local state and an uncancellable
+async loop instead of the shared serialized playback hook. Circuit Breaker conflated HTTP
+failures with its backend's successful snapshot containing a `CALL_REJECTED` event. LRU's
+illustration mixed real cache telemetry with an invented database fallback, without explaining
+that counters persist across resets.
+
+**Diagnostic Commands**
+```bash
+rg -n 'runAutoScenario|setStep|simCall|Querying DB' frontend/src/lld
+cd frontend && npx vitest run src/__tests__/resilienceSimulation.test.jsx src/__tests__/simulationPlayback.test.jsx
+cd backend && mvn -Dtest=CircuitBreakerServiceTest,LruCacheServiceTest test
+```
+
+**Step-by-Step Resolution** — Replace the bespoke controllers with shared playback and
+reset-required error recovery. Split breaker clock advancement and trial calls into separate
+steps, verify expected event types, and show the actual post-call phase. Initialize the cache
+guide with an explicit clear, capacity five, and LRU policy; remove simulation polling and
+the detached workload loop. Preserve manual experiments after completion through the same
+serialized action gate, with labelled forms and explicit capacity/policy submissions. Render
+theme-aware server snapshots, retain cumulative counters/logs honestly, and describe misses
+without a fabricated database call. Add frontend recovery/control regressions and real backend
+scenario tests proving the expected outcomes and isolation from live state.
+
+**Preventative Measures** — Never count a failed request as a completed step or conflate
+domain events with transport errors. Cancel scheduled actions on tab departure, serialize
+manual mutations with guided actions, and require explicit reset after ambiguous failures.
+Verify reset semantics against backend code, label forms independently of placeholders, and
+check narrow screens, both themes, and reduced motion without starting application servers.
+
 ## RCA-080: Game Walkthroughs Misrepresented Random Outcomes and Retried Ambiguous Actions
 
 **Overview & Severity** — Medium. Ludo, Chess, and Snakes & Ladders simulations had
