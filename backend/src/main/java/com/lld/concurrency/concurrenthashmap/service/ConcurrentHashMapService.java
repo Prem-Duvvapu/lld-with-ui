@@ -2,6 +2,7 @@ package com.lld.concurrency.concurrenthashmap.service;
 
 import com.lld.concurrency.concurrenthashmap.exception.InvalidMapParametersException;
 import com.lld.concurrency.concurrenthashmap.exception.RunExecutionException;
+import com.lld.concurrency.concurrenthashmap.model.MapScope;
 import com.lld.concurrency.concurrenthashmap.model.RunRequest;
 import com.lld.concurrency.concurrenthashmap.model.RunResult;
 import com.lld.concurrency.concurrenthashmap.model.StripedHashMap;
@@ -74,21 +75,9 @@ public class ConcurrentHashMapService {
         long runStartNanos = System.nanoTime();
         Instant startedAt = Instant.now();
 
-        TraceRecorder recorder = (type, key, valueAfter, segmentIndex, segmentSize, mapSize) -> trace.add(new TraceEvent(
-                sequence.incrementAndGet(),
-                Instant.now(),
-                System.nanoTime() - runStartNanos,
-                Thread.currentThread().getName(),
-                type,
-                key,
-                valueAfter,
-                segmentIndex,
-                segmentSize,
-                mapSize
-        ));
-
         // Phase A: many threads merge-increment a small set of shared counter keys.
-        StripedHashMap<String, Long> counters = new StripedHashMap<>(segments, recorder);
+        StripedHashMap<String, Long> counters = new StripedHashMap<>(segments,
+                recorderFor(MapScope.COUNTERS, trace, sequence, runStartNanos));
         List<Thread> incrementThreads = new ArrayList<>(threads);
         for (int t = 0; t < threads; t++) {
             int threadId = t;
@@ -111,7 +100,8 @@ public class ConcurrentHashMapService {
 
         // Phase B: several threads race computeIfAbsent() on the same absent key,
         // released together via a latch for genuine contention.
-        StripedHashMap<String, String> config = new StripedHashMap<>(segments, recorder);
+        StripedHashMap<String, String> config = new StripedHashMap<>(segments,
+                recorderFor(MapScope.CONFIG, trace, sequence, runStartNanos));
         AtomicInteger computeCount = new AtomicInteger(0);
         CountDownLatch startGate = new CountDownLatch(1);
         List<Thread> racerThreads = new ArrayList<>(computeRacers);
@@ -152,6 +142,23 @@ public class ConcurrentHashMapService {
                 Duration.between(startedAt, finishedAt).toMillis(),
                 orderedTrace
         );
+    }
+
+    private TraceRecorder recorderFor(MapScope scope, List<TraceEvent> trace,
+                                      AtomicLong sequence, long runStartNanos) {
+        return (type, key, valueAfter, segmentIndex, segmentSize, mapSize) -> trace.add(new TraceEvent(
+                sequence.incrementAndGet(),
+                Instant.now(),
+                System.nanoTime() - runStartNanos,
+                Thread.currentThread().getName(),
+                type,
+                key,
+                valueAfter,
+                segmentIndex,
+                segmentSize,
+                mapSize,
+                scope
+        ));
     }
 
     private void awaitCompletion(List<Thread> threads) {
