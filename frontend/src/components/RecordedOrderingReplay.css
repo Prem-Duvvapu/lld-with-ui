@@ -1,0 +1,12 @@
+.ordering-recording-stream { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr)); gap: 8px; margin: 12px 0; }
+.ordering-recording-token { display: grid; gap: 6px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; overflow-wrap: anywhere; }
+.ordering-recording-token strong { color: var(--accent); font-size: 16px; }
+.ordering-recording-token small, .ordering-recording-atoms small { font-size: 11px; color: var(--text-secondary); }
+.ordering-recording-token[aria-current], .ordering-recording-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ordering-recording-follow { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; }
+.ordering-recording-follow input { accent-color: var(--accent); }
+.ordering-recording-follow input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ordering-recording-atoms { display: flex; flex-wrap: wrap; gap: 16px; margin: 16px 0; }
+.ordering-recording-atoms > div { display: grid; justify-items: center; gap: 8px; max-width: 110px; overflow-wrap: anywhere; }
+.ordering-recording-atom { display: grid; place-items: center; width: 44px; height: 44px; border: 2px solid var(--accent); border-radius: 50%; background: var(--bg-secondary); font-weight: 800; }
+.ordering-recording-result { white-space: pre-wrap; overflow-wrap: anywhere; }

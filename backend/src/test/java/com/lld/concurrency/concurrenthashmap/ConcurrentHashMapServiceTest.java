@@ -1,6 +1,10 @@
 package com.lld.concurrency.concurrenthashmap;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lld.concurrency.concurrenthashmap.exception.InvalidMapParametersException;
+import com.lld.concurrency.concurrenthashmap.model.EventType;
+import com.lld.concurrency.concurrenthashmap.model.MapScope;
 import com.lld.concurrency.concurrenthashmap.model.RunRequest;
 import com.lld.concurrency.concurrenthashmap.model.RunResult;
 import com.lld.concurrency.concurrenthashmap.model.TraceEvent;
@@ -8,7 +12,10 @@ import com.lld.concurrency.concurrenthashmap.service.ConcurrentHashMapService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -74,6 +81,43 @@ class ConcurrentHashMapServiceTest {
                 () -> service.run(new RunRequest(0, 1, 1, 1, 1)));
         assertThrows(InvalidMapParametersException.class,
                 () -> service.run(new RunRequest(-2, 1, 1, 1, 1)));
+    }
+
+    @Test
+    @Timeout(15)
+    void recordsSeparateMapScopesEvenWhenEveryOperationUsesSegmentZero() {
+        RunResult result = service.run(new RunRequest(1, 2, 3, 1, 3));
+        Map<MapScope, Map<String, String>> observed = new EnumMap<>(MapScope.class);
+        observed.put(MapScope.COUNTERS, new HashMap<>());
+        observed.put(MapScope.CONFIG, new HashMap<>());
+
+        for (TraceEvent event : result.trace()) {
+            assertEquals(0, event.segmentIndex());
+            assertTrue(observed.containsKey(event.mapScope()));
+            if (event.type() == EventType.MERGE_SUCCESS) {
+                assertEquals(MapScope.COUNTERS, event.mapScope());
+                observed.get(event.mapScope()).put(event.key(), event.valueAfter());
+            }
+            if (event.type() == EventType.COMPUTE_IF_ABSENT_COMPUTED) {
+                assertEquals(MapScope.CONFIG, event.mapScope());
+                observed.get(event.mapScope()).put(event.key(), event.valueAfter());
+            }
+            if (event.type() == EventType.GET_HIT) assertEquals(MapScope.COUNTERS, event.mapScope());
+            if (event.threadName().startsWith("racer-")) assertEquals(MapScope.CONFIG, event.mapScope());
+        }
+        assertEquals(Map.of("key-0", "6"), observed.get(MapScope.COUNTERS));
+        assertEquals(Map.of("shared-config", "computed-value"), observed.get(MapScope.CONFIG));
+        assertEquals(1, result.trace().stream().filter(event -> event.type() == EventType.COMPUTE_IF_ABSENT_COMPUTED).count());
+    }
+
+    @Test
+    void serializesExplicitMapIdentityOnEveryEvent() throws Exception {
+        RunResult result = service.run(new RunRequest(1, 2, 2, 1, 2));
+        JsonNode serialized = new ObjectMapper().findAndRegisterModules().valueToTree(result);
+        for (int index = 0; index < result.trace().size(); index++) {
+            assertEquals(result.trace().get(index).mapScope().name(),
+                    serialized.get("trace").get(index).get("mapScope").asText());
+        }
     }
 
     @Test

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export function useRecordedTrace(executeRun) {
+export function useRecordedTrace(executeRun, { traceKey = 'trace' } = {}) {
   const [result, setResult] = useState(null);
   const [position, setPosition] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -8,7 +8,7 @@ export function useRecordedTrace(executeRun) {
   const [speed, setSpeed] = useState(1);
   const [error, setError] = useState('');
   const lifecycle = useRef({ mounted: true, locked: false, generation: 0, request: null });
-  const trace = result?.trace || [];
+  const trace = result?.[traceKey] || [];
 
   useEffect(() => {
     const state = lifecycle.current;
@@ -33,7 +33,7 @@ export function useRecordedTrace(executeRun) {
     try {
       const response = await executeRun(parameters, { signal: controller.signal });
       if (!state.mounted || runGeneration !== state.generation) return;
-      if (!Array.isArray(response?.trace)) throw new Error('The backend did not return a recorded trace.');
+      if (!Array.isArray(response?.[traceKey])) throw new Error('The backend did not return a recorded trace.');
       setResult(response);
       setPosition(0);
     } catch (cause) {

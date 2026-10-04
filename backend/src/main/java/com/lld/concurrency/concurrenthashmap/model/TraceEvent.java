@@ -18,6 +18,7 @@ public record TraceEvent(
         String valueAfter,
         int segmentIndex,
         int segmentSize,
-        int mapSize
+        int mapSize,
+        MapScope mapScope
 ) {
 }

@@ -43,6 +43,21 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('Recorded trace lifecycle', () => {
+  it('selects an events collection without changing the response schema or accepting a different collection', async () => {
+    const response = { runId: 'ordering', events: [{ sequence: 1 }], trace: [{ sequence: 9 }] };
+    const execute = vi.fn().mockResolvedValueOnce(response).mockResolvedValueOnce({ trace: [] });
+    const { result } = renderHook(() => useRecordedTrace(execute, { traceKey: 'events' }));
+    await act(async () => { await result.current.run({}); });
+    expect(result.current.result).toBe(response);
+    expect(result.current.trace).toBe(response.events);
+    act(() => result.current.next());
+    expect(result.current.done).toBe(true);
+    await act(async () => { await result.current.run({}); });
+    expect(result.current.error).toContain('did not return a recorded trace');
+    expect(result.current.result).toBe(response);
+    expect(result.current.position).toBe(1);
+  });
+
   it('serializes runs and loads a paused recording without applying events', async () => {
     let finish;
     const execute = vi.fn(() => new Promise(resolve => { finish = resolve; }));

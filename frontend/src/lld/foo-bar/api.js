@@ -5,9 +5,10 @@ import { apiFetch } from '../../utils/api';
  * threads contending on a pair of Semaphores in strict ping-pong alternation.
  * Returns the full ordered, timestamped execution trace once the run finishes.
  */
-export function runFooBar({ n } = {}) {
+export function runFooBar({ n } = {}, { signal } = {}) {
   return apiFetch('/concurrency/foo-bar/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ n }),
   });
 }

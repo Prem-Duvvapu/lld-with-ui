@@ -5974,6 +5974,105 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-085: Workflow Race-Test Scheduling Assumption Temporarily Blocked PR CI
+
+**Overview & Severity** — Low: PR #150's first backend check failed in an unchanged workflow
+test. The identical commit passed the local suite, push CI, and the failed job's rerun.
+The immediate CI interruption is cleared; the underlying flaky assertion remains a separate
+test-maintenance follow-up, not a product fix included in the concurrency UI work.
+
+**Symptoms & Error Logs** — Run `37228457288`, first attempt:
+
+```text
+WorkflowConcurrencyTest.approveAndEscalateRaceNeverBothTakeEffect:111
+over 300 rounds escalate should win at least once ==> expected: <true> but was: <false>
+Tests run: 2304, Failures: 1, Errors: 0, Skipped: 0
+```
+
+**Root Cause** — After asserting exactly one winner in each race, the existing test also
+requires both contenders to win at least once across 300 rounds. A shared start latch does
+not guarantee scheduler fairness; all rounds may legitimately favor the approver. The failure
+was this distribution assertion, not the per-round atomicity invariant. No workflow source or
+test changed in this PR; all changed-module tests passed on the first CI attempt.
+
+**Diagnostic Commands** — Compare the failed assertion and the unchanged successful runs:
+
+```bash
+gh run view 37228457288 --log-failed
+sed -n '45,114p' backend/src/test/java/com/lld/workflow/WorkflowConcurrencyTest.java
+gh run view 37228451175
+gh run rerun 37228457288 --failed
+gh pr checks 150 --watch --interval 15
+```
+
+**Step-by-Step Resolution** — Inspect the actual failed test, distinguish scheduling coverage
+from race safety, and confirm the local 2304-test suite and independent push backend job
+passed. Rerun only the failed PR backend job without modifying or weakening any test. Its
+second attempt passes all 2304 tests; frontend, security, and deployment checks also pass.
+Document the incident and recheck CI after this documentation commit before merging.
+
+**Preventative Measures** — Keep merge blocked while any required check is red. Preserve
+logs and disclose reruns rather than treating flaky failures as product regressions. In a
+separate test-maintenance change, exercise each legal ordering deterministically and retain
+the simultaneous-race safety assertions; do not require random scheduling to cover both
+outcomes or alter unrelated backend behavior as part of UI work.
+
+---
+
+## RCA-084: Concurrency Replays Merged Independent Maps and Invented Worker State
+
+**Overview & Severity** — Medium: concurrency demonstrations could misrepresent backend
+state. The Concurrent HashMap view merged two independent map objects into one segment grid;
+ordering views inferred live worker states and H2O cleared acquired atoms at bonding rather
+than at each recorded departure. Standalone playback also lacked shared lifecycle safeguards.
+
+**Symptoms & Error Logs** — Counter entries and configuration entries appeared to share
+segment locks despite separate backend objects. FooBar changed lowercase backend tokens into
+title case. Printed events were labelled as completed semaphore handoffs although the release
+occurs later; H2O atoms vanished before their DEPARTED events. These are semantic errors, not
+server exceptions. Invalid draft settings could drive local preview allocation.
+
+**Root Cause** — Trace events identified a segment index but not its owning map. Frontend
+projections guessed thread/lock state from partial observations and generated previews from
+draft values. Four ordering APIs return `events`, while the shared playback originally only
+accepted `trace`, leaving these modules on independent timer/request implementations.
+
+**Diagnostic Commands** — Inspect event recording relative to mutation/unlock and run the
+focused regressions without starting application servers:
+
+```bash
+rg -n 'new StripedHashMap|recorderFor|SEGMENT_LOCK_RELEASED|unlock' backend/src/main/java/com/lld/concurrency/concurrenthashmap
+cd backend && mvn -Dtest=ConcurrentHashMapServiceTest,StripedHashMapTest,StripedHashMapConcurrencyTest,FooBarServiceTest,ZeroEvenOddServiceTest,FizzBuzzServiceTest,H2OServiceTest test
+cd frontend && npx vitest run src/__tests__/concurrencyRecordedReplay.test.jsx src/__tests__/recordedTrace.test.jsx src/__tests__/recordedTraceApi.test.js
+```
+
+**Step-by-Step Resolution** — Add typed COUNTERS/CONFIG map-source telemetry to every
+Concurrent HashMap event while preserving the shared sequence and existing business logic.
+Fold each map independently, reject recordings missing identity, and label release events as
+announcements rather than unlocked state. Inspect eight segments per page. Extend shared
+playback to select the backend's event collection, and use it for all five modules. Preserve
+actual printed tokens, track atom acquisitions by thread until matching departures, and show
+worker observations instead of invented live states. Bound output/worker/log rendering and
+validate native forms before requesting a run. Abort pending browser requests on departure,
+discard late responses, and preserve previous recordings after failures.
+
+**Preventative Measures** — Require explicit object identity when independent objects share
+indices. Inspect exactly where telemetry is emitted relative to locks, barriers, and releases.
+Do not infer thread termination, permit counts, parity, hashing, or output in the browser.
+Test intermediate and reverse-seek projections, malformed telemetry, large recordings,
+parameter validation, failed reruns, and pending-request cleanup in both themes and on mobile.
+During validation, give output and worker panels distinct run-scoped React keys: sharing a
+key between sibling panels can duplicate stale output when stepping backwards.
+
+**Validation** — 2304 backend tests and 575 frontend tests pass; package/build and both chunk
+budgets pass. Lint reports zero errors, with 16 unchanged warnings elsewhere. Chromium checks
+all five routes at 320px light, 390px dark, and 1280px light with reduced motion, using recordings
+generated directly by the Java services and intercepted static assets/API responses (no
+application servers started). Checks include keyboard seeking, exact output, map separation,
+H2O acquisitions/departures, bounded lists, failed reruns, stopped waits, and tab departure.
+
+---
+
 ## RCA-083: Sort and Queue Replays Claimed State Their Traces Did Not Record
 
 **Overview & Severity** — Medium. Merge Sort and Blocking Queue duplicated the detached

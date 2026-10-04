@@ -6,9 +6,10 @@ import { apiFetch } from '../../utils/api';
  * Condition monitor. Returns the full ordered, timestamped execution trace once
  * the run finishes.
  */
-export function runFizzBuzz({ n } = {}) {
+export function runFizzBuzz({ n } = {}, { signal } = {}) {
   return apiFetch('/concurrency/fizz-buzz/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ n }),
   });
 }

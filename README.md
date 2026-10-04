@@ -19,8 +19,9 @@ before opening it fullscreen. Loading states and solution-reveal gates remain un
 
 ### Recorded experiment playback
 
-TTL Cache, Bloom Filter, Merge Sort, and Blocking Queue run one isolated backend experiment
-per explicit form submission.
+Nine modules — TTL Cache, Bloom Filter, Merge Sort, Blocking Queue, Concurrent HashMap,
+FooBar, Zero Even Odd, FizzBuzz, and H2O — run one isolated backend experiment per explicit
+form submission.
 The full recording loads paused at event zero. Play/Pause, Previous/Next event, event seeking,
 Rewind recording, Show final state, and 0.5×/1×/2× speed work locally: they do not issue another
 request, change recorded timestamps, or control Java threads. Run parameters are validated
@@ -35,7 +36,7 @@ TTL entries change only when replay applies recorded puts or removal events, nev
 real time passes in the browser. Bloom bits and query outcomes come from the recorded events
 and server summary, without local hashing or fabricated false positives. Large bit arrays use
 64-bit windows with optional current-bit following; full traces are disclosed in 25-event pages.
-All four views distinguish the current replay state from the completed backend run summary.
+All nine views distinguish the current replay state from the completed backend run summary.
 
 Merge Sort separates scratch writes from committed array changes: `MERGE_WRITE` changes scratch
 only, and `MERGE_COMPLETE` applies its recorded range to the array. Both arrays share
@@ -47,6 +48,15 @@ worker's last applied observation. No live lock ownership, wakeup, or thread ter
 inferred because those events are not recorded. Its scene stacks on narrow screens; logical
 FIFO slots are explicitly distinguished from physical circular-buffer indices. Larger
 worker rosters start collapsed, with all observations available on demand.
+
+Concurrent HashMap uses explicit COUNTERS/CONFIG telemetry to keep its two independent maps
+and segment locks separate. Inspect eight segments at a time, with optional selected-event
+following. Release events are announcements, not proof of an unlocked live lock.
+The four ordering demos display the backend's exact printed tokens and worker observations,
+never predicted alternation, parity, FizzBuzz decisions, permit counts, or live thread states.
+H2O retains acquired atoms until each thread's recorded departure; a bond is not a departure.
+Output uses 24-token pages and worker observations use 12-thread pages; all events remain
+available in the full recording.
 
 ### Guided simulation playback
 
@@ -362,8 +372,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2286 tests across 277 classes
-cd frontend && npx vitest run  # 450 tests across 11 files
+cd backend  && mvn test        # 2304 tests across 280 classes
+cd frontend && npx vitest run  # 575 tests across 25 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
