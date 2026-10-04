@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import LldPage from '../../components/LldPage';
 import { usePolling } from '../../hooks/usePolling';
+import ElevatorSimulation from './ElevatorSimulation';
 import {
   getElevators, getRequests, requestElevator,
   getDispatchPolicy, setDispatchPolicy,
-  simReset, simRequest, simStep, simMaintenance,
 } from './api';
 
 const styles = `
@@ -371,219 +371,6 @@ function AppTab() {
   );
 }
 
-const SIM_STEPS = [
-  'Reset sandbox',
-  'View seeded fleet',
-  'Call an elevator',
-  'Step toward pickup',
-  'Doors open at pickup',
-  'Step toward destination',
-  'Take a car offline (reassignment)',
-  'Review telemetry & event log',
-];
-
-function SimulationTab() {
-  const [snapshot, setSnapshot] = useState(null); // { elevators: {id: snapshot}, events, pendingRequests }
-  const [step, setStep] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [source, setSource] = useState(1);
-  const [destination, setDestination] = useState(6);
-  const [assignedId, setAssignedId] = useState(null);
-  const mountedRef = useRef(true);
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  const elevatorsList = snapshot ? Object.values(snapshot.elevators || {}) : [];
-  const events = snapshot?.events || [];
-  const assigned = assignedId != null ? elevatorsList.find((e) => e.id === assignedId) : null;
-
-  const applyResult = (result, advanceHint) => {
-    if (!mountedRef.current) return;
-    if (result?.error) { setError(result.error); return; }
-    setSnapshot(result);
-    if (advanceHint) setStep((s) => Math.min(SIM_STEPS.length - 1, Math.max(s, advanceHint)));
-  };
-
-  const withBusy = async (fn) => {
-    setBusy(true); setError('');
-    try { await fn(); } finally { if (mountedRef.current) setBusy(false); }
-  };
-
-  const doReset = () => withBusy(async () => {
-    const result = await simReset();
-    setAssignedId(null);
-    applyResult(result, 1);
-  });
-
-  const advanceStepFromCarState = (car) => {
-    if (!car) return;
-    if (car.currentFloor === destination && car.state === 'DOOR_OPEN') setStep((s) => Math.max(s, 5));
-    else if (car.currentFloor === source && car.state === 'DOOR_OPEN') setStep((s) => Math.max(s, 4));
-    else setStep((s) => Math.max(s, 3));
-  };
-
-  const doCall = () => withBusy(async () => {
-    if (source === destination) { setError('Source and destination floors must differ'); return; }
-    const result = await simRequest(source, destination);
-    let newAssignedId = null;
-    if (!result?.error) {
-      const lastEvent = result.events?.[result.events.length - 1];
-      newAssignedId = lastEvent?.data?.assignedElevatorId ?? null;
-      if (newAssignedId != null) setAssignedId(newAssignedId);
-    }
-    applyResult(result, 2);
-    if (newAssignedId != null) advanceStepFromCarState(result.elevators?.[newAssignedId]);
-  });
-
-  const doStep = () => withBusy(async () => {
-    const result = await simStep();
-    applyResult(result);
-    if (!result?.error && assignedId != null) {
-      advanceStepFromCarState(result.elevators?.[assignedId]);
-    }
-  });
-
-  const doMaintenance = (elevatorId, maintenance) => withBusy(async () => {
-    const result = await simMaintenance(elevatorId, maintenance);
-    applyResult(result, 6);
-  });
-
-  const reset = () => { setSnapshot(null); setStep(0); setError(''); setAssignedId(null); };
-
-  const finalStep = () => setStep(7);
-
-  return (
-    <div>
-      <div className="el-step-indicator">
-        {SIM_STEPS.map((s, i) => (
-          <div key={s} className={`el-step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
-        ))}
-        <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 8 }}>{SIM_STEPS[step]}</span>
-      </div>
-
-      {error && <div className="el-error">{error}</div>}
-
-      {!snapshot ? (
-        <div className="el-intro">
-          <p>
-            Runs entirely against the isolated <code>/api/elevator/sim/*</code> sandbox — 4 seeded cars
-            (E1@F1, E2@F5, E3@F8, E4@F10 in MAINTENANCE) — so nothing here can ever touch the real
-            elevator bank.
-          </p>
-          <div className="el-actions">
-            <button className="el-btn" onClick={doReset} disabled={busy}>&#9654; Reset Sandbox</button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="el-hud">
-            <div className="el-hud-tile"><div className="v">{elevatorsList.filter((e) => e.state !== 'MAINTENANCE').length}/{elevatorsList.length}</div><div className="l">Cars In Service</div></div>
-            <div className="el-hud-tile"><div className="v">{elevatorsList.filter((e) => e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN').length}</div><div className="l">Moving</div></div>
-            <div className="el-hud-tile"><div className="v">{snapshot.pendingRequests?.length ?? 0}</div><div className="l">Queued Calls</div></div>
-            <div className="el-hud-tile"><div className="v">{assigned ? `F${assigned.currentFloor}` : '—'}</div><div className="l">Tracked Car</div></div>
-            <div className="el-hud-tile"><div className="v">{events.length}</div><div className="l">Events Logged</div></div>
-          </div>
-
-          <div className="el-building">
-            <div className="el-building-header">
-              <span>Simulation Sandbox</span>
-              <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.9 }}>
-                Tracking: {assigned ? assigned.name : 'no active call yet'}
-              </span>
-            </div>
-            <div style={{ padding: '12px 16px' }}>
-              {(() => {
-                const shaftCars = elevatorsList.map((e) => ({
-                  id: e.id, name: e.name, currentFloor: e.currentFloor,
-                  status: e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN' ? 'MOVING'
-                    : e.state === 'DOOR_OPEN' ? 'DOOR_OPEN'
-                    : e.state === 'MAINTENANCE' ? 'OUT_OF_ORDER' : 'STOPPED',
-                  direction: e.direction, capacity: e.capacity, currentLoad: e.occupancy,
-                }));
-                return (
-                  <>
-                    <ShaftHeaderRow elevators={shaftCars} trackedId={assignedId} />
-                    <ShaftOverlay elevators={shaftCars} trackedId={assignedId} />
-                  </>
-                );
-              })()}
-            </div>
-          </div>
-
-          {step <= 2 && (
-            <div className="el-form-row">
-              <label>From F</label>
-              <select value={source} onChange={(e) => setSource(Number(e.target.value))}>
-                {Array.from({ length: TOTAL_FLOORS }, (_, i) => i + 1).map((f) => <option key={f} value={f}>{f}</option>)}
-              </select>
-              <label>to F</label>
-              <select value={destination} onChange={(e) => setDestination(Number(e.target.value))}>
-                {Array.from({ length: TOTAL_FLOORS }, (_, i) => i + 1).map((f) => <option key={f} value={f}>{f}</option>)}
-              </select>
-              <button className="el-btn" onClick={doCall} disabled={busy}>&#128222; Call Elevator</button>
-            </div>
-          )}
-
-          <div className="el-panel-grid">
-            <div className="el-panel">
-              <h3>Fleet</h3>
-              <div className="el-car-row">
-                {elevatorsList.map((e) => (
-                  <div className="el-car-item" key={e.id}>
-                    <div className="el-car-item-h">
-                      <span className="el-car-name">{e.name}</span>
-                      <span className={`el-badge ${STATUS_LABEL[e.state === 'MAINTENANCE' ? 'OUT_OF_ORDER' : (e.state === 'MOVING_UP' || e.state === 'MOVING_DOWN') ? 'MOVING' : e.state] || 'idle'}`}>{e.state}</span>
-                    </div>
-                    <div className="el-car-details">
-                      <span>F{e.currentFloor}</span>
-                      <span>{directionArrow(e.direction)} {e.direction}</span>
-                      <span>Load {e.occupancy}/{e.capacity}</span>
-                    </div>
-                    {step >= 5 && e.state !== 'MAINTENANCE' && (
-                      <button className="el-btn-outline" style={{ marginTop: 6, fontSize: 10, padding: '4px 10px' }}
-                        onClick={() => doMaintenance(e.id, true)} disabled={busy}>
-                        Take offline
-                      </button>
-                    )}
-                    {e.state === 'MAINTENANCE' && (
-                      <button className="el-btn-outline" style={{ marginTop: 6, fontSize: 10, padding: '4px 10px' }}
-                        onClick={() => doMaintenance(e.id, false)} disabled={busy}>
-                        Return to service
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="el-panel">
-              <h3>Event Log</h3>
-              <div className="el-log">
-                {events.slice().reverse().slice(0, 30).map((ev) => (
-                  <div key={ev.id} className="el-log-row">
-                    <strong>{ev.actorName}</strong>: {ev.description}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="el-actions">
-            {step >= 2 && step < 6 && assignedId != null && (
-              <button className="el-btn" onClick={doStep} disabled={busy}>{busy ? 'Stepping…' : '⏭ Step Simulation'}</button>
-            )}
-            {step >= 6 && step < 7 && (
-              <button className="el-btn-outline" onClick={finalStep} disabled={busy}>Review Telemetry &rarr;</button>
-            )}
-            <button className="el-btn-outline" onClick={doReset} disabled={busy}>&#8635; Reset</button>
-            <button className="el-btn-outline" onClick={reset} disabled={busy}>Exit Sandbox</button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 export default function ElevatorPage() {
   return (
     <LldPage module="elevator" title="Elevator Control System" icon="🛗" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
@@ -591,7 +378,7 @@ export default function ElevatorPage() {
         <div className="el-page">
           <style>{styles}</style>
           {activeTab === 'app' && <AppTab />}
-          {activeTab === 'simulation' && <SimulationTab />}
+          {activeTab === 'simulation' && <ElevatorSimulation />}
         </div>
       )}
     </LldPage>

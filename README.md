@@ -19,8 +19,8 @@ before opening it fullscreen. Loading states and solution-reveal gates remain un
 
 ### Guided simulation playback
 
-Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, Uber, Zomato, Splitwise, and Movie Ticket
-Booking share Play/Pause, Start/Next step, Reset sandbox,
+Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, Uber, Zomato, Splitwise, Movie Ticket
+Booking, Elevator, Traffic Signal, and Car Rental share Play/Pause, Start/Next step, Reset sandbox,
 and 0.5×/1×/2× pacing controls. Each action waits for its isolated backend response before
 progress advances. Pause stops future requests, not an action already sent; pacing changes
 only the reading delay, not simulated time or backend calculations. Reset executes the first
@@ -45,6 +45,19 @@ sequential; backend contention and thread safety have independent service tests.
 rejections must match the server's HTTP status and domain error code; connection failures,
 other domain errors, and unexpected successful actions stop playback and require reset.
 Leaving these simulation tabs cancels future playback. Other modules retain existing controls.
+
+Elevator follows a guided F1 → F3 ride, stepping door dwell and travel separately before
+taking the idle car offline, requesting a second ride, and restoring it. Its final snapshot
+can still contain a moving car: finishing the walkthrough does not complete that ride.
+After the guide, its sandbox playground preserves custom floor requests, single-tick
+advancement, and per-car maintenance under the same serialized action/error/reset guard.
+Traffic Signal explicitly advances the sandbox clock, pauses ordinary cycling for West's
+emergency priority, resumes through yellow, and shows both command and observed phase logs.
+Car Rental refreshes vehicle and reservation state after every step, validates that its
+overlapping requests produce exactly one pending winner and one typed availability conflict,
+separates pickup from return, and cancels the winning pending reservation by its returned ID.
+Rental payment choices match the backend's UPI, credit/debit card, and wallet methods; the
+completed-action checklist is local UI history, not a backend audit log.
 
 ### Finding your next module
 

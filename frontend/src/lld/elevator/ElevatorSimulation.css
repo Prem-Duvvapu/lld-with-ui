@@ -1,0 +1,8 @@
+.elevator-sim-building { height: 320px; display: grid; grid-template-columns: 30px repeat(4, minmax(0, 1fr)); gap: 8px; margin: 20px 0; }
+.elevator-sim-floor-labels { display: grid; grid-template-rows: repeat(10, 1fr); align-items: center; color: var(--text-muted); font-size: 11px; }
+.elevator-sim-shaft { position: relative; min-width: 0; border: 1px solid var(--border-primary); border-radius: 8px; background: repeating-linear-gradient(to top, var(--bg-secondary) 0, var(--bg-secondary) calc(10% - 1px), var(--border-primary) calc(10% - 1px), var(--border-primary) 10%); }
+.elevator-sim-car { position: absolute; width: 100%; height: 10%; background: var(--accent); color: #fff; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; transition: bottom 0.5s ease; }
+.elevator-sim-car.offline { background: var(--text-muted); }
+.elevator-sim-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.elevator-sim-actions button { min-height: 44px; padding: 10px 14px; border: 1px solid var(--border-primary); border-radius: 8px; color: var(--text-primary); background: var(--bg-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+.elevator-sim-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
