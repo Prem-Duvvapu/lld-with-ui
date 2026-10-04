@@ -1,0 +1,12 @@
+.queue-recording-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); grid-template-areas: 'producers buffer consumers'; gap: 16px; align-items: start; }
+.queue-recording-stage > * { min-width: 0; }
+.queue-recording-stage .simulation-panel-card { margin: 0; }
+.queue-recording-buffer { grid-area: buffer; }
+.queue-recording-producers { grid-area: producers; }
+.queue-recording-consumers { grid-area: consumers; }
+.queue-recording-slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 8px; margin: 16px 0; }
+.queue-recording-slot { display: grid; align-content: center; gap: 8px; min-height: 76px; padding: 10px; border: 1px dashed var(--border-primary); border-radius: 8px; background: var(--bg-secondary); font-size: 12px; overflow-wrap: anywhere; }
+.queue-recording-slot.filled { border-style: solid; border-color: var(--success); background: var(--success-bg); }
+.queue-recording-slot small { color: var(--text-secondary); }
+.queue-recording-threads .queue-recording-wait { border-color: var(--warning); background: var(--warning-bg); }
+@media (max-width: 900px) { .queue-recording-stage { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'buffer' 'producers' 'consumers'; } }
