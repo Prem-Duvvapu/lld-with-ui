@@ -5974,6 +5974,51 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-083: Sort and Queue Replays Claimed State Their Traces Did Not Record
+
+**Overview & Severity** — Medium. Merge Sort and Blocking Queue duplicated the detached
+replay-timer lifecycle from RCA-082 and presented inferred state as a backend observation.
+
+**Symptoms & Error Logs** — Merge Sort changed its displayed array on every `MERGE_WRITE`,
+even though Java writes those values into a scratch buffer and commits them only at
+`MERGE_COMPLETE`. Blocking Queue labelled an inferred last-event thread as the current
+lock owner; no lock-release event exists in its trace. Its fixed three-column scene overflowed
+narrow screens. Invalid draft queue capacities could reach `Array.from({ length: capacity })`
+before validation, creating large render allocations. Merge Sort silently rounded/clamped
+invalid settings instead of explaining why they were rejected. Both pages discarded previous
+recordings before a new run succeeded and could start replay intervals after tab departure.
+
+**Root Cause** — Visual reconstruction treated every merge write as a committed array write
+and the last event as proof of live lock ownership. Backend facts, draft settings, and replay
+state were not separated. Buttons bypassed native form validation and async callbacks owned
+timers without abort/generation guards. Queue columns had fixed 200px side widths.
+
+**Diagnostic Commands**
+```bash
+rg -n 'MERGE_WRITE|MERGE_COMPLETE|arraycopy' backend/src/main/java/com/lld/concurrency/mergesort
+rg -n 'record|await|unlock' backend/src/main/java/com/lld/concurrency/blockingqueue/model/BoundedBlockingQueue.java
+cd frontend && npx vitest run src/__tests__/sortQueueReplay.test.jsx src/__tests__/recordedTraceApi.test.js
+cd backend && mvn -Dtest=MergeSortServiceTest,ParallelMergeSorterTest,ParallelMergeSorterConcurrencyTest,BlockingQueueServiceTest,BoundedBlockingQueueTest test
+```
+
+**Step-by-Step Resolution** — Move both modules to the shared recorded-trace hook and local
+playback controls, pass caller abort signals, and key each tab's recording lifecycle. Validate
+required integer inputs before submitting, preserve earlier successful recordings on failure,
+and allocate views only from returned data. Display separate scratch and committed arrays;
+apply recorded writes to scratch and commit the recorded range on merge completion. Show
+only recorded task ranges and last-applied worker events, not predicted tasks or live locks.
+Rebuild FIFO contents from successful queue events and label logical order separately from
+physical ring indices. Use responsive queue columns, collapsed large worker rosters, and
+16-index windows shared by both arrays, with paginated full traces and separate backend
+summaries. Move ordered trace markers inside the scroll container so multi-digit event
+numbers are not clipped by its fixed left padding.
+
+**Preventative Measures** — Trace event names are not sufficient: inspect where the backend
+records them relative to mutations, waits, and lock release. Do not invent missing lifecycle
+facts. Test intermediate states, zero/signed values, interleaved tasks, reverse seeking,
+invalid drafts, preserved errors, and late responses. Verify narrow layouts, keyboard controls,
+both themes, and reduced motion without starting application servers.
+
 ## RCA-082: Recorded Experiments Started Replay Timers After Tab Departure
 
 **Overview & Severity** — Medium. TTL Cache and Bloom Filter used separate replay loops
