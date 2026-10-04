@@ -5,9 +5,10 @@ import { apiFetch } from '../../utils/api';
  * producer/consumer threads contending on a ReentrantLock + Condition queue.
  * Returns the full ordered, timestamped execution trace once the run finishes.
  */
-export function runBlockingQueue({ capacity, producers, consumers, itemsPerProducer } = {}) {
+export function runBlockingQueue({ capacity, producers, consumers, itemsPerProducer } = {}, { signal } = {}) {
   return apiFetch('/concurrency/blocking-queue/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ capacity, producers, consumers, itemsPerProducer }),
   });
 }

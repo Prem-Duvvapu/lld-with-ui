@@ -6,9 +6,10 @@ import { apiFetch } from '../../utils/api';
  * Returns the full ordered, timestamped, thread-attributed execution trace once
  * the sort finishes.
  */
-export function runMergeSort({ array, size, parallelism, sequentialThreshold } = {}) {
+export function runMergeSort({ array, size, parallelism, sequentialThreshold } = {}, { signal } = {}) {
   return apiFetch('/concurrency/merge-sort/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ array, size, parallelism, sequentialThreshold }),
   });
 }

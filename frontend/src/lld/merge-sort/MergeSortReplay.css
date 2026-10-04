@@ -1,0 +1,7 @@
+.merge-recording-array { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 8px; margin: 12px 0 20px; }
+.merge-recording-cell { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: end; gap: 5px; padding: 10px 4px; background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; }
+.merge-recording-cell.current { outline: 2px solid var(--accent); outline-offset: 1px; }
+.merge-recording-cell strong { font-size: 13px; overflow-wrap: anywhere; }
+.merge-recording-cell small { color: var(--text-secondary); font-size: 10px; }
+.merge-recording-bar { width: 20px; background: var(--accent); border-radius: 4px; }
+.merge-recording-follow { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; }

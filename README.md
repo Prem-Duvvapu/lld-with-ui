@@ -19,7 +19,8 @@ before opening it fullscreen. Loading states and solution-reveal gates remain un
 
 ### Recorded experiment playback
 
-TTL Cache and Bloom Filter run one isolated backend experiment per explicit form submission.
+TTL Cache, Bloom Filter, Merge Sort, and Blocking Queue run one isolated backend experiment
+per explicit form submission.
 The full recording loads paused at event zero. Play/Pause, Previous/Next event, event seeking,
 Rewind recording, Show final state, and 0.5×/1×/2× speed work locally: they do not issue another
 request, change recorded timestamps, or control Java threads. Run parameters are validated
@@ -34,7 +35,18 @@ TTL entries change only when replay applies recorded puts or removal events, nev
 real time passes in the browser. Bloom bits and query outcomes come from the recorded events
 and server summary, without local hashing or fabricated false positives. Large bit arrays use
 64-bit windows with optional current-bit following; full traces are disclosed in 25-event pages.
-Both views distinguish the current replay state from the completed backend run summary.
+All four views distinguish the current replay state from the completed backend run summary.
+
+Merge Sort separates scratch writes from committed array changes: `MERGE_WRITE` changes scratch
+only, and `MERGE_COMPLETE` applies its recorded range to the array. Both arrays share
+a 16-index window with optional selected-event following. Task ranges and worker
+activity come from recorded events rather than a predicted recursion tree. The visualizer
+accepts 1–64 elements/threshold and up to 16 workers; invalid drafts are reported, not clamped.
+Blocking Queue reconstructs FIFO order from successful enqueue/dequeue events and shows each
+worker's last applied observation. No live lock ownership, wakeup, or thread termination is
+inferred because those events are not recorded. Its scene stacks on narrow screens; logical
+FIFO slots are explicitly distinguished from physical circular-buffer indices. Larger
+worker rosters start collapsed, with all observations available on demand.
 
 ### Guided simulation playback
 
