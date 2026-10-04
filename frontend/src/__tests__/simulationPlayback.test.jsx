@@ -7,6 +7,51 @@ import SimulationControls from '../components/SimulationControls';
 afterEach(() => vi.useRealTimers());
 
 describe('Simulation playback', () => {
+  it('allows sandbox actions only after the walkthrough and serializes them with reset', async () => {
+    const execute = vi.fn().mockResolvedValue('guided snapshot');
+    const action = vi.fn();
+    const { result } = renderHook(() => useSimulationPlayback(1, execute));
+    await act(async () => { await result.current.runAction(action); });
+    expect(action).not.toHaveBeenCalled();
+    await act(async () => { await result.current.next(); });
+    let finish;
+    action.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    act(() => { void result.current.runAction(action); void result.current.runAction(action); void result.current.reset(); });
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(action).toHaveBeenCalledWith('guided snapshot');
+    expect(result.current.busy).toBe(true);
+    expect(execute).toHaveBeenCalledTimes(1);
+    await act(async () => { finish('explored snapshot'); });
+    expect(result.current.result).toBe('explored snapshot');
+    expect(result.current.completed).toBe(1);
+    expect(result.current.done).toBe(true);
+    await act(async () => { await result.current.reset(); });
+    expect(result.current.result).toBe('guided snapshot');
+    expect(execute).toHaveBeenLastCalledWith(0, null);
+  });
+
+  it('requires reset after an ambiguous sandbox action without losing the last snapshot', async () => {
+    const action = vi.fn().mockRejectedValue(new Error('Sandbox response lost'));
+    const { result } = renderHook(() => useSimulationPlayback(1, async () => 'initial'));
+    await act(async () => { await result.current.next(); await result.current.runAction(action); });
+    expect(result.current.error).toBe('Sandbox response lost');
+    expect(result.current.result).toBe('initial');
+    await act(async () => { await result.current.runAction(action); });
+    expect(action).toHaveBeenCalledTimes(1);
+    await act(async () => { await result.current.reset(); });
+    expect(result.current.error).toBe('');
+  });
+
+  it('ignores late sandbox action responses after unmount', async () => {
+    let finish;
+    const { result, unmount } = renderHook(() => useSimulationPlayback(1, async () => 'initial'));
+    await act(async () => { await result.current.next(); });
+    act(() => { void result.current.runAction(() => new Promise(resolve => { finish = resolve; })); });
+    unmount();
+    await act(async () => { finish('late'); });
+    expect(result.current.result).toBe('initial');
+  });
+
   it('starts at zero, serializes requests and includes the final step', async () => {
     let finish;
     const execute = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finish = resolve; })).mockResolvedValue('final');

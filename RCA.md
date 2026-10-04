@@ -5974,6 +5974,60 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-079: Vehicle Illustrations Depended on Unavailable Emoji Fonts
+
+**Overview & Severity** — Low, resolved during browser verification of the fleet
+simulation refresh. Decorative vehicles were not consistently visible across environments.
+
+**Symptoms & Error Logs** — Headless Chromium screenshots showed empty replacement
+glyph boxes where traffic and rental vehicle emoji should appear. No JavaScript or API
+error accompanied the missing illustrations.
+
+**Root Cause** — Vehicle artwork was text relying on a platform-provided emoji font.
+The WSL Chromium environment did not provide those glyphs, unlike typical Windows browsers.
+
+**Diagnostic Commands** — Capture Traffic Signal and Car Rental walkthroughs using
+Chromium at 390px and inspect the screenshots, alongside the SVG text nodes.
+
+**Step-by-Step Resolution** — Replace decorative vehicle emoji with small inline SVG
+shapes. Keep textual server-status summaries as the accessible equivalent, and repeat
+light/dark, mobile, and reduced-motion browser checks without installing platform fonts.
+
+**Preventative Measures** — Use code-native vector shapes for essential scene artwork;
+do not depend on emoji availability for an illustration. Verify the production build
+in an environment without the author's desktop fonts.
+
+## RCA-078: Fleet Walkthroughs Retried Ambiguous Mutations and Misreported Race Outcomes
+
+**Overview & Severity** — Medium, resolved during the Elevator, Traffic Signal, and
+Car Rental playback rollout. Network failures could leave partially committed sandbox
+actions available for retry, and rental race results could name a nonexistent winner.
+
+**Symptoms & Error Logs** — Traffic Signal offered "Retry Step" after any failed clock
+advance, although the server could already have advanced. Car Rental's seed/pickup/return
+steps combined mutations, could be rerun after partial failure, and assumed Cleo won
+whenever Ben's request failed, including when both requests failed. Elevator's busy
+wrapper had no catch, so rejected API promises did not populate its error panel.
+
+**Root Cause** — Local step state was used as an action/retry gate without acknowledging
+unknown server outcomes. Rental's Promise.allSettled results were interpreted without
+checking winner count, pending status, or the losing error's HTTP/domain contract.
+
+**Diagnostic Commands** — Inspect the old simulation handlers; run
+`cd frontend && npx vitest run src/__tests__/fleetSimulation.test.jsx`.
+
+**Step-by-Step Resolution** — Adopt serialized shared playback and require reset after
+ambiguous failures. Separate rental pickup and return, retain returned reservation IDs,
+require exactly one pending winner and one typed availability conflict, and refresh
+the fleet/ledger after each step. Elevator errors now stop visibly, and maintenance is
+described as changing the next dispatch rather than reassigning passengers in transit.
+
+**Preventative Measures** — Cover transport failures, both-success/both-failure races,
+wrong conflict codes, partial initialization, returned IDs, and reset completion. Keep
+clock advancement explicit and distinguish completed playback from completed business work.
+Preserve free-form exploration behind the same action lock and reset guard rather than
+reintroducing an independent request lifecycle after a guide finishes.
+
 ## RCA-077: Fixed Site Utilities Obscured Page Controls
 
 **Overview & Severity** — Medium, resolved during mobile playback validation. Global

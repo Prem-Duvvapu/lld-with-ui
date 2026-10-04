@@ -1,0 +1,4 @@
+.traffic-sim-scene { border: 1px solid var(--border-primary); border-radius: 12px; overflow: hidden; }
+.traffic-sim-scene svg { display: block; width: 100%; height: auto; }
+.traffic-sim-car { transition: transform 0.7s ease; }
+.traffic-sim-clock-note { margin: 0 0 16px; color: var(--text-secondary); font-size: 13px; line-height: 1.6; }

@@ -134,9 +134,6 @@
     }
   },
   "src/lld/elevator/ElevatorPage.jsx": {
-    "jsx-a11y/label-has-associated-control": {
-      "count": 2
-    },
     "react-hooks/refs": {
       "count": 1
     }

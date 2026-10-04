@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import LldPage from '../../components/LldPage';
 import { usePolling } from '../../hooks/usePolling';
 import * as api from './api';
+import CarRentalSimulation from './CarRentalSimulation';
 
 const CSS = `
 .cr-panel { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); padding: var(--space-5); margin-bottom: var(--space-5); }
@@ -33,25 +34,6 @@ const CSS = `
 .cr-actions button.primary { background: var(--accent); color: #fff; border: none; }
 .cr-actions button.danger { background: var(--danger); color: #fff; border: none; }
 
-/* Simulation */
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
-.step-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-primary); transition: all 0.3s; }
-.step-dot.active { background: var(--accent); box-shadow: 0 0 8px rgba(79,70,229,0.5); }
-.step-dot.done { background: var(--success); }
-.cr-scene { position: relative; width: 100%; min-height: 280px; background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%); border-radius: var(--radius-lg); border: 1px solid var(--border-primary); padding: var(--space-5); margin-bottom: var(--space-4); }
-.cr-lot { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-3); margin-top: var(--space-3); }
-.cr-lot-slot { border: 2px dashed var(--border-primary); border-radius: var(--radius-md); padding: var(--space-3); text-align: center; background: var(--bg-card); transition: all 0.4s; }
-.cr-lot-slot.locked { border-color: var(--warning); box-shadow: 0 0 12px rgba(217,119,6,0.35); }
-.cr-lot-slot.booked { border-color: var(--success); }
-.race-lane { display: flex; align-items: center; gap: var(--space-3); padding: 10px; border-radius: var(--radius-md); margin-top: 8px; background: var(--bg-card); border: 1px solid var(--border-primary); }
-.race-lane.winner { border-color: var(--success); background: var(--success-bg); }
-.race-lane.loser { border-color: var(--danger); background: var(--danger-bg); opacity: 0.85; }
-.cr-hud { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
-.cr-hud-tile { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 10px; text-align: center; }
-.cr-hud-tile .v { font-size: var(--font-lg); font-weight: 700; color: var(--accent); }
-.cr-hud-tile .l { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
-.cr-log { max-height: 160px; overflow-y: auto; font-size: 12px; font-family: var(--code-font); background: var(--bg-tertiary); border-radius: var(--radius-md); padding: 10px; margin-top: 10px; }
-.cr-log div { padding: 2px 0; color: var(--text-secondary); border-bottom: 1px dashed var(--border-secondary); }
 `;
 
 const VEHICLE_TYPES = ['HATCHBACK', 'SEDAN', 'SUV', 'VAN', 'TRUCK'];
@@ -290,153 +272,6 @@ function FleetTab() {
   );
 }
 
-// ============================= Simulation tab =============================
-const STEPS = [
-  { title: 'Reset Sandbox', detail: 'Wipe the isolated /sim/* sandbox so this run starts clean.' },
-  { title: 'Seed Fleet', detail: 'Seed one SUV and two customers into the sandbox.' },
-  { title: 'First Reservation', detail: 'Customer A reserves the SUV for a 5-day window.' },
-  { title: 'Confirm & Pay', detail: "Authorize payment on Customer A's reservation." },
-  { title: 'Overlap Race', detail: 'Customers B and C both try to reserve the SAME SUV for an overlapping window — at the same instant.' },
-  { title: 'Race Result', detail: 'Exactly one of B/C should win; the other must be rejected by the per-vehicle lock.' },
-  { title: 'Pickup & Return', detail: "Customer A picks up and returns the SUV; it becomes free again." },
-  { title: 'Final State', detail: 'Inspect the sandbox reservation ledger and vehicle status.' },
-];
-
-function SimulationTab() {
-  const [step, setStep] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [log, setLog] = useState([]);
-  const [vehicle, setVehicle] = useState(null);
-  const [custA, setCustA] = useState(null);
-  const [custB, setCustB] = useState(null);
-  const [custC, setCustC] = useState(null);
-  const [reservationA, setReservationA] = useState(null);
-  const [raceResult, setRaceResult] = useState(null);
-  const [reservations, setReservations] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
-
-  const pushLog = (msg) => setLog((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-
-  async function runStep() {
-    setBusy(true); setError('');
-    try {
-      if (step === 0) {
-        await api.simReset();
-        pushLog('Sandbox reset.');
-      } else if (step === 1) {
-        const v = await api.simSeedVehicle({ make: 'Ford', model: 'Explorer', year: 2023, licensePlate: 'SIM-001', type: 'SUV', status: 'AVAILABLE', branchId: 'SIM-BR', odometer: 0 });
-        const a = await api.simSeedCustomer({ name: 'Ava' });
-        const b = await api.simSeedCustomer({ name: 'Ben' });
-        const c = await api.simSeedCustomer({ name: 'Cleo' });
-        setVehicle(v); setCustA(a); setCustB(b); setCustC(c);
-        pushLog(`Seeded vehicle ${v.id} (${v.make} ${v.model}) and 3 customers.`);
-      } else if (step === 2) {
-        const start = addDays(TODAY, 10), end = addDays(TODAY, 15);
-        const r = await api.simReserve(custA.id, vehicle.id, start, end);
-        setReservationA(r);
-        pushLog(`Ava reserved ${vehicle.id} for ${start} → ${end} (reservation ${r.id}, PENDING).`);
-      } else if (step === 3) {
-        const r = await api.simConfirm(reservationA.id, 'UPI');
-        setReservationA(r);
-        pushLog(`Ava's reservation ${r.id} confirmed and paid.`);
-      } else if (step === 4) {
-        // Genuine concurrency: fire both requests at once and let the backend's
-        // per-vehicle lock decide the winner — nothing is decided in the browser.
-        const start = addDays(TODAY, 20), end = addDays(TODAY, 23);
-        const [rb, rc] = await Promise.allSettled([
-          api.simReserve(custB.id, vehicle.id, start, end),
-          api.simReserve(custC.id, vehicle.id, start, end),
-        ]);
-        setRaceResult({ b: rb, c: rc });
-        pushLog(`Ben and Cleo both requested ${vehicle.id} for ${start} → ${end} simultaneously.`);
-      } else if (step === 5) {
-        const winner = raceResult.b.status === 'fulfilled' ? 'Ben' : 'Cleo';
-        const loserErr = raceResult.b.status === 'rejected' ? raceResult.b.reason?.message : raceResult.c.reason?.message;
-        pushLog(`${winner} won the race. The loser was rejected: "${loserErr}"`);
-      } else if (step === 6) {
-        const picked = await api.simPickup(reservationA.id);
-        pushLog(`Ava picked up ${vehicle.id} — vehicle now RENTED.`);
-        const returned = await api.simReturn(picked.id, 8500);
-        setReservationA(returned);
-        pushLog(`Ava returned ${vehicle.id} — vehicle free again, cost ₹${returned.actualCost}.`);
-      } else if (step === 7) {
-        const [res, vs] = await Promise.all([api.simGetReservations(), api.simGetVehicles()]);
-        setReservations(res); setVehicles(vs);
-        pushLog(`Sandbox ledger: ${res.length} reservations, ${vs.length} vehicle(s).`);
-      }
-      setStep((s) => Math.min(s + 1, STEPS.length));
-    } catch (e) {
-      setError(e.message || 'Step failed');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function reset() {
-    setStep(0); setLog([]); setVehicle(null); setCustA(null); setCustB(null); setCustC(null);
-    setReservationA(null); setRaceResult(null); setReservations([]); setVehicles([]); setError('');
-  }
-
-  return (
-    <div className="cr-panel">
-      <style>{CSS}</style>
-      <div className="step-indicator">
-        {STEPS.map((s, i) => <div key={s.title} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s.title} />)}
-      </div>
-      <h3 style={{ textAlign: 'center' }}>{step < STEPS.length ? `Step ${step + 1}/${STEPS.length}: ${STEPS[step].title}` : 'Simulation Complete'}</h3>
-      <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>{step < STEPS.length ? STEPS[step].detail : 'Reset to run it again.'}</p>
-
-      <div className="cr-scene">
-        {vehicle && (
-          <div className="cr-lot">
-            <div className={`cr-lot-slot ${step >= 6 && step < 7 ? 'locked' : ''} ${reservationA?.status === 'COMPLETED' ? 'booked' : ''}`}>
-              <strong>{vehicle.make} {vehicle.model}</strong>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{vehicle.id}</div>
-              {reservationA && <div style={{ marginTop: 6 }}><span className={`cr-badge ${reservationA.status}`}>{reservationA.status}</span> Ava</div>}
-            </div>
-            <div className="cr-lot-slot">
-              <strong>Overlap Race Target</strong>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Same vehicle, overlapping dates</div>
-            </div>
-          </div>
-        )}
-
-        {raceResult && (
-          <div style={{ marginTop: 14 }}>
-            <div className={`race-lane ${raceResult.b.status === 'fulfilled' ? 'winner' : 'loser'}`}>
-              <strong>Ben</strong> — {raceResult.b.status === 'fulfilled' ? `Reservation ${raceResult.b.value.id} confirmed PENDING` : `Rejected: ${raceResult.b.reason?.message}`}
-            </div>
-            <div className={`race-lane ${raceResult.c.status === 'fulfilled' ? 'winner' : 'loser'}`}>
-              <strong>Cleo</strong> — {raceResult.c.status === 'fulfilled' ? `Reservation ${raceResult.c.value.id} confirmed PENDING` : `Rejected: ${raceResult.c.reason?.message}`}
-            </div>
-          </div>
-        )}
-
-        {reservations.length > 0 && (
-          <div className="cr-hud">
-            <div className="cr-hud-tile"><div className="v">{reservations.length}</div><div className="l">Reservations</div></div>
-            <div className="cr-hud-tile"><div className="v">{reservations.filter((r) => r.status !== 'CANCELLED').length}</div><div className="l">Non-cancelled</div></div>
-            <div className="cr-hud-tile"><div className="v">{vehicles[0]?.status || '—'}</div><div className="l">Vehicle Status</div></div>
-            <div className="cr-hud-tile"><div className="v">{vehicles[0]?.odometer ?? '—'}</div><div className="l">Odometer (km)</div></div>
-          </div>
-        )}
-
-        {log.length > 0 && <div className="cr-log">{log.map((l, i) => <div key={i}>{l}</div>)}</div>}
-      </div>
-
-      {error && <div className="cr-error">{error}</div>}
-
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-        {step < STEPS.length
-          ? <button className="cr-btn" disabled={busy} onClick={runStep}>{busy ? 'Running…' : `Run: ${STEPS[step].title}`}</button>
-          : <button className="cr-btn success" onClick={reset}>🔄 Run Again</button>}
-        {step > 0 && step < STEPS.length && <button className="cr-btn secondary" onClick={reset}>Reset</button>}
-      </div>
-    </div>
-  );
-}
-
 // ============================= Page =============================
 export default function CarRentalPage() {
   const tabs = useMemo(() => ([
@@ -454,7 +289,7 @@ export default function CarRentalPage() {
         <>
           {activeTab === 'reserve' && <ReserveTab />}
           {activeTab === 'fleet' && <FleetTab />}
-          {activeTab === 'simulation' && <SimulationTab />}
+          {activeTab === 'simulation' && <CarRentalSimulation />}
         </>
       )}
     </LldPage>
