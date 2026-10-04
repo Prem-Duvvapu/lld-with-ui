@@ -20,22 +20,25 @@ export function useSimulationPlayback(stepCount, executeStep) {
     return () => { mounted.current = false; };
   }, []);
 
-  const run = useCallback(async (reset = false) => {
-    if (!mounted.current || locked.current || (!reset && (failed.current || count.current >= stepCount))) return;
+  const run = useCallback(async (reset = false, extraAction = null) => {
+    if (!mounted.current || locked.current || (!reset && failed.current)) return;
+    if (!reset && (extraAction ? count.current < stepCount : count.current >= stepCount)) return;
     locked.current = true;
     setBusy(true);
     if (reset) setPlaying(false);
     setError('');
     const index = reset ? 0 : count.current;
     try {
-      const response = await executor.current(index, reset ? null : latestResult.current);
+      const response = extraAction
+        ? await extraAction(latestResult.current)
+        : await executor.current(index, reset ? null : latestResult.current);
       if (!mounted.current) return;
       latestResult.current = response;
-      count.current = index + 1;
+      if (!extraAction) count.current = index + 1;
       failed.current = false;
       setResult(response);
-      setCompleted(index + 1);
-      if (index + 1 === stepCount) setPlaying(false);
+      if (!extraAction) setCompleted(index + 1);
+      if (count.current === stepCount) setPlaying(false);
     } catch (cause) {
       if (!mounted.current) return;
       failed.current = true;
@@ -58,6 +61,7 @@ export function useSimulationPlayback(stepCount, executeStep) {
     done: completed === stepCount,
     next: () => { setPlaying(false); return run(); },
     reset: () => run(true),
+    runAction: action => run(false, action),
     play: () => { if (!failed.current && count.current < stepCount) setPlaying(true); },
     pause: () => setPlaying(false),
     setSpeed: value => { if ([0.5, 1, 2].includes(value)) setSpeed(value); },
