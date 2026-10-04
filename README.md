@@ -17,6 +17,25 @@ class members and relationships, or sequence participants, complete messages, no
 activation details. Class boxes can be selected with Enter or Space. Select a sequence flow
 before opening it fullscreen. Loading states and solution-reveal gates remain unchanged.
 
+### Recorded experiment playback
+
+TTL Cache and Bloom Filter run one isolated backend experiment per explicit form submission.
+The full recording loads paused at event zero. Play/Pause, Previous/Next event, event seeking,
+Rewind recording, Show final state, and 0.5×/1×/2× speed work locally: they do not issue another
+request, change recorded timestamps, or control Java threads. Run parameters are validated
+before submission; the backend remains the authority for the experiment and its outcomes.
+
+While collecting a recording, Stop waiting aborts the browser request and ignores a late
+response. Tab departure also aborts pending requests and clears replay timers. Neither action
+guarantees cancellation of work already running on the server. Runs are independent; a failed
+new run preserves the previous recording and never triggers an automatic retry.
+
+TTL entries change only when replay applies recorded puts or removal events, never because
+real time passes in the browser. Bloom bits and query outcomes come from the recorded events
+and server summary, without local hashing or fabricated false positives. Large bit arrays use
+64-bit windows with optional current-bit following; full traces are disclosed in 25-event pages.
+Both views distinguish the current replay state from the completed backend run summary.
+
 ### Guided simulation playback
 
 Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, Uber, Zomato, Splitwise, Movie Ticket

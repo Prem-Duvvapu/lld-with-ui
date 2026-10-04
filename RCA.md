@@ -5974,6 +5974,47 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-082: Recorded Experiments Started Replay Timers After Tab Departure
+
+**Overview & Severity** — Medium. TTL Cache and Bloom Filter used separate replay loops
+that could create timers after unmount, discard earlier successful recordings on failure,
+and confuse a completed experiment's recording with current live state.
+
+**Symptoms & Error Logs** — Leaving a tab during its backend request did not prevent the
+late response from creating a new replay interval after cleanup had already run. The UI
+offered no pause, backwards step, seek, or replay-without-rerun controls. Editing an invalid
+Bloom bit-size draft could reach `Array(bitSize)` before backend validation, causing
+`RangeError: Invalid array length`; large arrays rendered thousands of cells in a long strip.
+TTL's recording was labelled live cache state and presented a countdown derived in the client.
+
+**Root Cause** — Each page created intervals inside an awaited request handler without
+an abort signal, lifecycle/generation guard, or mounted check. Draft configuration directly
+controlled render allocation, backend collection and replay shared one button, and error
+handling cleared the previous result before a new recording succeeded.
+
+**Diagnostic Commands**
+```bash
+rg -n 'setInterval|Array\(bitSize\)|LIVE CACHE' frontend/src/lld
+cd frontend && npx vitest run src/__tests__/recordedTrace.test.jsx src/__tests__/recordedTraceApi.test.js
+cd backend && mvn -Dtest=TtlCacheServiceTest,BloomFilterServiceTest test
+```
+
+**Step-by-Step Resolution** — Add a shared recorded-trace lifecycle hook with serialized
+explicit runs, caller abort signals, late-response generation checks, and effect-owned replay
+timers. Load recordings paused, provide local pause/step/seek/rewind/final-state controls, and
+preserve the previous result on errors. Clearly distinguish stopping the browser wait from
+cancelling backend threads. Validate form parameters before submitting and allocate Bloom
+cells only from returned run data. Render bit windows and paginated, labelled full traces.
+Show TTL changes solely from recorded put/removal events, and keep server summaries separate
+from the selected replay state. Add regressions for cancellation, duplicate runs, backwards
+seeking, timers, invalid drafts, empty traces, signal forwarding, and large recordings.
+
+**Preventative Measures** — Do not create detached playback intervals inside async run
+callbacks. Guard every late response and cancel local work on unmount; never claim that aborting
+HTTP stops server computation. Keep draft inputs separate from committed recording parameters,
+never rerun the backend to rewind a trace, and verify large data, narrow layouts, both themes,
+keyboard navigation, and reduced-motion behavior without starting application servers.
+
 ## RCA-081: Resilience Walkthroughs Continued After Failures or Leaving the Page
 
 **Overview & Severity** — Medium. Circuit Breaker and LRU Cache had independent demo
