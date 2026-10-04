@@ -8,6 +8,7 @@
 .recorded-trace-form :is(input, button):focus-visible, .recorded-trace-controls input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .recorded-trace-pagination { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
 .recorded-trace-log li[aria-current] { border-left: 3px solid var(--accent); padding-left: 10px; }
+.recorded-trace-log ol { list-style-position: inside; padding-left: 0; }
 .recorded-bloom-bits { display: grid; grid-template-columns: repeat(auto-fit, minmax(34px, 1fr)); gap: 6px; margin: 16px 0; }
 .recorded-bloom-bit { display: grid; gap: 4px; justify-items: center; padding: 8px 2px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-secondary); }
 .recorded-bloom-bit.set { background: var(--success-bg); color: var(--success); border-color: var(--success); }
