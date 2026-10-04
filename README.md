@@ -20,7 +20,7 @@ before opening it fullscreen. Loading states and solution-reveal gates remain un
 ### Guided simulation playback
 
 Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, Uber, Zomato, Splitwise, Movie Ticket
-Booking, Elevator, Traffic Signal, and Car Rental share Play/Pause, Start/Next step, Reset sandbox,
+Booking, Elevator, Traffic Signal, Car Rental, Ludo, Chess, and Snakes & Ladders share Play/Pause, Start/Next step, Reset sandbox,
 and 0.5×/1×/2× pacing controls. Each action waits for its isolated backend response before
 progress advances. Pause stops future requests, not an action already sent; pacing changes
 only the reading delay, not simulated time or backend calculations. Reset executes the first
@@ -45,6 +45,14 @@ sequential; backend contention and thread safety have independent service tests.
 rejections must match the server's HTTP status and domain error code; connection failures,
 other domain errors, and unexpected successful actions stop playback and require reset.
 Leaving these simulation tabs cancels future playback. Other modules retain existing controls.
+
+Chess replays seven backend-validated moves of Scholar's Mate, then reads the final board and
+winner. Its responsive board labels every square and highlights the last move. Ludo demonstrates
+three random rolls and their resolution without promising a capture or win; the backend's
+`GET /api/ludo/sim/valid-tokens` query supplies legal choices using the same rules as turn passing.
+Snakes & Ladders demonstrates six random rolls, renders the server's snake/ladder connections,
+and shows initial cell 0 accurately. Both dice games support guarded sandbox play after the
+guide, stop mutating when a winner is declared, and require reset after any ambiguous failure.
 
 Elevator follows a guided F1 → F3 ride, stepping door dwell and travel separately before
 taking the idle car offline, requesting a second ride, and restoring it. Its final snapshot

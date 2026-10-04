@@ -227,7 +227,7 @@
       "count": 3
     },
     "no-unused-vars": {
-      "count": 3
+      "count": 1
     },
     "react-hooks/set-state-in-effect": {
       "count": 1

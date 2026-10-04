@@ -61,6 +61,11 @@ public class LudoController {
         return ResponseEntity.ok(service.simGetEventLog());
     }
 
+    @GetMapping("/sim/valid-tokens")
+    public ResponseEntity<List<Integer>> simGetValidTokens() {
+        return ResponseEntity.ok(service.simGetValidTokens());
+    }
+
     @PostMapping("/sim/roll")
     public ResponseEntity<Game> simRoll() {
         return ResponseEntity.ok(service.simRoll());

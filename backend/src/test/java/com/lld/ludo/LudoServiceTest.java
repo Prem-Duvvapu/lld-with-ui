@@ -461,4 +461,63 @@ class LudoServiceTest {
         assertEquals(0, liveAfter.getDiceValue(), "sim rolls must never mutate the live game");
         liveAfter.getTokens().forEach(list -> list.forEach(t -> assertEquals(TokenStatus.HOME, t.getStatus())));
     }
+
+    @Test
+    void sim_validTokensRequirePendingRollAndRunningGame() {
+        LudoService service = serviceWith(2, 6);
+        Game game = service.simReset();
+        assertEquals(List.of(), service.simGetValidTokens());
+        service.simRoll();
+        assertEquals(1, game.getCurrentPlayerIndex());
+        assertEquals(List.of(), service.simGetValidTokens());
+        service.simRoll();
+        assertEquals(List.of(0, 1, 2, 3), service.simGetValidTokens());
+        game.setStatus(GameStatus.FINISHED);
+        assertEquals(List.of(), service.simGetValidTokens());
+    }
+
+    @Test
+    void sim_validTokensExcludeBlockedHomeAndDoNotMutateGame() {
+        LudoService service = serviceWith(6, 6);
+        Game game = service.simReset();
+        service.simRoll();
+        service.simMove(0, 0);
+        service.simRoll();
+        int eventCount = service.simGetEventLog().size();
+        assertEquals(List.of(0), service.simGetValidTokens());
+        assertEquals(0, tokenAt(game, 0, 0).getPosition());
+        assertEquals(6, game.getDiceValue());
+        assertEquals(eventCount, service.simGetEventLog().size());
+        service.simMove(0, service.simGetValidTokens().get(0));
+        assertEquals(6, tokenAt(game, 0, 0).getPosition());
+    }
+
+    @Test
+    void sim_validTokensExcludeOwnBlocksOvershootsAndFinishedTokens() {
+        LudoService service = serviceWith(6);
+        Game game = service.simReset();
+        for (int tokenIndex = 0; tokenIndex < 3; tokenIndex++) tokenAt(game, 0, tokenIndex).setStatus(TokenStatus.ACTIVE);
+        tokenAt(game, 0, 0).setPosition(4);
+        tokenAt(game, 0, 1).setPosition(6);
+        tokenAt(game, 0, 2).setPosition(50);
+        tokenAt(game, 0, 3).setStatus(TokenStatus.FINISHED);
+        game.setDiceValue(2);
+        assertEquals(List.of(1), service.simGetValidTokens());
+        game.setDiceValue(1);
+        assertEquals(List.of(0, 1, 2), service.simGetValidTokens());
+        service.simMove(0, 2);
+        assertEquals(TokenStatus.FINISHED, tokenAt(game, 0, 2).getStatus());
+    }
+
+    @Test
+    void sim_everyAdvertisedHomeTokenCanBeMoved() {
+        for (int tokenIndex = 0; tokenIndex < 4; tokenIndex++) {
+            LudoService service = serviceWith(6);
+            Game game = service.simReset();
+            service.simRoll();
+            assertTrue(service.simGetValidTokens().contains(tokenIndex));
+            service.simMove(0, tokenIndex);
+            assertEquals(TokenStatus.ACTIVE, tokenAt(game, 0, tokenIndex).getStatus());
+        }
+    }
 }

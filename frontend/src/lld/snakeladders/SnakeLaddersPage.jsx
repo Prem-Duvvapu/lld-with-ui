@@ -1,6 +1,7 @@
+import SnakeLaddersSimulation from './SnakeLaddersSimulation';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import LldPage from '../../components/LldPage';
-import { createGame, getGame, rollDice, simReset, simRoll } from './api';
+import { createGame, getGame, rollDice } from './api';
 
 // This page used to be a fully standalone document — its own `*` reset and a `body { background:
 // linear-gradient(...) }` rule injected through an unscoped <style> tag, which leaked outside this
@@ -60,25 +61,6 @@ const styles = `
 .game-actions .btn-primary { border: none; }
 .game-id { text-align: center; font-size: 12px; color: #555; margin-top: 8px; }
 .alert { text-align: center; padding: 32px; color: #666; font-size: 16px; }
-.step-indicator { display: flex; gap: 4px; justify-content: center; margin-bottom: 12px; }
-.step-dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a5a; transition: all 0.3s; }
-.step-dot.active { background: #667eea; box-shadow: 0 0 8px rgba(102,126,234,0.5); }
-.step-dot.done { background: #3fb950; }
-.sl-scene { width: 100%; min-height: 400px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); padding: 16px; margin-bottom: 12px; overflow: hidden; }
-.sl-dice-area { text-align: center; padding: 20px; }
-.sl-dice { font-size: 64px; display: inline-block; transition: transform 0.1s; }
-.sl-dice.rolling { animation: diceRoll 0.8s ease-out; }
-@keyframes diceRoll { 0% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(90deg) scale(1.2); } 50% { transform: rotate(180deg) scale(1); } 75% { transform: rotate(270deg) scale(1.2); } 100% { transform: rotate(360deg) scale(1); } }
-.sl-mini-board { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; max-width: 380px; margin: 0 auto; }
-.sl-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; background: rgba(128,128,128,0.05); border: 1px solid rgba(128,128,128,0.2); border-radius: 2px; position: relative; font-weight: 600; color: var(--text-muted); }
-.sl-cell.snake { background: rgba(255,107,107,0.15); border-color: #ff6b6b; color: #ff6b6b; }
-.sl-cell.ladder { background: rgba(78,205,196,0.15); border-color: #4ecdc4; color: #4ecdc4; }
-.sl-cell.goal { background: rgba(255,215,0,0.2); border-color: gold; color: gold; }
-.sl-player-token { position: absolute; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.3); font-size: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-.sl-player-card { display: flex; gap: 12px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
-.sl-player-stat { padding: 8px 14px; border-radius: 8px; background: var(--bg-card); border: 2px solid var(--border-primary); font-size: 12px; text-align: center; transition: all 0.3s; min-width: 80px; }
-.sl-player-stat.active { border-color: #667eea; box-shadow: 0 0 12px rgba(102,126,234,0.3); }
-.sl-msg { text-align: center; font-size: 14px; color: var(--text-secondary); margin: 8px 0; font-weight: 500; }
 `;
 
 const COLORS = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'];
@@ -299,150 +281,6 @@ function GameBoard({ gameId, playerNames, onNewGame }) {
   );
 }
 
-function AnimatedFlow() {
-  const [step, setStep] = useState(0);
-  const [game, setGame] = useState(null);
-  const [diceValue, setDiceValue] = useState(null);
-  const [msg, setMsg] = useState('');
-  const [rolling, setRolling] = useState(false);
-  const [error, setError] = useState('');
-  const mountedRef = useRef(true);
-  const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#ffa502'];
-  const steps = ['Create', 'Roll', 'Roll', 'Win'];
-
-  const snakeCells = [99, 95, 89, 62, 46, 34];
-  const ladderCells = [2, 7, 8, 15, 21, 28, 36, 51, 71, 78, 87];
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
-  const reset = () => { setStep(0); setGame(null); setDiceValue(null); setMsg(''); setError(''); setRolling(false); };
-
-  // Drives the isolated /api/snakeladders/sim/* engine — a completely separate in-memory game
-  // from the "Game" tab, so replaying the demo can never corrupt a real match.
-  const createGameAction = async () => {
-    setError('');
-    try {
-      const g = await simReset();
-      if (!mountedRef.current) return;
-      if (g.error) { setError(g.error); return; }
-      setGame(g);
-      setStep(2);
-      setMsg('Game started! 🎲 Player 1 goes first');
-    } catch { if (mountedRef.current) setError('Failed to create game'); }
-  };
-
-  const rollDiceAction = async () => {
-    if (rolling || !game) return;
-    setRolling(true);
-    await new Promise(r => setTimeout(r, 500));
-    if (!mountedRef.current) return;
-    const rolled = await simRoll();
-    if (!mountedRef.current) return;
-    if (rolled.error) { setError(rolled.error); setRolling(false); return; }
-    setRolling(false);
-    setDiceValue(rolled.lastDiceValue);
-    setGame(rolled);
-    const prevIdx = (rolled.currentPlayerIndex - 1 + rolled.players.length) % rolled.players.length;
-    const playerName = rolled.players[prevIdx]?.name || '';
-    setMsg(`${playerName} rolled a ${rolled.lastDiceValue}!`);
-    if (rolled.state === 'FINISHED' || rolled.winner) {
-      setMsg(`🎉 ${rolled.winner?.name || rolled.winner} wins!`);
-      setStep(3);
-    }
-  };
-
-  const players = game?.players || [];
-  const winner = game?.winner;
-  const diceFace = ['⚀','⚁','⚂','⚃','⚄','⚅'];
-  const cellNum = (idx) => {
-    const row = Math.floor(idx / 10);
-    const col = idx % 10;
-    return row % 2 === 0 ? (row * 10) + col + 1 : (row * 10) + (9 - col) + 1;
-  };
-
-  return (
-    <div>
-      <div className="step-indicator">
-        {steps.map((s, i) => (
-          <div key={s} className={`step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
-        ))}
-        <span style={{ fontSize: 11, color: '#888', marginLeft: 8 }}>{steps[step] || 'Idle'}</span>
-      </div>
-
-      <div className="sl-scene">
-        <div className="sl-dice-area">
-          <div className={`sl-dice ${rolling ? 'rolling' : ''}`}>
-            {diceValue ? diceFace[diceValue - 1] : '🎲'}
-          </div>
-        </div>
-
-        <div className="sl-msg">{msg}</div>
-
-        <div className="sl-mini-board">
-          {Array.from({ length: 100 }).map((_, i) => {
-            const num = cellNum(i);
-            let cls = 'sl-cell';
-            if (snakeCells.includes(num)) cls += ' snake';
-            if (ladderCells.includes(num)) cls += ' ladder';
-            if (num === 100) cls += ' goal';
-            return (
-              <div key={num} className={cls}>
-                {num}
-                {players.map((p, pi) => (p.position || p.currentCell) === num && (
-                  <div key={p.name} className="sl-player-token" style={{ background: colors[pi % colors.length], bottom: pi * 14 + 2, right: 2, fontSize: 7 }}>
-                    {p.name[0]}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="sl-player-card">
-          {players.map((p, i) => (
-            <div key={p.name} className={`sl-player-stat ${game?.players?.[game?.currentPlayerIndex]?.name === p.name ? 'active' : ''}`}>
-              <div style={{ color: colors[i % colors.length], fontWeight: 700 }}>{p.name}</div>
-              <div>Cell: {p.position || p.currentCell || 1}</div>
-            </div>
-          ))}
-        </div>
-
-        {step === 0 && (
-          <button onClick={() => setStep(1)} style={{ display: 'block', margin: '12px auto', padding: '12px 32px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-            ▶ Start Simulation
-          </button>
-        )}
-
-        {step === 1 && (
-          <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <button onClick={createGameAction} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              🎲 Create Game
-            </button>
-          </div>
-        )}
-
-        {step >= 2 && !winner && step < 3 && (
-          <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <button onClick={rollDiceAction} disabled={rolling} style={{ padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-              🎲 Roll Dice {rolling ? '🎲' : ''}
-            </button>
-          </div>
-        )}
-
-        {step === 3 && winner && (
-          <div style={{ textAlign: 'center', marginTop: 12 }}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>🏆</div>
-            <div style={{ fontWeight: 700, fontSize: 18, color: '#667eea' }}>{winner?.name || winner} Wins!</div>
-            <button onClick={reset} style={{ marginTop: 10, padding: '8px 20px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}>🔄 New Game</button>
-          </div>
-        )}
-      </div>
-
-      {error && <div style={{ color: '#f85149', fontSize: 14, textAlign: 'center', margin: '8px 0' }}>{error}<button onClick={reset} style={{ marginLeft: 12, padding: '4px 12px', background: '#2a2a4a', color: '#ccc', border: 'none', borderRadius: 6, cursor: 'pointer' }}>↺ Reset</button></div>}
-    </div>
-  );
-}
-
 export default function SnakeLaddersPage() {
   const [gameId, setGameId] = useState(null);
   const [players, setPlayers] = useState(['Player 1', 'Player 2']);
@@ -473,7 +311,7 @@ export default function SnakeLaddersPage() {
               <GameBoard gameId={gameId} playerNames={players} onNewGame={() => setGameId(null)} />
             )
           )}
-          {tab === 'simulation' && <AnimatedFlow />}
+          {tab === 'simulation' && <SnakeLaddersSimulation />}
         </>
       )}
     </LldPage>

@@ -1,0 +1,21 @@
+.game-simulation-actions { min-width: 0; border: 1px solid var(--border-primary); padding: 16px; border-radius: 12px; margin: 16px 0; }
+.game-simulation-actions legend { font-weight: 700; padding: 0 6px; }
+.game-simulation-actions p { font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
+.game-simulation-actions button { min-height: 44px; padding: 8px 14px; margin: 4px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); font: inherit; cursor: pointer; }
+.game-simulation-actions button:disabled, .game-simulation-actions:disabled button { opacity: .55; cursor: not-allowed; }
+.game-simulation-chess { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); width: 100%; max-width: 480px; aspect-ratio: 1; margin: 16px auto; border: 2px solid var(--border-primary); }
+.game-simulation-square { position: relative; display: flex; align-items: center; justify-content: center; font-size: clamp(18px, 5vw, 42px); color: #172033; font-family: 'DejaVu Sans', 'Segoe UI Symbol', serif; }
+.game-simulation-square.light { background: #edf1e7; }
+.game-simulation-square.dark { background: #91a59d; }
+.game-simulation-square.highlighted { box-shadow: inset 0 0 0 3px #854d0e; background: #f6d779; }
+.game-simulation-coordinate { position: absolute; top: 2px; left: 3px; font: 9px system-ui, sans-serif; }
+.game-simulation-ladders { display: block; width: 100%; max-width: 500px; margin: 16px auto; border: 2px solid var(--border-primary); }
+.game-simulation-ladders rect { stroke: var(--border-primary); stroke-width: .5; }
+.game-simulation-ladders .odd { fill: var(--bg-secondary); }
+.game-simulation-ladders .even { fill: var(--bg-card); }
+.game-simulation-ladders text { fill: var(--text-primary); font: 12px system-ui, sans-serif; }
+.game-simulation-snake { fill: #dc2626; stroke: #dc2626; }
+.game-simulation-ladder { fill: #059669; stroke: #059669; }
+.game-simulation-ladders path { fill: none; stroke-width: 4; opacity: .65; }
+.game-simulation-ladder path { stroke-dasharray: 8 5; }
+.game-simulation-ladders .game-simulation-token-label { fill: white; font-weight: 700; }

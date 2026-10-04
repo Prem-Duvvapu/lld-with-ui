@@ -5974,6 +5974,45 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-080: Game Walkthroughs Misrepresented Random Outcomes and Retried Ambiguous Actions
+
+**Overview & Severity** — Medium. Ludo, Chess, and Snakes & Ladders simulations had
+inconsistent progress, unsafe recovery, and misleading board or outcome descriptions.
+
+**Symptoms & Error Logs** — Ludo advertised capture and exact-home milestones that random
+rolls did not guarantee. Its client-selected token could be blocked or overshoot. Dice-game
+request failures could reject without an error handler, and the UI could retry an action
+after its mutation succeeded but the log response failed. Snakes & Ladders displayed initial
+position 0 as cell 1 and inferred the wrong actor on a winning roll. Chess's fixed-width
+simulation board exceeded narrow screens. These were code-path defects, not server startup errors.
+
+**Root Cause** — Per-page asynchronous controllers tracked progress independently of
+committed backend state. Ludo duplicated token-choice rules in the client, random games used
+scripted-outcome labels, and the snakes board used hardcoded connections and falsy fallbacks.
+
+**Diagnostic Commands**
+```bash
+rg -n 'autoAct|position \\|\\||simRoll|nextMoveAction' frontend/src/lld
+cd frontend && npx vitest run src/__tests__/gameSimulation.test.jsx src/__tests__/simulationPlayback.test.jsx
+cd backend && mvn -Dtest=LudoServiceTest,ChessServiceTest,SnakeLaddersServiceTest test
+```
+
+**Step-by-Step Resolution** — Replace the three bespoke playback controllers with the
+shared serialized hook and accessible controls. Advance only after state and telemetry
+reads succeed; preserve the last committed result and require sandbox reset on failure.
+Expose Ludo's legal token indices under the existing game lock, sharing the legality query
+with automatic turn passing. Use truthful finite random-roll guides, server-supplied board
+connections, exact player positions, and responsive labelled chess squares. Allow guarded
+post-guide dice play and read-only review after a winner. Add focused rule, progress,
+duplicate-request, free-play, and recovery regressions without starting application servers.
+Use numeric dice labels in Ludo's sandbox board after browser inspection exposed an unavailable
+emoji glyph, preserving the live board's existing presentation.
+
+**Preventative Measures** — Keep move legality and winner determination on the backend.
+Never promise random milestones or retry an ambiguous mutation automatically. Test zero
+positions, early completion, failed telemetry reads, and legal token choices; verify layouts
+at narrow widths in both themes and with reduced motion enabled.
+
 ## RCA-079: Vehicle Illustrations Depended on Unavailable Emoji Fonts
 
 **Overview & Severity** — Low, resolved during browser verification of the fleet
