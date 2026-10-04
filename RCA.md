@@ -5974,6 +5974,51 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-085: Workflow Race-Test Scheduling Assumption Temporarily Blocked PR CI
+
+**Overview & Severity** — Low: PR #150's first backend check failed in an unchanged workflow
+test. The identical commit passed the local suite, push CI, and the failed job's rerun.
+The immediate CI interruption is cleared; the underlying flaky assertion remains a separate
+test-maintenance follow-up, not a product fix included in the concurrency UI work.
+
+**Symptoms & Error Logs** — Run `37228457288`, first attempt:
+
+```text
+WorkflowConcurrencyTest.approveAndEscalateRaceNeverBothTakeEffect:111
+over 300 rounds escalate should win at least once ==> expected: <true> but was: <false>
+Tests run: 2304, Failures: 1, Errors: 0, Skipped: 0
+```
+
+**Root Cause** — After asserting exactly one winner in each race, the existing test also
+requires both contenders to win at least once across 300 rounds. A shared start latch does
+not guarantee scheduler fairness; all rounds may legitimately favor the approver. The failure
+was this distribution assertion, not the per-round atomicity invariant. No workflow source or
+test changed in this PR; all changed-module tests passed on the first CI attempt.
+
+**Diagnostic Commands** — Compare the failed assertion and the unchanged successful runs:
+
+```bash
+gh run view 37228457288 --log-failed
+sed -n '45,114p' backend/src/test/java/com/lld/workflow/WorkflowConcurrencyTest.java
+gh run view 37228451175
+gh run rerun 37228457288 --failed
+gh pr checks 150 --watch --interval 15
+```
+
+**Step-by-Step Resolution** — Inspect the actual failed test, distinguish scheduling coverage
+from race safety, and confirm the local 2304-test suite and independent push backend job
+passed. Rerun only the failed PR backend job without modifying or weakening any test. Its
+second attempt passes all 2304 tests; frontend, security, and deployment checks also pass.
+Document the incident and recheck CI after this documentation commit before merging.
+
+**Preventative Measures** — Keep merge blocked while any required check is red. Preserve
+logs and disclose reruns rather than treating flaky failures as product regressions. In a
+separate test-maintenance change, exercise each legal ordering deterministically and retain
+the simultaneous-race safety assertions; do not require random scheduling to cover both
+outcomes or alter unrelated backend behavior as part of UI work.
+
+---
+
 ## RCA-084: Concurrency Replays Merged Independent Maps and Invented Worker State
 
 **Overview & Severity** — Medium: concurrency demonstrations could misrepresent backend
