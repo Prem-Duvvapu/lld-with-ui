@@ -1,0 +1,23 @@
+.resilience-circuit-flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 12px; margin: 20px 0; text-align: center; }
+.resilience-circuit-flow > div { padding: 16px 10px; border: 1px solid var(--border-primary); border-radius: 12px; background: var(--bg-secondary); min-width: 0; font-size: 13px; font-weight: 700; }
+.resilience-circuit-flow .resilience-circuit-gate { border-color: var(--success); color: var(--success); }
+.resilience-circuit-flow .resilience-circuit-gate.blocked { border-color: var(--danger); color: var(--danger); }
+.resilience-circuit-gate svg { display: block; width: 100%; max-width: 120px; margin: auto; fill: currentColor; }
+.resilience-circuit-gate path { stroke: currentColor; stroke-width: 5; fill: none; }
+.resilience-simulation .resilience-cache-rack { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); list-style: none; gap: 12px; margin: 16px 0; padding: 0; max-height: none; }
+.resilience-cache-rack li { display: grid; gap: 12px; align-content: start; padding: 16px; background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 10px; }
+.resilience-cache-rank { color: var(--text-secondary); font-size: 11px; }
+.resilience-cache-rack strong { font-size: 14px; }
+.resilience-experiments { min-width: 0; margin: 16px 0; padding: 16px; border: 1px solid var(--border-primary); border-radius: 12px; }
+.resilience-experiments legend { font-weight: 700; padding: 0 6px; }
+.resilience-experiments p { margin: 8px 0 16px; font-size: 13px; line-height: 1.6; }
+.resilience-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 16px; margin-bottom: 16px; }
+.resilience-form-grid form { display: grid; align-content: start; gap: 10px; }
+.resilience-form-grid label { display: grid; gap: 6px; font-size: 13px; }
+.resilience-form-grid :is(input, select) { min-width: 0; width: 100%; min-height: 44px; font: inherit; padding: 10px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; }
+.resilience-simulation button { min-height: 44px; }
+.resilience-experiments button, .resilience-cache-rack button { padding: 10px 12px; font: inherit; font-size: 13px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; cursor: pointer; }
+.resilience-experiments > button { margin: 4px; }
+.resilience-simulation button:disabled, .resilience-experiments:disabled :is(input, select, button) { opacity: .5; cursor: not-allowed; }
+.resilience-simulation :is(input, select, button):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 480px) { .resilience-circuit-flow { grid-template-columns: 1fr; gap: 8px; } .resilience-circuit-flow > span { transform: rotate(90deg); } }

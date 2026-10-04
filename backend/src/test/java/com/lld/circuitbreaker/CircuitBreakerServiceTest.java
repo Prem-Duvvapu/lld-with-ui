@@ -138,4 +138,31 @@ class CircuitBreakerServiceTest {
         assertNotNull(snapshot.get("breaker"));
         assertFalse(((List<?>) snapshot.get("events")).isEmpty());
     }
+
+    @Test
+    void guidedRecoveryUsesExplicitClockStepsAndKeepsLiveStateIsolated() {
+        service.registerService("live-payment", new ConsecutiveFailureTripPolicy(3), 5000L, 10);
+        service.simReset();
+        service.simCall(false, 2);
+        service.simCall(false, 3);
+        Map<String, Object> snapshot = service.simCall(false, 4);
+        CircuitBreaker breaker = (CircuitBreaker) snapshot.get("breaker");
+        assertEquals(CircuitPhase.OPEN, breaker.getPhase());
+        service.simCall(true, 5);
+        assertEquals("CALL_REJECTED", service.simGetEvents().get(4).getEventType());
+        assertEquals(3, breaker.getTotalCalls());
+        assertEquals(1, breaker.getTotalRejections());
+        service.simAdvanceClock(5000L, 6);
+        assertEquals(CircuitPhase.OPEN, breaker.getPhase());
+        assertEquals(0L, breaker.getRemainingCooldownMillis());
+        service.simCall(false, 7);
+        assertEquals(CircuitPhase.OPEN, breaker.getPhase());
+        assertEquals(5000L, breaker.getRemainingCooldownMillis());
+        service.simAdvanceClock(5000L, 8);
+        service.simCall(true, 9);
+        assertEquals(CircuitPhase.CLOSED, breaker.getPhase());
+        assertEquals(5, breaker.getTotalCalls());
+        assertEquals(0, breaker.getConsecutiveFailures());
+        assertEquals(0, service.getService("live-payment").getTotalCalls());
+    }
 }

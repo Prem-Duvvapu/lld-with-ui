@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import LruCacheSimulation from './LruCacheSimulation';
 import LldPage from '../../components/LldPage';
 import ClassDiagram from '../../components/ClassDiagram';
 import DesignDetails from '../../components/DesignDetails';
@@ -11,14 +12,6 @@ import {
   setCapacity,
   setPolicy,
   batchSimulate,
-  simGetSnapshot,
-  simCacheGet,
-  simCachePut,
-  simCacheRemove,
-  simCacheClear,
-  simSetCapacity,
-  simSetPolicy,
-  simBatchSimulate
 } from './api';
 import { usePolling } from '../../hooks/usePolling';
 
@@ -67,26 +60,6 @@ const CSS = `
 .hash-pill { padding: 10px 16px; background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-family: monospace; font-size: 12px; font-weight: 700; color: var(--text-primary); transition: all 0.2s ease; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .hash-pill:hover { border-color: #3b82f6; background: rgba(59, 130, 246, 0.08); transform: translateY(-2px); }
 
-/* 2D Interactive Memory Rack Scene */
-.sim-container { position: relative; width: 100%; min-height: 480px; background: #0b1329; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid #1e293b; display: flex; flex-direction: column; justify-content: space-between; padding: 24px; box-sizing: border-box; }
-.sim-hud { display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); padding: 14px 20px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); color: #fff; z-index: 10; flex-wrap: wrap; gap: 12px; }
-
-.sim-client-node { width: 220px; margin: 0 auto; background: rgba(59, 130, 246, 0.15); border: 2px solid #3b82f6; border-radius: 10px; padding: 10px 16px; text-align: center; color: #93c5fd; font-size: 12px; font-weight: 900; box-shadow: 0 0 16px rgba(59, 130, 246, 0.3); z-index: 5; }
-
-.sim-rack { display: flex; justify-content: center; align-items: center; gap: 16px; margin: 24px 0; position: relative; z-index: 5; flex-wrap: wrap; }
-.sim-slot { width: 120px; height: 130px; border: 2px dashed #334155; border-radius: 14px; background: rgba(30, 41, 59, 0.7); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; transition: all 0.4s ease; cursor: pointer; }
-.sim-slot:hover { transform: translateY(-4px); border-color: #38bdf8; }
-.sim-slot.active { border-style: solid; border-color: #38bdf8; box-shadow: 0 0 20px rgba(56, 189, 248, 0.3); }
-.sim-slot.mru-slot { border-style: solid; border-color: #4ade80; box-shadow: 0 0 24px rgba(74, 222, 128, 0.45); background: rgba(74, 222, 128, 0.08); }
-.sim-slot.lru-slot { border-style: solid; border-color: #f87171; box-shadow: 0 0 24px rgba(248, 113, 113, 0.45); background: rgba(248, 113, 113, 0.08); }
-
-.sim-packet { padding: 10px; border-radius: 10px; background: #1e293b; border: 1px solid #475569; width: 88%; text-align: center; color: #f8fafc; font-size: 11px; font-weight: 700; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-.sim-packet-key { color: #38bdf8; font-size: 13px; font-weight: 900; font-family: monospace; }
-.sim-packet-val { color: #94a3b8; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; margin-top: 2px; }
-
-.sim-db-node { width: 220px; margin: 0 auto; background: rgba(245, 158, 11, 0.15); border: 2px solid #f59e0b; border-radius: 10px; padding: 10px 16px; text-align: center; color: #fcd34d; font-size: 12px; font-weight: 900; box-shadow: 0 0 16px rgba(245, 158, 11, 0.3); z-index: 5; }
-
-.sim-chute { position: absolute; bottom: 20px; right: 24px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 10px; padding: 10px 18px; color: #fca5a5; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 10px; z-index: 10; }
 `;
 
 // Node ordering always runs from "keep longest" to "evict next" (LruCache#getSnapshot delegates
@@ -608,268 +581,6 @@ function LogsTab({ snapshot, logs }) {
   );
 }
 
-/* ── ISOLATED INTERACTIVE 2D SIMULATION SCENE (INDEPENDENT INSTANCE) ── */
-function Interactive2DSimulation({ toast }) {
-  const [simSnapshot, setSimSnapshot] = useState(null);
-  const [keyInput, setKeyInput] = useState('');
-  const [valInput, setValInput] = useState('');
-  const [getKeyInput, setGetKeyInput] = useState('');
-  const [simStatus, setSimStatus] = useState('Simulation Engine Ready');
-  const [isRunningAuto, setIsRunningAuto] = useState(false);
-
-  const fetchSimState = async () => {
-    const data = await simGetSnapshot();
-    if (data) setSimSnapshot(data);
-  };
-
-  usePolling(fetchSimState, 3000, []);
-
-  const nodes = simSnapshot?.nodes || [];
-  const capacity = simSnapshot?.capacity || 5;
-  const policy = simSnapshot?.policy || 'LRU';
-  const stats = simSnapshot?.stats || { hits: 0, misses: 0, evictions: 0, hitRate: 0 };
-  const simLabels = policyLabels(policy);
-
-  const handleSimPut = async (k, v) => {
-    const key = k || keyInput;
-    if (!key.trim()) return;
-    const val = v || valInput || `Data_${Math.floor(Math.random() * 900 + 100)}`;
-
-    const res = await simCachePut(key.trim(), val.trim());
-    if (res) {
-      setSimSnapshot(res);
-      setSimStatus(`PUT("${key.trim()}", "${val.trim()}") ➔ Executed on simulation cache!`);
-      toast(`[Sim] PUT("${key.trim()}") executed!`);
-      setKeyInput('');
-      setValInput('');
-    }
-  };
-
-  const handleSimGet = async (k) => {
-    const key = k || getKeyInput;
-    if (!key.trim()) return;
-
-    const res = await simCacheGet(key.trim());
-    if (res) {
-      setSimSnapshot(res.snapshot);
-      if (res.found) {
-        setSimStatus(`✅ GET("${key.trim()}") ➔ CACHE HIT! Value = "${res.value}". Promoted to MRU HEAD.`);
-        toast(`[Sim] ✅ HIT! Key: "${key.trim()}"`, 'success');
-      } else {
-        setSimStatus(`❌ GET("${key.trim()}") ➔ CACHE MISS! Key not found in simulation cache. Querying DB...`);
-        toast(`[Sim] ❌ MISS! Key: "${key.trim()}"`, 'error');
-      }
-      setGetKeyInput('');
-    }
-  };
-
-  const handleSimRemove = async (key) => {
-    const res = await simCacheRemove(key);
-    if (res) {
-      setSimSnapshot(res.snapshot);
-      setSimStatus(`REMOVED("${key}") from simulation cache.`);
-      toast(`[Sim] Removed key "${key}"`);
-    }
-  };
-
-  const handleSimCapacity = async (newCap) => {
-    const res = await simSetCapacity(newCap);
-    if (res) {
-      setSimSnapshot(res);
-      setSimStatus(`Simulation capacity updated to ${newCap}`);
-    }
-  };
-
-  const handleSimPolicy = async (newPol) => {
-    const res = await simSetPolicy(newPol);
-    if (res) {
-      setSimSnapshot(res);
-      setSimStatus(`Simulation strategy changed to ${newPol}`);
-    }
-  };
-
-  const handleSimReset = async () => {
-    const res = await simBatchSimulate();
-    if (res) {
-      setSimSnapshot(res);
-      setSimStatus('Reset simulation cache to default sample dataset.');
-      toast('[Sim] Reset simulation dataset');
-    }
-  };
-
-  const runAutoScenario = async () => {
-    if (isRunningAuto) return;
-    setIsRunningAuto(true);
-    toast('🚀 Running Automated Web Application Workload Scenario...');
-    await simCacheClear();
-
-    const sequence = [
-      { op: 'PUT', k: 'user_session_101', v: 'JWT_Token_Admin' },
-      { op: 'PUT', k: 'db_product_99', v: 'Core_i9_Laptop' },
-      { op: 'PUT', k: 'cdn_banner_jpg', v: 'Header_Hero_Img' },
-      { op: 'PUT', k: 'api_rate_limit', v: 'ReqCount_42' },
-      { op: 'PUT', k: 'shopping_cart_5', v: 'Items_3_Total_499' }, // Full
-      { op: 'GET', k: 'user_session_101' }, // Promotes user_session_101 to MRU
-      { op: 'PUT', k: 'new_order_808', v: 'Order_Status_Placed' }, // Evicts LRU
-      { op: 'GET', k: 'db_product_99' },
-    ];
-
-    for (let i = 0; i < sequence.length; i++) {
-      const step = sequence[i];
-      await new Promise(r => setTimeout(r, 1200));
-      if (step.op === 'PUT') {
-        await handleSimPut(step.k, step.v);
-      } else {
-        await handleSimGet(step.k);
-      }
-    }
-
-    setIsRunningAuto(false);
-    toast('✅ Automated Workload Scenario Completed!');
-  };
-
-  return (
-    <div>
-      {/* Simulation HUD & Controls Deck */}
-      <div className="lru-card" style={{ borderLeft: '5px solid #10b981' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h3 style={{ fontSize: 'var(--font-base)', fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>🎮 Interactive 2D Memory Rack Simulation</span>
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: '#10b981', color: '#fff', fontWeight: 800 }}>
-                INDEPENDENT CACHE INSTANCE
-              </span>
-            </h3>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-              Execute live PUT/GET/REMOVE operations on the isolated simulation cache engine without affecting other tabs.
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="lru-btn primary" onClick={runAutoScenario} disabled={isRunningAuto}>
-              {isRunningAuto ? '⏳ Running Traffic...' : '▶ Run Auto Traffic Scenario'}
-            </button>
-            <button className="lru-btn warning" onClick={handleSimReset}>
-              🔄 Reset Sim Dataset
-            </button>
-          </div>
-        </div>
-
-        {/* Interactive Controls Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)' }}>
-          {/* Put Form */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="lru-input" placeholder="Put Key" value={keyInput} onChange={e => setKeyInput(e.target.value)} />
-            <input className="lru-input" placeholder="Put Value" value={valInput} onChange={e => setValInput(e.target.value)} />
-            <button className="lru-btn primary" onClick={() => handleSimPut()}>PUT</button>
-          </div>
-
-          {/* Get Form */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="lru-input" placeholder="Search Key" value={getKeyInput} onChange={e => setGetKeyInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSimGet()} />
-            <button className="lru-btn success" onClick={() => handleSimGet()}>GET</button>
-          </div>
-
-          {/* Policy & Capacity Controls */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              Cap: {capacity}
-            </div>
-            <input type="range" min="1" max="10" value={capacity} onChange={e => handleSimCapacity(e.target.value)} style={{ flex: 1 }} />
-            <select
-              value={policy}
-              onChange={e => handleSimPolicy(e.target.value)}
-              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', color: 'var(--text-primary)', fontWeight: 700, fontSize: 11 }}
-            >
-              <option value="LRU">LRU Policy</option>
-              <option value="LFU">LFU Policy</option>
-              <option value="FIFO">FIFO Policy</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* 2D Canvas / SVG Memory Scene */}
-      <div className="sim-container">
-        {/* HUD Meter */}
-        <div className="sim-hud">
-          <div>
-            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>MEMORY RACK SLOTS: </span>
-            <strong style={{ color: '#38bdf8' }}>{nodes.length} / {capacity} Occupied</strong>
-          </div>
-          <div>
-            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>ACTIVE STRATEGY: </span>
-            <strong style={{ color: '#f59e0b' }}>{policy}</strong>
-          </div>
-          <div>
-            <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>HIT RATE: </span>
-            <strong style={{ color: '#4ade80' }}>{stats.hitRate || 0}% ({stats.hits || 0} Hits / {stats.misses || 0} Misses)</strong>
-          </div>
-        </div>
-
-        {/* Client API Gateway Node */}
-        <div className="sim-client-node">
-          🌐 CLIENT API GATEWAY
-          <div style={{ fontSize: 10, color: '#60a5fa', marginTop: 2 }}>{simStatus}</div>
-        </div>
-
-        {/* Server Memory Slots Grid */}
-        <div className="sim-rack">
-          {Array.from({ length: capacity }).map((_, idx) => {
-            const item = nodes[idx];
-            const isMRU = idx === 0 && item;
-            const isLRU = idx === nodes.length - 1 && item;
-            return (
-              <div
-                key={idx}
-                className={`sim-slot ${item ? 'active' : ''} ${isMRU ? 'mru-slot' : ''} ${isLRU ? 'lru-slot' : ''}`}
-                onClick={() => item && handleSimGet(item.key)}
-                title={item ? `Click to trigger GET("${item.key}")` : 'Empty Memory Slot'}
-              >
-                <div style={{ position: 'absolute', top: 8, fontSize: 9, fontWeight: 900, color: isMRU ? '#4ade80' : isLRU ? '#f87171' : '#64748b' }}>
-                  {isMRU ? `HEAD (${simLabels.head})` : isLRU ? `TAIL (${simLabels.tail})` : `SLOT #${idx + 1}`}
-                </div>
-
-                {item ? (
-                  <div className="sim-packet">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div className="sim-packet-key">{item.key}</div>
-                      <span
-                        onClick={(e) => { e.stopPropagation(); handleSimRemove(item.key); }}
-                        style={{ color: '#ef4444', cursor: 'pointer', fontWeight: 900, fontSize: 11 }}
-                      >
-                        ✖
-                      </span>
-                    </div>
-                    <div className="sim-packet-val">{item.value}</div>
-                    <div style={{ fontSize: 9, color: '#64748b', marginTop: 4 }}>👁️ Hits: {item.accessCount}</div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: '#475569', fontWeight: 700 }}>EMPTY SLOT</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Database Server Fallback Node */}
-        <div className="sim-db-node">
-          🗄️ PERSISTENT DATABASE ENGINE
-          <div style={{ fontSize: 10, color: '#fbbf24', marginTop: 2 }}>O(N) Fallback Lookup on Cache Miss</div>
-        </div>
-
-        {/* Eviction Drop Chute */}
-        <div className="sim-chute">
-          <span>🗑️ EVICTION CHUTE</span>
-          <span style={{ color: '#fff', background: 'rgba(239, 68, 68, 0.4)', padding: '2px 8px', borderRadius: 4 }}>
-            {stats.evictions || 0} Evicted Items
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function LruCachePage() {
   const [snapshot, setSnapshot] = useState(null);
   const [toastMsg, setToastMsg] = useState(null);
@@ -920,7 +631,7 @@ export default function LruCachePage() {
           {activeTab === 'operations' && <CacheOperationsTab snapshot={snapshot} onUpdate={setSnapshot} toast={toast} />}
           {activeTab === 'telemetry' && <TelemetryTab snapshot={snapshot} onUpdate={setSnapshot} toast={toast} />}
           {activeTab === 'logs' && <LogsTab snapshot={snapshot} logs={snapshot?.logs} />}
-          {activeTab === 'simulation' && <Interactive2DSimulation toast={toast} />}
+          {activeTab === 'simulation' && <LruCacheSimulation />}
           {activeTab === 'diagram' && <ClassDiagram module="lrucache" />}
           {activeTab === 'design' && <DesignDetails module="lrucache" />}
         </>

@@ -20,7 +20,8 @@ before opening it fullscreen. Loading states and solution-reveal gates remain un
 ### Guided simulation playback
 
 Tic Tac Toe, Rate Limiter, Thread Pool, Parking Lot, Uber, Zomato, Splitwise, Movie Ticket
-Booking, Elevator, Traffic Signal, Car Rental, Ludo, Chess, and Snakes & Ladders share Play/Pause, Start/Next step, Reset sandbox,
+Booking, Elevator, Traffic Signal, Car Rental, Ludo, Chess, Snakes & Ladders, Circuit Breaker,
+and LRU Cache share Play/Pause, Start/Next step, Reset sandbox,
 and 0.5×/1×/2× pacing controls. Each action waits for its isolated backend response before
 progress advances. Pause stops future requests, not an action already sent; pacing changes
 only the reading delay, not simulated time or backend calculations. Reset executes the first
@@ -53,6 +54,16 @@ three random rolls and their resolution without promising a capture or win; the 
 Snakes & Ladders demonstrates six random rolls, renders the server's snake/ladder connections,
 and shows initial cell 0 accurately. Both dice games support guarded sandbox play after the
 guide, stop mutating when a winner is declared, and require reset after any ambiguous failure.
+
+Circuit Breaker separates manual-clock advances from recovery trials, verifies the backend's
+expected `CALL_REJECTED` event, and stops on transport errors rather than counting them as
+successful steps. Cooldown reaching zero does not itself change OPEN to HALF_OPEN; that trial
+is entered and resolved inside the next backend call. LRU Cache initializes an empty five-slot
+LRU sandbox, fills it, refreshes a session, inserts a sixth key, and reads the evicted product.
+After the guide, labelled forms support puts, gets, policy/capacity changes, removal, sample
+loading, and clearing. The rack uses server ordering and real counters; a miss does not query
+a database. Reset clears entries and restores LRU/capacity five, but counters and the backend's
+last 50 log entries persist. Manual operations are serialized and stop after ambiguous failures.
 
 Elevator follows a guided F1 → F3 ride, stepping door dwell and travel separately before
 taking the idle car offline, requesting a second ride, and restoring it. Its final snapshot
