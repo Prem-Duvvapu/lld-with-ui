@@ -140,7 +140,7 @@ public class LudoService {
             }
 
             int dice = diceRoller.roll();
-            boolean anyMove = hasAnyLegalMove(game, game.getCurrentPlayerIndex(), dice);
+            boolean anyMove = !legalTokenIndices(game, game.getCurrentPlayerIndex(), dice).isEmpty();
             boolean turnPassed = false;
             if (anyMove) {
                 game.setDiceValue(dice);
@@ -294,29 +294,29 @@ public class LudoService {
     }
 
     /**
-     * True if the current player has at least one token that can legally move on this roll —
+     * Token indices that can legally move on this roll —
      * mirrors {@link #moveOutOfHome}/{@link #moveOnTrack}'s exact legality rules (including the
      * own-token block check) so {@link #doRoll} never auto-passes a turn that actually had a
      * legal move, nor leaves a turn stuck claiming a move exists when every attempt would be
      * rejected (RCA-022).
      */
-    private boolean hasAnyLegalMove(Game game, int playerIndex, int dice) {
+    private List<Integer> legalTokenIndices(Game game, int playerIndex, int dice) {
+        List<Integer> indices = new ArrayList<>();
         List<Token> tokens = game.getTokens().get(playerIndex);
         int startPos = Game.START_POSITIONS[playerIndex];
-        for (int i = 0; i < tokens.size(); i++) {
-            Token t = tokens.get(i);
-            if (t.getStatus() == TokenStatus.FINISHED) continue;
-            if (t.getStatus() == TokenStatus.HOME) {
-                if (dice == 6 && !isBlockedByOwnToken(tokens, startPos, i)) return true;
+        for (int tokenIndex = 0; tokenIndex < tokens.size(); tokenIndex++) {
+            Token token = tokens.get(tokenIndex);
+            if (token.getStatus() == TokenStatus.FINISHED) continue;
+            if (token.getStatus() == TokenStatus.HOME) {
+                if (dice == 6 && !isBlockedByOwnToken(tokens, startPos, tokenIndex)) indices.add(tokenIndex);
             } else {
-                int steps = stepsToHome(t, playerIndex);
+                int steps = stepsToHome(token, playerIndex);
                 if (dice > steps) continue;
-                if (dice == steps) return true;
-                int newPos = (t.getPosition() + dice) % Game.TRACK_SIZE;
-                if (!isBlockedByOwnToken(tokens, newPos, i)) return true;
+                int newPos = (token.getPosition() + dice) % Game.TRACK_SIZE;
+                if (dice == steps || !isBlockedByOwnToken(tokens, newPos, tokenIndex)) indices.add(tokenIndex);
             }
         }
-        return false;
+        return indices;
     }
 
     private void nextTurn(Game game) {
@@ -344,6 +344,18 @@ public class LudoService {
 
     public List<SimEvent> simGetEventLog() {
         return new ArrayList<>(simEventLog);
+    }
+
+    public List<Integer> simGetValidTokens() {
+        Game game = simGetGame();
+        ReentrantLock lock = simLocks.computeIfAbsent(game.getId(), ignored -> new ReentrantLock());
+        lock.lock();
+        try {
+            if (game.getStatus() == GameStatus.FINISHED || game.getDiceValue() == 0) return List.of();
+            return List.copyOf(legalTokenIndices(game, game.getCurrentPlayerIndex(), game.getDiceValue()));
+        } finally {
+            lock.unlock();
+        }
     }
 
     public Game simRoll() {

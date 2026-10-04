@@ -39,6 +39,10 @@ export function simGetLog() {
   return apiFetch('/ludo/sim/log');
 }
 
+export function simGetValidTokens() {
+  return apiFetch('/ludo/sim/valid-tokens');
+}
+
 export function simRoll() {
   return apiFetch('/ludo/sim/roll', { method: 'POST' });
 }
