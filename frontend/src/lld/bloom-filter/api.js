@@ -8,9 +8,10 @@ import { apiFetch } from '../../utils/api';
  * query outcomes (true positives, true negatives, false positive) once the run
  * finishes.
  */
-export function runBloomFilter({ bitSize, hashCount, addThreads } = {}) {
+export function runBloomFilter({ bitSize, hashCount, addThreads } = {}, { signal } = {}) {
   return apiFetch('/concurrency/bloom-filter/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ bitSize, hashCount, addThreads }),
   });
 }
