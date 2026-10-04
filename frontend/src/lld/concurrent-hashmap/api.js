@@ -7,9 +7,10 @@ import { apiFetch } from '../../utils/api';
  * racing computeIfAbsent() calls. Returns the full ordered, timestamped execution
  * trace once the run finishes.
  */
-export function runConcurrentHashMap({ segments, threads, incrementsPerThread, distinctKeys, computeRacers } = {}) {
+export function runConcurrentHashMap({ segments, threads, incrementsPerThread, distinctKeys, computeRacers } = {}, { signal } = {}) {
   return apiFetch('/concurrency/concurrent-hashmap/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ segments, threads, incrementsPerThread, distinctKeys, computeRacers }),
   });
 }

@@ -1,0 +1,7 @@
+.map-recording-options { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+.map-recording-options > label { display: grid; gap: 6px; font-size: 13px; }
+.map-recording-options select { min-height: 44px; max-width: 100%; padding: 10px; font: inherit; color: var(--text-primary); background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; }
+.map-recording-options > .map-recording-follow { display: flex; align-items: center; min-height: 44px; gap: 8px; }
+.map-recording-follow input { accent-color: var(--accent); }
+.map-recording-follow input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.map-recording-selected { outline: 2px solid var(--accent); outline-offset: 2px; }
