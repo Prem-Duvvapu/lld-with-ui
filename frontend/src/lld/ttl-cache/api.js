@@ -6,9 +6,10 @@ import { apiFetch } from '../../utils/api';
  * sequence of puts and gets in real time. Returns the full ordered, timestamped
  * execution trace once the run finishes.
  */
-export function runTtlCache({ sweepIntervalMillis, puts, gets, observeMillis } = {}) {
+export function runTtlCache({ sweepIntervalMillis, puts, gets, observeMillis } = {}, { signal } = {}) {
   return apiFetch('/concurrency/ttl-cache/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ sweepIntervalMillis, puts, gets, observeMillis }),
   });
 }

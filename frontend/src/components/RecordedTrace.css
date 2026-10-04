@@ -1,0 +1,17 @@
+.recorded-trace-seek { display: grid; gap: 8px; font-size: 13px; }
+.recorded-trace-seek input { width: 100%; min-height: 44px; accent-color: var(--accent); }
+.recorded-trace-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.recorded-trace-form label { display: grid; gap: 6px; font-size: 13px; }
+.recorded-trace-form input { width: 100%; max-width: 180px; min-height: 44px; padding: 10px; font: inherit; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: 8px; }
+.recorded-trace-form button, .recorded-trace-pagination button { min-height: 44px; padding: 10px 14px; font: inherit; font-size: 13px; color: var(--text-primary); background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: 8px; cursor: pointer; }
+.recorded-trace-form button:disabled, .recorded-trace-pagination button:disabled { opacity: .5; cursor: not-allowed; }
+.recorded-trace-form :is(input, button):focus-visible, .recorded-trace-controls input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.recorded-trace-pagination { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.recorded-trace-log li[aria-current] { border-left: 3px solid var(--accent); padding-left: 10px; }
+.recorded-bloom-bits { display: grid; grid-template-columns: repeat(auto-fit, minmax(34px, 1fr)); gap: 6px; margin: 16px 0; }
+.recorded-bloom-bit { display: grid; gap: 4px; justify-items: center; padding: 8px 2px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-secondary); }
+.recorded-bloom-bit.set { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+.recorded-bloom-bit.current { outline: 2px solid var(--accent); outline-offset: 1px; }
+.recorded-bloom-bit small { font-size: 10px; }
+.recorded-bloom-follow { display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 44px; }
+@media (max-width: 480px) { .recorded-trace-form > * { flex: 1 1 140px; } }
