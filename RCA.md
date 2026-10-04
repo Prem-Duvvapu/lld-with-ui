@@ -5974,6 +5974,60 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-084: Concurrency Replays Merged Independent Maps and Invented Worker State
+
+**Overview & Severity** — Medium: concurrency demonstrations could misrepresent backend
+state. The Concurrent HashMap view merged two independent map objects into one segment grid;
+ordering views inferred live worker states and H2O cleared acquired atoms at bonding rather
+than at each recorded departure. Standalone playback also lacked shared lifecycle safeguards.
+
+**Symptoms & Error Logs** — Counter entries and configuration entries appeared to share
+segment locks despite separate backend objects. FooBar changed lowercase backend tokens into
+title case. Printed events were labelled as completed semaphore handoffs although the release
+occurs later; H2O atoms vanished before their DEPARTED events. These are semantic errors, not
+server exceptions. Invalid draft settings could drive local preview allocation.
+
+**Root Cause** — Trace events identified a segment index but not its owning map. Frontend
+projections guessed thread/lock state from partial observations and generated previews from
+draft values. Four ordering APIs return `events`, while the shared playback originally only
+accepted `trace`, leaving these modules on independent timer/request implementations.
+
+**Diagnostic Commands** — Inspect event recording relative to mutation/unlock and run the
+focused regressions without starting application servers:
+
+```bash
+rg -n 'new StripedHashMap|recorderFor|SEGMENT_LOCK_RELEASED|unlock' backend/src/main/java/com/lld/concurrency/concurrenthashmap
+cd backend && mvn -Dtest=ConcurrentHashMapServiceTest,StripedHashMapTest,StripedHashMapConcurrencyTest,FooBarServiceTest,ZeroEvenOddServiceTest,FizzBuzzServiceTest,H2OServiceTest test
+cd frontend && npx vitest run src/__tests__/concurrencyRecordedReplay.test.jsx src/__tests__/recordedTrace.test.jsx src/__tests__/recordedTraceApi.test.js
+```
+
+**Step-by-Step Resolution** — Add typed COUNTERS/CONFIG map-source telemetry to every
+Concurrent HashMap event while preserving the shared sequence and existing business logic.
+Fold each map independently, reject recordings missing identity, and label release events as
+announcements rather than unlocked state. Inspect eight segments per page. Extend shared
+playback to select the backend's event collection, and use it for all five modules. Preserve
+actual printed tokens, track atom acquisitions by thread until matching departures, and show
+worker observations instead of invented live states. Bound output/worker/log rendering and
+validate native forms before requesting a run. Abort pending browser requests on departure,
+discard late responses, and preserve previous recordings after failures.
+
+**Preventative Measures** — Require explicit object identity when independent objects share
+indices. Inspect exactly where telemetry is emitted relative to locks, barriers, and releases.
+Do not infer thread termination, permit counts, parity, hashing, or output in the browser.
+Test intermediate and reverse-seek projections, malformed telemetry, large recordings,
+parameter validation, failed reruns, and pending-request cleanup in both themes and on mobile.
+During validation, give output and worker panels distinct run-scoped React keys: sharing a
+key between sibling panels can duplicate stale output when stepping backwards.
+
+**Validation** — 2304 backend tests and 575 frontend tests pass; package/build and both chunk
+budgets pass. Lint reports zero errors, with 16 unchanged warnings elsewhere. Chromium checks
+all five routes at 320px light, 390px dark, and 1280px light with reduced motion, using recordings
+generated directly by the Java services and intercepted static assets/API responses (no
+application servers started). Checks include keyboard seeking, exact output, map separation,
+H2O acquisitions/departures, bounded lists, failed reruns, stopped waits, and tab departure.
+
+---
+
 ## RCA-083: Sort and Queue Replays Claimed State Their Traces Did Not Record
 
 **Overview & Severity** — Medium. Merge Sort and Blocking Queue duplicated the detached
