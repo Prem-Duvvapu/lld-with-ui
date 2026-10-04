@@ -138,11 +138,6 @@
       "count": 1
     }
   },
-  "src/lld/foo-bar/FooBarPage.jsx": {
-    "no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/lld/hotel/HotelPage.jsx": {
     "jsx-a11y/label-has-associated-control": {
       "count": 3

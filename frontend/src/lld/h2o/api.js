@@ -5,9 +5,10 @@ import { apiFetch } from '../../utils/api';
  * threads contending on a Semaphore-bounded CyclicBarrier. Returns the full
  * ordered, timestamped execution trace once the run finishes.
  */
-export function runH2O({ moleculeCount } = {}) {
+export function runH2O({ moleculeCount } = {}, { signal } = {}) {
   return apiFetch('/concurrency/h2o/run', {
     method: 'POST',
+    signal,
     body: JSON.stringify({ moleculeCount }),
   });
 }
