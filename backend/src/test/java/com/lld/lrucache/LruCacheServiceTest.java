@@ -36,6 +36,34 @@ public class LruCacheServiceTest {
     }
 
     @Test
+    void guidedSandboxWorkloadEvictsProductAndPreservesLiveCache() {
+        cacheService.put("live-key", "live-value");
+        cacheService.simClear();
+        cacheService.simSetCapacity(5);
+        cacheService.simSetPolicy(EvictionPolicyType.LRU);
+        for (String key : new String[]{"user_session_101", "db_product_99", "cdn_banner_jpg", "api_rate_limit", "shopping_cart_5"}) {
+            cacheService.simPut(key, "value-" + key);
+        }
+        assertNotNull(cacheService.simGet("user_session_101"));
+        cacheService.simPut("new_order_808", "Order_Status_Placed");
+        assertNull(cacheService.simGet("db_product_99"));
+        Map<String, Object> snapshot = cacheService.getSimSnapshot();
+        assertEquals(5, snapshot.get("size"));
+        Map<?, ?> stats = (Map<?, ?>) snapshot.get("stats");
+        assertEquals(1L, stats.get("hits"));
+        assertEquals(1L, stats.get("misses"));
+        assertEquals(1L, stats.get("evictions"));
+        cacheService.simClear();
+        assertEquals(0, cacheService.getSimSnapshot().get("size"));
+        Map<?, ?> resetStats = (Map<?, ?>) cacheService.getSimSnapshot().get("stats");
+        assertEquals(stats.get("hits"), resetStats.get("hits"));
+        assertEquals(stats.get("misses"), resetStats.get("misses"));
+        assertEquals(stats.get("evictions"), resetStats.get("evictions"));
+        assertEquals("live-value", cacheService.get("live-key"));
+        assertEquals(1, cacheService.getSnapshot().get("size"));
+    }
+
+    @Test
     @DisplayName("Should evict Least Recently Used item when capacity is exceeded")
     public void testLruEviction() {
         cacheService.put("K1", "V1");
