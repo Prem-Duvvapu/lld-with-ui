@@ -12,7 +12,7 @@ export const TOUR_MODULE_PATH = '/elevator';
  * Each step is { selector, title, body, prepare? }.
  *
  * `prepare(ctx)` runs before the step is shown and may navigate, switch tabs or reveal —
- * `ctx` is { navigate, reveal, isRevealed }. Steps drive the real tab buttons by clicking
+ * `ctx` is { navigate, pathname, reveal, isRevealed }. Steps drive the real tab buttons by clicking
  * them rather than reaching into component state: LldPage owns its tab in local state and
  * DesignDetails owns its sub-tab separately, so clicking is both simpler and exercises
  * exactly the path a visitor would take.
@@ -27,7 +27,9 @@ export const TOUR_STEPS = [
     selector: null,
     title: '👋 Welcome to the LLD portfolio',
     body: "60 Low-Level Design problems, each with a live UI, a real Java backend and its class diagram. This tour walks you through the home page, then opens a module so you can see what's inside one. Esc or ✕ leaves at any point.",
-    prepare: ({ navigate }) => navigate('/'),
+    prepare: ({ navigate, pathname }) => {
+      if (pathname !== '/') navigate('/');
+    },
   },
   {
     selector: '[data-tour="search"]',

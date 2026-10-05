@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useReveal } from '../hooks/useReveal'
 import { waitForSelector } from './tour/waitForSelector'
 import './WebsiteTour.css'
@@ -13,7 +13,7 @@ function rectOf(el) {
 /**
  * Hand-rolled spotlight walkthrough — no external tour library, keeps the bundle small.
  *
- * Steps are { selector, title, body, prepare? }. `prepare({ navigate, reveal, isRevealed })`
+ * Steps are { selector, title, body, prepare? }. `prepare({ navigate, pathname, reveal, isRevealed })`
  * runs before the step is shown and may change route or switch tabs; the step then waits
  * for its target to exist rather than querying once, because a module page's controls only
  * appear after the route change and that page's lazy chunk have both landed.
@@ -22,15 +22,16 @@ export default function WebsiteTour({ steps, onFinish }) {
   const [index, setIndex] = useState(0)
   const [rect, setRect] = useState(null)
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { reveal, isRevealed } = useReveal()
 
   // Steps read this inside an effect. It's a ref rather than a dependency because
   // `isRevealed` changes the moment a step calls `reveal()` — as a dep that would
   // re-run the step effect and fire `prepare` a second time. Assigned in an effect,
   // not during render: mutating a ref while rendering isn't safe under concurrent React.
-  const ctxRef = useRef({ navigate, reveal, isRevealed })
+  const ctxRef = useRef({ navigate, pathname, reveal, isRevealed })
   useEffect(() => {
-    ctxRef.current = { navigate, reveal, isRevealed }
+    ctxRef.current = { navigate, pathname, reveal, isRevealed }
   })
 
   const step = steps[index]
