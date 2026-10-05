@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # full suite — baseline: 584 tests, 28 files
+npx vitest run                            # full suite — baseline: 586 tests, 29 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -139,6 +139,9 @@ around it:
   keys; no diagram edge pointing at an undeclared class.
 - `__tests__/routing.test.js` — every home card links to a real route, every route has a file,
   every page file is routed, catch-all exists.
+- `__tests__/accessibilityContracts.test.js` — every routed page renders through `LldPage`, every
+  conditional banner/error (`{error && <div…>}` or `if (error) return <div…>`) is a
+  `role="alert"`/`role="status"` region, and status tokens stay ≥ 4.5:1 on their tints.
 
 ## Skills
 

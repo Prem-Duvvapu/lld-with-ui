@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTransientMessage } from '../../hooks/useTransientMessage';
-import { Link } from 'react-router-dom';
 import {
   getSlots,
   getStatus,
@@ -20,13 +19,8 @@ import {
   simRestock,
   simGetSnapshot,
 } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import SolutionGate from '../../components/SolutionGate';
-import DesignDetails from '../../components/DesignDetails';
+import LldPage from '../../components/LldPage';
 import { usePolling } from '../../hooks/usePolling';
-import ThemeToggle from '../../components/ThemeToggle';
-import GithubSourceLinks from '../../components/GithubSourceLinks';
 
 const DENOMINATIONS = [
   { val: 1, label: '₹1', type: 'coin' },
@@ -39,100 +33,29 @@ const DENOMINATIONS = [
   { val: 500, label: '₹500', type: 'note' },
 ];
 
+const TABS = [
+  { id: 'machine', label: '🥤 Vending Machine' },
+  { id: 'admin', label: '🔧 Admin & Inventory' },
+  { id: 'simulation', label: '🕹️ 2D Interactive Simulation' },
+  { id: 'diagram', label: '📐 Class Diagram' },
+  { id: 'sequence', label: '🔄 Sequence Diagram' },
+  { id: 'design', label: '📋 Design Details' },
+];
+
 export default function VendingMachinePage() {
-  const [activeTab, setActiveTab] = useState('machine');
-
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', padding: '24px 16px' }}>
-      {/* Header */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Link
-            to="/"
-            style={{
-              padding: '6px 14px',
-              borderRadius: 8,
-              border: '1px solid var(--border-primary)',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              textDecoration: 'none',
-              fontSize: 13,
-              fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            ← Home
-          </Link>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 24 }}>🥤</span>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-                Vending Machine System
-              </h1>
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', fontWeight: 700, border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                LLD #21
-              </span>
-            </div>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-              State Pattern (IDLE / SELECTION / MONEY / DISPENSING) &amp; Chain of Responsibility Change Dispenser
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <GithubSourceLinks module="vendingmachine" />
-          <ThemeToggle />
-        </div>
-      </div>
-
-      {/* Tabs Bar */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 24px', display: 'flex', gap: 8, borderBottom: '1px solid var(--border-primary)', paddingBottom: 12, overflowX: 'auto' }}>
-        {[
-          { id: 'machine', label: '🥤 Vending Machine', desc: 'Interactive Hardware Showcase' },
-          { id: 'admin', label: '🔧 Admin & Inventory', desc: 'Stock & Cashbox Management' },
-          { id: 'simulation', label: '🕹️ 2D Interactive Simulation', desc: '8-Step State & CoR Sandbox' },
-          { id: 'diagram', label: '📐 Class Diagram', desc: 'UML Architecture' },
-          { id: 'sequence', label: '🔄 Sequence Diagram', desc: 'State Machine & Change Flow' },
-          { id: 'design', label: '📋 Design Details', desc: 'Deep Dive Specs' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '10px 18px',
-              borderRadius: 10,
-              border: activeTab === tab.id ? '2px solid #3b82f6' : '1px solid var(--border-primary)',
-              background: activeTab === tab.id ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-secondary)',
-              color: activeTab === tab.id ? '#3b82f6' : 'var(--text-primary)',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 2,
-              transition: 'all 0.2s ease',
-              minWidth: 150,
-            }}
-          >
-            <span>{tab.label}</span>
-            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>{tab.desc}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        {activeTab === 'machine' && <MachineHardwareTab />}
-        {activeTab === 'admin' && <AdminDashboardTab />}
-        {activeTab === 'simulation' && <SimulationTab />}
-        {activeTab === 'diagram' && <SolutionGate module="vendingmachine" label="the class diagram"><ClassDiagram module="vendingmachine" /></SolutionGate>}
-        {activeTab === 'sequence' && <SolutionGate module="vendingmachine" label="the sequence diagram"><SequenceDiagram module="vendingmachine" /></SolutionGate>}
-        {activeTab === 'design' && <DesignDetails module="vendingmachine" />}
-      </div>
-    </div>
+    <LldPage module="vendingmachine" title="Vending Machine System" icon="🥤" tabs={TABS}>
+      {(activeTab) => (
+        <>
+          <p style={{ margin: '0 0 20px', fontSize: 12, color: 'var(--text-secondary)' }}>
+            State Pattern (IDLE / SELECTION / MONEY / DISPENSING) &amp; Chain of Responsibility Change Dispenser
+          </p>
+          {activeTab === 'machine' && <MachineHardwareTab />}
+          {activeTab === 'admin' && <AdminDashboardTab />}
+          {activeTab === 'simulation' && <SimulationTab />}
+        </>
+      )}
+    </LldPage>
   );
 }
 

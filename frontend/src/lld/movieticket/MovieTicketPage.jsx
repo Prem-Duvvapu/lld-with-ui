@@ -1,16 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import {
   getMovies, getShows, getSeats, holdSeats, bookSeats, cancelBooking, getUserBookings, getUsers
 } from './api';
 import MovieTicketSimulation from './MovieTicketSimulation';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import SolutionGate from '../../components/SolutionGate';
 import { usePolling } from '../../hooks/usePolling';
-import DesignDetails from '../../components/DesignDetails';
-import ThemeToggle from '../../components/ThemeToggle';
-import GithubSourceLinks from '../../components/GithubSourceLinks';
+import LldPage from '../../components/LldPage';
 
 const MOVIE_POSTERS = {
   'Inception': { bg: 'linear-gradient(135deg, #2c3e50, #000000)', emoji: '🌀' },
@@ -18,9 +12,70 @@ const MOVIE_POSTERS = {
   'Interstellar': { bg: 'linear-gradient(135deg, #0d1b2a, #1b263b)', emoji: '🚀' },
 };
 
-export default function MovieTicketPage() {
-  const [activeTab, setActiveTab] = useState('booking');
+const TABS = [
+  { id: 'booking', label: '🎬 Movies & Booking' },
+  { id: 'history', label: '📊 Booking History' },
+  { id: 'simulation', label: '🕹️ Concurrency Simulation' },
+  { id: 'diagram', label: '📐 Class Diagram' },
+  { id: 'sequence', label: '🔄 Sequence Diagram' },
+  { id: 'design', label: '📋 Design Details' },
+];
 
+// Mounted only while the History tab is open, so its effect refetches on every visit to the tab
+// and whenever the selected user changes — the same triggers the page used before LldPage owned
+// the active-tab state.
+function BookingHistoryTab({ currentUser, userBookings, setUserBookings, onCancel }) {
+  useEffect(() => {
+    getUserBookings(currentUser).then(data => setUserBookings(data || []));
+  }, [currentUser, setUserBookings]);
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 20, marginBottom: 16, color: '#a78bfa' }}>Booking History ({currentUser})</h2>
+      {userBookings.length === 0 ? (
+        <div style={{ background: 'var(--bg-secondary)', padding: 40, borderRadius: 16, textAlign: 'center', color: 'var(--text-secondary)' }}>
+          No active bookings found for user {currentUser}.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {userBookings.map(b => (
+            <div key={b.id} style={{
+              background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '1px solid var(--border-primary)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Booking #{b.id}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
+                  Seats: {b.seatIds?.join(', ')} • Amount: ₹{b.totalAmount.toFixed(2)} • Time: {new Date(b.bookingTime).toLocaleString()}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                <span style={{
+                  padding: '6px 14px', borderRadius: 20, fontWeight: 700, fontSize: 12,
+                  background: b.bookingStatus === 'CONFIRMED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
+                  color: b.bookingStatus === 'CONFIRMED' ? '#10b981' : '#ef4444'
+                }}>
+                  {b.bookingStatus}
+                </span>
+
+                {b.bookingStatus === 'CONFIRMED' && (
+                  <button
+                    onClick={() => onCancel(b.id)}
+                    style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Cancel Booking
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function MovieTicketPage() {
   // Booking Flow State
   const [movies, setMovies] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -75,13 +130,6 @@ export default function MovieTicketPage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [heldHoldData, selectedShow]);
-
-  // Fetch user bookings on history tab
-  useEffect(() => {
-    if (activeTab === 'history') {
-      getUserBookings(currentUser).then(data => setUserBookings(data || []));
-    }
-  }, [activeTab, currentUser]);
 
   const showToast = (msg, type = 'info') => {
     setToastMsg({ text: msg, type });
@@ -190,7 +238,7 @@ export default function MovieTicketPage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', padding: '24px' }}>
+    <>
       {/* Toast Notification Banner */}
       {toastMsg && (
         <div style={{
@@ -203,352 +251,266 @@ export default function MovieTicketPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <Link to="/" style={{ color: '#8b5cf6', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>← Back to Portfolio</Link>
-          <h1 style={{ fontSize: 32, fontWeight: 800, margin: '4px 0', background: 'linear-gradient(90deg, #a78bfa, #f43f5e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            🎬 BookMyShow — Movie Ticket Booking LLD
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
-            Thread-Safe Cinema Reservations • Per-Seat Granularity Locks • Double-Booking Prevention & Hold TTL
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <select
-            value={currentUser}
-            onChange={e => setCurrentUser(e.target.value)}
-            style={{ padding: '8px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', borderRadius: 8, fontSize: 13 }}
-          >
-            {users.map(u => (
-              <option key={u.id} value={u.id}>👤 User: {u.name} ({u.id})</option>
-            ))}
-          </select>
-          <GithubSourceLinks module="movieticket" />
-          <ThemeToggle />
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 24px auto', display: 'flex', gap: 8, borderBottom: '1px solid var(--border-primary)', paddingBottom: 12, overflowX: 'auto' }}>
-        {[
-          { id: 'booking', label: '🎬 Movies & Booking' },
-          { id: 'history', label: '📊 Booking History' },
-          { id: 'simulation', label: '🕹️ Concurrency Simulation' },
-          { id: 'diagram', label: '📐 Class Diagram' },
-          { id: 'sequence', label: '🔄 Sequence Diagram' },
-          { id: 'design', label: '📋 Design Details' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '10px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14,
-              background: activeTab === tab.id ? '#8b5cf6' : 'var(--bg-secondary)',
-              color: activeTab === tab.id ? '#fff' : 'var(--text-secondary)',
-              transition: 'all 0.2s'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Main Container */}
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-
-        {/* ========================================================================= */}
-        {/* TAB 1: MOVIES & BOOKING FLOW */}
-        {/* ========================================================================= */}
-        {activeTab === 'booking' && (
+      <LldPage module="movieticket" title="Movie Ticket" icon="🎬" tabs={TABS}>
+        {(activeTab) => (
           <div>
-            {!selectedMovie ? (
-              // Step 1: Browse Movies Grid
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
+                Thread-Safe Cinema Reservations • Per-Seat Granularity Locks • Double-Booking Prevention & Hold TTL
+              </p>
+              <select
+                value={currentUser}
+                onChange={e => setCurrentUser(e.target.value)}
+                style={{ padding: '8px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', borderRadius: 8, fontSize: 13 }}
+              >
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>👤 User: {u.name} ({u.id})</option>
+                ))}
+              </select>
+            </div>
+
+            {/* ========================================================================= */}
+            {/* TAB 1: MOVIES & BOOKING FLOW */}
+            {/* ========================================================================= */}
+            {activeTab === 'booking' && (
               <div>
-                <h2 style={{ fontSize: 20, marginBottom: 16, color: '#a78bfa' }}>Now Showing Movies</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
-                  {movies.map(movie => {
-                    const poster = MOVIE_POSTERS[movie.title] || { bg: 'var(--bg-secondary)', emoji: '🎬' };
-                    return (
-                      <div
-                        key={movie.id}
-                        onClick={() => handleSelectMovie(movie)}
-                        style={{
-                          background: 'var(--bg-secondary)', borderRadius: 16, padding: 20, cursor: 'pointer', border: '1px solid var(--border-primary)',
-                          transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
-                        }}
-                      >
-                        <div style={{
-                          height: 140, background: poster.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 54, marginBottom: 16
-                        }}>
-                          {poster.emoji}
-                        </div>
-                        <h3 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px 0' }}>{movie.title}</h3>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 12px 0' }}>{movie.genre} • {movie.duration} mins • {movie.language || 'English'}</p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ background: '#f59e0b', color: '#000', padding: '4px 10px', borderRadius: 6, fontWeight: 800, fontSize: 13 }}>⭐ {movie.rating}</span>
-                          <span style={{ color: '#8b5cf6', fontWeight: 600, fontSize: 14 }}>Select Show →</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : !selectedShow ? (
-              // Step 2: Select Show Timing
-              <div>
-                <button
-                  onClick={() => setSelectedMovie(null)}
-                  style={{ background: 'transparent', border: '1px solid #475569', color: 'var(--text-secondary)', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', marginBottom: 16 }}
-                >
-                  ← Back to Movies
-                </button>
-                <div style={{ background: 'var(--bg-secondary)', padding: 24, borderRadius: 16, border: '1px solid var(--border-primary)', marginBottom: 24 }}>
-                  <h2 style={{ fontSize: 24, color: '#a78bfa', margin: '0 0 8px 0' }}>{selectedMovie.title}</h2>
-                  <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{selectedMovie.genre} • {selectedMovie.duration} mins • Rated ⭐ {selectedMovie.rating}</p>
-                </div>
-
-                <h3 style={{ fontSize: 18, marginBottom: 16 }}>Available Showtimes</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-                  {shows.map(show => (
-                    <div
-                      key={show.id}
-                      onClick={() => handleSelectShow(show)}
-                      style={{
-                        background: 'var(--bg-secondary)', border: '2px solid var(--border-primary)', borderRadius: 12, padding: 20, cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                    >
-                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>{show.screen}</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: '#8b5cf6', marginBottom: 8 }}>🕒 {show.showTime}</div>
-                      <div style={{ fontSize: 13, color: show.availableSeats > 0 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
-                        {show.availableSeats > 0 ? `🟢 ${show.availableSeats} / ${show.totalSeats} seats available` : '🔴 Sold Out'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              // Step 3: Live Seat Map Grid & Booking Controls
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <button
-                    onClick={() => setSelectedShow(null)}
-                    style={{ background: 'transparent', border: '1px solid #475569', color: 'var(--text-secondary)', padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}
-                  >
-                    ← Back to Shows
-                  </button>
-                  <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-                    Show: <strong style={{ color: '#fff' }}>{selectedMovie.title} ({selectedShow.showTime})</strong>
-                  </div>
-                </div>
-
-                {/* Seat Map Display Card */}
-                <div style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 28, border: '1px solid var(--border-primary)' }}>
-                  {/* Screen Header */}
-                  <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <div style={{
-                      height: 12, background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)',
-                      borderRadius: 6, marginBottom: 8, boxShadow: '0 0 20px #8b5cf6'
-                    }} />
-                    <span style={{ fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>🎬 CINEMA SCREEN THIS WAY</span>
-                  </div>
-
-                  {/* Seat Grid */}
-                  <div style={{ maxWidth: 640, margin: '0 auto 32px auto' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-                      {seats.map(seat => {
-                        const isSelected = selectedSeatIds.includes(seat.id);
-                        const isHeldByMe = seat.status === 'HELD' && seat.heldByUserId === currentUser;
-                        let bg = 'var(--border-primary)';
-                        let border = '#475569';
-                        let textColor = 'var(--text-primary)';
-
-                        if (isSelected) {
-                          bg = '#3b82f6'; border = '#60a5fa'; textColor = '#fff';
-                        } else if (seat.status === 'BOOKED') {
-                          bg = '#ef4444'; border = '#dc2626'; textColor = '#fff';
-                        } else if (seat.status === 'HELD') {
-                          bg = isHeldByMe ? '#f59e0b' : '#64748b'; border = isHeldByMe ? '#d97706' : '#475569';
-                        } else if (seat.status === 'AVAILABLE') {
-                          border = seat.seatType === 'GOLD' ? '#eab308' : 'var(--text-secondary)';
-                          bg = 'transparent';
-                        }
-
-                        const seatLabel = `${seat.row}${String.fromCharCode(64 + seat.col)}`;
-
+                {!selectedMovie ? (
+                  // Step 1: Browse Movies Grid
+                  <div>
+                    <h2 style={{ fontSize: 20, marginBottom: 16, color: '#a78bfa' }}>Now Showing Movies</h2>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                      {movies.map(movie => {
+                        const poster = MOVIE_POSTERS[movie.title] || { bg: 'var(--bg-secondary)', emoji: '🎬' };
                         return (
-                          <button
-                            key={seat.id}
-                            onClick={() => handleSeatClick(seat)}
-                            disabled={seat.status === 'BOOKED' || (seat.status === 'HELD' && !isHeldByMe)}
+                          <div
+                            key={movie.id}
+                            onClick={() => handleSelectMovie(movie)}
                             style={{
-                              aspectRatio: '1', borderRadius: 8, border: `2px solid ${border}`, background: bg, color: textColor,
-                              cursor: (seat.status === 'BOOKED' || (seat.status === 'HELD' && !isHeldByMe)) ? 'not-allowed' : 'pointer',
-                              fontWeight: 700, fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                              transition: 'all 0.15s', opacity: (seat.status === 'HELD' && !isHeldByMe) ? 0.4 : 1
+                              background: 'var(--bg-secondary)', borderRadius: 16, padding: 20, cursor: 'pointer', border: '1px solid var(--border-primary)',
+                              transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
                             }}
                           >
-                            <span>{seatLabel}</span>
-                            <span style={{ fontSize: 9, opacity: 0.8 }}>₹{seat.price}</span>
-                          </button>
+                            <div style={{
+                              height: 140, background: poster.bg, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 54, marginBottom: 16
+                            }}>
+                              {poster.emoji}
+                            </div>
+                            <h3 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 6px 0' }}>{movie.title}</h3>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 12px 0' }}>{movie.genre} • {movie.duration} mins • {movie.language || 'English'}</p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ background: '#f59e0b', color: '#000', padding: '4px 10px', borderRadius: 6, fontWeight: 800, fontSize: 13 }}>⭐ {movie.rating}</span>
+                              <span style={{ color: '#8b5cf6', fontWeight: 600, fontSize: 14 }}>Select Show →</span>
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
                   </div>
+                ) : !selectedShow ? (
+                  // Step 2: Select Show Timing
+                  <div>
+                    <button
+                      onClick={() => setSelectedMovie(null)}
+                      style={{ background: 'transparent', border: '1px solid #475569', color: 'var(--text-secondary)', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', marginBottom: 16 }}
+                    >
+                      ← Back to Movies
+                    </button>
+                    <div style={{ background: 'var(--bg-secondary)', padding: 24, borderRadius: 16, border: '1px solid var(--border-primary)', marginBottom: 24 }}>
+                      <h2 style={{ fontSize: 24, color: '#a78bfa', margin: '0 0 8px 0' }}>{selectedMovie.title}</h2>
+                      <p style={{ color: 'var(--text-secondary)', margin: 0 }}>{selectedMovie.genre} • {selectedMovie.duration} mins • Rated ⭐ {selectedMovie.rating}</p>
+                    </div>
 
-                  {/* Legend */}
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 24, fontSize: 13, color: 'var(--text-secondary)', borderTop: '1px solid var(--border-primary)', paddingTop: 20 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, border: '2px solid #eab308' }} /> Gold (₹350)</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, border: '2px solid var(--text-secondary)' }} /> Silver (₹200)</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#3b82f6' }} /> Selected</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#f59e0b' }} /> Held (You)</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#ef4444' }} /> Booked</div>
+                    <h3 style={{ fontSize: 18, marginBottom: 16 }}>Available Showtimes</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+                      {shows.map(show => (
+                        <div
+                          key={show.id}
+                          onClick={() => handleSelectShow(show)}
+                          style={{
+                            background: 'var(--bg-secondary)', border: '2px solid var(--border-primary)', borderRadius: 12, padding: 20, cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>{show.screen}</div>
+                          <div style={{ fontSize: 18, fontWeight: 800, color: '#8b5cf6', marginBottom: 8 }}>🕒 {show.showTime}</div>
+                          <div style={{ fontSize: 13, color: show.availableSeats > 0 ? '#10b981' : '#ef4444', fontWeight: 600 }}>
+                            {show.availableSeats > 0 ? `🟢 ${show.availableSeats} / ${show.totalSeats} seats available` : '🔴 Sold Out'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-
-                  {/* Action Panel */}
-                  <div style={{ marginTop: 24, padding: 20, background: 'var(--bg-primary)', borderRadius: 12, border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Selected Seats: <strong style={{ color: '#fff' }}>{selectedSeatIds.length}</strong></div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>
-                        Total: ₹{seats.filter(s => selectedSeatIds.includes(s.id)).reduce((acc, s) => acc + s.price, 0).toFixed(2)}
+                ) : (
+                  // Step 3: Live Seat Map Grid & Booking Controls
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <button
+                        onClick={() => setSelectedShow(null)}
+                        style={{ background: 'transparent', border: '1px solid #475569', color: 'var(--text-secondary)', padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}
+                      >
+                        ← Back to Shows
+                      </button>
+                      <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
+                        Show: <strong style={{ color: '#fff' }}>{selectedMovie.title} ({selectedShow.showTime})</strong>
                       </div>
                     </div>
 
-                    {!heldHoldData ? (
-                      <button
-                        onClick={handleHoldSeats}
-                        disabled={loading || selectedSeatIds.length === 0}
-                        style={{
-                          padding: '12px 32px', background: selectedSeatIds.length > 0 ? '#f59e0b' : '#475569', color: '#000',
-                          fontWeight: 700, fontSize: 15, borderRadius: 10, border: 'none', cursor: selectedSeatIds.length > 0 ? 'pointer' : 'not-allowed'
-                        }}
-                      >
-                        {loading ? 'Holding Seats...' : '⚡ Hold Seats (5m TTL)'}
-                      </button>
-                    ) : (
-                      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>⏱ Hold Expires In:</div>
-                          <div style={{ fontSize: 22, fontWeight: 900, color: holdTimeLeft < 60 ? '#ef4444' : '#f59e0b' }}>
-                            {Math.floor(holdTimeLeft / 60)}:{(holdTimeLeft % 60).toString().padStart(2, '0')}
+                    {/* Seat Map Display Card */}
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: 20, padding: 28, border: '1px solid var(--border-primary)' }}>
+                      {/* Screen Header */}
+                      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                        <div style={{
+                          height: 12, background: 'linear-gradient(90deg, transparent, #8b5cf6, transparent)',
+                          borderRadius: 6, marginBottom: 8, boxShadow: '0 0 20px #8b5cf6'
+                        }} />
+                        <span style={{ fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>🎬 CINEMA SCREEN THIS WAY</span>
+                      </div>
+
+                      {/* Seat Grid */}
+                      <div style={{ maxWidth: 640, margin: '0 auto 32px auto' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
+                          {seats.map(seat => {
+                            const isSelected = selectedSeatIds.includes(seat.id);
+                            const isHeldByMe = seat.status === 'HELD' && seat.heldByUserId === currentUser;
+                            let bg = 'var(--border-primary)';
+                            let border = '#475569';
+                            let textColor = 'var(--text-primary)';
+
+                            if (isSelected) {
+                              bg = '#3b82f6'; border = '#60a5fa'; textColor = '#fff';
+                            } else if (seat.status === 'BOOKED') {
+                              bg = '#ef4444'; border = '#dc2626'; textColor = '#fff';
+                            } else if (seat.status === 'HELD') {
+                              bg = isHeldByMe ? '#f59e0b' : '#64748b'; border = isHeldByMe ? '#d97706' : '#475569';
+                            } else if (seat.status === 'AVAILABLE') {
+                              border = seat.seatType === 'GOLD' ? '#eab308' : 'var(--text-secondary)';
+                              bg = 'transparent';
+                            }
+
+                            const seatLabel = `${seat.row}${String.fromCharCode(64 + seat.col)}`;
+
+                            return (
+                              <button
+                                key={seat.id}
+                                onClick={() => handleSeatClick(seat)}
+                                disabled={seat.status === 'BOOKED' || (seat.status === 'HELD' && !isHeldByMe)}
+                                style={{
+                                  aspectRatio: '1', borderRadius: 8, border: `2px solid ${border}`, background: bg, color: textColor,
+                                  cursor: (seat.status === 'BOOKED' || (seat.status === 'HELD' && !isHeldByMe)) ? 'not-allowed' : 'pointer',
+                                  fontWeight: 700, fontSize: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                  transition: 'all 0.15s', opacity: (seat.status === 'HELD' && !isHeldByMe) ? 0.4 : 1
+                                }}
+                              >
+                                <span>{seatLabel}</span>
+                                <span style={{ fontSize: 9, opacity: 0.8 }}>₹{seat.price}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Legend */}
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: 24, fontSize: 13, color: 'var(--text-secondary)', borderTop: '1px solid var(--border-primary)', paddingTop: 20 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, border: '2px solid #eab308' }} /> Gold (₹350)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, border: '2px solid var(--text-secondary)' }} /> Silver (₹200)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#3b82f6' }} /> Selected</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#f59e0b' }} /> Held (You)</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 14, height: 14, borderRadius: 3, background: '#ef4444' }} /> Booked</div>
+                      </div>
+
+                      {/* Action Panel */}
+                      <div style={{ marginTop: 24, padding: 20, background: 'var(--bg-primary)', borderRadius: 12, border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Selected Seats: <strong style={{ color: '#fff' }}>{selectedSeatIds.length}</strong></div>
+                          <div style={{ fontSize: 20, fontWeight: 800, color: '#10b981' }}>
+                            Total: ₹{seats.filter(s => selectedSeatIds.includes(s.id)).reduce((acc, s) => acc + s.price, 0).toFixed(2)}
                           </div>
                         </div>
 
-                        <select
-                          value={paymentMethod}
-                          onChange={e => setPaymentMethod(e.target.value)}
-                          style={{ padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid #475569', color: 'var(--text-primary)', borderRadius: 8, fontSize: 13 }}
-                        >
-                          <option value="UPI">Pay via UPI</option>
-                          <option value="CREDIT_CARD">Credit Card</option>
-                          <option value="DEBIT_CARD">Debit Card</option>
-                          <option value="NET_BANKING">Net Banking</option>
-                        </select>
+                        {!heldHoldData ? (
+                          <button
+                            onClick={handleHoldSeats}
+                            disabled={loading || selectedSeatIds.length === 0}
+                            style={{
+                              padding: '12px 32px', background: selectedSeatIds.length > 0 ? '#f59e0b' : '#475569', color: '#000',
+                              fontWeight: 700, fontSize: 15, borderRadius: 10, border: 'none', cursor: selectedSeatIds.length > 0 ? 'pointer' : 'not-allowed'
+                            }}
+                          >
+                            {loading ? 'Holding Seats...' : '⚡ Hold Seats (5m TTL)'}
+                          </button>
+                        ) : (
+                          <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>⏱ Hold Expires In:</div>
+                              <div style={{ fontSize: 22, fontWeight: 900, color: holdTimeLeft < 60 ? '#ef4444' : '#f59e0b' }}>
+                                {Math.floor(holdTimeLeft / 60)}:{(holdTimeLeft % 60).toString().padStart(2, '0')}
+                              </div>
+                            </div>
 
-                        <button
-                          onClick={handleBookSeats}
-                          disabled={loading}
-                          style={{
-                            padding: '12px 28px', background: '#10b981', color: '#fff',
-                            fontWeight: 700, fontSize: 15, borderRadius: 10, border: 'none', cursor: 'pointer'
-                          }}
-                        >
-                          {loading ? 'Confirming...' : '🎟️ Pay & Book Now'}
-                        </button>
+                            <select
+                              value={paymentMethod}
+                              onChange={e => setPaymentMethod(e.target.value)}
+                              style={{ padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid #475569', color: 'var(--text-primary)', borderRadius: 8, fontSize: 13 }}
+                            >
+                              <option value="UPI">Pay via UPI</option>
+                              <option value="CREDIT_CARD">Credit Card</option>
+                              <option value="DEBIT_CARD">Debit Card</option>
+                              <option value="NET_BANKING">Net Banking</option>
+                            </select>
+
+                            <button
+                              onClick={handleBookSeats}
+                              disabled={loading}
+                              style={{
+                                padding: '12px 28px', background: '#10b981', color: '#fff',
+                                fontWeight: 700, fontSize: 15, borderRadius: 10, border: 'none', cursor: 'pointer'
+                              }}
+                            >
+                              {loading ? 'Confirming...' : '🎟️ Pay & Book Now'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Booking Confirmation Ticket Modal */}
+                    {bookingConfirmed && (
+                      <div style={{
+                        marginTop: 24, padding: 24, background: 'linear-gradient(135deg, #065f46, #047857)', borderRadius: 16,
+                        color: '#fff', border: '2px solid #34d399', textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>
+                        <h2 style={{ fontSize: 22, margin: '0 0 4px 0' }}>Booking Confirmed!</h2>
+                        <p style={{ opacity: 0.9, fontSize: 14 }}>Booking ID: #{bookingConfirmed.id} • User: {bookingConfirmed.userId}</p>
+                        <div style={{ fontSize: 28, fontWeight: 900, margin: '12px 0' }}>₹{bookingConfirmed.totalAmount.toFixed(2)}</div>
+                        <p style={{ fontSize: 13, opacity: 0.9 }}>Payment: {bookingConfirmed.paymentMethod} • Status: CONFIRMED</p>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* Booking Confirmation Ticket Modal */}
-                {bookingConfirmed && (
-                  <div style={{
-                    marginTop: 24, padding: 24, background: 'linear-gradient(135deg, #065f46, #047857)', borderRadius: 16,
-                    color: '#fff', border: '2px solid #34d399', textAlign: 'center'
-                  }}>
-                    <div style={{ fontSize: 40, marginBottom: 8 }}>🎉</div>
-                    <h2 style={{ fontSize: 22, margin: '0 0 4px 0' }}>Booking Confirmed!</h2>
-                    <p style={{ opacity: 0.9, fontSize: 14 }}>Booking ID: #{bookingConfirmed.id} • User: {bookingConfirmed.userId}</p>
-                    <div style={{ fontSize: 28, fontWeight: 900, margin: '12px 0' }}>₹{bookingConfirmed.totalAmount.toFixed(2)}</div>
-                    <p style={{ fontSize: 13, opacity: 0.9 }}>Payment: {bookingConfirmed.paymentMethod} • Status: CONFIRMED</p>
                   </div>
                 )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* ========================================================================= */}
-        {/* TAB 2: BOOKING HISTORY */}
-        {/* ========================================================================= */}
-        {activeTab === 'history' && (
-          <div>
-            <h2 style={{ fontSize: 20, marginBottom: 16, color: '#a78bfa' }}>Booking History ({currentUser})</h2>
-            {userBookings.length === 0 ? (
-              <div style={{ background: 'var(--bg-secondary)', padding: 40, borderRadius: 16, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                No active bookings found for user {currentUser}.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {userBookings.map(b => (
-                  <div key={b.id} style={{
-                    background: 'var(--bg-secondary)', padding: 20, borderRadius: 12, border: '1px solid var(--border-primary)',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                  }}>
-                    <div>
-                      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Booking #{b.id}</div>
-                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-                        Seats: {b.seatIds?.join(', ')} • Amount: ₹{b.totalAmount.toFixed(2)} • Time: {new Date(b.bookingTime).toLocaleString()}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                      <span style={{
-                        padding: '6px 14px', borderRadius: 20, fontWeight: 700, fontSize: 12,
-                        background: b.bookingStatus === 'CONFIRMED' ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)',
-                        color: b.bookingStatus === 'CONFIRMED' ? '#10b981' : '#ef4444'
-                      }}>
-                        {b.bookingStatus}
-                      </span>
-
-                      {b.bookingStatus === 'CONFIRMED' && (
-                        <button
-                          onClick={() => handleCancelBooking(b.id)}
-                          style={{ background: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
-                        >
-                          Cancel Booking
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* ========================================================================= */}
+            {/* TAB 2: BOOKING HISTORY */}
+            {/* ========================================================================= */}
+            {activeTab === 'history' && (
+              <BookingHistoryTab
+                currentUser={currentUser}
+                userBookings={userBookings}
+                setUserBookings={setUserBookings}
+                onCancel={handleCancelBooking}
+              />
             )}
+
+            {/* ========================================================================= */}
+            {/* TAB 3: INTERACTIVE 2D CONCURRENCY SIMULATION */}
+            {/* ========================================================================= */}
+            {activeTab === 'simulation' && <MovieTicketSimulation />}
           </div>
         )}
-
-        {/* ========================================================================= */}
-        {/* TAB 3: INTERACTIVE 2D CONCURRENCY SIMULATION */}
-        {/* ========================================================================= */}
-        {activeTab === 'simulation' && <MovieTicketSimulation />}
-
-        {/* ========================================================================= */}
-        {/* TAB 4: CLASS DIAGRAM */}
-        {/* ========================================================================= */}
-        {activeTab === 'diagram' && <SolutionGate module="movieticket" label="the class diagram"><ClassDiagram module="movieticket" /></SolutionGate>}
-
-        {/* ========================================================================= */}
-        {/* TAB 5: SEQUENCE DIAGRAM */}
-        {/* ========================================================================= */}
-        {activeTab === 'sequence' && <SolutionGate module="movieticket" label="the sequence diagram"><SequenceDiagram module="movieticket" /></SolutionGate>}
-
-        {/* ========================================================================= */}
-        {/* TAB 6: DESIGN DETAILS */}
-        {/* ========================================================================= */}
-        {activeTab === 'design' && <DesignDetails module="movieticket" />}
-      </div>
-    </div>
+      </LldPage>
+    </>
   );
 }

@@ -12,8 +12,9 @@ function pageSources() {
     .map((file) => ({ file: `${dir}/${file}`, source: fs.readFileSync(path.join(LLD, dir, file), 'utf8') })));
 }
 
-// A conditionally rendered error/status banner: `{error && <div ...>` or `{error && (\n <div ...>`.
-const BANNER = /\{(message|statusMsg\.text|banner|notice|error|simError|err|simErr|loadError) && \(?\s*<div\b([^>]*)>/g;
+// A conditionally rendered error/status banner: `{error && <div ...>`, `{error && (\n <div ...>`,
+// or an early return such as `if (error) return <div ...>`.
+const BANNER = /(?:\{(message|statusMsg\.text|banner|notice|error|simError|err|simErr|loadError) && \(?|if \((error|err|loadError|simError)\) return \(?)\s*<div\b([^>]*)>/g;
 
 describe('Accessibility contracts', () => {
   it('every conditional banner or error in a module page is a live region', () => {
@@ -22,14 +23,24 @@ describe('Accessibility contracts', () => {
     for (const { file, source } of pageSources()) {
       for (const match of source.matchAll(BANNER)) {
         scanned++;
-        if (!/\brole=/.test(match[2])) {
+        if (!/\brole=/.test(match[3])) {
           const line = source.slice(0, match.index).split('\n').length;
-          silent.push(`${file}:${line} {${match[1]} && <div …> has no role="status"/"alert"`);
+          silent.push(`${file}:${line} ${match[1] || match[2]} banner <div …> has no role="status"/"alert"`);
         }
       }
     }
     expect(scanned).toBeGreaterThan(70); // the pattern must keep matching real banners
     expect(silent).toEqual([]);
+  });
+
+  it('every routed module page renders through the shared LldPage shell', () => {
+    // The shell supplies tablist semantics, arrow-key navigation, remembered tabs, the library
+    // breadcrumb and the design/diagram panels; a hand-rolled page header silently loses them.
+    const app = fs.readFileSync(path.join(SRC, 'App.jsx'), 'utf8');
+    const pages = [...new Set([...app.matchAll(/module: '\.\/lld\/([^']+)'/g)].map((m) => m[1]))];
+    expect(pages.length).toBeGreaterThanOrEqual(60);
+    const standalone = pages.filter((page) => !/<LldPage\b/.test(fs.readFileSync(path.join(LLD, page), 'utf8')));
+    expect(standalone).toEqual([]);
   });
 
   it('status colours stay readable as text on their own tinted backgrounds in both themes', () => {

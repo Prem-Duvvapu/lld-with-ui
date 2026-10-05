@@ -5975,6 +5975,67 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-089: Seven Pages Bypassed the Shared Shell and Splitwise Crashed on Load Failure
+
+**Overview & Severity** — Medium. Airline, coffee-machine, library, linkedin, ludo,
+movie-ticket and vending-machine hand-rolled their own header, tab bar, theme toggle,
+source links and design/diagram panels instead of using `LldPage`. They had no
+`role="tablist"`/`aria-selected`/arrow-key tab semantics and forgot the open tab on return.
+Three had no link back to the module library, and six rendered a second theme toggle beside
+the global one. Separately, Splitwise blanked its page whenever the initial user load failed.
+
+**Symptoms & Error Logs** — An intercepted Chromium run that answered every `/api` call with a
+typed 503 recorded one page error, on Splitwise only:
+
+```text
+Minified React error #31 … args[]=[object Error]
+(Objects are not valid as a React child)
+```
+
+A source scan found the seven routed `*Page.jsx` files with no `<LldPage>`, and zero
+`role="tablist"`, `aria-selected` or `sessionStorage` usage in any of them.
+
+**Root Cause** — The pages predate, or were written alongside, the shared shell. Earlier
+migrations (pubsub, hotel, shoppingcart) were done one at a time, and nothing failed when a
+page bypassed `LldPage`. In Splitwise, five `.catch(setError)` calls stored the `Error` instance
+itself, which `{error}` then rendered as a React child. Three of its error renders were early
+returns (`if (error) return <div…>`), which the RCA-088 banner contract did not match, so
+they were also not live regions and offered no retry.
+
+**Diagnostic Commands**
+```bash
+cd frontend/src
+grep -L "LldPage" lld/*/*Page.jsx
+grep -rn "catch(set" --include='*.jsx' .
+grep -rnE "if \((error|err)\) return \(?\s*<div" --include='*.jsx' .
+node browser-check.cjs <out> <routes>   # intercepted Chromium, /api answered with 503
+```
+
+**Step-by-Step Resolution**
+
+1. Moved the seven pages onto `<LldPage module title icon tabs>` with a render prop, keeping
+   their tab ids, labels, order and default tab. Built-in design/diagram/sequence panels now
+   come from the shell. Removed the page-level `ThemeToggle`, `GithubSourceLinks`, back links
+   and decorative "Module #N" text. Domain subtitles and user pickers now sit at the top of the
+   page content.
+2. Preserved programmatic tab changes (linkedin's "Message" button) through
+   `children(tab, setTab)`. Airline, library and linkedin used to reset the simulation sandbox
+   when the Simulation tab was clicked; a `ResetOnEnter` child now runs that reset once when the
+   Simulation content mounts. Movie-ticket's history fetch moved into a `BookingHistoryTab`
+   component that fetches on mount and on user change, the same triggers as before.
+3. Lost by design: live count badges on airline, library and linkedin tabs, and the
+   per-tab description lines on coffee and vending. The shared tab bar takes plain labels.
+4. Splitwise now stores `err.message`. Its three early-return errors render a shared
+   `LoadError` (`role="alert"` with a Retry button that reruns the load).
+5. Guards: `accessibilityContracts.test.js` requires every routed page to contain
+   `<LldPage`, and its banner pattern now also matches early returns.
+   `loadFailureStates.test.jsx` proves Splitwise shows the alert and recovers on Retry.
+
+**Preventative Measures** — A new page that bypasses the shell or renders an unlabelled error
+now fails the default suite. Browser checks should include a run where every API call fails,
+not only seeded success states. That run still shows 28 routes rendering no message on a typed
+API failure; this is tracked in the completion matrix as the next batch.
+
 ## RCA-088: Outcome Banners Were Silent to Screen Readers and Status Colours Failed AA
 
 **Overview & Severity** — Medium accessibility defect across 46 module pages and the shared
