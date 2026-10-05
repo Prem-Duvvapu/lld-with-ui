@@ -41,7 +41,7 @@
       "count": 1
     },
     "react-hooks/immutability": {
-      "count": 4
+      "count": 3
     }
   },
   "src/lld/atm/AtmPage.jsx": {

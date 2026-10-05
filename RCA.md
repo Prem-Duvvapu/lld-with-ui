@@ -5974,6 +5974,55 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-086: Status Banners Were Cleared Early by Stale Timers
+
+**Overview & Severity** — Low/Medium UX defect across 14 pages (airline, blackjack,
+cachelibrary, coupon, kvstore, library, linkedin, locker, payment, pubsub, shoppingcart,
+stock-brokerage, webcrawler, workflow). A success or error banner could disappear well
+before its intended display time, and errors vanished after four seconds whether or not
+the user had read them. Found during the UI completion program's static scan; no data was
+corrupted because banners are presentation only.
+
+**Symptoms & Error Logs** — No console error. Reproduction: trigger an action, wait three
+seconds, trigger a second action. The second banner disappears about one second later,
+because the first action's timer fires and clears whatever is currently shown. Leaving the
+page within four seconds left the timer pending against an unmounted component.
+
+**Root Cause** — Each page duplicated the same helper:
+`setMessage(value); setTimeout(() => setMessage(null), 4000)`. The timer ID was never
+stored, so a newer message could not cancel an older timer and unmount could not cancel any
+timer. The helper also treated errors like confirmations, so an actionable rejection had
+the same short lifetime as a success notice.
+
+**Diagnostic Commands**
+```bash
+cd frontend/src/lld
+grep -n "setTimeout(() => set\(Message\|StatusMsg\|Banner\|Notice\)" */*.jsx
+npx vitest run src/__tests__/transientMessage.test.jsx
+npx eslint .   # compare warning count with the 16-warning baseline
+```
+
+**Step-by-Step Resolution**
+
+1. Added `hooks/useTransientMessage(empty, duration)`: it stores the timer, cancels the
+   previous timer on every new message, cancels on unmount, and keeps `type`/`kind ===
+   'error'` messages until replaced or cleared.
+2. Replaced the duplicated helpers' state and timers in all 14 pages; each page's banner
+   markup and message shape are unchanged. Pages with an object empty value hoist it to a
+   module constant so the reset value is stable.
+3. In airline, the hold-expiry interval now sets the banner directly and lists the stable
+   setter as a dependency; this also kept lint at its 16-warning baseline.
+4. Moved the coffeemachine, vendingmachine and stackoverflow animation flags onto the same
+   hook; `show(value, 0)` holds the brew/spin flag while the request is pending.
+5. Added fake-timer tests for the stale-timer race, error persistence, the caller-supplied
+   empty value, and unmount cleanup.
+
+**Preventative Measures** — Status banners should use `useTransientMessage` instead of a
+raw `setTimeout`. Any new timer in a page must store its ID and clear it in an effect
+cleanup. The same scan found three short animation flags with the same untracked-timer
+shape (coffeemachine brew, vendingmachine slot spin, stackoverflow rejection flash); they
+now use the hook too, with a per-call `ms` of 0 to hold a flag while a request is pending.
+
 ## RCA-085: Workflow Race-Test Scheduling Assumption Temporarily Blocked PR CI
 
 **Overview & Severity** — Low: PR #150's first backend check failed in an unchanged workflow

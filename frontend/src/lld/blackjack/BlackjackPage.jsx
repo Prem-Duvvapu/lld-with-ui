@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTransientMessage } from '../../hooks/useTransientMessage'
 import * as api from './api'
 import LldPage from '../../components/LldPage'
 import StepIndicator from '../../components/ui/StepIndicator'
@@ -37,7 +38,7 @@ export default function BlackjackPage() {
   const [tables, setTables] = useState([])
   const [selectedTableId, setSelectedTableId] = useState('')
   const [dealerStrategyType, setDealerStrategyType] = useState('HIT_ON_SOFT_17')
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useTransientMessage()
 
   const [simSnapshot, setSimSnapshot] = useState(null)
   const [simStep, setSimStep] = useState(0)
@@ -54,7 +55,6 @@ export default function BlackjackPage() {
 
   const showBanner = (text, type) => {
     setMessage({ text, type })
-    setTimeout(() => setMessage(null), 4000)
   }
 
   const selectedTable = tables.find(t => t.id === selectedTableId)

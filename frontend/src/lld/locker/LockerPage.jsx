@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTransientMessage } from '../../hooks/useTransientMessage'
 import * as api from './api'
 import LldPage from '../../components/LldPage'
 import StepIndicator from '../../components/ui/StepIndicator'
@@ -20,7 +21,7 @@ export default function LockerPage() {
   const [banks, setBanks] = useState([])
   const [selectedBank, setSelectedBank] = useState('')
   const [lockers, setLockers] = useState([])
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useTransientMessage()
 
   const [depositSize, setDepositSize] = useState('SMALL')
   const [depositPolicy, setDepositPolicy] = useState('SMALLEST_FIT')
@@ -60,7 +61,6 @@ export default function LockerPage() {
 
   const showBanner = (text, type) => {
     setMessage({ text, type })
-    setTimeout(() => setMessage(null), 4000)
   }
 
   const refreshLockers = () => {

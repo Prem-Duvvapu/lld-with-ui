@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import {
   getUsers,
   getUser,
@@ -32,6 +33,8 @@ import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 import GithubSourceLinks from '../../components/GithubSourceLinks';
 import { usePolling } from '../../hooks/usePolling';
+
+const EMPTY_STATUS = { text: '', type: 'info' };
 
 export default function LinkedInPage() {
   const [activeTab, setActiveTab] = useState('network');
@@ -74,7 +77,7 @@ export default function LinkedInPage() {
   const [simLoading, setSimLoading] = useState(false);
 
   // Status banners
-  const [statusMsg, setStatusMsg] = useState({ text: '', type: 'info' });
+  const [statusMsg, setStatusMsg] = useTransientMessage(EMPTY_STATUS);
 
   useEffect(() => {
     loadInitialData();
@@ -109,7 +112,6 @@ export default function LinkedInPage() {
 
   const showBanner = (text, type = 'info') => {
     setStatusMsg({ text, type });
-    setTimeout(() => setStatusMsg({ text: '', type: 'info' }), 4000);
   };
 
   const loadInitialData = async () => {

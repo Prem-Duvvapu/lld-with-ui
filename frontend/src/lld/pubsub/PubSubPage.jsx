@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import LldPage from '../../components/LldPage';
 import { usePolling } from '../../hooks/usePolling';
 import {
@@ -100,7 +101,7 @@ function queueColor(type, pct) {
 function LiveTabs({ activeTab }) {
   const [topics, setTopics] = useState([]);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useTransientMessage('', 2500);
 
   const [newTopicName, setNewTopicName] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('');
@@ -122,7 +123,7 @@ function LiveTabs({ activeTab }) {
     } catch { /* retry next tick */ }
   }, 1500, []);
 
-  const flash = (msg) => { setNotice(msg); setTimeout(() => setNotice(''), 2500); };
+  const flash = (msg) => { setNotice(msg); };
 
   const handleCreateTopic = async () => {
     if (!newTopicName.trim()) return;

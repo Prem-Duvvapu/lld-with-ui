@@ -1,10 +1,11 @@
 import { useState } from 'react'
+import { useTransientMessage } from '../../hooks/useTransientMessage'
 import * as api from './api'
 import LldPage from '../../components/LldPage'
 import StepIndicator from '../../components/ui/StepIndicator'
 
 export default function KvStorePage() {
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useTransientMessage()
 
   const [setKey, setSetKey] = useState('welcome')
   const [setValue, setSetValue] = useState('')
@@ -25,7 +26,6 @@ export default function KvStorePage() {
 
   const showBanner = (text, type) => {
     setMessage({ text, type })
-    setTimeout(() => setMessage(null), 4000)
   }
 
   const handleSet = async () => {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import { Link } from 'react-router-dom';
 import {
   getSlots,
@@ -147,7 +148,7 @@ function MachineHardwareTab() {
   const [keypadInput, setKeypadInput] = useState('');
   const [dispensedItem, setDispensedItem] = useState(null);
   const [droppedChange, setDroppedChange] = useState(null);
-  const [spinningSlot, setSpinningSlot] = useState(null);
+  const [spinningSlot, setSpinningSlot] = useTransientMessage(null, 1500);
   const [doorOpen, setDoorOpen] = useState(false);
 
   const fetchMachineData = async () => {
@@ -210,7 +211,7 @@ function MachineHardwareTab() {
     try {
       const activeSlot = status?.currentTransaction?.slotCode;
       if (activeSlot) {
-        setSpinningSlot(activeSlot);
+        setSpinningSlot(activeSlot, 0);
       }
 
       const txn = await dispense();
@@ -219,7 +220,7 @@ function MachineHardwareTab() {
         setDroppedChange({ amount: txn.changeAmount, breakdown: txn.changeBreakdown });
       }
       setDoorOpen(true);
-      setTimeout(() => setSpinningSlot(null), 1500);
+      if (activeSlot) setSpinningSlot(activeSlot);
       await fetchMachineData();
     } catch (e) {
       setSpinningSlot(null);

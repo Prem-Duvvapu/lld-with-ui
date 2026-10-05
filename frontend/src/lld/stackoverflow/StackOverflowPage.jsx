@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import LldPage from '../../components/LldPage';
 import { usePolling } from '../../hooks/usePolling';
 import { ApiError } from '../../utils/api';
@@ -525,7 +526,7 @@ function SimulationTab() {
   const [simUsers, setSimUsers] = useState([]);
   const [raceResult, setRaceResult] = useState(null);
   const [events, setEvents] = useState([]);
-  const [rejectedFlash, setRejectedFlash] = useState(false);
+  const [rejectedFlash, setRejectedFlash] = useTransientMessage(false, 500);
 
   const refreshEvents = useCallback(() => { api.simEvents().then(setEvents).catch(() => {}); }, []);
 
@@ -572,7 +573,6 @@ function SimulationTab() {
           await api.simVote(answer.id, 'U2', 'UPVOTE');
         } catch (e) {
           setRejectedFlash(true);
-          setTimeout(() => setRejectedFlash(false), 500);
         }
         await refreshFromState(question.id, answer.id);
       } else if (step === 5) {
@@ -588,7 +588,6 @@ function SimulationTab() {
           await api.simAnswer(question.id);
         } catch (e) {
           setRejectedFlash(true);
-          setTimeout(() => setRejectedFlash(false), 500);
         }
         await refreshFromState(question.id, answer.id);
       }
