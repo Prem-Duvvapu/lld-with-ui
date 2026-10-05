@@ -7,13 +7,16 @@ what each of the 60 modules seeds, which service methods exist, which patterns i
 Read the relevant module section there before changing a module. This file covers the commands and
 the cross-cutting structure that no single module file reveals.
 
+For the current UI/UX completion scope and the next-agent prompt, read
+`COMPLETION_HANDOFF.md`. The historical `ROADMAP.md` covers completed module creation.
+
 ## Commands
 
 Run everything through WSL (`wsl <command>`) — the repo lives on a Windows drive.
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # full suite — 2286 tests, 277 classes
+mvn test                                  # full suite — baseline: 2304 tests, 280 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -21,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # full suite — 450 tests, 11 files
+npx vitest run                            # full suite — baseline: 575 tests, 25 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
