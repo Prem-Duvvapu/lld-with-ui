@@ -51,7 +51,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   cancels the previous timer, cancels on unmount, and keeps error messages until replaced.
 - **No live regions (fixed, batch 2).** 77 conditional banners across 46 pages (including
   12 adopted modules) had no `role`; they are now `alert`/`status` regions, guarded by
-  `accessibilityContracts.test.js` (RCA-087).
+  `accessibilityContracts.test.js` (RCA-088).
 - **Status-token contrast (fixed, batch 2).** Light `--success/--danger/--warning/--info`
   and dark `--danger` failed 4.5:1 as text on their own tints. Light tokens are darkened in
   place and the dark danger tint alpha is lowered; the same test guards both.
@@ -151,7 +151,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 |---|---|---|---|
 | 1 | Matrix, `useTransientMessage` across 17 pages (RCA-086) | #152 | 579 vitest, lint 16 (baseline), build budgets, 2308 mvn; CI green |
 | 1b | RCA-085 deterministic workflow outcomes (separate PR) | #153 | `WorkflowConcurrencyTest` 6/6 ×3, 2308 mvn; CI green |
-| 2 | Live regions on 77 banners, AA status tokens, wallet load errors (RCA-087) | _pending_ | _pending_ |
+| 2 | Live regions on 77 banners, AA status tokens, wallet load errors (RCA-088) | _pending_ | _pending_ |
 
 ## Prompt to give the next agent
 

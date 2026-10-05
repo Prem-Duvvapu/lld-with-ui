@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-087](#rca-087-welcome-tour-added-a-duplicate-history-entry-on-arrival-from-the-learning-hub) | 2026-10-05 | Frontend / Navigation | First-visit welcome added a duplicate Home entry and interrupted Back to the hub | Resolved |
 | [RCA-001](#rca-001-swagger-ui-404-not-found-due-to-external-windows-tomcat-9-port-9090-collision) | 2026-08-18 | Backend / Swagger UI / Networking | `404 Not Found` (Apache Tomcat/9.0.68) on port 9090 due to background host process | Resolved |
 | [RCA-002](#rca-002-duplicate-object-literal-keys-silently-discarding-design-content) | 2026-08-20 | Frontend / Data Layer | Duplicate keys in `designDetails.js` / `classDiagrams.js` let JavaScript discard 653 lines of richer content at parse time | Resolved |
 | [RCA-003](#rca-003-domain-exceptions-surfacing-as-http-500-with-the-message-stripped) | 2026-08-20 | Backend / Error Contract | 23 domain exceptions across 4 modules returned bare `500` instead of the documented 4xx codes | Resolved |
@@ -5974,7 +5975,7 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
-## RCA-087: Outcome Banners Were Silent to Screen Readers and Status Colours Failed AA
+## RCA-088: Outcome Banners Were Silent to Screen Readers and Status Colours Failed AA
 
 **Overview & Severity** — Medium accessibility defect across 46 module pages and the shared
 theme. Success, rejection and error banners rendered visually but were not live regions, so
@@ -6033,6 +6034,37 @@ badges, step dots). Dedicated solid/`--on-*` tokens are tracked in the completio
 because one token cannot serve both text-on-tint and white-on-solid in dark mode. New status tokens need 4.5:1 on their own tint. Visual checks should cover error
 states, not only seeded success states. The intercepted-Chromium script fails every `/api`
 call, so each page's error banner renders in every theme and viewport.
+
+## RCA-087: Welcome Tour Added a Duplicate History Entry on Arrival from the Learning Hub
+
+**Overview & Severity** — Medium navigation defect found while testing the learning
+network in Chromium. First-time arrivals could not return to the hub with one Back action.
+
+**Symptoms & Error Logs** — After following the hub's LLD link, browser Back stayed
+on the LLD homepage. The cross-project check timed out waiting for the hub URL
+(`page.waitForURL: Timeout 60000ms exceeded`).
+
+**Root Cause** — The automatically opened welcome step always called
+`navigate('/')`, even when already on that route. React Router pushed a second
+home entry, hiding the original cross-origin arrival immediately behind it.
+
+**Diagnostic Commands** — Inspected `SiteTourContext.jsx`,
+`WebsiteTour.jsx`, and `tour/tourSteps.js`; reproduced the hub → LLD → Back
+journey against built assets with Playwright request interception, without servers.
+Ran `npx vitest run src/__tests__/siteTour.test.jsx src/components/LearningNetworkNav.test.jsx --maxWorkers=1`.
+
+**Step-by-Step Resolution**
+
+1. Added the current router pathname to the tour preparation context.
+2. Made the welcome step navigate only when its destination differs from that pathname.
+3. Added regressions proving Back reaches the previous entry and manual welcome
+   still navigates home when opened from a module.
+4. The focused suite passes all 15 tests; the production build passes. Chromium
+   confirms hub → LLD → Back and Learning Home from home and deep routes.
+
+**Preventative Measures** — Keep history behavior in the tour regression suite.
+Validate cross-project Back navigation with first-visit onboarding enabled, not
+only with returning-user storage fixtures.
 
 ## RCA-086: Status Banners Were Cleared Early by Stale Timers
 

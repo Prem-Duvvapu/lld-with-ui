@@ -1,6 +1,7 @@
 import { Suspense, lazy, useMemo, useEffect } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
+import LearningNetworkNav from './components/LearningNetworkNav'
 import ThemeToggle from './components/ThemeToggle'
 import Skeleton from './components/ui/Skeleton'
 import BackendStatusBanner from './components/BackendStatusBanner'
@@ -104,6 +105,7 @@ const LLD_ROUTES = [
 function Layout({ children }) {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <LearningNetworkNav />
       <nav aria-label="Site utilities" style={{
         display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end',
         flexWrap: 'wrap', padding: 12,

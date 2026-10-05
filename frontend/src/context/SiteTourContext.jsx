@@ -24,7 +24,7 @@ export function SiteTourProvider({ children }) {
   const location = useLocation();
 
   // Auto-open only on the home route. The welcome step's own `prepare` navigates to
-  // "/" unconditionally (it's a tour of the whole site, starting from the top) — if a
+  // "/" from other routes (it's a tour of the whole site, starting from the top) — if a
   // first-time visitor's very first request is a direct link to a module page, firing
   // the tour here would yank them back to Home before they see what they came for.
   // They can still start it manually from Home's ☰ menu.

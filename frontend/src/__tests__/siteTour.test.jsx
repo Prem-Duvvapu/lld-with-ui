@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 
 import WebsiteTour from '../components/WebsiteTour';
 import { TOUR_STEPS, TOUR_MODULE } from '../components/tour/tourSteps';
@@ -99,6 +99,11 @@ function LocationProbe() {
   return <span data-testid="path">{location.pathname}</span>;
 }
 
+function BrowserBackProbe() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(-1)}>Browser back</button>;
+}
+
 function TourHarness({ steps, onFinish = () => {} }) {
   return (
     <MemoryRouter initialEntries={['/']}>
@@ -113,6 +118,29 @@ function TourHarness({ steps, onFinish = () => {} }) {
 }
 
 describe('WebsiteTour across routes', () => {
+  it('keeps the previous history entry when welcoming a visitor already on Home', async () => {
+    render(
+      <MemoryRouter initialEntries={['/learning-origin', '/']} initialIndex={1}>
+        <LocationProbe />
+        <BrowserBackProbe />
+        <WebsiteTour steps={[TOUR_STEPS[0]]} onFinish={() => {}} />
+      </MemoryRouter>
+    );
+    await screen.findByText(TOUR_STEPS[0].title);
+    fireEvent.click(screen.getByText('Browser back'));
+    await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/learning-origin'));
+  });
+
+  it('still starts a manually opened welcome step on Home from a module', async () => {
+    render(
+      <MemoryRouter initialEntries={['/elevator']}>
+        <LocationProbe />
+        <WebsiteTour steps={[TOUR_STEPS[0]]} onFinish={() => {}} />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/'));
+  });
+
   it('runs a step prepare that navigates, and lands on the module route', async () => {
     const steps = [
       { selector: '[data-tour="search"]', title: 'Home', body: 'home step' },
@@ -190,7 +218,7 @@ describe('WebsiteTour across routes', () => {
 
 describe('SiteTourProvider — auto-open on first visit', () => {
   it('does not auto-open (and so cannot navigate away) when a first-time visitor lands directly on a module route', async () => {
-    // The welcome step's own `prepare` unconditionally navigates to "/" -- if the
+    // The welcome step's own `prepare` navigates to "/" from another route -- if the
     // provider auto-opened here too, a first-time visitor's direct/shared link to any
     // module page would get yanked back to Home before they saw what they came for.
     render(

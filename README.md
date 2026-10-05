@@ -1,5 +1,10 @@
 # Low-Level Design with UI
 
+Part of the [Learning Hub](https://learning-hub-with-ui.vercel.app/).
+The shared **Learning network** navigation offers Learning Home and same-tab
+links between DSA, LLD, HLD, and CS fundamentals on every route. These remain
+independent apps: themes, backend state, and progress are not synchronized.
+
 SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
@@ -373,7 +378,7 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 
 ```bash
 cd backend  && mvn test        # 2308 tests across 280 classes
-cd frontend && npx vitest run  # 581 tests across 27 files
+cd frontend && npx vitest run  # 584 tests across 28 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
