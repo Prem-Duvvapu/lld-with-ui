@@ -1,5 +1,10 @@
 # Low-Level Design with UI
 
+Part of the [Learning Hub](https://learning-hub-with-ui.vercel.app/).
+The shared **Learning network** navigation offers Learning Home and same-tab
+links between DSA, LLD, HLD, and CS fundamentals on every route. These remain
+independent apps: themes, backend state, and progress are not synchronized.
+
 SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects** in a **single unified backend + frontend** architecture — Java 17 Spring Boot backend + React 19 / Vite frontend.
 
 ---
