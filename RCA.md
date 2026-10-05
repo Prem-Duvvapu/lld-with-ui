@@ -6066,6 +6066,18 @@ separate test-maintenance change, exercise each legal ordering deterministically
 the simultaneous-race safety assertions; do not require random scheduling to cover both
 outcomes or alter unrelated backend behavior as part of UI work.
 
+**Resolution (follow-up test-maintenance change)** — `WorkflowConcurrencyTest` no longer
+asserts the win distribution. The 300-round simultaneous race keeps, and tightens, its
+per-round atomicity checks: exactly one contender takes effect; the loser receives the
+matching typed rejection (`InvalidStepTransitionException` for a stale escalation,
+`UnauthorizedApproverException` for a manager approval after escalation); and the final
+status, step-0 decision and approver, `currentStepIndex`, and still-pending Director step all
+match the winner. Unexpected exceptions now fail the round. Each legal outcome is pinned by two
+sequential tests and two contended-lock tests. In the contended tests, the test thread holds
+the fair per-instance `ReentrantLock` and starts each racer in turn, waiting on
+`hasQueuedThread` until it is queued. No sleeps or reruns. The class has 6 tests (was 2); the
+backend suite has 2308. No production code changed.
+
 ---
 
 ## RCA-084: Concurrency Replays Merged Independent Maps and Invented Worker State
