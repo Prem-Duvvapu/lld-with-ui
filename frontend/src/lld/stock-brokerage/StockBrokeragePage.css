@@ -209,11 +209,12 @@
   font-size: var(--font-sm);
   font-weight: 700;
   text-align: center;
-  color: #fff;
+  color: var(--text-primary);
+  border: 1px solid transparent;
 }
-.sb-banner.success { background: var(--success); }
-.sb-banner.error { background: var(--danger); }
-.sb-banner.info { background: var(--info); }
+.sb-banner.success { background: var(--success-bg); border-color: var(--success); }
+.sb-banner.error { background: var(--danger-bg); border-color: var(--danger); }
+.sb-banner.info { background: var(--info-bg); border-color: var(--info); }
 
 /* ---------- Simulation: step indicator ---------- */
 .sb-step-indicator { display: flex; gap: 5px; justify-content: center; align-items: center; margin-bottom: var(--space-4); flex-wrap: wrap; }

@@ -193,7 +193,7 @@ function LiveScoringTab() {
     return (
       <div className="cric-container">
         <style>{CSS}</style>
-        <div className="cric-log">{log}</div>
+        <div role="status" className="cric-log">{log}</div>
       </div>
     );
   }
@@ -237,7 +237,7 @@ function LiveScoringTab() {
         </>
       )}
 
-      <div className={`cric-log ${logBad ? 'bad' : ''}`}>{log}</div>
+      <div role="status" className={`cric-log ${logBad ? 'bad' : ''}`}>{log}</div>
 
       <div className="cric-panel">
         <h4>Batting</h4>
@@ -349,7 +349,7 @@ function MatchesTab() {
             style={{ padding: 6, borderRadius: 6, border: '1px solid var(--border-primary)', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }} />
           <button className="cric-btn primary" onClick={create}>Create</button>
         </div>
-        {log && <div className="cric-log">{log}</div>}
+        {log && <div role="status" className="cric-log">{log}</div>}
       </div>
 
       <div className="cric-panel">
@@ -530,7 +530,7 @@ function SimulationTab() {
         </div>
       )}
 
-      <div className={`cric-log ${logBad ? 'bad' : ''}`}>{log}</div>
+      <div role="status" className={`cric-log ${logBad ? 'bad' : ''}`}>{log}</div>
 
       <div className="cric-panel">
         <h4>Live Observer Fan-Out — Commentary Feed</h4>

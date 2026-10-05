@@ -196,7 +196,7 @@ function AppTab() {
     <div className="ms-container">
       <style>{CSS}</style>
 
-      {banner && <div className={`ms-banner ${banner.bad ? 'bad' : 'ok'}`}>{banner.message}</div>}
+      {banner && <div role={banner.bad ? 'alert' : 'status'} className={`ms-banner ${banner.bad ? 'bad' : 'ok'}`}>{banner.message}</div>}
 
       <div className="ms-user-row">
         {users.map(u => (

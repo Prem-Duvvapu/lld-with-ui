@@ -120,7 +120,7 @@ function ServicesTab() {
   return (
     <div className="cb-container">
       <style>{CSS}</style>
-      {error && <div className="cb-error">⚠ {error}</div>}
+      {error && <div role="alert" className="cb-error">⚠ {error}</div>}
       <div className="cb-grid">
         {services.map((s) => (
           <ServiceCard key={s.name} breaker={s} onCall={handleCall} onReset={handleReset} busy={busyNames.has(s.name)} />

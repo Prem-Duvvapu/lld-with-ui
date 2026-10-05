@@ -156,7 +156,7 @@ function ProductsTab() {
             )}>Trigger Reorder</button>
             <button className="inv-btn-secondary inv-btn" onClick={() => { setSelected(null); setMessage(''); }}>Close</button>
           </div>
-          {message && <div className={message.startsWith('Error') ? 'inv-msg-err' : 'inv-msg-ok'}>{message}</div>}
+          {message && <div role={message.startsWith('Error') ? 'alert' : 'status'} className={message.startsWith('Error') ? 'inv-msg-err' : 'inv-msg-ok'}>{message}</div>}
         </div>
       )}
 

@@ -134,7 +134,7 @@ function Game({ gameId, onNewGame }) {
 
       {game.status === 'WON' && <div className="ms-win">🎉 You Won!</div>}
       {game.status === 'LOST' && <div className="ms-lose">💥 Game Over!</div>}
-      {error && <div className="ms-error">{error}</div>}
+      {error && <div role="alert" className="ms-error">{error}</div>}
 
       <div className="ms-board" style={{ gridTemplateColumns: `repeat(${game.cols}, 36px)` }}>
         {board.map((row, r) => row.map((cell, c) => {
@@ -257,7 +257,7 @@ function AnimatedFlow() {
         </span>
       </div>
 
-      {error && <div className="ms-error">{error}<button onClick={reset} style={{ marginLeft: 8, padding: '2px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 4, cursor: 'pointer', color: 'var(--text-primary)' }}>↺ Reset</button></div>}
+      {error && <div role="alert" className="ms-error">{error}<button onClick={reset} style={{ marginLeft: 8, padding: '2px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 4, cursor: 'pointer', color: 'var(--text-primary)' }}>↺ Reset</button></div>}
 
       {step === 0 && (
         <div style={{ textAlign: 'center' }}>

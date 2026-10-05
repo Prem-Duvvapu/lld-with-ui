@@ -383,12 +383,13 @@ export default function AirlinePage() {
 
         {/* User Switcher & Theme */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Passenger User:</span>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, maxWidth: '100%', background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+            <label htmlFor="airline-passenger" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Passenger User:</label>
             <select
+              id="airline-passenger"
               value={currentUserId}
               onChange={(e) => setCurrentUserId(e.target.value)}
-              style={{ background: 'transparent', color: 'var(--text-primary)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer', outline: 'none' }}
+              style={{ minWidth: 0, maxWidth: '100%', background: 'transparent', color: 'var(--text-primary)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
             >
               <option value="user-alice" style={{ background: 'var(--bg-secondary)' }}>Alice Vance (user-alice)</option>
               <option value="user-bob" style={{ background: 'var(--bg-secondary)' }}>Bob Smith (user-bob)</option>
@@ -402,7 +403,7 @@ export default function AirlinePage() {
 
       {/* Status Banner */}
       {statusMsg.text && (
-        <div style={{ padding: '10px 24px', background: statusMsg.type === 'error' ? '#ef4444' : '#10b981', color: '#fff', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+        <div role={statusMsg.type === 'error' ? 'alert' : 'status'} style={{ padding: '10px 24px', background: statusMsg.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)', color: 'var(--text-primary)', borderBottom: `3px solid ${statusMsg.type === 'error' ? 'var(--danger)' : 'var(--success)'}`, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
           {statusMsg.text}
         </div>
       )}
@@ -532,7 +533,7 @@ export default function AirlinePage() {
                 </div>
 
                 {/* Seat Legend */}
-                <div style={{ display: 'flex', gap: 14, marginBottom: 20, fontSize: 11, color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 20, fontSize: 11, color: 'var(--text-secondary)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#10b981', borderRadius: 3 }}></span> Available</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#a855f7', borderRadius: 3 }}></span> Selected</span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#eab308', borderRadius: 3 }}></span> Held</span>

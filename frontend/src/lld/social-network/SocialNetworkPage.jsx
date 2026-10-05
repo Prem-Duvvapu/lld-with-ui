@@ -166,7 +166,7 @@ function UserOnboarding({ onUserSelect }) {
 
   return (
     <div>
-      {error && <div className="sn-error">{error}</div>}
+      {error && <div role="alert" className="sn-error">{error}</div>}
       <form className="sn-form" onSubmit={handleCreate}>
         <h3>Create New User</h3>
         <label>Name</label>
@@ -268,7 +268,7 @@ function FeedView({ user, users }) {
 
   return (
     <div>
-      {error && <div className="sn-error">{error}</div>}
+      {error && <div role="alert" className="sn-error">{error}</div>}
       <div className="sn-post-input-box">
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', marginBottom: 8 }}>
           ✍️ CREATE NEW POST
@@ -381,8 +381,8 @@ function FriendsView({ user, users, onFriendsChanged }) {
 
   return (
     <div>
-      {error && <div className="sn-error">{error}</div>}
-      {message && <div className="sn-req-row" style={{ color: 'var(--success)', justifyContent: 'center' }}>{message}</div>}
+      {error && <div role="alert" className="sn-error">{error}</div>}
+      {message && <div role="status" className="sn-req-row" style={{ color: 'var(--success)', justifyContent: 'center' }}>{message}</div>}
 
       <div className="sn-section-title">Pending Requests ({pending.length})</div>
       {pending.length === 0 && <div className="sn-loading">No pending friend requests.</div>}

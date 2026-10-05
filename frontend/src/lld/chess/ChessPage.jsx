@@ -130,7 +130,7 @@ function GamePanel({ gameId, onNewGame }) {
         {status === 'CHECK' ? '⚠ Check!' : status === 'CHECKMATE' ? `👑 Checkmate! ${game.winner} wins!` : status === 'STALEMATE' ? '🤝 Stalemate — Draw' : status === 'ACTIVE' ? 'Game Active' : status}
       </div>
       <Board board={game.board} selected={selected} validMoves={validMoves} lastMove={lastMove} onCellClick={handleCellClick} interactive={true} />
-      {error && <div className="error">{error}</div>}
+      {error && <div role="alert" className="error">{error}</div>}
       <div className="game-actions">
         <button onClick={onNewGame}>New Game</button>
       </div>

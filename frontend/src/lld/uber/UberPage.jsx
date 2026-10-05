@@ -442,7 +442,7 @@ function BookRide({ onRideBooked }) {
             </div>
           )}
 
-          {error && <div style={{ marginTop: 12, padding: 10, background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 6 }}>{error}</div>}
+          {error && <div role="alert" style={{ marginTop: 12, padding: 10, background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 6 }}>{error}</div>}
         </CardBody>
       </Card>
     </div>

@@ -422,7 +422,7 @@ function SimulationTab() {
         <span className="atm-step-label">{SIM_STEPS[step]}</span>
       </div>
 
-      {error && <div className="screen-alert error atm-sim-error">{error}</div>}
+      {error && <div role="alert" className="screen-alert error atm-sim-error">{error}</div>}
 
       {!snapshot ? (
         <div className="atm-sim-intro">

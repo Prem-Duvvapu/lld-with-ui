@@ -212,7 +212,7 @@ function BookTab() {
   return (
     <div className="ct-container">
       <style>{CSS}</style>
-      {error && <div className="ct-error">⚠️ {error}</div>}
+      {error && <div role="alert" className="ct-error">⚠️ {error}</div>}
       {toast && !error && <div className="ct-toast">{toast}</div>}
 
       <div className="ct-row">
@@ -350,7 +350,7 @@ function BookingsTab() {
           {DEMO_USER_IDS.map((id) => <option key={id} value={id}>{id}</option>)}
         </select>
       </div>
-      {error && <div className="ct-error">⚠️ {error}</div>}
+      {error && <div role="alert" className="ct-error">⚠️ {error}</div>}
       {bookings.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No bookings yet for this user.</p>}
       {bookings.map((b) => (
         <div className="ct-booking-card" key={b.id}>
@@ -536,7 +536,7 @@ function SimulationTab() {
           </div>
         )}
 
-        {error && <div className="ct-error">⚠️ {error}</div>}
+        {error && <div role="alert" className="ct-error">⚠️ {error}</div>}
 
         <div className="ct-row" style={{ justifyContent: 'center' }}>
           {!done

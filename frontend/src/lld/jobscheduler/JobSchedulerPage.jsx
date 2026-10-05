@@ -201,7 +201,7 @@ function JobsTab() {
         )}
       </div>
 
-      {error && <div className="js-error">⚠ {error}</div>}
+      {error && <div role="alert" className="js-error">⚠ {error}</div>}
 
       <div className="js-grid">
         {jobs.map((j) => <JobCard key={j.id} job={j} onCancel={handleCancel} busy={busy} />)}
@@ -258,7 +258,7 @@ function HistoryTab() {
         {selectedJob && <div className="js-meta" style={{ marginTop: 8 }}>{selectedJob.schedule?.description} — misfire policy: {selectedJob.misfirePolicy?.type}</div>}
       </div>
 
-      {error && <div className="js-error">⚠ {error}</div>}
+      {error && <div role="alert" className="js-error">⚠ {error}</div>}
 
       <div className="js-panel">
         <table className="js-table">
@@ -374,7 +374,7 @@ function SimulationTab() {
           </div>
         </div>
 
-        {error && <div className="js-error">⚠ {error}</div>}
+        {error && <div role="alert" className="js-error">⚠ {error}</div>}
 
         <button
           className="js-btn success"

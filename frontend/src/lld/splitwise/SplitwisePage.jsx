@@ -386,7 +386,7 @@ function AddExpense({ user, group, onBack, onExpenseAdded }) {
         <div style={{ fontSize: 32 }}>💸</div>
       </div>
 
-      {error && <div className="sw-error">{error}</div>}
+      {error && <div role="alert" className="sw-error">{error}</div>}
 
       <form className="sw-expense-form" onSubmit={handleSubmit}>
         <div className="sw-input-group">
@@ -703,7 +703,7 @@ function SettleUp({ user, targetUserId, onBack, onSettled }) {
           ))}
         </div>
       )}
-      {error && <div className="sw-error">{error}</div>}
+      {error && <div role="alert" className="sw-error">{error}</div>}
       {success && <div className="sw-success">{success}</div>}
       <form className="sw-settle-section" onSubmit={handleSettle}>
         <label>Settle with User</label>

@@ -89,9 +89,9 @@ function AppTab() {
   return (
     <div className="tp-container">
       <style>{CSS}</style>
-      {error && <div className="tp-banner err">⚠ {error}</div>}
+      {error && <div role="alert" className="tp-banner err">⚠ {error}</div>}
       {banner && (
-        <div className={`tp-banner ${banner.outcome === 'ACCEPTED' || banner.outcome === 'RAN_ON_CALLER' ? 'ok' : 'err'}`}>
+        <div role="status" className={`tp-banner ${banner.outcome === 'ACCEPTED' || banner.outcome === 'RAN_ON_CALLER' ? 'ok' : 'err'}`}>
           {banner.poolId}: task "{banner.taskName}" → {banner.outcome.replace(/_/g, ' ')}
         </div>
       )}

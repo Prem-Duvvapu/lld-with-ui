@@ -32,6 +32,7 @@ const CSS = `
 .crs-btn.waitlist { background: var(--warning); }
 .crs-btn.drop { background: var(--danger); }
 
+.reg-table-scroll { overflow-x: auto; }
 .reg-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .reg-table th, .reg-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border-primary); }
 .reg-table th { color: var(--text-muted); font-weight: 600; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -221,6 +222,7 @@ function AppTab() {
 
       <div className="crs-panel">
         <div className="crs-panel-title">MY REGISTRATIONS</div>
+        <div className="reg-table-scroll">
         <table className="reg-table">
           <thead>
             <tr><th>Registration</th><th>Section</th><th>Status</th><th>Waitlist Pos.</th><th /></tr>
@@ -244,9 +246,10 @@ function AppTab() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
-      <div className={`crs-log ${logBad ? 'bad' : ''}`}>{log}</div>
+      <div role="status" className={`crs-log ${logBad ? 'bad' : ''}`}>{log}</div>
     </div>
   );
 }
@@ -423,6 +426,7 @@ function SimulationTab() {
 
       <div className="crs-panel">
         <div className="crs-panel-title">RACE ROSTER — {RACE_SECTION}</div>
+        <div className="reg-table-scroll">
         <table className="reg-table">
           <thead><tr><th>Student</th><th>Status</th></tr></thead>
           <tbody>
@@ -437,6 +441,7 @@ function SimulationTab() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 14 }}>
@@ -452,7 +457,7 @@ function SimulationTab() {
         </div>
       )}
 
-      <div className={`crs-log ${logBad ? 'bad' : ''}`}>{log}</div>
+      <div role="status" className={`crs-log ${logBad ? 'bad' : ''}`}>{log}</div>
 
       {race && (
         <div className="race-panel">

@@ -71,9 +71,9 @@ function AppTab() {
   return (
     <div className="rl-container">
       <style>{CSS}</style>
-      {error && <div className="rl-banner denied">⚠ {error}</div>}
+      {error && <div role="alert" className="rl-banner denied">⚠ {error}</div>}
       {banner && (
-        <div className={`rl-banner ${banner.allowed ? 'allowed' : 'denied'}`}>
+        <div role="status" className={`rl-banner ${banner.allowed ? 'allowed' : 'denied'}`}>
           {banner.allowed
             ? `✅ ${banner.clientId}: request allowed — ${banner.remaining} remaining`
             : `🚫 ${banner.clientId}: request throttled — 0 remaining`}

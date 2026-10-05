@@ -310,7 +310,7 @@ export default function LibraryPage() {
 
       {/* Status Banner */}
       {statusMsg.text && (
-        <div style={{ padding: '10px 24px', background: statusMsg.type === 'error' ? '#ef4444' : '#10b981', color: '#fff', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+        <div role={statusMsg.type === 'error' ? 'alert' : 'status'} style={{ padding: '10px 24px', background: statusMsg.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)', color: 'var(--text-primary)', borderBottom: `3px solid ${statusMsg.type === 'error' ? 'var(--danger)' : 'var(--success)'}`, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
           {statusMsg.text}
         </div>
       )}

@@ -122,7 +122,7 @@ function AppTab() {
         </select>
       </div>
 
-      {banner && <div className={`sb-banner ${banner.kind}`}>{banner.text}</div>}
+      {banner && <div role={banner.kind === 'error' ? 'alert' : 'status'} className={`sb-banner ${banner.kind}`}>{banner.text}</div>}
 
       <div className="sb-grid">
         {/* Order Placement */}
@@ -330,7 +330,7 @@ function SimulationTab() {
         <span className="sb-step-label">{SIM_STEPS[step]}</span>
       </div>
 
-      {error && <div className="sb-banner error" style={{ maxWidth: 600, margin: '0 auto 12px' }}>{error}</div>}
+      {error && <div role="alert" className="sb-banner error" style={{ maxWidth: 600, margin: '0 auto 12px' }}>{error}</div>}
 
       {!snapshot ? (
         <div className="sb-sim-intro">
