@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import { Link } from 'react-router-dom';
 import {
   getMenu,
@@ -146,7 +147,7 @@ function OrderBaristaTab() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [brewingAnimation, setBrewingAnimation] = useState(false);
+  const [brewingAnimation, setBrewingAnimation] = useTransientMessage(false, 2000);
 
   const fetchState = async () => {
     try {
@@ -202,7 +203,7 @@ function OrderBaristaTab() {
   const handleBrew = async () => {
     setLoading(true);
     setError('');
-    setBrewingAnimation(true);
+    setBrewingAnimation(true, 0);
     try {
       await brew();
       await fetchState();
@@ -210,7 +211,7 @@ function OrderBaristaTab() {
       setError(e.message);
     } finally {
       setLoading(false);
-      setTimeout(() => setBrewingAnimation(false), 2000);
+      setBrewingAnimation(true);
     }
   };
 

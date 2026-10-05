@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useTransientMessage } from '../../hooks/useTransientMessage'
 import * as api from './api'
 import LldPage from '../../components/LldPage'
 import StepIndicator from '../../components/ui/StepIndicator'
@@ -16,7 +17,7 @@ export default function ShoppingCartPage() {
   const [paymentMethod, setPaymentMethod] = useState('UPI')
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useTransientMessage()
 
   // Simulation state -- driven entirely by the isolated /api/shoppingcart/sim/* sandbox
   const [simSnapshot, setSimSnapshot] = useState(null)
@@ -147,7 +148,6 @@ export default function ShoppingCartPage() {
 
   const showBanner = (msg, type) => {
     setMessage({ text: msg, type })
-    setTimeout(() => setMessage(null), 4000)
   }
 
   // SIMULATION CONTROLS -- an 8-step, user-driven walkthrough against the isolated

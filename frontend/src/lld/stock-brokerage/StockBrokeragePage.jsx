@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import LldPage from '../../components/LldPage';
 import {
   getStocks,
@@ -31,7 +32,7 @@ function AppTab() {
   const [orders, setOrders] = useState([]);
   const [depth, setDepth] = useState({ bids: [], asks: [], spread: 0 });
   const [quotes, setQuotes] = useState([]);
-  const [banner, setBanner] = useState(null);
+  const [banner, setBanner] = useTransientMessage();
 
   const [side, setSide] = useState('BUY');
   const [type, setType] = useState('LIMIT');
@@ -40,7 +41,6 @@ function AppTab() {
 
   const showBanner = (text, kind = 'info') => {
     setBanner({ text, kind });
-    setTimeout(() => setBanner(null), 4000);
   };
 
   const refresh = async () => {

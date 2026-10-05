@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import {
   getBooks,
   searchBooks,
@@ -27,6 +28,8 @@ import DesignDetails from '../../components/DesignDetails';
 import ThemeToggle from '../../components/ThemeToggle';
 import GithubSourceLinks from '../../components/GithubSourceLinks';
 import { usePolling } from '../../hooks/usePolling';
+
+const EMPTY_STATUS = { text: '', type: 'info' };
 
 export default function LibraryPage() {
   const [activeTab, setActiveTab] = useState('catalog');
@@ -67,7 +70,7 @@ export default function LibraryPage() {
   const [simLoading, setSimLoading] = useState(false);
 
   // Status Banner
-  const [statusMsg, setStatusMsg] = useState({ text: '', type: 'info' });
+  const [statusMsg, setStatusMsg] = useTransientMessage(EMPTY_STATUS);
 
   useEffect(() => {
     loadInitialData();
@@ -95,7 +98,6 @@ export default function LibraryPage() {
 
   const showBanner = (text, type = 'info') => {
     setStatusMsg({ text, type });
-    setTimeout(() => setStatusMsg({ text: '', type: 'info' }), 4000);
   };
 
   const loadInitialData = async () => {

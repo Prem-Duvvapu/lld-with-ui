@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTransientMessage } from '../../hooks/useTransientMessage';
 import {
   getFlights,
   searchFlights,
@@ -34,6 +35,8 @@ const SIM_STEPS = [
   { label: 'Cancel both bookings 30h out', hint: "Same notice window, different refund: Alice's FLEXIBLE fare gets 100% back, Charlie's BASIC fare gets 0%." },
   { label: 'Expire a stale hold', hint: 'Sweep any lingering HELD seat back to AVAILABLE and review the full event log.' },
 ];
+
+const EMPTY_STATUS = { text: '', type: 'info' };
 
 export default function AirlinePage() {
   const [activeTab, setActiveTab] = useState('flights');
@@ -71,7 +74,7 @@ export default function AirlinePage() {
   const [simCharlieBookingId, setSimCharlieBookingId] = useState(null);
 
   // Status Banner
-  const [statusMsg, setStatusMsg] = useState({ text: '', type: 'info' });
+  const [statusMsg, setStatusMsg] = useTransientMessage(EMPTY_STATUS);
 
   useEffect(() => {
     loadInitialData();
@@ -106,7 +109,7 @@ export default function AirlinePage() {
     const interval = setInterval(() => {
       setHoldTimer(prev => {
         if (prev <= 1) {
-          showBanner('Seat hold TTL expired. Please reselect your seats.', 'error');
+          setStatusMsg({ text: 'Seat hold TTL expired. Please reselect your seats.', type: 'error' });
           if (selectedFlight) loadFlightSeats(selectedFlight.flightId);
           setHeldSeats([]);
           return 0;
@@ -115,11 +118,10 @@ export default function AirlinePage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [holdTimer, selectedFlight]);
+  }, [holdTimer, selectedFlight, setStatusMsg]);
 
   const showBanner = (text, type = 'info') => {
     setStatusMsg({ text, type });
-    setTimeout(() => setStatusMsg({ text: '', type: 'info' }), 4000);
   };
 
   const loadInitialData = async () => {
