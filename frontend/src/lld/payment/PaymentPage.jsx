@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTransientMessage } from '../../hooks/useTransientMessage'
 import * as api from './api'
 import LldPage from '../../components/LldPage'
 import StepIndicator from '../../components/ui/StepIndicator'
@@ -18,7 +19,7 @@ export default function PaymentPage() {
   const [amount, setAmount] = useState('1500')
   const [method, setMethod] = useState('UPI')
   const [lastPayment, setLastPayment] = useState(null)
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useTransientMessage()
   // No "list all" endpoint is exposed live (a real gateway wouldn't hand every merchant's ledger
   // to any caller); the Payments tab shows this browser's own charge history instead.
   const [payments, setPayments] = useState([])
@@ -31,7 +32,6 @@ export default function PaymentPage() {
 
   const showBanner = (text, type) => {
     setMessage({ text, type })
-    setTimeout(() => setMessage(null), 4000)
   }
 
   const handleCharge = async () => {

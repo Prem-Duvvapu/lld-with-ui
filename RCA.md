@@ -8,7 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
-| [RCA-086](#rca-086-welcome-tour-added-a-duplicate-history-entry-on-arrival-from-the-learning-hub) | 2026-10-05 | Frontend / Navigation | First-visit welcome added a duplicate Home entry and interrupted Back to the hub | Resolved |
+| [RCA-087](#rca-087-welcome-tour-added-a-duplicate-history-entry-on-arrival-from-the-learning-hub) | 2026-10-05 | Frontend / Navigation | First-visit welcome added a duplicate Home entry and interrupted Back to the hub | Resolved |
 | [RCA-001](#rca-001-swagger-ui-404-not-found-due-to-external-windows-tomcat-9-port-9090-collision) | 2026-08-18 | Backend / Swagger UI / Networking | `404 Not Found` (Apache Tomcat/9.0.68) on port 9090 due to background host process | Resolved |
 | [RCA-002](#rca-002-duplicate-object-literal-keys-silently-discarding-design-content) | 2026-08-20 | Frontend / Data Layer | Duplicate keys in `designDetails.js` / `classDiagrams.js` let JavaScript discard 653 lines of richer content at parse time | Resolved |
 | [RCA-003](#rca-003-domain-exceptions-surfacing-as-http-500-with-the-message-stripped) | 2026-08-20 | Backend / Error Contract | 23 domain exceptions across 4 modules returned bare `500` instead of the documented 4xx codes | Resolved |
@@ -5975,7 +5975,7 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
-## RCA-086: Welcome Tour Added a Duplicate History Entry on Arrival from the Learning Hub
+## RCA-087: Welcome Tour Added a Duplicate History Entry on Arrival from the Learning Hub
 
 **Overview & Severity** — Medium navigation defect found while testing the learning
 network in Chromium. First-time arrivals could not return to the hub with one Back action.
@@ -6005,6 +6005,55 @@ Ran `npx vitest run src/__tests__/siteTour.test.jsx src/components/LearningNetwo
 **Preventative Measures** — Keep history behavior in the tour regression suite.
 Validate cross-project Back navigation with first-visit onboarding enabled, not
 only with returning-user storage fixtures.
+
+## RCA-086: Status Banners Were Cleared Early by Stale Timers
+
+**Overview & Severity** — Low/Medium UX defect across 14 pages (airline, blackjack,
+cachelibrary, coupon, kvstore, library, linkedin, locker, payment, pubsub, shoppingcart,
+stock-brokerage, webcrawler, workflow). A success or error banner could disappear well
+before its intended display time, and errors vanished after four seconds whether or not
+the user had read them. Found during the UI completion program's static scan; no data was
+corrupted because banners are presentation only.
+
+**Symptoms & Error Logs** — No console error. Reproduction: trigger an action, wait three
+seconds, trigger a second action. The second banner disappears about one second later,
+because the first action's timer fires and clears whatever is currently shown. Leaving the
+page within four seconds left the timer pending against an unmounted component.
+
+**Root Cause** — Each page duplicated the same helper:
+`setMessage(value); setTimeout(() => setMessage(null), 4000)`. The timer ID was never
+stored, so a newer message could not cancel an older timer and unmount could not cancel any
+timer. The helper also treated errors like confirmations, so an actionable rejection had
+the same short lifetime as a success notice.
+
+**Diagnostic Commands**
+```bash
+cd frontend/src/lld
+grep -n "setTimeout(() => set\(Message\|StatusMsg\|Banner\|Notice\)" */*.jsx
+npx vitest run src/__tests__/transientMessage.test.jsx
+npx eslint .   # compare warning count with the 16-warning baseline
+```
+
+**Step-by-Step Resolution**
+
+1. Added `hooks/useTransientMessage(empty, duration)`: it stores the timer, cancels the
+   previous timer on every new message, cancels on unmount, and keeps `type`/`kind ===
+   'error'` messages until replaced or cleared.
+2. Replaced the duplicated helpers' state and timers in all 14 pages; each page's banner
+   markup and message shape are unchanged. Pages with an object empty value hoist it to a
+   module constant so the reset value is stable.
+3. In airline, the hold-expiry interval now sets the banner directly and lists the stable
+   setter as a dependency; this also kept lint at its 16-warning baseline.
+4. Moved the coffeemachine, vendingmachine and stackoverflow animation flags onto the same
+   hook; `show(value, 0)` holds the brew/spin flag while the request is pending.
+5. Added fake-timer tests for the stale-timer race, error persistence, the caller-supplied
+   empty value, and unmount cleanup.
+
+**Preventative Measures** — Status banners should use `useTransientMessage` instead of a
+raw `setTimeout`. Any new timer in a page must store its ID and clear it in an effect
+cleanup. The same scan found three short animation flags with the same untracked-timer
+shape (coffeemachine brew, vendingmachine slot spin, stackoverflow rejection flash); they
+now use the hook too, with a per-call `ms` of 0 to hold a flag while a request is pending.
 
 ## RCA-085: Workflow Race-Test Scheduling Assumption Temporarily Blocked PR CI
 
@@ -6048,6 +6097,18 @@ logs and disclose reruns rather than treating flaky failures as product regressi
 separate test-maintenance change, exercise each legal ordering deterministically and retain
 the simultaneous-race safety assertions; do not require random scheduling to cover both
 outcomes or alter unrelated backend behavior as part of UI work.
+
+**Resolution (follow-up test-maintenance change)** — `WorkflowConcurrencyTest` no longer
+asserts the win distribution. The 300-round simultaneous race keeps, and tightens, its
+per-round atomicity checks: exactly one contender takes effect; the loser receives the
+matching typed rejection (`InvalidStepTransitionException` for a stale escalation,
+`UnauthorizedApproverException` for a manager approval after escalation); and the final
+status, step-0 decision and approver, `currentStepIndex`, and still-pending Director step all
+match the winner. Unexpected exceptions now fail the round. Each legal outcome is pinned by two
+sequential tests and two contended-lock tests. In the contended tests, the test thread holds
+the fair per-instance `ReentrantLock` and starts each racer in turn, waiting on
+`hasQueuedThread` until it is queued. No sleeps or reruns. The class has 6 tests (was 2); the
+backend suite has 2308. No production code changed.
 
 ---
 

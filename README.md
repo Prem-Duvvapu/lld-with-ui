@@ -377,8 +377,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2304 tests across 280 classes
-cd frontend && npx vitest run  # 575 tests across 25 files
+cd backend  && mvn test        # 2308 tests across 280 classes
+cd frontend && npx vitest run  # 579 tests across 26 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one

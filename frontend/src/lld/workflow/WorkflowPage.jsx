@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTransientMessage } from '../../hooks/useTransientMessage'
 import * as api from './api'
 import LldPage from '../../components/LldPage'
 import StepIndicator from '../../components/ui/StepIndicator'
@@ -22,7 +23,7 @@ function statusColor(status) {
 }
 
 export default function WorkflowPage() {
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useTransientMessage()
 
   const [requester, setRequester] = useState('alice')
   const [amount, setAmount] = useState(1500)
@@ -41,7 +42,6 @@ export default function WorkflowPage() {
 
   const showBanner = (text, type) => {
     setMessage({ text, type })
-    setTimeout(() => setMessage(null), 4000)
   }
 
   const refreshWorkflows = async () => {
