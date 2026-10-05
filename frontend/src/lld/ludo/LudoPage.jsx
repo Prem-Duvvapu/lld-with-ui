@@ -1,27 +1,13 @@
 import LudoSimulation from './LudoSimulation';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import {
   createGame, getGame, rollDice, moveToken,
 } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import DesignDetails from '../../components/DesignDetails';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import SolutionGate from '../../components/SolutionGate';
-import GithubSourceLinks from '../../components/GithubSourceLinks';
+import LldPage from '../../components/LldPage';
 
 const styles = `
 * { margin: 0; padding: 0; box-sizing: border-box; }
-.ludo-page { max-width: 760px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg-primary); min-height: 100vh; }
-.ludo-header { text-align: center; margin-bottom: 16px; }
-.ludo-header h1 { font-size: 28px; color: var(--text-primary); margin-bottom: 4px; }
-.ludo-header p { color: var(--text-secondary); font-size: 13px; }
-.back-home { display: inline-block; margin-bottom: 12px; padding: 6px 14px; border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-primary); text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-.back-home:hover { background: var(--accent); color: #fff; }
-.ludo-nav { display: flex; gap: 8px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
-.ludo-nav button { padding: 6px 14px; border: 2px solid var(--border-primary); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; font-weight: 600; font-size: 12px; transition: all 0.2s; }
-.ludo-nav button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.ludo-main { background: var(--bg-secondary); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid var(--border-primary); }
+.ludo-main { max-width: 760px; margin: 0 auto; background: var(--bg-secondary); border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid var(--border-primary); }
 
 .ludo-setup { max-width: 320px; margin: 0 auto; text-align: center; }
 .ludo-setup h2 { margin-bottom: 16px; color: var(--text-primary); font-size: 18px; }
@@ -364,34 +350,26 @@ function GameTab() {
   );
 }
 
-export default function LudoPage() {
-  const [tab, setTab] = useState('game');
-  const tabs = ['game', 'simulation', 'diagram', 'sequence', 'design'];
-  const tabLabels = { game: 'Game', simulation: 'Simulation', diagram: 'Class Diagram', sequence: 'Sequence Diagram', design: 'Design Details' };
+const TABS = [
+  { id: 'game', label: 'Game' },
+  { id: 'simulation', label: 'Simulation' },
+  'diagram',
+  'sequence',
+  'design',
+];
 
+export default function LudoPage() {
   return (
-    <div className="ludo-page">
+    <>
       <style>{styles}</style>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <Link to="/" className="back-home">← Back to Home</Link>
-        <GithubSourceLinks module="ludo" />
-      </div>
-      <div className="ludo-header">
-        <h1>🎲 Ludo</h1>
-        <p>Low-Level Design</p>
-      </div>
-      <div className="ludo-nav">
-        {tabs.map((t) => (
-          <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{tabLabels[t]}</button>
-        ))}
-      </div>
-      <div className="ludo-main">
-        {tab === 'game' && <GameTab />}
-        {tab === 'simulation' && <LudoSimulation Board={LudoBoard} />}
-        {tab === 'diagram' && <SolutionGate module="ludo" label="the class diagram"><ClassDiagram module="ludo" /></SolutionGate>}
-        {tab === 'sequence' && <SolutionGate module="ludo" label="the sequence diagram"><SequenceDiagram module="ludo" /></SolutionGate>}
-        {tab === 'design' && <DesignDetails module="ludo" />}
-      </div>
-    </div>
+      <LldPage module="ludo" title="Ludo" icon="🎲" tabs={TABS}>
+        {(tab) => (
+          <div className="ludo-main">
+            {tab === 'game' && <GameTab />}
+            {tab === 'simulation' && <LudoSimulation Board={LudoBoard} />}
+          </div>
+        )}
+      </LldPage>
+    </>
   );
 }

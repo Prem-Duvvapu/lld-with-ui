@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTransientMessage } from '../../hooks/useTransientMessage';
-import { Link } from 'react-router-dom';
 import {
   getMenu,
   getStatus,
@@ -25,13 +24,8 @@ import {
   simRace,
   simGetSnapshot,
 } from './api';
-import ClassDiagram from '../../components/ClassDiagram';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import SolutionGate from '../../components/SolutionGate';
+import LldPage from '../../components/LldPage';
 import { usePolling } from '../../hooks/usePolling';
-import DesignDetails from '../../components/DesignDetails';
-import ThemeToggle from '../../components/ThemeToggle';
-import GithubSourceLinks from '../../components/GithubSourceLinks';
 
 const ADD_ONS = [
   { id: 'EXTRA_SHOT', name: 'Extra Espresso Shot', price: 40, emoji: '⚡', desc: '+10g Beans, +30ml Water' },
@@ -41,100 +35,29 @@ const ADD_ONS = [
   { id: 'OAT_MILK', name: 'Oat Milk Sub', price: 35, emoji: '🌾', desc: 'Replace Dairy Milk with Oat Milk' },
 ];
 
+const TABS = [
+  { id: 'order', label: '☕ Order & Customize' },
+  { id: 'admin', label: '🎛️ Inventory & Refill' },
+  { id: 'concurrency', label: '🔒 Concurrency Simulation' },
+  { id: 'diagram', label: '📐 Class Diagram' },
+  { id: 'sequence', label: '🔄 Sequence Diagram' },
+  { id: 'design', label: '📋 Design Details' },
+];
+
 export default function CoffeeMachinePage() {
-  const [activeTab, setActiveTab] = useState('order');
-
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', padding: '24px 16px' }}>
-      {/* Header */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Link
-            to="/"
-            style={{
-              padding: '6px 14px',
-              borderRadius: 8,
-              border: '1px solid var(--border-primary)',
-              background: 'var(--bg-secondary)',
-              color: 'var(--text-primary)',
-              textDecoration: 'none',
-              fontSize: 13,
-              fontWeight: 600,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            ← Home
-          </Link>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 24 }}>☕</span>
-              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-                Coffee Vending Machine
-              </h1>
-              <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7', fontWeight: 700, border: '1px solid rgba(168, 85, 247, 0.3)' }}>
-                LLD #14
-              </span>
-            </div>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
-              Decorator Pattern Customizations &bull; Factory Recipe Registry &bull; State Pattern FSM &bull; Deadlock-Free Multi-Locking
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <GithubSourceLinks module="coffeemachine" />
-          <ThemeToggle />
-        </div>
-      </div>
-
-      {/* Tabs Bar */}
-      <div style={{ maxWidth: 1200, margin: '0 auto 24px', display: 'flex', gap: 8, borderBottom: '1px solid var(--border-primary)', paddingBottom: 12, overflowX: 'auto' }}>
-        {[
-          { id: 'order', label: '☕ Order & Customize', desc: 'Decorator Barista Console' },
-          { id: 'admin', label: '🎛️ Inventory & Refill', desc: 'Ingredient Hoppers & Admin' },
-          { id: 'concurrency', label: '🔒 Concurrency Simulation', desc: 'Deadlock-Free Multi-Locking' },
-          { id: 'diagram', label: '📐 Class Diagram', desc: 'UML Architecture' },
-          { id: 'sequence', label: '🔄 Sequence Diagram', desc: 'State Machine & Order Flow' },
-          { id: 'design', label: '📋 Design Details', desc: 'Design Specs & Patterns' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '10px 18px',
-              borderRadius: 10,
-              border: activeTab === tab.id ? '2px solid #a855f7' : '1px solid var(--border-primary)',
-              background: activeTab === tab.id ? 'rgba(168, 85, 247, 0.12)' : 'var(--bg-secondary)',
-              color: activeTab === tab.id ? '#a855f7' : 'var(--text-primary)',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: 2,
-              transition: 'all 0.2s ease',
-              minWidth: 160,
-            }}
-          >
-            <span>{tab.label}</span>
-            <span style={{ fontSize: 10, opacity: 0.7, fontWeight: 500 }}>{tab.desc}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        {activeTab === 'order' && <OrderBaristaTab />}
-        {activeTab === 'admin' && <AdminInventoryTab />}
-        {activeTab === 'concurrency' && <ConcurrencySimulationTab />}
-        {activeTab === 'diagram' && <SolutionGate module="coffeemachine" label="the class diagram"><ClassDiagram module="coffeemachine" /></SolutionGate>}
-        {activeTab === 'sequence' && <SolutionGate module="coffeemachine" label="the sequence diagram"><SequenceDiagram module="coffeemachine" /></SolutionGate>}
-        {activeTab === 'design' && <DesignDetails module="coffeemachine" />}
-      </div>
-    </div>
+    <LldPage module="coffeemachine" title="Coffee Vending Machine" icon="☕" tabs={TABS}>
+      {(activeTab) => (
+        <>
+          <p style={{ margin: '0 0 20px', fontSize: 12, color: 'var(--text-secondary)' }}>
+            Decorator Pattern Customizations &bull; Factory Recipe Registry &bull; State Pattern FSM &bull; Deadlock-Free Multi-Locking
+          </p>
+          {activeTab === 'order' && <OrderBaristaTab />}
+          {activeTab === 'admin' && <AdminInventoryTab />}
+          {activeTab === 'concurrency' && <ConcurrencySimulationTab />}
+        </>
+      )}
+    </LldPage>
   );
 }
 

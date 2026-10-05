@@ -73,7 +73,8 @@ shape as elevator/ludo.
 
 #### Theme
 - Light/dark themes via CSS custom properties (`data-theme` attribute on `<html>`).
-- `ThemeContext` + `ThemeToggle` in every page top-right corner. Default: light.
+- `ThemeContext` + one global `ThemeToggle` in the `App.jsx` header (pages must not render their own). Default: light.
+- Status colours (`--success/--danger/--warning/--info`) must stay ≥ 4.5:1 as text on their own `-bg` tint in both themes (RCA-088).
 - Theme persisted in localStorage under `lld-theme`.
 
 ### Frontend

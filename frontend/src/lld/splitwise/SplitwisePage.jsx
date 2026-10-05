@@ -42,7 +42,7 @@ const styles = `
 .sw-transactions { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-primary); }
 .sw-transaction-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; font-size: 13px; border-bottom: 1px solid var(--border-primary); color: var(--text-primary); }
 .sw-loading { text-align: center; color: var(--text-secondary); padding: 40px 0; font-size: 14px; }
-.sw-error { text-align: center; color: #ef4444; padding: 16px; font-size: 14px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; margin-bottom: 12px; }
+.sw-error { text-align: center; color: var(--danger); padding: 16px; font-size: 14px; background: var(--danger-bg); border-radius: 8px; margin-bottom: 12px; }
 .sw-success { text-align: center; color: #22c55e; padding: 16px; font-size: 14px; font-weight: 600; background: rgba(34, 197, 94, 0.1); border-radius: 8px; margin-bottom: 12px; }
 
 /* Dashboard & Activity styles */
@@ -142,14 +142,25 @@ const formatISTDateTime = (timestamp) => {
   }
 };
 
+function LoadError({ message, onRetry }) {
+  return (
+    <div role="alert" className="sw-error">
+      {message}{' '}
+      <button type="button" className="sw-btn" onClick={onRetry}>Retry</button>
+    </div>
+  );
+}
+
 function UserList({ onUserSelect, onUserCreated }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => { setError(null); setLoading(true); setAttempt(n => n + 1); };
 
-  useEffect(() => { getUsers().then(setUsers).catch(setError).finally(() => setLoading(false)); }, []);
+  useEffect(() => { getUsers().then(setUsers).catch(err => setError(err?.message || 'Request failed.')).finally(() => setLoading(false)); }, [attempt]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -159,7 +170,7 @@ function UserList({ onUserSelect, onUserCreated }) {
   };
 
   if (loading) return <div className="sw-loading">Loading users...</div>;
-  if (error) return <div className="sw-error">{error}</div>;
+  if (error) return <LoadError message={error} onRetry={retry} />;
 
   return (
     <div>
@@ -204,12 +215,14 @@ function GroupList({ user, onGroupSelect, onViewBalances, onBack }) {
   const [error, setError] = useState(null);
   const [name, setName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState([]);
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => { setError(null); setLoading(true); setAttempt(n => n + 1); };
 
   useEffect(() => {
     Promise.all([getGroups(), getUsers()]).then(([groupsData, usersData]) => {
       setGroups(groupsData); setAllUsers(usersData);
-    }).catch(setError).finally(() => setLoading(false));
-  }, []);
+    }).catch(err => setError(err?.message || 'Request failed.')).finally(() => setLoading(false));
+  }, [attempt]);
 
   const userGroups = groups.filter((g) => g.members && g.members.some((m) => m.id === user.id));
 
@@ -224,7 +237,7 @@ function GroupList({ user, onGroupSelect, onViewBalances, onBack }) {
   const toggleMember = (id) => { setSelectedMembers((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]); };
 
   if (loading) return <div className="sw-loading">Loading groups...</div>;
-  if (error) return <div className="sw-error">{error}</div>;
+  if (error) return <LoadError message={error} onRetry={retry} />;
 
   return (
     <div>
@@ -290,7 +303,7 @@ function AddExpense({ user, group, onBack, onExpenseAdded }) {
       const groupMembers = all.filter((u) => group.members && group.members.some((m) => m.id === u.id));
       setMembers(groupMembers);
       const initial = {}; groupMembers.forEach((m) => { initial[m.id] = ''; }); setSplits(initial);
-    }).catch(setError);
+    }).catch(err => setError(err?.message || 'Request failed.'));
   }, [group]);
 
   const handleAmountChange = (val) => {
@@ -597,18 +610,20 @@ function BalanceView({ user, onBack, onSettle }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => { setError(null); setLoading(true); setAttempt(n => n + 1); };
 
   useEffect(() => {
     Promise.all([getBalances(user.id), getTransactions(user.id), getUsers()])
       .then(([balData, txData, usersData]) => { setBalances(balData || {}); setTransactions(txData || []); setUsers(usersData); })
-      .catch(setError).finally(() => setLoading(false));
-  }, [user.id]);
+      .catch(err => setError(err?.message || 'Request failed.')).finally(() => setLoading(false));
+  }, [user.id, attempt]);
 
   const getUserId = (name) => { const u = users.find((x) => x.name === name); return u ? u.id : null; };
   const balanceEntries = Object.entries(balances).filter(([, amount]) => amount !== 0);
 
   if (loading) return <div className="sw-loading">Loading balances...</div>;
-  if (error) return <div className="sw-error">{error}</div>;
+  if (error) return <LoadError message={error} onRetry={retry} />;
 
   return (
     <div>
@@ -671,7 +686,7 @@ function SettleUp({ user, targetUserId, onBack, onSettled }) {
         setGroups(groupsData);
         if (groupsData.length > 0) setSelectedGroupId(groupsData[0].id);
       })
-      .catch(setError).finally(() => setLoading(false));
+      .catch(err => setError(err?.message || 'Request failed.')).finally(() => setLoading(false));
   }, [user.id]);
 
   const balanceEntries = Object.entries(balances).filter(([, amount]) => amount !== 0);

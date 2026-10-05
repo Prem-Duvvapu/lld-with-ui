@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTransientMessage } from '../../hooks/useTransientMessage';
 import {
   getFlights,
@@ -17,13 +17,28 @@ import {
   simGetEvents,
 } from './api';
 import { BACKEND_PORT } from '../../utils/api';
-import ClassDiagram from '../../components/ClassDiagram';
-import DesignDetails from '../../components/DesignDetails';
-import SequenceDiagram from '../../components/SequenceDiagram';
-import SolutionGate from '../../components/SolutionGate';
-import ThemeToggle from '../../components/ThemeToggle';
-import GithubSourceLinks from '../../components/GithubSourceLinks';
+import LldPage from '../../components/LldPage';
 import { usePolling } from '../../hooks/usePolling';
+
+const TABS = [
+  { id: 'flights', label: '🛫 Flight Search & Seat Map' },
+  { id: 'bookings', label: '🎫 My Bookings & Refunds' },
+  { id: 'simulation', label: '🕹️ Concurrency Simulation' },
+  { id: 'diagram', label: '📐 Class Diagram' },
+  { id: 'sequence', label: '🔀 Sequence Diagram' },
+  { id: 'details', label: '📋 Design Details' },
+];
+
+// LldPage owns the active tab, so "reset the sandbox whenever the Simulation tab is opened"
+// (formerly the tab button's onClick) is expressed as a mount effect of that tab's content.
+// This also covers LldPage restoring the Simulation tab from sessionStorage on reload.
+function ResetOnEnter({ onEnter }) {
+  const onEnterRef = useRef(onEnter);
+  useEffect(() => {
+    onEnterRef.current();
+  }, []);
+  return null;
+}
 
 const SIM_STEPS = [
   { label: 'Reset sandbox', hint: 'Seed flight AI202 (DEL→BOM) with only 12A, 12B, 12C free in Economy.' },
@@ -39,8 +54,6 @@ const SIM_STEPS = [
 const EMPTY_STATUS = { text: '', type: 'info' };
 
 export default function AirlinePage() {
-  const [activeTab, setActiveTab] = useState('flights');
-
   // Real App State
   const [flights, setFlights] = useState([]);
   const [selectedFlight, setSelectedFlight] = useState(null);
@@ -368,630 +381,564 @@ export default function AirlinePage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Header Bar */}
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 8, background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, boxShadow: '0 4px 12px rgba(2,132,199,0.35)' }}>
-            ✈️
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, letterSpacing: '-0.5px' }}>Airline Reservation System</h1>
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>LLD Portfolio Module #13 · Multi-Seat Locks, Hold TTL & Strategy Refunds</span>
-          </div>
-        </div>
-
-        {/* User Switcher & Theme */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, maxWidth: '100%', background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
-            <label htmlFor="airline-passenger" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Passenger User:</label>
-            <select
-              id="airline-passenger"
-              value={currentUserId}
-              onChange={(e) => setCurrentUserId(e.target.value)}
-              style={{ minWidth: 0, maxWidth: '100%', background: 'transparent', color: 'var(--text-primary)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-            >
-              <option value="user-alice" style={{ background: 'var(--bg-secondary)' }}>Alice Vance (user-alice)</option>
-              <option value="user-bob" style={{ background: 'var(--bg-secondary)' }}>Bob Smith (user-bob)</option>
-              <option value="user-charlie" style={{ background: 'var(--bg-secondary)' }}>Charlie Kim (user-charlie)</option>
-            </select>
-          </div>
-          <GithubSourceLinks module="airline" />
-          <ThemeToggle />
-        </div>
-      </header>
-
-      {/* Status Banner */}
-      {statusMsg.text && (
-        <div role={statusMsg.type === 'error' ? 'alert' : 'status'} style={{ padding: '10px 24px', background: statusMsg.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)', color: 'var(--text-primary)', borderBottom: `3px solid ${statusMsg.type === 'error' ? 'var(--danger)' : 'var(--success)'}`, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
-          {statusMsg.text}
-        </div>
-      )}
-
-      {/* Navigation Tabs */}
-      <nav style={{ display: 'flex', gap: 8, padding: '12px 24px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', overflowX: 'auto' }}>
-        {[
-          { id: 'flights', label: '🛫 Flight Search & Seat Map', badge: flights.length },
-          { id: 'bookings', label: '🎫 My Bookings & Refunds', badge: userBookings.length },
-          { id: 'simulation', label: '🕹️ Concurrency Simulation' },
-          { id: 'diagram', label: '📐 Class Diagram' },
-          { id: 'sequence', label: '🔀 Sequence Diagram' },
-          { id: 'details', label: '📋 Design Details' },
-        ].map(t => (
-          <button
-            key={t.id}
-            onClick={() => {
-              setActiveTab(t.id);
-              if (t.id === 'simulation') handleSimReset();
-            }}
-            style={{
-              padding: '10px 18px',
-              borderRadius: 8,
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 700,
-              fontSize: 13,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: activeTab === t.id ? '#0284c7' : 'transparent',
-              color: activeTab === t.id ? '#fff' : 'var(--text-secondary)',
-              transition: 'all 0.2s',
-            }}
-          >
-            {t.label}
-            {t.badge > 0 && (
-              <span style={{ background: '#38bdf8', color: 'var(--bg-primary)', fontSize: 10, padding: '2px 6px', borderRadius: 10, fontWeight: 800 }}>
-                {t.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
-
-      {/* Main Content Area */}
-      <main style={{ padding: 24, maxWidth: 1300, margin: '0 auto' }}>
-        {/* =================================================================== */}
-        {/* TAB 1: FLIGHT SEARCH & SEAT MAP */}
-        {/* =================================================================== */}
-        {activeTab === 'flights' && (
-          <div>
-            {/* Search Bar */}
-            <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 24, background: 'var(--bg-secondary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
-              <input
-                type="text"
-                placeholder="From (e.g. DEL)"
-                value={searchSource}
-                onChange={e => setSearchSource(e.target.value)}
-                style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 13 }}
-              />
-              <input
-                type="text"
-                placeholder="To (e.g. BOM)"
-                value={searchDestination}
-                onChange={e => setSearchDestination(e.target.value)}
-                style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 13 }}
-              />
-              <button type="submit" style={{ padding: '10px 20px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-                Search Flights
-              </button>
-            </form>
-
-            <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
-              {/* Flight List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Available Flights</div>
-                {flights.map(f => {
-                  const isSelected = selectedFlight?.flightId === f.flightId;
-                  return (
-                    <div
-                      key={f.flightId}
-                      onClick={() => setSelectedFlight(f)}
-                      style={{
-                        background: isSelected ? 'rgba(2,132,199,0.15)' : 'var(--bg-secondary)',
-                        border: `1px solid ${isSelected ? '#0284c7' : 'var(--border-primary)'}`,
-                        borderRadius: 12,
-                        padding: 16,
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontWeight: 800, fontSize: 16, color: '#38bdf8' }}>{f.flightNumber}</span>
-                        <span style={{ fontSize: 11, background: 'var(--bg-primary)', padding: '2px 8px', borderRadius: 6, color: 'var(--text-secondary)' }}>
-                          {f.aircraft?.model}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, fontWeight: 700 }}>
-                        <span>{f.source} ➔ {f.destination}</span>
-                        <span style={{ color: '#34d399', fontSize: 12 }}>{f.availableSeatsCount} Seats Left</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                        Departure: {new Date(f.departureTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Aircraft Cabin Seat Map */}
-              <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 24 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>
-                      Aircraft Seat Map ({selectedFlight?.flightNumber})
-                    </h3>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Select seats for multi-passenger checkout</div>
-                  </div>
-
-                  {/* Hold Timer Badge */}
-                  {holdTimer > 0 && (
-                    <div style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid #eab308', padding: '6px 14px', borderRadius: 8, color: '#eab308', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      ⏱ Hold Time Remaining: {formatTime(holdTimer)}
-                    </div>
-                  )}
-                </div>
-
-                {/* Seat Legend */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 20, fontSize: 11, color: 'var(--text-secondary)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#10b981', borderRadius: 3 }}></span> Available</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#a855f7', borderRadius: 3 }}></span> Selected</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#eab308', borderRadius: 3 }}></span> Held</span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#ef4444', borderRadius: 3 }}></span> Booked</span>
-                </div>
-
-                {/* Cabin Layout */}
-                <div style={{ background: 'var(--bg-primary)', padding: 24, borderRadius: 14, border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>✈️ Front of Aircraft (Cockpit)</div>
-
-                  {/* Seats Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 44px)', gap: 8, justifyContent: 'center' }}>
-                    {seats.map(seat => {
-                      const isSelected = selectedSeats.includes(seat.seatNumber);
-                      const isHeld = seat.status === 'HELD';
-                      const isBooked = seat.status === 'BOOKED';
-
-                      let bg = '#10b981';
-                      if (isBooked) bg = '#ef4444';
-                      else if (isHeld) bg = '#eab308';
-                      else if (isSelected) bg = '#a855f7';
-
-                      return (
-                        <button
-                          key={seat.seatNumber}
-                          onClick={() => handleSeatClick(seat)}
-                          disabled={isBooked || (isHeld && !heldSeats.includes(seat.seatNumber))}
-                          style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 6,
-                            border: isSelected ? '2px solid #fff' : 'none',
-                            background: bg,
-                            color: '#fff',
-                            fontWeight: 800,
-                            fontSize: 11,
-                            cursor: isBooked ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            opacity: isBooked ? 0.35 : 1,
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          <span>{seat.seatNumber}</span>
-                          <span style={{ fontSize: 8, opacity: 0.8 }}>₹{(seat.basePrice / 1000).toFixed(0)}k</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Booking Action Panel */}
-                <div style={{ marginTop: 20, borderTop: '1px solid var(--border-primary)', paddingTop: 16 }}>
-                  {heldSeats.length === 0 ? (
-                    <button
-                      onClick={handleHoldSeats}
-                      disabled={selectedSeats.length === 0}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: 8,
-                        background: selectedSeats.length > 0 ? '#0284c7' : 'var(--border-primary)',
-                        color: selectedSeats.length > 0 ? '#fff' : 'var(--text-muted)',
-                        border: 'none',
-                        fontWeight: 700,
-                        fontSize: 14,
-                        cursor: selectedSeats.length > 0 ? 'pointer' : 'not-allowed',
-                      }}
-                    >
-                      {selectedSeats.length > 0 ? `Hold ${selectedSeats.length} Seat(s) (5-min TTL)` : 'Select Seats to Proceed'}
-                    </button>
-                  ) : (
-                    <form onSubmit={handleBookFlight} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>
-                        Passenger Information ({heldSeats.length} Passenger(s)):
-                      </div>
-                      {passengers.map((p, idx) => (
-                        <div key={idx} style={{ display: 'flex', gap: 8 }}>
-                          <input
-                            type="text"
-                            placeholder="Full Name"
-                            value={p.name}
-                            onChange={e => {
-                              const updated = [...passengers];
-                              updated[idx].name = e.target.value;
-                              setPassengers(updated);
-                            }}
-                            required
-                            style={{ flex: 1, padding: '8px 12px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 12 }}
-                          />
-                          <input
-                            type="text"
-                            placeholder="Passport / ID"
-                            value={p.passportOrId}
-                            onChange={e => {
-                              const updated = [...passengers];
-                              updated[idx].passportOrId = e.target.value;
-                              setPassengers(updated);
-                            }}
-                            required
-                            style={{ width: 120, padding: '8px 12px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 12 }}
-                          />
-                          <span style={{ alignSelf: 'center', fontWeight: 800, color: '#a855f7', fontSize: 12 }}>
-                            {heldSeats[idx]}
-                          </span>
-                        </div>
-                      ))}
-                      <button
-                        type="submit"
-                        style={{ padding: '12px', borderRadius: 8, background: '#10b981', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', marginTop: 6 }}
-                      >
-                        Confirm & Pay (Total: ₹{heldSeats.length * 4500})
-                      </button>
-                    </form>
-                  )}
-                </div>
+    <LldPage module="airline" title="Airline Reservation System" icon="✈️" tabs={TABS}>
+      {(activeTab) => (
+        <>
+          {/* Passenger switcher — drives the Flights and Bookings tabs, so it is shown on those */}
+          {activeTab !== 'simulation' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>Multi-Seat Locks, Hold TTL & Strategy Refunds</p>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, maxWidth: '100%', background: 'var(--bg-primary)', padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-primary)' }}>
+                <label htmlFor="airline-passenger" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Passenger User:</label>
+                <select
+                  id="airline-passenger"
+                  value={currentUserId}
+                  onChange={(e) => setCurrentUserId(e.target.value)}
+                  style={{ minWidth: 0, maxWidth: '100%', background: 'transparent', color: 'var(--text-primary)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                >
+                  <option value="user-alice" style={{ background: 'var(--bg-secondary)' }}>Alice Vance (user-alice)</option>
+                  <option value="user-bob" style={{ background: 'var(--bg-secondary)' }}>Bob Smith (user-bob)</option>
+                  <option value="user-charlie" style={{ background: 'var(--bg-secondary)' }}>Charlie Kim (user-charlie)</option>
+                </select>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* =================================================================== */}
-        {/* TAB 2: MY BOOKINGS & REFUNDS */}
-        {/* =================================================================== */}
-        {activeTab === 'bookings' && (
-          <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 24, maxWidth: 900, margin: '0 auto' }}>
-            <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 800 }}>
-              🎫 My Flight Bookings ({userBookings.length})
-            </h2>
+          {/* Status Banner */}
+          {statusMsg.text && (
+            <div role={statusMsg.type === 'error' ? 'alert' : 'status'} style={{ padding: '10px 24px', marginBottom: 16, background: statusMsg.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)', color: 'var(--text-primary)', borderBottom: `3px solid ${statusMsg.type === 'error' ? 'var(--danger)' : 'var(--success)'}`, fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+              {statusMsg.text}
+            </div>
+          )}
 
-            {userBookings.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
-                No active or past flight bookings found for {currentUserId}.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {userBookings.map(b => {
-                  const isCancelled = b.status === 'CANCELLED' || b.status === 'REFUNDED';
-                  return (
-                    <div key={b.bookingId} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontWeight: 800, fontSize: 16, color: '#38bdf8' }}>{b.bookingId}</span>
-                          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: isCancelled ? '#ef4444' : '#10b981', color: '#fff', fontWeight: 700 }}>
-                            {b.status}
+          {/* =================================================================== */}
+          {/* TAB 1: FLIGHT SEARCH & SEAT MAP */}
+          {/* =================================================================== */}
+          {activeTab === 'flights' && (
+            <div>
+              {/* Search Bar */}
+              <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, marginBottom: 24, background: 'var(--bg-secondary)', padding: 16, borderRadius: 12, border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="From (e.g. DEL)"
+                  value={searchSource}
+                  onChange={e => setSearchSource(e.target.value)}
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 13 }}
+                />
+                <input
+                  type="text"
+                  placeholder="To (e.g. BOM)"
+                  value={searchDestination}
+                  onChange={e => setSearchDestination(e.target.value)}
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 13 }}
+                />
+                <button type="submit" style={{ padding: '10px 20px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                  Search Flights
+                </button>
+              </form>
+
+              <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 24 }}>
+                {/* Flight List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Available Flights</div>
+                  {flights.map(f => {
+                    const isSelected = selectedFlight?.flightId === f.flightId;
+                    return (
+                      <div
+                        key={f.flightId}
+                        onClick={() => setSelectedFlight(f)}
+                        style={{
+                          background: isSelected ? 'rgba(2,132,199,0.15)' : 'var(--bg-secondary)',
+                          border: `1px solid ${isSelected ? '#0284c7' : 'var(--border-primary)'}`,
+                          borderRadius: 12,
+                          padding: 16,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <span style={{ fontWeight: 800, fontSize: 16, color: '#38bdf8' }}>{f.flightNumber}</span>
+                          <span style={{ fontSize: 11, background: 'var(--bg-primary)', padding: '2px 8px', borderRadius: 6, color: 'var(--text-secondary)' }}>
+                            {f.aircraft?.model}
                           </span>
                         </div>
-                        <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
-                          Flight: <strong>{b.flightId}</strong> · Seats: <strong>{b.seatNumbers?.join(', ')}</strong>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14, fontWeight: 700 }}>
+                          <span>{f.source} ➔ {f.destination}</span>
+                          <span style={{ color: '#34d399', fontSize: 12 }}>{f.availableSeatsCount} Seats Left</span>
                         </div>
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                          Passengers: {b.passengers?.map(p => p.name).join(', ')} · Total: ₹{b.totalAmount?.toFixed(2)}
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          Departure: {new Date(f.departureTime).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                         </div>
-                        {b.refundAmount > 0 && (
-                          <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginTop: 4 }}>
-                            ✓ Refunded Amount: ₹{b.refundAmount?.toFixed(2)}
-                          </div>
-                        )}
                       </div>
-
-                      {!isCancelled && (
-                        <button
-                          onClick={() => handleCancelBooking(b.bookingId)}
-                          style={{ padding: '8px 16px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-                        >
-                          Cancel Booking
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* =================================================================== */}
-        {/* TAB 3: CONCURRENCY SIMULATION */}
-        {/* =================================================================== */}
-        {activeTab === 'simulation' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div>
-                  <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#38bdf8' }}>
-                    🕹️ Concurrency & Seat Collision Simulation
-                  </h2>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                    Testing per-seat ReentrantLocks, multi-seat atomic rollback, and tiered cancellation refund policies.
-                  </div>
+                    );
+                  })}
                 </div>
-                <button
-                  onClick={handleSimReset}
-                  disabled={simLoading}
-                  style={{ padding: '8px 16px', borderRadius: 8, background: '#334155', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
-                >
-                  🔄 Reset Simulation
-                </button>
-              </div>
 
-              {/* 8-Step Guided Walkthrough */}
-              <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                  {SIM_STEPS.map((s, i) => (
-                    <div
-                      key={s.label}
-                      title={s.label}
-                      style={{
-                        width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 10, fontWeight: 800,
-                        background: i < simStep ? '#10b981' : i === simStep ? '#0284c7' : 'var(--bg-secondary)',
-                        color: i <= simStep ? '#fff' : 'var(--text-muted)',
-                        border: i === simStep ? '2px solid #38bdf8' : '1px solid var(--border-primary)',
-                      }}
-                    >
-                      {i < simStep ? '✓' : i + 1}
+                {/* Aircraft Cabin Seat Map */}
+                <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>
+                        Aircraft Seat Map ({selectedFlight?.flightNumber})
+                      </h3>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Select seats for multi-passenger checkout</div>
                     </div>
-                  ))}
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>
-                    Step {Math.min(simStep + 1, SIM_STEPS.length)} / {SIM_STEPS.length}
-                  </span>
-                </div>
-                {simStep < SIM_STEPS.length ? (
-                  <>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>
-                      {SIM_STEPS[simStep].label}
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                      {SIM_STEPS[simStep].hint}
-                    </div>
-                    <button
-                      onClick={runGuidedStep}
-                      disabled={simGuidedBusy}
-                      style={{
-                        padding: '10px 20px', borderRadius: 8, border: 'none', fontWeight: 800, fontSize: 13,
-                        background: '#0284c7',
-                        color: '#fff', cursor: simGuidedBusy ? 'wait' : 'pointer', opacity: simGuidedBusy ? 0.6 : 1,
-                      }}
-                    >
-                      {simGuidedBusy ? 'Running…' : simStep === 0 ? '▶ Start Walkthrough' : `▶ Run Step ${simStep + 1}`}
-                    </button>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>
-                    ✓ Walkthrough complete — inspect the cabin, HUD and event log below, or Reset to run it again.
-                  </div>
-                )}
-              </div>
 
-              {/* Live Telemetry HUD */}
-              {simSnapshots?.flights?.[0] && (() => {
-                const cabinSeats = simSnapshots.flights[0].seats || [];
-                const available = cabinSeats.filter(s => s.status === 'AVAILABLE').length;
-                const held = cabinSeats.filter(s => s.status === 'HELD').length;
-                const booked = cabinSeats.filter(s => s.status === 'BOOKED').length;
-                const lastEvent = simEvents[simEvents.length - 1];
-                const collisions = simEvents.filter(e => e.type.includes('COLLISION')).length;
-                return (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 20 }}>
-                    {[
-                      { label: 'Available', value: available, color: '#10b981' },
-                      { label: 'Held', value: held, color: '#eab308' },
-                      { label: 'Booked', value: booked, color: '#ef4444' },
-                      { label: 'Collisions Blocked', value: collisions, color: '#f87171' },
-                      { label: 'Total Events', value: simEvents.length, color: '#38bdf8' },
-                      { label: 'Last Event', value: lastEvent ? lastEvent.type.replaceAll('_', ' ') : '—', color: '#a855f7', small: true },
-                    ].map(tile => (
-                      <div key={tile.label} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-                        <div style={{ fontSize: tile.small ? 12 : 20, fontWeight: 800, color: tile.color }}>{tile.value}</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: 2 }}>{tile.label}</div>
+                    {/* Hold Timer Badge */}
+                    {holdTimer > 0 && (
+                      <div style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid #eab308', padding: '6px 14px', borderRadius: 8, color: '#eab308', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        ⏱ Hold Time Remaining: {formatTime(holdTimer)}
                       </div>
-                    ))}
-                  </div>
-                );
-              })()}
-
-              {/* Manual Sandbox Controls (free-form experimentation beyond the guided script) */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>
-                Manual Sandbox Controls
-              </div>
-              {/* Simulation Controls Panel */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: 'var(--bg-primary)', padding: 16, borderRadius: 10, marginBottom: 20 }}>
-                {/* 1. Hold Seats Collision */}
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>1. Trigger Seat Hold / Race Collision</div>
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                    <select
-                      value={simUserId}
-                      onChange={e => setSimUserId(e.target.value)}
-                      style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
-                    >
-                      <option value="Sim-Alice">Alice (Thread A)</option>
-                      <option value="Sim-Bob">Bob (Thread B)</option>
-                      <option value="Sim-Charlie">Charlie (Thread C)</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="Seats (e.g. 12A,12B)"
-                      value={simSelectedSeats.join(',')}
-                      onChange={e => setSimSelectedSeats(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                      style={{ width: 110, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
-                    />
-                  </div>
-                  <div style={{ marginBottom: 8 }}>
-                    <select
-                      value={simFareType}
-                      onChange={e => setSimFareType(e.target.value)}
-                      title="Which RefundPolicy governs a future cancellation of this booking"
-                      style={{ width: '100%', padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
-                    >
-                      <option value="FLEXIBLE">FLEXIBLE fare (tiered refund)</option>
-                      <option value="BASIC">BASIC fare (non-refundable)</option>
-                    </select>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      onClick={handleSimHold}
-                      style={{ flex: 1, padding: '6px', borderRadius: 6, background: '#0284c7', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
-                    >
-                      Hold Seats
-                    </button>
-                    <button
-                      onClick={handleSimBook}
-                      style={{ flex: 1, padding: '6px', borderRadius: 6, background: '#10b981', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
-                    >
-                      Commit Booking
-                    </button>
-                  </div>
-                </div>
-
-                {/* 2. Hold TTL Expiration Test */}
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', marginBottom: 8 }}>2. Force Hold Expiry (TTL)</div>
-                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
-                    Simulates background TTL cleanup reverting all uncommitted HELD seats back to AVAILABLE.
-                  </p>
-                  <button
-                    onClick={handleSimExpire}
-                    style={{ width: '100%', padding: '6px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
-                  >
-                    Trigger Stale Hold Expiration
-                  </button>
-                </div>
-
-                {/* 3. Fare-Aware Cancellation Refund */}
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#a855f7', marginBottom: 8 }}>3. Test Fare-Aware Refund Policy</div>
-                  <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
-                    Same notice window, different result: FLEXIBLE follows the tiered schedule, BASIC always refunds ₹0.
-                  </p>
-                  <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                    <select
-                      value={simCancelHours}
-                      onChange={e => setSimCancelHours(parseInt(e.target.value))}
-                      style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
-                    >
-                      <option value={30}>&gt;24h Out (FLEXIBLE: 100%)</option>
-                      <option value={12}>12h Out (FLEXIBLE: 50%)</option>
-                      <option value={1}>1h Out (FLEXIBLE: 0%)</option>
-                    </select>
-                  </div>
-                  {simSnapshots?.bookings?.filter(b => b.status === 'CONFIRMED').map(b => (
-                    <button
-                      key={b.bookingId}
-                      onClick={() => handleSimCancel(b.bookingId)}
-                      style={{ width: '100%', padding: '4px 8px', borderRadius: 4, background: '#a855f7', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', fontWeight: 600, marginTop: 4 }}
-                    >
-                      Cancel {b.bookingId} ({b.fareType}) at T-{simCancelHours}h
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 2D Aircraft Cabin Visualizer & Log */}
-              <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-                {/* Aircraft Cabin */}
-                <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
-                    ✈️ Boeing 737 Simulation Cabin (AI202)
+                    )}
                   </div>
 
-                  {simSnapshots?.flights?.[0] && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 36px)', gap: 6, justifyContent: 'center' }}>
-                      {simSnapshots.flights[0].seats?.map(seat => {
+                  {/* Seat Legend */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 20, fontSize: 11, color: 'var(--text-secondary)' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#10b981', borderRadius: 3 }}></span> Available</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#a855f7', borderRadius: 3 }}></span> Selected</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#eab308', borderRadius: 3 }}></span> Held</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, background: '#ef4444', borderRadius: 3 }}></span> Booked</span>
+                  </div>
+
+                  {/* Cabin Layout */}
+                  <div style={{ background: 'var(--bg-primary)', padding: 24, borderRadius: 14, border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>✈️ Front of Aircraft (Cockpit)</div>
+
+                    {/* Seats Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 44px)', gap: 8, justifyContent: 'center' }}>
+                      {seats.map(seat => {
+                        const isSelected = selectedSeats.includes(seat.seatNumber);
+                        const isHeld = seat.status === 'HELD';
+                        const isBooked = seat.status === 'BOOKED';
+
                         let bg = '#10b981';
-                        if (seat.status === 'BOOKED') bg = '#ef4444';
-                        else if (seat.status === 'HELD') bg = '#eab308';
+                        if (isBooked) bg = '#ef4444';
+                        else if (isHeld) bg = '#eab308';
+                        else if (isSelected) bg = '#a855f7';
 
                         return (
-                          <div
+                          <button
                             key={seat.seatNumber}
+                            onClick={() => handleSeatClick(seat)}
+                            disabled={isBooked || (isHeld && !heldSeats.includes(seat.seatNumber))}
                             style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: 4,
+                              width: 44,
+                              height: 44,
+                              borderRadius: 6,
+                              border: isSelected ? '2px solid #fff' : 'none',
                               background: bg,
                               color: '#fff',
                               fontWeight: 800,
-                              fontSize: 10,
+                              fontSize: 11,
+                              cursor: isBooked ? 'not-allowed' : 'pointer',
                               display: 'flex',
+                              flexDirection: 'column',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              opacity: seat.status === 'BOOKED' ? 0.35 : 1,
+                              opacity: isBooked ? 0.35 : 1,
+                              transition: 'all 0.15s',
                             }}
                           >
-                            {seat.seatNumber}
-                          </div>
+                            <span>{seat.seatNumber}</span>
+                            <span style={{ fontSize: 8, opacity: 0.8 }}>₹{(seat.basePrice / 1000).toFixed(0)}k</span>
+                          </button>
                         );
                       })}
                     </div>
-                  )}
-                </div>
-
-                {/* Simulation Event Stream */}
-                <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
-                    Live Simulation Event Stream ({simEvents.length})
                   </div>
-                  <div style={{ flex: 1, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {simEvents.slice().reverse().map(ev => (
-                      <div key={ev.id} style={{
-                        background: 'var(--bg-secondary)',
-                        padding: '8px 10px',
-                        borderRadius: 6,
-                        borderLeft: `3px solid ${ev.type.includes('COLLISION') || ev.type.includes('FAILED') ? '#ef4444' : '#10b981'}`,
-                        fontSize: 11
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: 10 }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{ev.type}</span>
-                          <span>{ev.timestamp}</span>
+
+                  {/* Booking Action Panel */}
+                  <div style={{ marginTop: 20, borderTop: '1px solid var(--border-primary)', paddingTop: 16 }}>
+                    {heldSeats.length === 0 ? (
+                      <button
+                        onClick={handleHoldSeats}
+                        disabled={selectedSeats.length === 0}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: 8,
+                          background: selectedSeats.length > 0 ? '#0284c7' : 'var(--border-primary)',
+                          color: selectedSeats.length > 0 ? '#fff' : 'var(--text-muted)',
+                          border: 'none',
+                          fontWeight: 700,
+                          fontSize: 14,
+                          cursor: selectedSeats.length > 0 ? 'pointer' : 'not-allowed',
+                        }}
+                      >
+                        {selectedSeats.length > 0 ? `Hold ${selectedSeats.length} Seat(s) (5-min TTL)` : 'Select Seats to Proceed'}
+                      </button>
+                    ) : (
+                      <form onSubmit={handleBookFlight} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8' }}>
+                          Passenger Information ({heldSeats.length} Passenger(s)):
                         </div>
-                        <div style={{ marginTop: 2, color: '#cbd5e1' }}>{ev.description}</div>
-                      </div>
-                    ))}
+                        {passengers.map((p, idx) => (
+                          <div key={idx} style={{ display: 'flex', gap: 8 }}>
+                            <input
+                              type="text"
+                              placeholder="Full Name"
+                              value={p.name}
+                              onChange={e => {
+                                const updated = [...passengers];
+                                updated[idx].name = e.target.value;
+                                setPassengers(updated);
+                              }}
+                              required
+                              style={{ flex: 1, padding: '8px 12px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 12 }}
+                            />
+                            <input
+                              type="text"
+                              placeholder="Passport / ID"
+                              value={p.passportOrId}
+                              onChange={e => {
+                                const updated = [...passengers];
+                                updated[idx].passportOrId = e.target.value;
+                                setPassengers(updated);
+                              }}
+                              required
+                              style={{ width: 120, padding: '8px 12px', borderRadius: 6, background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 12 }}
+                            />
+                            <span style={{ alignSelf: 'center', fontWeight: 800, color: '#a855f7', fontSize: 12 }}>
+                              {heldSeats[idx]}
+                            </span>
+                          </div>
+                        ))}
+                        <button
+                          type="submit"
+                          style={{ padding: '12px', borderRadius: 8, background: '#10b981', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', marginTop: 6 }}
+                        >
+                          Confirm & Pay (Total: ₹{heldSeats.length * 4500})
+                        </button>
+                      </form>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* =================================================================== */}
-        {/* TAB 4: CLASS DIAGRAM */}
-        {/* =================================================================== */}
-        {activeTab === 'diagram' && <SolutionGate module="airline" label="the class diagram"><ClassDiagram module="airline" /></SolutionGate>}
+          {/* =================================================================== */}
+          {/* TAB 2: MY BOOKINGS & REFUNDS */}
+          {/* =================================================================== */}
+          {activeTab === 'bookings' && (
+            <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 24, maxWidth: 900, margin: '0 auto' }}>
+              <h2 style={{ margin: '0 0 16px 0', fontSize: 18, fontWeight: 800 }}>
+                🎫 My Flight Bookings ({userBookings.length})
+              </h2>
 
-        {/* =================================================================== */}
-        {/* TAB 5: SEQUENCE DIAGRAM */}
-        {/* =================================================================== */}
-        {activeTab === 'sequence' && <SolutionGate module="airline" label="the sequence diagram"><SequenceDiagram module="airline" /></SolutionGate>}
+              {userBookings.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
+                  No active or past flight bookings found for {currentUserId}.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {userBookings.map(b => {
+                    const isCancelled = b.status === 'CANCELLED' || b.status === 'REFUNDED';
+                    return (
+                      <div key={b.bookingId} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{ fontWeight: 800, fontSize: 16, color: '#38bdf8' }}>{b.bookingId}</span>
+                            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: isCancelled ? '#ef4444' : '#10b981', color: '#fff', fontWeight: 700 }}>
+                              {b.status}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>
+                            Flight: <strong>{b.flightId}</strong> · Seats: <strong>{b.seatNumbers?.join(', ')}</strong>
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                            Passengers: {b.passengers?.map(p => p.name).join(', ')} · Total: ₹{b.totalAmount?.toFixed(2)}
+                          </div>
+                          {b.refundAmount > 0 && (
+                            <div style={{ fontSize: 11, color: '#34d399', fontWeight: 600, marginTop: 4 }}>
+                              ✓ Refunded Amount: ₹{b.refundAmount?.toFixed(2)}
+                            </div>
+                          )}
+                        </div>
 
-        {/* =================================================================== */}
-        {/* TAB 6: DESIGN DETAILS */}
-        {/* =================================================================== */}
-        {activeTab === 'details' && <DesignDetails module="airline" />}
-      </main>
-    </div>
+                        {!isCancelled && (
+                          <button
+                            onClick={() => handleCancelBooking(b.bookingId)}
+                            style={{ padding: '8px 16px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                          >
+                            Cancel Booking
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* =================================================================== */}
+          {/* TAB 3: CONCURRENCY SIMULATION */}
+          {/* =================================================================== */}
+          {activeTab === 'simulation' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <ResetOnEnter onEnter={handleSimReset} />
+              <div style={{ background: 'var(--bg-secondary)', borderRadius: 12, border: '1px solid var(--border-primary)', padding: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <div>
+                    <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#38bdf8' }}>
+                      🕹️ Concurrency & Seat Collision Simulation
+                    </h2>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                      Testing per-seat ReentrantLocks, multi-seat atomic rollback, and tiered cancellation refund policies.
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSimReset}
+                    disabled={simLoading}
+                    style={{ padding: '8px 16px', borderRadius: 8, background: '#334155', color: '#fff', border: 'none', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                  >
+                    🔄 Reset Simulation
+                  </button>
+                </div>
+
+                {/* 8-Step Guided Walkthrough */}
+                <div style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 16, marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                    {SIM_STEPS.map((s, i) => (
+                      <div
+                        key={s.label}
+                        title={s.label}
+                        style={{
+                          width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 10, fontWeight: 800,
+                          background: i < simStep ? '#10b981' : i === simStep ? '#0284c7' : 'var(--bg-secondary)',
+                          color: i <= simStep ? '#fff' : 'var(--text-muted)',
+                          border: i === simStep ? '2px solid #38bdf8' : '1px solid var(--border-primary)',
+                        }}
+                      >
+                        {i < simStep ? '✓' : i + 1}
+                      </div>
+                    ))}
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', marginLeft: 4 }}>
+                      Step {Math.min(simStep + 1, SIM_STEPS.length)} / {SIM_STEPS.length}
+                    </span>
+                  </div>
+                  {simStep < SIM_STEPS.length ? (
+                    <>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 4 }}>
+                        {SIM_STEPS[simStep].label}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12 }}>
+                        {SIM_STEPS[simStep].hint}
+                      </div>
+                      <button
+                        onClick={runGuidedStep}
+                        disabled={simGuidedBusy}
+                        style={{
+                          padding: '10px 20px', borderRadius: 8, border: 'none', fontWeight: 800, fontSize: 13,
+                          background: '#0284c7',
+                          color: '#fff', cursor: simGuidedBusy ? 'wait' : 'pointer', opacity: simGuidedBusy ? 0.6 : 1,
+                        }}
+                      >
+                        {simGuidedBusy ? 'Running…' : simStep === 0 ? '▶ Start Walkthrough' : `▶ Run Step ${simStep + 1}`}
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>
+                      ✓ Walkthrough complete — inspect the cabin, HUD and event log below, or Reset to run it again.
+                    </div>
+                  )}
+                </div>
+
+                {/* Live Telemetry HUD */}
+                {simSnapshots?.flights?.[0] && (() => {
+                  const cabinSeats = simSnapshots.flights[0].seats || [];
+                  const available = cabinSeats.filter(s => s.status === 'AVAILABLE').length;
+                  const held = cabinSeats.filter(s => s.status === 'HELD').length;
+                  const booked = cabinSeats.filter(s => s.status === 'BOOKED').length;
+                  const lastEvent = simEvents[simEvents.length - 1];
+                  const collisions = simEvents.filter(e => e.type.includes('COLLISION')).length;
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10, marginBottom: 20 }}>
+                      {[
+                        { label: 'Available', value: available, color: '#10b981' },
+                        { label: 'Held', value: held, color: '#eab308' },
+                        { label: 'Booked', value: booked, color: '#ef4444' },
+                        { label: 'Collisions Blocked', value: collisions, color: '#f87171' },
+                        { label: 'Total Events', value: simEvents.length, color: '#38bdf8' },
+                        { label: 'Last Event', value: lastEvent ? lastEvent.type.replaceAll('_', ' ') : '—', color: '#a855f7', small: true },
+                      ].map(tile => (
+                        <div key={tile.label} style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+                          <div style={{ fontSize: tile.small ? 12 : 20, fontWeight: 800, color: tile.color }}>{tile.value}</div>
+                          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: 2 }}>{tile.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {/* Manual Sandbox Controls (free-form experimentation beyond the guided script) */}
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 10 }}>
+                  Manual Sandbox Controls
+                </div>
+                {/* Simulation Controls Panel */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, background: 'var(--bg-primary)', padding: 16, borderRadius: 10, marginBottom: 20 }}>
+                  {/* 1. Hold Seats Collision */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#eab308', marginBottom: 8 }}>1. Trigger Seat Hold / Race Collision</div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                      <select
+                        value={simUserId}
+                        onChange={e => setSimUserId(e.target.value)}
+                        style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
+                      >
+                        <option value="Sim-Alice">Alice (Thread A)</option>
+                        <option value="Sim-Bob">Bob (Thread B)</option>
+                        <option value="Sim-Charlie">Charlie (Thread C)</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Seats (e.g. 12A,12B)"
+                        value={simSelectedSeats.join(',')}
+                        onChange={e => setSimSelectedSeats(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                        style={{ width: 110, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
+                      />
+                    </div>
+                    <div style={{ marginBottom: 8 }}>
+                      <select
+                        value={simFareType}
+                        onChange={e => setSimFareType(e.target.value)}
+                        title="Which RefundPolicy governs a future cancellation of this booking"
+                        style={{ width: '100%', padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
+                      >
+                        <option value="FLEXIBLE">FLEXIBLE fare (tiered refund)</option>
+                        <option value="BASIC">BASIC fare (non-refundable)</option>
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={handleSimHold}
+                        style={{ flex: 1, padding: '6px', borderRadius: 6, background: '#0284c7', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
+                      >
+                        Hold Seats
+                      </button>
+                      <button
+                        onClick={handleSimBook}
+                        style={{ flex: 1, padding: '6px', borderRadius: 6, background: '#10b981', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
+                      >
+                        Commit Booking
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 2. Hold TTL Expiration Test */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#ef4444', marginBottom: 8 }}>2. Force Hold Expiry (TTL)</div>
+                    <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
+                      Simulates background TTL cleanup reverting all uncommitted HELD seats back to AVAILABLE.
+                    </p>
+                    <button
+                      onClick={handleSimExpire}
+                      style={{ width: '100%', padding: '6px', borderRadius: 6, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer' }}
+                    >
+                      Trigger Stale Hold Expiration
+                    </button>
+                  </div>
+
+                  {/* 3. Fare-Aware Cancellation Refund */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#a855f7', marginBottom: 8 }}>3. Test Fare-Aware Refund Policy</div>
+                    <p style={{ fontSize: 10, color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
+                      Same notice window, different result: FLEXIBLE follows the tiered schedule, BASIC always refunds ₹0.
+                    </p>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                      <select
+                        value={simCancelHours}
+                        onChange={e => setSimCancelHours(parseInt(e.target.value))}
+                        style={{ flex: 1, padding: 6, borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', fontSize: 11 }}
+                      >
+                        <option value={30}>&gt;24h Out (FLEXIBLE: 100%)</option>
+                        <option value={12}>12h Out (FLEXIBLE: 50%)</option>
+                        <option value={1}>1h Out (FLEXIBLE: 0%)</option>
+                      </select>
+                    </div>
+                    {simSnapshots?.bookings?.filter(b => b.status === 'CONFIRMED').map(b => (
+                      <button
+                        key={b.bookingId}
+                        onClick={() => handleSimCancel(b.bookingId)}
+                        style={{ width: '100%', padding: '4px 8px', borderRadius: 4, background: '#a855f7', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', fontWeight: 600, marginTop: 4 }}
+                      >
+                        Cancel {b.bookingId} ({b.fareType}) at T-{simCancelHours}h
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2D Aircraft Cabin Visualizer & Log */}
+                <div className="responsive-two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  {/* Aircraft Cabin */}
+                  <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
+                      ✈️ Boeing 737 Simulation Cabin (AI202)
+                    </div>
+
+                    {simSnapshots?.flights?.[0] && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 36px)', gap: 6, justifyContent: 'center' }}>
+                        {simSnapshots.flights[0].seats?.map(seat => {
+                          let bg = '#10b981';
+                          if (seat.status === 'BOOKED') bg = '#ef4444';
+                          else if (seat.status === 'HELD') bg = '#eab308';
+
+                          return (
+                            <div
+                              key={seat.seatNumber}
+                              style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 4,
+                                background: bg,
+                                color: '#fff',
+                                fontWeight: 800,
+                                fontSize: 10,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                opacity: seat.status === 'BOOKED' ? 0.35 : 1,
+                              }}
+                            >
+                              {seat.seatNumber}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Simulation Event Stream */}
+                  <div style={{ background: 'var(--bg-primary)', padding: 16, borderRadius: 10, border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 12 }}>
+                      Live Simulation Event Stream ({simEvents.length})
+                    </div>
+                    <div style={{ flex: 1, maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {simEvents.slice().reverse().map(ev => (
+                        <div key={ev.id} style={{
+                          background: 'var(--bg-secondary)',
+                          padding: '8px 10px',
+                          borderRadius: 6,
+                          borderLeft: `3px solid ${ev.type.includes('COLLISION') || ev.type.includes('FAILED') ? '#ef4444' : '#10b981'}`,
+                          fontSize: 11
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: 10 }}>
+                            <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{ev.type}</span>
+                            <span>{ev.timestamp}</span>
+                          </div>
+                          <div style={{ marginTop: 2, color: '#cbd5e1' }}>{ev.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </LldPage>
   );
 }
