@@ -199,7 +199,7 @@ function SetupSection({ onCreated }) {
           <button type="submit" className="btn-primary">Register Bidder</button>
         </form>
       </div>
-      {error && <div className="error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
+      {error && <div role="alert" className="error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
       {success && <div className="success" style={{ gridColumn: '1 / -1' }}>{success}</div>}
     </div>
   );
@@ -291,7 +291,7 @@ function AuctionDetail({ auctionId, bidders, onUpdate }) {
           Close Auction
         </button>
       )}
-      {error && <div className="error">{error}</div>}
+      {error && <div role="alert" className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
 
       <h3 style={{ fontSize: 14, color: 'var(--info)', margin: '16px 0 8px' }}>Outbid Notifications ({notifications.length})</h3>

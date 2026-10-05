@@ -389,7 +389,7 @@ function QuestionDetail({ questionId, users, currentUserId, setCurrentUserId, on
         <div className="so-empty">This question is closed to new answers.</div>
       )}
 
-      {error && <div className="so-error">{error}</div>}
+      {error && <div role="alert" className="so-error">{error}</div>}
     </div>
   );
 }
@@ -453,7 +453,7 @@ function AskTab({ currentUserId, onPosted }) {
             ))}
           </div>
         </div>
-        {error && <div className="so-error">{error}</div>}
+        {error && <div role="alert" className="so-error">{error}</div>}
         <button type="submit" className="so-btn primary" disabled={busy} style={{ width: '100%', marginTop: 4 }}>
           {busy ? 'Posting...' : 'Post Question'}
         </button>
@@ -674,7 +674,7 @@ function SimulationTab() {
         </div>
       )}
 
-      {error && <div className="so-error">{error}</div>}
+      {error && <div role="alert" className="so-error">{error}</div>}
 
       <div className="so-step-actions">
         {!done ? (

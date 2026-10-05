@@ -335,7 +335,7 @@ function AppTab() {
         </button>
       </div>
 
-      <div className="rest-log">{log}</div>
+      <div role="status" className="rest-log">{log}</div>
     </div>
   );
 }
@@ -635,7 +635,7 @@ function SimulationTab() {
         </div>
       )}
 
-      <div className={`rest-log ${logBad ? 'sim-log-bad' : ''}`}>{log}</div>
+      <div role="status" className={`rest-log ${logBad ? 'sim-log-bad' : ''}`}>{log}</div>
 
       {/* Contention detail — who took the lock and who was turned away */}
       {race && (

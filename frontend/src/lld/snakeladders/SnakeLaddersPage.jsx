@@ -248,7 +248,7 @@ function GameBoard({ gameId, playerNames, onNewGame }) {
           <button className="dice-btn" onClick={handleRoll} disabled={rolling || isOver}>{rolling ? '...' : isOver ? 'Done' : 'Roll'}</button>
         </div>
       </div>
-      {message && <div className={`message ${isOver ? 'win' : ''}`}>{message}</div>}
+      {message && <div role="status" className={`message ${isOver ? 'win' : ''}`}>{message}</div>}
       <div className="board-wrapper" ref={boardRef}>
         <div className="board">{cells}</div>
         <svg className="board-svg" width={BOARD_SIZE} height={BOARD_SIZE} viewBox={`0 0 ${BOARD_SIZE} ${BOARD_SIZE}`}>

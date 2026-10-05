@@ -81,7 +81,7 @@ function AppTab() {
   return (
     <div className="nt-container">
       <style>{CSS}</style>
-      {error && <div className="nt-banner err">⚠ {error}</div>}
+      {error && <div role="alert" className="nt-banner err">⚠ {error}</div>}
 
       <div className="nt-form-row">
         <select value={form.recipientId} onChange={(e) => setForm((f) => ({ ...f, recipientId: e.target.value }))}>
@@ -171,7 +171,7 @@ function SimulationTab() {
       <div style={{ textAlign: 'center', marginBottom: 12, fontSize: 13, color: 'var(--text-muted)' }}>
         <b>Step {step + 1}/{STEPS.length}: {STEPS[step].title}</b> — {STEPS[step].detail}
       </div>
-      {error && <div className="nt-banner err">⚠ {error}</div>}
+      {error && <div role="alert" className="nt-banner err">⚠ {error}</div>}
 
       <div className="nt-stage">
         {recipient && (

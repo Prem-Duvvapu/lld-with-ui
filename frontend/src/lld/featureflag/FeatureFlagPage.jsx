@@ -115,7 +115,7 @@ function AppTab() {
   return (
     <div className="ff-container">
       <style>{CSS}</style>
-      {error && <div className="ff-banner err">⚠ {error}</div>}
+      {error && <div role="alert" className="ff-banner err">⚠ {error}</div>}
 
       <div className="ff-form-row">
         <input placeholder="flag key (e.g. new-checkout)" value={newKey} onChange={(e) => setNewKey(e.target.value)} />
@@ -218,7 +218,7 @@ function SimulationTab() {
       <div style={{ textAlign: 'center', marginBottom: 12, fontSize: 13, color: 'var(--text-muted)' }}>
         <b>Step {step + 1}/{STEPS.length}: {STEPS[step].title}</b> — {STEPS[step].detail}
       </div>
-      {error && <div className="ff-banner err">⚠ {error}</div>}
+      {error && <div role="alert" className="ff-banner err">⚠ {error}</div>}
 
       <div className="ff-stage">
         {flag && (

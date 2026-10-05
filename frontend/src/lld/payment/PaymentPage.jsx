@@ -165,7 +165,7 @@ export default function PaymentPage() {
           </p>
 
           {message && (
-            <div style={{
+            <div role={message.type === 'error' ? 'alert' : 'status'} style={{
               padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontWeight: '600',
               background: message.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)',
               color: message.type === 'error' ? 'var(--danger)' : 'var(--success)',
@@ -328,7 +328,7 @@ function PaymentSimulationTab({ simSnapshot, simStep, simLoading, simError, simS
         </div>
 
         {simError && (
-          <div style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '8px', background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid var(--danger)', fontSize: '13px', fontWeight: '600' }}>
+          <div role="alert" style={{ marginTop: '12px', padding: '10px 14px', borderRadius: '8px', background: 'var(--danger-bg)', color: 'var(--danger)', border: '1px solid var(--danger)', fontSize: '13px', fontWeight: '600' }}>
             ⚠ {simError}
           </div>
         )}

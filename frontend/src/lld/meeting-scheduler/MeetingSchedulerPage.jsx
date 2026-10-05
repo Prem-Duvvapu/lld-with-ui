@@ -114,7 +114,7 @@ function AppTab() {
     <div className="ms-container">
       <style>{CSS}</style>
       {error && (
-        <div className="ms-banner error">
+        <div role="alert" className="ms-banner error">
           ⚠ {error}
           <button className="ms-btn danger" style={{ marginLeft: 12, padding: '4px 10px' }} onClick={load}>Retry</button>
         </div>
@@ -319,7 +319,7 @@ function SimulationTab() {
           <>
             <h3 style={{ margin: '0 0 6px' }}>{SIM_STEPS[step].title}</h3>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>{SIM_STEPS[step].detail}</p>
-            {error && <div className="ms-banner error">⚠ {error}</div>}
+            {error && <div role="alert" className="ms-banner error">⚠ {error}</div>}
             <button className="ms-btn" onClick={runStep}>▶ Run Step {step + 1}</button>
           </>
         ) : (

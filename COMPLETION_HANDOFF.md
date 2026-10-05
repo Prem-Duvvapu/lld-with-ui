@@ -49,8 +49,34 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   untracked `setTimeout`, so an older timer wiped a newer message early during rapid
   actions, and timers outlived the page. All 14 now use `hooks/useTransientMessage`, which
   cancels the previous timer, cancels on unmount, and keeps error messages until replaced.
-- **No live regions (open).** None of the 35 pages marks its banner or simulation error
-  with `role="status"`/`role="alert"`, so outcomes are silent to screen readers.
+- **No live regions (fixed, batch 2).** 77 conditional banners across 46 pages (including
+  12 adopted modules) had no `role`; they are now `alert`/`status` regions, guarded by
+  `accessibilityContracts.test.js` (RCA-087).
+- **Status-token contrast (fixed, batch 2).** Light `--success/--danger/--warning/--info`
+  and dark `--danger` failed 4.5:1 as text on their own tints. Light tokens are darkened in
+  place and the dark danger tint alpha is lowered; the same test guards both.
+- **Dark white-on-solid status colours (open).** At 69 sites (buttons, badges, step dots),
+  white text on solid dark `--success/--warning/--info/--danger` is 1.9–3.35:1. This needs
+  dedicated solid/`--on-*` tokens rather than a change to the text tokens.
+- **Silent initial-load failures (open, batch 3).** In the intercepted run, coupon, airline
+  and coffee-machine rendered no message when every `/api` call failed; digital-wallet,
+  stock-brokerage and course-registration did.
+- **320px page overflow (fixed, batch 2).** coupon 16px (fixed two-column grid → `auto-fit`),
+  airline 6px (non-wrapping passenger picker and seat legend), course-registration 69px (tables
+  now in a local `overflow-x: auto` container). Airline's passenger `<select>` also had
+  `outline: none` and an unassociated label; both are fixed. Only six routes were measured, so
+  overflow on the other routes is still unverified.
+- **Standalone page shells (open, batch 3).** airline, coffeemachine, library, linkedin, ludo,
+  movieticket and vendingmachine do not use `LldPage`; each hand-rolls its header, theme
+  toggle, tabs, diagram/design wiring and solution gate. They miss shared navigation memory,
+  mobile tab semantics and future shell fixes. Hardcoded banners in airline, library, linkedin, coffeemachine, and
+  vendingmachine now use the tokens.
+- **Swallowed load errors.** digitalwallet (**fixed**, batch 2); logging-framework (open, see
+  below).
+- **logging-framework live tab (open, batch 3).** Its mutation handlers lack `try/catch` and
+  busy guards. Invalid MDC JSON is silently dropped. `scrollIntoView` on every 2 s poll can move
+  the page. The fixed `1fr 2fr` grid is cramped at 320px, and the labels are not associated
+  with their inputs.
 - **Other uncleared animation timers (fixed, batch 1).** coffeemachine brew, vendingmachine
   slot spin and stackoverflow rejection flash now use the same hook.
 - **Custom sim steppers (open).** Most of the 35 have their own Next/step state with no
@@ -58,64 +84,64 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
-| airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| atm | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| auction | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
+| airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| atm | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| auction | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
 | blocking-queue | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
 | bloom-filter | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
-| cachelibrary | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| car-rental | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| chess | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| circuit-breaker | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| coffeemachine | Not adopted | Static scan 2026-10-05 | brew-animation timer not cleared (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| concert-ticket | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
+| cachelibrary | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| car-rental | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| chess | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| circuit-breaker | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| coffeemachine | Not adopted | Static scan 2026-10-05 | brew-animation timer not cleared (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| concert-ticket | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
 | concurrent-hashmap | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
-| coupon | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| course-registration | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| cricinfo | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| digitalwallet | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| elevator | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| featureflag | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
+| coupon | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| course-registration | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| cricinfo | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| digitalwallet | Not adopted | Static scan 2026-10-05 | live regions + swallowed load errors (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| elevator | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| featureflag | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
 | fizz-buzz | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
 | foo-bar | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
 | h2o | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
-| hotel | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| inventory | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| jobscheduler | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| kvstore | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| logging-framework | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
+| hotel | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| inventory | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| jobscheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| kvstore | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| logging-framework | Not adopted | Manual review 2026-10-05 | No error handling/busy guards on mutations; silent bad JSON; poll-driven scroll; fixed grid at 320px; unlabeled inputs | Pending (batch 3) | Not started | — | Not yet | — |
 | lru-cache | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| ludo | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| meeting-scheduler | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
+| ludo | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| meeting-scheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
 | merge-sort | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
-| minesweeper | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
+| minesweeper | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
 | movieticket | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| music-streaming | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| notification | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| parking | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| payment | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| pubsub | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| rate-limiter | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| restaurant | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| shoppingcart | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| snakeladders | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| social-network | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| splitwise | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| stackoverflow | Not adopted | Static scan 2026-10-05 | vote-reject flash timer not cleared (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| stock-brokerage | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| task-management | Not adopted | Static scan 2026-10-05 | no live region for banners/sim errors | Pending per-module review | Not started | — | Not yet | — |
-| thread-pool | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
+| music-streaming | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| notification | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| parking | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| payment | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| pubsub | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| rate-limiter | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| restaurant | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| shoppingcart | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| snakeladders | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| social-network | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| splitwise | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| stackoverflow | Not adopted | Static scan 2026-10-05 | vote-reject flash timer not cleared (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| stock-brokerage | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| task-management | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | Batch 2 PR |
+| thread-pool | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
 | tictactoe | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| traffic-signal | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
+| traffic-signal | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
 | ttl-cache | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
-| uber | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
-| vendingmachine | Not adopted | Static scan 2026-10-05 | slot-spin timer not cleared (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| webcrawler | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
-| workflow | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); no live region for banners/sim errors | Pending per-module review | Batch 1 timer fix | `transientMessage.test.jsx` | Not yet | Batch 1 PR |
+| uber | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, batch 2 PR |
+| vendingmachine | Not adopted | Static scan 2026-10-05 | slot-spin timer not cleared (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| webcrawler | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
+| workflow | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, batch 2 PR |
 | zero-even-odd | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
 | zomato | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
 
@@ -123,8 +149,9 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 
 | Batch | Scope | PR | Validation |
 |---|---|---|---|
-| 1 | Matrix, `useTransientMessage` across 17 pages (RCA-086) | _pending_ | _pending_ |
-| 1b | RCA-085 deterministic workflow outcomes (separate PR) | _pending_ | _pending_ |
+| 1 | Matrix, `useTransientMessage` across 17 pages (RCA-086) | #152 | 579 vitest, lint 16 (baseline), build budgets, 2308 mvn; CI green |
+| 1b | RCA-085 deterministic workflow outcomes (separate PR) | #153 | `WorkflowConcurrencyTest` 6/6 ×3, 2308 mvn; CI green |
+| 2 | Live regions on 77 banners, AA status tokens, wallet load errors (RCA-087) | _pending_ | _pending_ |
 
 ## Prompt to give the next agent
 

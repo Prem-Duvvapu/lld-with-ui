@@ -330,7 +330,7 @@ function BoardTab() {
         </div>
       </div>
 
-      {error && <div className="tm-banner tm-banner-err"><span>⚠️</span>{error}</div>}
+      {error && <div role="alert" className="tm-banner tm-banner-err"><span>⚠️</span>{error}</div>}
 
       {initialLoading ? <BoardSkeleton /> : (
         <>

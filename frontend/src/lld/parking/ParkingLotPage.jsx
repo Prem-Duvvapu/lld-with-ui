@@ -127,7 +127,7 @@ function EntryForm() {
             </Button>
           </form>
 
-          {error && <div className="error-msg">{error}</div>}
+          {error && <div role="alert" className="error-msg">{error}</div>}
 
           {result && (
             <div className="result-card">
@@ -310,7 +310,7 @@ function ExitForm() {
             </div>
           )}
 
-          {error && <div className="error-msg">{error}</div>}
+          {error && <div role="alert" className="error-msg">{error}</div>}
         </CardBody>
       </Card>
     </div>

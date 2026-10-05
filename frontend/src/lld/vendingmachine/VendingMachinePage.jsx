@@ -506,7 +506,7 @@ function MachineHardwareTab() {
         </div>
 
         {error && (
-          <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '10px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
+          <div role="alert" style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
             ⚠️ {error}
           </div>
         )}
@@ -937,7 +937,7 @@ function SimulationTab() {
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef4444', color: '#ef4444', padding: '10px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
+        <div role="alert" style={{ background: 'var(--danger-bg)', border: '1px solid var(--danger)', color: 'var(--danger)', padding: '10px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>
           {error}
         </div>
       )}

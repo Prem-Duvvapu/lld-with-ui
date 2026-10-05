@@ -5974,6 +5974,66 @@ snapshots when serialization happens after a lock is released. Multi-aggregate r
 the same locks in the same global order as multi-aggregate writes, and concurrency suites should
 pause a writer inside its critical section to prove readers cannot observe intermediate state.
 
+## RCA-087: Outcome Banners Were Silent to Screen Readers and Status Colours Failed AA
+
+**Overview & Severity** — Medium accessibility defect across 46 module pages and the shared
+theme. Success, rejection and error banners rendered visually but were not live regions, so
+screen-reader users received no feedback after an action or a failed request. Separately, the
+light-theme status tokens failed WCAG AA (4.5:1) when used as text on their own tints, the
+pattern most banners use: `--success` 2.95:1, `--danger` 4.14:1, `--warning` 2.86:1,
+`--info` 3.61:1; dark `--danger` 4.35:1. Digital Wallet also swallowed wallet-list and
+history load failures (`console.error`), leaving an unexplained empty state.
+
+**Symptoms & Error Logs** — No runtime error. A static scan found 77 conditional banners of
+the form `{error && <div …>}` with no `role`, and zero `role="status"`/`role="alert"` in the 35
+pages without shared playback. Hardcoded banners in airline, library and linkedin used white on
+`#10b981` (2.54:1) and white on `#ef4444` (3.76:1). The coffee-machine and vending-machine
+errors used `#ef4444` on a 12% tint (3.22:1).
+
+**Root Cause** — Each page hand-built its banners with inline markup, so no shared component
+supplied live-region semantics. The status tokens were chosen as accent colours and were
+later reused as body-text colours on tinted backgrounds without a contrast check. Nothing in CI
+guarded either property.
+
+**Diagnostic Commands**
+```bash
+cd frontend/src/lld
+grep -n "{\(message\|error\|simError\|banner\|notice\) && " */*.jsx | grep -v role=
+npx vitest run src/__tests__/accessibilityContracts.test.js
+node browser-check.cjs <out-dir> digital-wallet,coupon,airline   # intercepted Chromium run
+```
+
+**Step-by-Step Resolution**
+
+1. Added `role="alert"` to error banners and `role="status"` to success/outcome banners.
+   Banners whose type varies at runtime choose the role from that type (`message.type`,
+   `statusMsg.type`, `banner.kind`, `banner.bad`, `alert.status`). Rate Limiter and Thread
+   Pool outcome banners are `status` because throttling and rejection are valid domain
+   results, not failures. The persistent log lines in cricinfo, course-registration and
+   restaurant became `role="status"` regions.
+2. Darkened the light-theme status tokens without changing hue (`--success #127235`,
+   `--danger #c21d1d`, `--warning #a14a07`, `--info #0369a1`), and lowered the dark
+   `--danger-bg` alpha from 0.15 to 0.12. Every token now reaches at least 4.5:1 on its own
+   tint over both `--bg-card` and `--bg-primary`. Brightening dark `--danger` instead would
+   have pushed white-on-solid usage from 3.35:1 to 2.52:1 (caught by the intercepted Chromium
+   run on Stock Brokerage), so the dark solid colour is unchanged. Light-theme white-on-solid
+   rises to about 6:1.
+3. Moved the airline, library and linkedin banners to tinted token backgrounds with
+   `--text-primary` text and a coloured edge, as are Stock Brokerage's solid
+   `.sb-banner` variants. The coffee and vending errors now use the danger tokens.
+4. Digital Wallet now shows a load-failure alert ("Retrying automatically every 8 seconds")
+   and reports history-load failures in its existing alert, instead of logging them.
+5. Added `accessibilityContracts.test.js`. It fails on any conditional banner without a
+   role (and requires the scan to keep matching more than 70 real banners). It also
+   computes token contrast on tints for both themes.
+
+**Preventative Measures** — Keep the contract test in the default suite. New banners need a
+role. Dark-theme white text on solid status tokens is still 1.9–3.35:1 at 69 sites (buttons,
+badges, step dots). Dedicated solid/`--on-*` tokens are tracked in the completion matrix,
+because one token cannot serve both text-on-tint and white-on-solid in dark mode. New status tokens need 4.5:1 on their own tint. Visual checks should cover error
+states, not only seeded success states. The intercepted-Chromium script fails every `/api`
+call, so each page's error banner renders in every theme and viewport.
+
 ## RCA-086: Status Banners Were Cleared Early by Stale Timers
 
 **Overview & Severity** — Low/Medium UX defect across 14 pages (airline, blackjack,

@@ -123,12 +123,16 @@ function WalletsTab() {
   const [busyAction, setBusyAction] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     try {
       const w = await api.getAllWallets();
       setWallets(w);
-    } catch (err) { console.error(err); }
+      setLoadError('');
+    } catch (err) {
+      setLoadError(err.message || 'Could not load wallets.');
+    }
     finally { setLoading(false); }
   }, []);
 
@@ -142,7 +146,9 @@ function WalletsTab() {
       const [t, log] = await Promise.all([api.getTransactions(w.id), api.getCommandLog()]);
       setTxns(t.slice().reverse());
       setCommandLog(log.slice().reverse().slice(0, 15));
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      setAlert({ status: 'ERROR', text: `Could not load this wallet's history: ${err.message || 'request failed'}. Select the wallet again to retry.` });
+    }
   };
 
   const refreshSelected = async (id) => {
@@ -186,6 +192,12 @@ function WalletsTab() {
         </div>
       )}
 
+      {loadError && (
+        <div role="alert" className="wal-alert ERROR">
+          <span className="wal-alert-icon">{STATUS_ICON.ERROR}</span>
+          <span className="wal-alert-text">Could not load wallets: {loadError}. Retrying automatically every 8 seconds.</span>
+        </div>
+      )}
       {loading ? (
         <div className="wal-empty">Loading wallets…</div>
       ) : (
@@ -258,7 +270,7 @@ function WalletsTab() {
               }, 'Transfer complete')}>{busyAction === 'send' && spinner} 📤 Send</button>
             </div>
             {alert && (
-              <div className={`wal-alert ${alert.status}`}>
+              <div role={alert.status === 'ERROR' ? 'alert' : 'status'} className={`wal-alert ${alert.status}`}>
                 <span className="wal-alert-icon">{STATUS_ICON[alert.status]}</span>
                 <span className="wal-alert-text">{alert.text}</span>
               </div>
@@ -521,7 +533,7 @@ function SimulationTab() {
         )}
       </div>
 
-      <div className={`wal-alert ${alert.status}`}>
+      <div role={alert.status === 'ERROR' ? 'alert' : 'status'} className={`wal-alert ${alert.status}`}>
         <span className="wal-alert-icon">{STATUS_ICON[alert.status]}</span>
         <span className="wal-alert-text">{alert.text}</span>
       </div>

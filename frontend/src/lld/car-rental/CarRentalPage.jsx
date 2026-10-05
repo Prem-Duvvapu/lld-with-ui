@@ -205,7 +205,7 @@ function ReserveTab() {
             </button>
           </div>
         )}
-        {error && <div className="cr-error">{error}</div>}
+        {error && <div role="alert" className="cr-error">{error}</div>}
       </div>
 
       <div className="cr-panel">

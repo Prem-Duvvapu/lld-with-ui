@@ -114,7 +114,7 @@ function HotelsTab() {
   return (
     <div>
       {error && (
-        <div style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', marginBottom: 16, fontSize: 14 }}>
+        <div role="alert" style={{ padding: '12px 16px', borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', marginBottom: 16, fontSize: 14 }}>
           ⚠️ {error}. Ensure the Java Spring Boot backend is running on port {BACKEND_PORT} (<code>cd backend && mvn spring-boot:run</code>).
         </div>
       )}
@@ -174,7 +174,7 @@ function HotelsTab() {
             <div className="form-group"><label>Guest Name</label><input type="text" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="e.g. John Doe" /></div>
             <div className="form-group"><label>Check In</label><input type="date" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} /></div>
             <div className="form-group"><label>Check Out</label><input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} /></div>
-            {error && <div className="error">{error}</div>}
+            {error && <div role="alert" className="error">{error}</div>}
           </div>
         </div>
       )}
@@ -347,7 +347,7 @@ function SimulationTab() {
             <div style={{ fontWeight: 700, color: 'var(--success)' }}>Simulation complete — Alice's stay ran through booking, check-in and check-out; Bob's booking was cancelled with a refund; and the R4 race settled with exactly one winner.</div>
           </div>
         )}
-        {error && <div className="error" style={{ marginTop: 10 }}>{error}</div>}
+        {error && <div role="alert" className="error" style={{ marginTop: 10 }}>{error}</div>}
       </div>
 
       {raceResult && (

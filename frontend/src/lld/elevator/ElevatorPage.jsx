@@ -298,7 +298,7 @@ function AppTab() {
         </div>
       </div>
 
-      {error && <div className="el-error">{error}</div>}
+      {error && <div role="alert" className="el-error">{error}</div>}
 
       <CarStateLegend />
 

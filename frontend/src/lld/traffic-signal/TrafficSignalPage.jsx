@@ -54,7 +54,7 @@ export default function TrafficSignalPage() {
           {activeTab === 'app' && (
             <div style={{ padding: 20, textAlign: 'center' }}>
               {error && (
-                <div style={{ maxWidth: 480, margin: '0 auto 16px', padding: '10px 16px', background: 'var(--danger-bg)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                <div role="alert" style={{ maxWidth: 480, margin: '0 auto 16px', padding: '10px 16px', background: 'var(--danger-bg)', border: '1px solid var(--danger)', color: 'var(--danger)', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
                   ⚠ {error}
                   <button onClick={loadData} style={{ marginLeft: 12, padding: '4px 10px', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
                     Retry

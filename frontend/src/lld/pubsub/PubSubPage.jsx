@@ -166,8 +166,8 @@ function LiveTabs({ activeTab }) {
       <div className="ps-toolbar">
         <span className="ps-toolbar-stat">Live broker &middot; polls every 1.5s</span>
       </div>
-      {error && <div className="ps-error">{error}</div>}
-      {notice && <div className="ps-notice">{notice}</div>}
+      {error && <div role="alert" className="ps-error">{error}</div>}
+      {notice && <div role="status" className="ps-notice">{notice}</div>}
 
       {activeTab === 'topics' && (
         <div className="ps-grid">
@@ -451,7 +451,7 @@ function SimulationTab() {
         <span style={{ fontSize: 11, color: 'var(--text-secondary)', marginLeft: 8 }}>{SIM_STEPS[step]}</span>
       </div>
 
-      {error && <div className="ps-error">{error}</div>}
+      {error && <div role="alert" className="ps-error">{error}</div>}
 
       {!started ? (
         <div className="ps-intro">

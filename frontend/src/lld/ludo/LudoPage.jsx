@@ -323,7 +323,7 @@ function GameTab() {
             <input value={n} onChange={(e) => { const next = [...names]; next[i] = e.target.value; setNames(next); }} />
           </div>
         ))}
-        {error && <div className="ludo-error">{error}</div>}
+        {error && <div role="alert" className="ludo-error">{error}</div>}
         <button className="ludo-btn" style={{ width: '100%', marginTop: 6 }} onClick={handleStart}>Start Game</button>
       </div>
     );
@@ -349,7 +349,7 @@ function GameTab() {
         </div>
       </div>
 
-      {error && <div className="ludo-error">{error}</div>}
+      {error && <div role="alert" className="ludo-error">{error}</div>}
 
       <LudoBoard game={game} onTokenClick={handleTokenClick} selectable />
       <PlayerPanel game={game} onTokenClick={handleTokenClick} selectable />
