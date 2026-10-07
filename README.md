@@ -9,6 +9,23 @@ SDE-2 interview preparation portfolio (2+ years experience). **60 LLD projects**
 
 ---
 
+
+## Visitor analytics
+
+The deployed frontend uses [Vercel Web Analytics](https://vercel.com/docs/analytics/quickstart)
+through `@vercel/analytics/react`, mounted once in the application root. Production
+builds track page visits, including client-side navigation. Query strings and URL
+fragments are removed before sending page locations; no custom events, practice
+answers, notes, or simulation inputs are configured for collection. Development
+builds do not mount analytics.
+
+Enable **Web Analytics** for this individual project in Vercel, then deploy after
+enabling it. Visit the deployed app and check its Analytics dashboard and browser
+Network panel for the analytics script and page-view requests. Each app and the
+Learning Hub have independent analytics. A plain local server or Docker deployment
+does not supply Vercel's analytics endpoint; blocked/unavailable analytics must not
+prevent learning or navigation. Live visitor totals require dashboard verification.
+
 ## Projects Overview
 
 ### Reading diagrams
