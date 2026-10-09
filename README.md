@@ -1850,3 +1850,11 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 
 - **Backend**: Java 17, Spring Boot 3.2, Maven (Single Spring Boot JAR, Port 59190)
 - **Frontend**: React 19, Vite 6, React Router 7 (Single SPA, Port 53000, route-level code splitting)
+
+## License
+
+This project's original code and documentation are licensed under the [MIT License](LICENSE).
+Copyright (c) 2026 Prem Duvvapu.
+
+Third-party dependencies and materials remain subject to their own licenses and notices;
+the project license does not replace those terms.
