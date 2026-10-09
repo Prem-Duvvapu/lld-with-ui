@@ -1,5 +1,6 @@
 {
   "name": "lld-with-ui",
+  "license": "MIT",
   "version": "1.0.0",
   "private": true,
   "scripts": {
