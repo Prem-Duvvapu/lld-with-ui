@@ -751,6 +751,7 @@ shared `apiFetch` (it previously hand-rolled its own `fetch`/error handling).
 ## Logging Framework Module
 ### Backend
 - `LoggingService`: Singleton facade managing hierarchical loggers, formatters, and multi-appender sinks with isolated simulation engine (`/sim/*`).
+- `LoggingSimulationService` initializes its real root logger to DEBUG and owns a separate lock across reset, configuration, emission and aggregate snapshot reads. `POST /api/logging/sim/configure` sets only the sandbox threshold using the shared typed parser; filtered sandbox emissions return 204. Telemetry derives the threshold from the real logger and reports this sandbox's synchronous mode and capacity-20 dispatcher.
 - Chain of Responsibility: `LogHandler` pipeline (`Trace` → `Debug` → `Info` → `Warn` → `Error` → `Fatal`) assembled via `LogHandlerChainBuilder`.
 - Strategy Pattern: `LogFormatter` interface with `SimpleTextFormatter`, `JsonFormatter`, and `PatternFormatter` (with token interpolation), resolved via `LogFormatterFactory`.
 - Observer & Strategy Pattern: `LogAppender` contract with `ConsoleAppender`, `FileAppender` (with simulated file rotation and byte limits), `DatabaseAppender` (SQL inserts), and `ElasticsearchAppender` (JSON document PUTs).
@@ -767,6 +768,7 @@ shared `apiFetch` (it previously hand-rolled its own `fetch`/error handling).
 ### Frontend
 - 7 tabs: Live Logging Console & Stream, Multi-Appender Sinks, Logger Hierarchy & Configuration, Interactive Pipeline Simulation, Class Diagram, Sequence Diagram, Design Details.
 - Real-time log stream with level badges, MDC tags, live appender sink inspectors, and step-by-step pipeline execution replay.
+- `LoggingSimulation` uses shared guided playback for eight real operations/reads: reset, configure threshold, emit, inspect stored events, and inspect four appender sinks. It waits for explicit start, displays backend acceptance/filtering, bounds snapshot output to 50 records, and aborts requests on unmount. Playback is not an internal JVM execution trace.
 - The live workspace owns abortable reads, stale-response protection, guarded mutations, retryable errors, JSON-object validation, and clear confirmation. Root/category thresholds and formatter selection reflect backend-confirmed configuration; emitter severity is independent. Polling never scrolls the page and stops when the live workspace unmounts. Simulation UX remains tracked separately in `COMPLETION_HANDOFF.md`.
 
 ## Stack Overflow Module

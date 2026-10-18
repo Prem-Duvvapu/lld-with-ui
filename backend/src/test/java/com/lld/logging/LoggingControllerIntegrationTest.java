@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -79,5 +80,40 @@ class LoggingControllerIntegrationTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("AppenderNotFoundException"))
                 .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    void sandboxThresholdDeterminesTheHttpOutcomeAndDoesNotChangeLiveConfiguration() throws Exception {
+        String liveConfig = mockMvc.perform(get("/api/logging/config")).andReturn().getResponse().getContentAsString();
+        mockMvc.perform(post("/api/logging/sim/reset")).andExpect(status().isOk());
+        mockMvc.perform(post("/api/logging/sim/configure").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"level\":\"ERROR\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.globalLevel").value("ERROR"))
+                .andExpect(jsonPath("$.asyncEnabled").value(false))
+                .andExpect(jsonPath("$.queueCapacity").value(20));
+        mockMvc.perform(post("/api/logging/sim/log").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loggerName\":\"Orders\",\"level\":\"WARN\",\"message\":\"Filtered\"}"))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(""));
+        mockMvc.perform(get("/api/logging/sim/logs"))
+                .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(post("/api/logging/sim/log").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loggerName\":\"Orders\",\"level\":\"ERROR\",\"message\":\"Accepted\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Accepted"));
+        mockMvc.perform(get("/api/logging/sim/appenders/CONSOLE/logs"))
+                .andExpect(jsonPath("$.length()").value(1));
+        mockMvc.perform(get("/api/logging/config")).andExpect(content().json(liveConfig));
+    }
+
+    @Test
+    void sandboxConfigurationRejectsInvalidAndMissingLevelsWithTypedErrors() throws Exception {
+        for (String body : new String[] {"{}", "{\"level\":\"VERBOSE\"}", "{\"level\":\"\"}"}) {
+            mockMvc.perform(post("/api/logging/sim/configure").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("InvalidLogLevelException"))
+                    .andExpect(jsonPath("$.status").value(400));
+        }
     }
 }

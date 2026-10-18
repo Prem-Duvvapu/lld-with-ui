@@ -43,11 +43,17 @@ export const triggerBurst = (count = 10, options = {}) => apiFetch(`/logging/bur
 export const clearLogs = (options = {}) => apiFetch('/logging/clear', { ...options, method: 'POST' });
 
 // Simulation Sandbox API
-export const simReset = () => apiFetch('/logging/sim/reset', { method: 'POST' });
-export const simEmitLog = (loggerName, level, message, context) => apiFetch('/logging/sim/log', {
+export const simReset = (options = {}) => apiFetch('/logging/sim/reset', { ...options, method: 'POST' });
+export const simConfigure = (level, options = {}) => apiFetch('/logging/sim/configure', {
+  ...options,
+  method: 'POST',
+  body: JSON.stringify({ level })
+});
+export const simEmitLog = (loggerName, level, message, context, options = {}) => apiFetch('/logging/sim/log', {
+  ...options,
   method: 'POST',
   body: JSON.stringify({ loggerName, level, message, context })
 });
-export const simGetLogs = () => apiFetch('/logging/sim/logs');
-export const simGetTelemetry = () => apiFetch('/logging/sim/telemetry');
-export const simGetAppenderLogs = (type) => apiFetch(`/logging/sim/appenders/${type}/logs`);
+export const simGetLogs = (options = {}) => apiFetch('/logging/sim/logs', options);
+export const simGetTelemetry = (options = {}) => apiFetch('/logging/sim/telemetry', options);
+export const simGetAppenderLogs = (type, options = {}) => apiFetch(`/logging/sim/appenders/${type}/logs`, options);

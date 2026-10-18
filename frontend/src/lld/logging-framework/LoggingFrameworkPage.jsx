@@ -11,14 +11,10 @@ import {
   getConfig,
   getAppenderLogs,
   triggerBurst,
-  clearLogs,
-  simReset,
-  simEmitLog,
-  simGetLogs,
-  simGetTelemetry,
-  simGetAppenderLogs
+  clearLogs
 } from './api';
 import { usePolling } from '../../hooks/usePolling';
+import LoggingSimulation from './LoggingSimulation';
 import './LoggingFrameworkPage.css';
 
 const LEVEL_COLORS = {
@@ -33,224 +29,6 @@ const LEVEL_COLORS = {
 const LOGGERS = ['AuthService', 'PaymentGateway', 'OrderProcessor', 'InventoryService', 'NotificationHub'];
 const LEVELS = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'];
 
-function InteractivePipelineSimulation() {
-  const [activeStep, setActiveStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [simLevel, setSimLevel] = useState('INFO');
-  const [simThreshold, setSimThreshold] = useState('INFO');
-  const [simLogger, setSimLogger] = useState('AuthService');
-  const [simMsg, setSimMsg] = useState('User JWT authentication verified');
-  const [telemetry, setTelemetry] = useState(null);
-  const [activeAppenderTab, setActiveAppenderTab] = useState('CONSOLE');
-  const [appenderLogs, setAppenderLogs] = useState([]);
-
-  const pipelineSteps = [
-    { title: '1. Producer Threads', desc: 'Application threads invoke logger.info(), warn(), or error()' },
-    { title: '2. Level Filter Chain', desc: 'Chain of Responsibility evaluates LogLevel >= ActiveThreshold' },
-    { title: '3. MDC Context Enricher', desc: 'Attaches traceId, userId, threadName, and IST timestamp' },
-    { title: '4. Formatter Strategy', desc: 'Transforms message using SimpleText, Json, or PatternFormatter' },
-    { title: '5. Async Bounded Buffer', desc: 'Enqueues into ArrayBlockingQueue (capacity 50) with drop guard' },
-    { title: '6. Worker Dispatcher', desc: 'Async worker thread drains queue without blocking main threads' },
-    { title: '7. Appender Distribution', desc: 'Broadcasts formatted message to Console, File, DB, and ES sinks' },
-    { title: '8. Storage & File Rotation', desc: 'Appenders persist logs & execute file rotation (app.log.1, app.log.2)' }
-  ];
-
-  const loadSimData = async () => {
-    try {
-      const telem = await simGetTelemetry();
-      setTelemetry(telem);
-      const appLogs = await simGetAppenderLogs(activeAppenderTab);
-      setAppenderLogs(appLogs);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  useEffect(() => {
-    loadSimData();
-  }, [activeAppenderTab]);
-
-  useEffect(() => {
-    let timer;
-    if (isPlaying) {
-      timer = setInterval(() => {
-        setActiveStep((prev) => {
-          if (prev >= pipelineSteps.length - 1) {
-            setIsPlaying(false);
-            return prev;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isPlaying]);
-
-  const handleRunSim = async () => {
-    await simEmitLog(simLogger, simLevel, simMsg, { traceId: 'sim-trc-901', userId: 'usr-442' });
-    await loadSimData();
-    setActiveStep(0);
-    setIsPlaying(true);
-  };
-
-  const handleSimReset = async () => {
-    await simReset();
-    setSimLevel('INFO');
-    setSimThreshold('INFO');
-    setSimLogger('AuthService');
-    setSimMsg('User JWT authentication verified');
-    setActiveStep(0);
-    setIsPlaying(false);
-    await loadSimData();
-  };
-
-  const isPassed = LEVELS.indexOf(simLevel) >= LEVELS.indexOf(simThreshold);
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Control Panel */}
-      <div style={{ background: 'var(--bg-card)', padding: 20, borderRadius: 12, border: '1px solid var(--border-primary)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 16, color: 'var(--text-primary)', margin: 0 }}>🕹️ 8-Step Interactive Pipeline Simulation</h3>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={handleRunSim} style={{ padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>
-              ▶ Emit & Run Pipeline
-            </button>
-
-            <button onClick={handleSimReset} style={{ padding: '8px 16px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>
-              🔄 Reset Sandbox
-            </button>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Logger Category</label>
-            <select value={simLogger} onChange={e => setSimLogger(e.target.value)} style={{ width: '100%', padding: 8, background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: 6 }}>
-              {LOGGERS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Emitted Log Level</label>
-            <select value={simLevel} onChange={e => setSimLevel(e.target.value)} style={{ width: '100%', padding: 8, background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: 6 }}>
-              {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Filter Threshold</label>
-            <select value={simThreshold} onChange={e => setSimThreshold(e.target.value)} style={{ width: '100%', padding: 8, background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: 6 }}>
-              {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>Simulation Message</label>
-            <input type="text" value={simMsg} onChange={e => setSimMsg(e.target.value)} style={{ width: '100%', padding: 8, background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: 6 }} />
-          </div>
-        </div>
-      </div>
-
-      {/* Telemetry HUD */}
-      {telemetry && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Total Logs Processed</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)', marginTop: 4 }}>{telemetry.totalLogs}</div>
-          </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Async Queue Depth</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: '#eab308', marginTop: 4 }}>{telemetry.currentQueueDepth} / {telemetry.queueCapacity}</div>
-          </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Dropped Logs (Overflow)</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: telemetry.droppedLogs > 0 ? '#ef4444' : '#22c55e', marginTop: 4 }}>{telemetry.droppedLogs}</div>
-          </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Active Appender Sinks</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: '#a855f7', marginTop: 4 }}>{telemetry.appenders?.filter(a => a.enabled).length} / {telemetry.appenders?.length}</div>
-          </div>
-        </div>
-      )}
-
-      {/* 8-Step Pipeline Tracker */}
-      <div style={{ background: 'var(--bg-card)', padding: 20, borderRadius: 12, border: '1px solid var(--border-primary)' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 16 }}>
-          CHAIN OF RESPONSIBILITY & PIPELINE TRACKER
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-          {pipelineSteps.map((step, idx) => {
-            const isActive = activeStep === idx;
-            const isCompleted = activeStep > idx;
-            const isFilterStep = idx === 1;
-            return (
-              <div
-                key={idx}
-                onClick={() => setActiveStep(idx)}
-                style={{
-                  background: isActive ? 'var(--bg-secondary)' : 'var(--bg-primary)',
-                  border: `2px solid ${isActive ? 'var(--accent)' : isCompleted ? '#22c55e' : 'var(--border-primary)'}`,
-                  padding: 14,
-                  borderRadius: 10,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? 'var(--accent)' : 'var(--text-primary)' }}>{step.title}</span>
-                  {isCompleted && <span style={{ color: '#22c55e', fontSize: 12 }}>✓</span>}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{step.desc}</div>
-                {isFilterStep && (
-                  <div style={{ marginTop: 8, padding: '4px 8px', borderRadius: 4, background: isPassed ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: isPassed ? '#22c55e' : '#ef4444', fontSize: 10, fontWeight: 700, textAlign: 'center' }}>
-                    {isPassed ? `PASSED (${simLevel} ≥ ${simThreshold})` : `FILTERED (${simLevel} < ${simThreshold})`}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Appender Sinks Inspector in Simulation */}
-      <div style={{ background: '#1e1e1e', border: '1px solid var(--border-primary)', borderRadius: 12, padding: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ fontFamily: 'monospace', color: '#fff', fontSize: 14, fontWeight: 600 }}>🗄️ Appender Destination Logs</span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {['CONSOLE', 'FILE', 'DATABASE', 'ELASTICSEARCH'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveAppenderTab(tab)}
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: 6,
-                  border: 'none',
-                  background: activeAppenderTab === tab ? 'var(--accent)' : '#333',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  fontWeight: 600
-                }}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ background: '#111', padding: 14, borderRadius: 8, height: 200, overflowY: 'auto', fontFamily: 'monospace', fontSize: 11, color: '#b5e890' }}>
-          {appenderLogs.length === 0 && <div style={{ color: '#666', fontStyle: 'italic' }}>No records in {activeAppenderTab} sink.</div>}
-          {appenderLogs.map((log, i) => (
-            <div key={i} style={{ borderBottom: '1px solid #222', paddingBottom: 4, marginBottom: 4 }}>
-              {log}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function LiveLoggingWorkspace({ activeTab }) {
   const [config, setConfig] = useState(null);
@@ -695,7 +473,7 @@ export default function LoggingFrameworkPage() {
   return (
     <LldPage module="logging-framework" title="Logging Framework" icon="📝" tabs={['app', 'appenders', 'hierarchy', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => activeTab === 'simulation'
-        ? <InteractivePipelineSimulation />
+        ? <LoggingSimulation loggers={LOGGERS} levels={LEVELS} />
         : <LiveLoggingWorkspace activeTab={activeTab} />}
     </LldPage>
   );

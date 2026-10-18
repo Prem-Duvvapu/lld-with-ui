@@ -186,23 +186,6 @@
       "count": 6
     }
   },
-  "src/lld/logging-framework/LoggingFrameworkPage.jsx": {
-    "jsx-a11y/click-events-have-key-events": {
-      "count": 1
-    },
-    "jsx-a11y/label-has-associated-control": {
-      "count": 4
-    },
-    "jsx-a11y/no-static-element-interactions": {
-      "count": 1
-    },
-    "no-unused-vars": {
-      "count": 1
-    },
-    "react-hooks/set-state-in-effect": {
-      "count": 1
-    }
-  },
   "src/lld/lru-cache/LruCachePage.jsx": {
     "jsx-a11y/click-events-have-key-events": {
       "count": 1

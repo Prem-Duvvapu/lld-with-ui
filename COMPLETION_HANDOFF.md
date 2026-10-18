@@ -9,36 +9,36 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 - All 60 modules exist, with Java backends, routes, and design data.
 - Homepage discovery, navigation memory, mobile tabs, and shared diagram zoom,
   fit-width, fullscreen, and keyboard controls have shipped.
-- 16 modules use shared guided playback: car-rental, chess, circuit-breaker, elevator,
+- 17 modules use shared guided playback: car-rental, chess, circuit-breaker, elevator,
   lru-cache, ludo, movieticket, parking, rate-limiter, snakeladders, splitwise, thread-pool,
-  tictactoe, traffic-signal, uber, zomato.
+  tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Last feature validation: 2304 backend tests, 575 frontend tests, and 15 Chromium
-  scenarios across five routes at 320px light, 390px dark, and 1280px light. These
-  browser checks cover the latest five-module batch, not every page of the project.
-- Last feature build: entry 306858 bytes; largest non-entry JavaScript chunk 52445 bytes.
-- Lint has 16 existing warnings and a suppression baseline; a successful lint exit
+- Latest batch validation: 2320 backend tests, 625 frontend tests, and eight Chromium
+  contexts covering both themes at 320/390/768/1280px, including 16 accepted/filtered
+  outcome checks, recovery, keyboard focus and pending navigation. These checks cover
+  the logging sandbox, not every page of the project.
+- Latest build: entry 310324 bytes; largest non-entry JavaScript chunk 55479 bytes.
+- Lint has 14 existing warnings and a suppression baseline; a successful lint exit
   is not evidence that every suppressed issue has been resolved.
-- RCA-085 documents a flaky scheduler-distribution assertion in
-  `WorkflowConcurrencyTest.approveAndEscalateRaceNeverBothTakeEffect`; rerunning CI
-  cleared the interruption but did not fix the assertion.
+- RCA-085's flaky scheduler-distribution assertion was resolved in #153 using
+  deterministic legal-outcome coverage while retaining simultaneous-race safety checks.
 
 ## Remaining module review queue
 
-These 35 modules do not currently import either shared playback implementation.
+These 34 modules have not yet adopted either shared playback implementation.
 That is an inventory of migration candidates, not a finding that every module is broken
 or needs identical controls. Audit each existing workflow and record the appropriate outcome.
 
 airline, atm, auction, blackjack, cachelibrary, coffeemachine, concert-ticket, coupon,
 course-registration, cricinfo, digitalwallet, featureflag, hotel, inventory, jobscheduler,
-kvstore, library, linkedin, locker, logging-framework, meeting-scheduler, minesweeper,
+kvstore, library, linkedin, locker, meeting-scheduler, minesweeper,
 music-streaming, notification, payment, pubsub, restaurant, shoppingcart, social-network,
 stackoverflow, stock-brokerage, task-management, vendingmachine, webcrawler, workflow.
 
 ## Completion matrix
 
-Shared playback adoption (25/60) is tracked separately from overall UX completion (0/60
+Shared playback adoption (26/60) is tracked separately from overall UX completion (0/60
 closed). A module is closed only when every column has evidence. "Static scan" means
 the source was inventoried by script (timers, cleanup, live regions, busy guards) — it is
 not a substitute for the per-module manual and browser review that is still required.
@@ -92,20 +92,19 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   Simulation controls and the final whole-module browser review remain pending.
 - **Other uncleared animation timers (fixed, batch 1).** coffeemachine brew, vendingmachine
   slot spin and stackoverflow rejection flash now use the same hook.
-- **Custom sim steppers (open).** Most of the 35 have their own Next/step state with no
+- **Custom sim steppers (open).** Most remaining candidates have their own Next/step state with no
   shared pause/reset/progress semantics; each needs an adopt-or-justify decision.
 - **Overlapping polls on tab return (fixed, batch 5).** The shared poll executor now
   guards all entry paths, including visibility notifications, while a request is in
   flight. Repeated return-to-view events cannot create duplicate reads or timer loops.
   Regression tests reproduce the former three-request overlap and verify hidden-tab
   pause, immediate idle refresh, error backoff, and unmount cancellation (RCA-092).
-- **Logging simulation outcome mismatch (confirmed open, 2026-10-18).** The threshold
-  selector changes only local React state; the Java sandbox does not receive it. The
-  browser computes PASSED/FILTERED from that local selection instead of the backend
-  response. The illustrated pipeline also describes a capacity-50 async queue while
-  sandbox telemetry reports capacity 20 and async disabled. Replace these misleading
-  controls/outcomes with backend-confirmed behavior, accessible playback and recovery;
-  do not count the live-workspace fix as completing the simulation.
+- **Logging simulation outcome mismatch (fixed, batch 6).** Threshold changes now reach
+  the Java sandbox, which initializes and reports the same real DEBUG threshold. Shared
+  guided steps display actual emission outcomes and sink snapshots, describe synchronous
+  dispatch and the returned queue capacity, and support explicit start/pause/reset,
+  cancellation, recovery, and bounded output. Reset/configure/emit/snapshot operations
+  share one sandbox lock (RCA-093). The final whole-module audit remains pending.
 
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
@@ -138,7 +137,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
-| logging-framework | Not adopted | Live workspace reviewed 2026-10-18 | Live error/busy/JSON/scroll/layout/label and root-threshold defects fixed; simulation interaction and final module review pending | Live request/response console; simulation decision pending | Batch 4 live workspace fixes | 17 workspace tests; shared API resilience tests; full frontend 610 and backend 2308 pass | Intercepted Chromium: 3 live tabs × 4 widths × 2 themes, recovery/JSON/clear/slow-write/navigation/keyboard/reduced motion; no page overflow/errors | #160 |
+| logging-framework | Shared guided | Live workspace and sandbox reviewed 2026-10-18 | Live defects fixed; sandbox threshold/outcome/telemetry/cleanup fixed; final whole-module audit pending | Live request/response console; eight guided backend operations/reads | Batches 4 and 6 | Workspace tests; sandbox service/concurrency/MockMvc, UI, API isolation and lifecycle tests; full suites 625 frontend / 2320 backend pass | Batch 4: 3 live tabs × 4 widths × 2 themes; batch 6: 8 contexts, 16 outcome checks plus recovery/keyboard/pending navigation/reduced motion, no overflow/errors | #160; batch 6 pending |
 | lru-cache | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
 | ludo | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending; standalone shell (**fixed**, batch 3) | `SimulationControls` | Adopted; batch 2 a11y fix; batch 3 shell migration | Existing sim suites, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #141–#147, #155, #156 |
 | meeting-scheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
@@ -180,6 +179,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 3 | Seven standalone pages onto `LldPage`; Splitwise load-failure crash + retry (RCA-089) | #156 | 586 vitest (29 files), lint 16, entry 307,442 B; intercepted Chromium 8 routes × 4 views |
 | 4 | Logging live workspace recovery/configuration/cleanup and shared empty-response handling (RCA-090/091) | #160 | 610 vitest, 2308 mvn, Maven package pass; lint 16 baseline warnings; build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); intercepted Chromium 24 tab/theme/viewport checks |
 | 5 | Serialize visibility-triggered polls with pending requests (RCA-092) | #162 | Reproduced three overlapping calls before fix; 612 frontend and 2308 backend tests pass; lint 16 baseline warnings; Maven package, Vite build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); 24 intercepted browser tab/theme/viewport checks plus 8 controlled visibility checks pass |
+| 6 | Logging sandbox configuration, real outcomes, atomic snapshots and guided playback (RCA-093) | Pending | 625 frontend and 2320 backend tests, Maven package, Vite build and both budgets pass (entry 310,324 B; largest non-entry 55,479 B); lint 14 existing warnings; 8 browser contexts / 16 outcome checks pass |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -192,6 +192,13 @@ Batch 5 repeated the same browser matrix and held one configuration request pend
 while sending repeated hidden/visible notifications. Each theme/viewport combination
 retained exactly one request. These checks synthesize document visibility events;
 they do not assert operating-system tab switching or live-backend behavior.
+
+Batch 6 used production assets and intercepted API fixtures to exercise accepted
+and filtered outcomes at 320/390/768/1280px in both themes, with reduced motion,
+configuration failure/reset recovery, frozen settings, keyboard sink selection,
+and navigation during a pending reset. No page errors or horizontal overflow were
+observed. Java service and MockMvc tests independently cover the real threshold,
+HTTP 204 filtering, isolation, startup/reset defaults, and concurrent snapshots.
 
 ### Curriculum workstream
 
@@ -225,8 +232,8 @@ shared UI patterns already shipped.
 Build a durable 60-module completion matrix in this handoff file. For every module,
 record inspection status, concrete gaps, chosen simulation interaction, implementation
 status, test evidence, browser coverage, and merged PR. Separate shared playback
-adoption from overall UX completion. The 25 adopted modules also need the final
-cross-project audit. For each of the 35 remaining candidates, adopt the appropriate
+adoption from overall UX completion. The 26 adopted modules also need the final
+cross-project audit. For each of the 34 remaining candidates, adopt the appropriate
 shared controls or document why its existing interaction is better suited and meets
 the same usability and lifecycle requirements. Do not redesign working pages merely
 to satisfy an adoption count.
