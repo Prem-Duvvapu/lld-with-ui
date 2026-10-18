@@ -8,6 +8,8 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-091](#rca-091-empty-successful-api-responses-were-reported-as-json-failures) | 2026-10-18 | Frontend / API Client | Empty HTTP 200 responses from successful mutations rejected during JSON parsing | Resolved |
+| [RCA-090](#rca-090-logging-console-hid-failures-and-submitted-the-wrong-root-threshold) | 2026-10-18 | Frontend / Logging Framework | Silent failures, discarded MDC, duplicate writes, wrong root threshold, and polling-driven scroll | Resolved |
 | [RCA-087](#rca-087-welcome-tour-added-a-duplicate-history-entry-on-arrival-from-the-learning-hub) | 2026-10-05 | Frontend / Navigation | First-visit welcome added a duplicate Home entry and interrupted Back to the hub | Resolved |
 | [RCA-001](#rca-001-swagger-ui-404-not-found-due-to-external-windows-tomcat-9-port-9090-collision) | 2026-08-18 | Backend / Swagger UI / Networking | `404 Not Found` (Apache Tomcat/9.0.68) on port 9090 due to background host process | Resolved |
 | [RCA-002](#rca-002-duplicate-object-literal-keys-silently-discarding-design-content) | 2026-08-20 | Frontend / Data Layer | Duplicate keys in `designDetails.js` / `classDiagrams.js` let JavaScript discard 653 lines of richer content at parse time | Resolved |
@@ -28,6 +30,103 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-091: Empty Successful API Responses Were Reported as JSON Failures
+
+### 1. Overview & Severity
+
+Medium. A successful mutation with an empty HTTP 200 response could appear to fail,
+inviting duplicate requests. Logging clear and sandbox reset return empty bodies.
+
+### 2. Symptoms & Error Logs
+
+The client could reject an otherwise successful response with a JSON parsing error
+such as `Unexpected end of JSON input`. A new logging clear confirmation exposed
+the need to distinguish successful empty responses from malformed JSON payloads.
+
+### 3. Root Cause
+
+`apiFetch` handled HTTP 204 and explicit non-JSON content types, but called
+`res.json()` for empty HTTP 200 responses without a content type or labeled JSON.
+Existing resilience tests used a hand-built response with only a JSON reader,
+so they did not exercise real empty-body behavior.
+
+### 4. Diagnostic Commands
+
+```bash
+rg -n 'ResponseEntity<Void>|clear\(|simReset\(' backend/src/main/java/com/lld/logging/controller/LoggingController.java
+cd frontend
+npx vitest run src/__tests__/apiResilience.test.jsx
+```
+
+### 5. Step-by-Step Resolution
+
+1. Read successful response text once and return null for empty bodies or HTTP 204.
+2. Parse declared JSON normally, keeping malformed nonempty JSON failures visible.
+3. Preserve plain-text responses and JSON payloads without explicit content types.
+4. Use real `Response` objects in resilience fixtures and cover empty HTTP 200,
+   empty JSON HTTP 200, HTTP 204, JSON data, plain text, and malformed JSON.
+
+### 6. Preventative Measures
+
+Validate API helpers against real HTTP response objects, including empty successful
+mutations. Do not infer failure solely from the absence of JSON, and do not retry
+mutations automatically after an ambiguous result.
+
+## RCA-090: Logging Console Hid Failures and Submitted the Wrong Root Threshold
+
+### 1. Overview & Severity
+
+Medium. The live logging console, appender controls, and hierarchy configuration
+could fail without visible feedback or submit a different threshold than selected.
+
+### 2. Symptoms & Error Logs
+
+Failed reads only called `console.error`; failed writes had no local rejection
+handler. Malformed MDC printed `Invalid JSON context` but still sent the log without
+its context. Selecting ERROR on the root selector could post INFO. Every successful
+poll called `scrollIntoView`, moving the page while the learner read or edited it.
+
+### 3. Root Cause
+
+Mutation handlers lacked a shared pending/error lifecycle. JSON parse failures fell
+through to submission. The root selector reused emitter severity state and ignored
+the change event's selected value. Formatter state changed optimistically without
+rollback, and per-category updates bypassed configuration refresh. Reads neither
+forwarded abort signals nor rejected obsolete snapshots. Fixed desktop grids and
+unassociated labels compounded the usability defects.
+
+### 4. Diagnostic Commands
+
+```bash
+rg -n 'scrollIntoView|catch|handleGlobalConfig|setLoggerLevel' frontend/src/lld/logging-framework/LoggingFrameworkPage.jsx
+cd frontend
+npx vitest run src/__tests__/loggingWorkspace.test.jsx
+npm run lint
+```
+
+### 5. Step-by-Step Resolution
+
+1. Scope the live workspace lifecycle separately from the sandbox and built-in tabs.
+2. Forward abort signals, ignore obsolete reads, preserve the last successful
+   snapshot, and display retryable read errors without swallowing polling failures.
+3. Route writes through one synchronous duplicate guard and pending/error lifecycle.
+   Preserve failed input and distinguish a successful write from a failed refresh.
+4. Require valid JSON objects for MDC; report backend-filtered logs accurately.
+5. Bind thresholds to backend configuration and send the actual selected value.
+   Apply formatter/category/appender changes only through guarded backend requests.
+6. Remove polling-driven scrolling, add clear confirmation and accessible control
+   names, and adapt console/card layouts to narrow viewports.
+7. Add behavioral regression tests for failures, retries, duplicate submission,
+   invalid context, confirmed configuration, stale reads, cancellation, and scroll.
+
+### 6. Preventative Measures
+
+Keep write success distinct from follow-up read failure so recovery cannot prompt
+an accidental duplicate mutation. Backend-confirmed settings are the display's
+source of truth. Test selected payloads and out-of-order responses, not only the
+presence of controls. Keep browser checks for both themes and mobile widths in the
+completion matrix; the separate pipeline simulation still requires its own review.
 
 ## RCA-001: Swagger UI 404 Not Found due to External Windows Tomcat 9 Port 9090 Collision
 

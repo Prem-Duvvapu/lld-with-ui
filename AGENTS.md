@@ -765,8 +765,9 @@ shared `apiFetch` (it previously hand-rolled its own `fetch`/error handling).
   parity; `LoggingControllerIntegrationTest` pins the shared `ErrorResponse` status/code shape.
 
 ### Frontend
-- 6 tabs: 🖥️ Live Logging Console & Stream, 🗄️ Multi-Appender Sinks, ⚙️ Logger Hierarchy & Configuration, 🕹️ 8-Step Interactive Pipeline Simulation with Telemetry HUD, 📐 Class Diagram, 📋 Design Details.
+- 7 tabs: Live Logging Console & Stream, Multi-Appender Sinks, Logger Hierarchy & Configuration, Interactive Pipeline Simulation, Class Diagram, Sequence Diagram, Design Details.
 - Real-time log stream with level badges, MDC tags, live appender sink inspectors, and step-by-step pipeline execution replay.
+- The live workspace owns abortable reads, stale-response protection, guarded mutations, retryable errors, JSON-object validation, and clear confirmation. Root/category thresholds and formatter selection reflect backend-confirmed configuration; emitter severity is independent. Polling never scrolls the page and stops when the live workspace unmounts. Simulation UX remains tracked separately in `COMPLETION_HANDOFF.md`.
 
 ## Stack Overflow Module
 ### Backend

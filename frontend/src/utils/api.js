@@ -148,16 +148,14 @@ export async function apiFetch(path, options = {}) {
     throw new ApiError(res.status, message, body);
   }
 
-  // Handle empty or 204 No Content responses
   const contentType = res.headers.get('content-type');
-  if (res.status === 204 || (contentType && !contentType.includes('application/json'))) {
-    const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
-    }
+  if (res.status === 204) return null;
+  const text = await res.text();
+  if (!text.trim()) return null;
+  if (contentType?.includes('application/json')) return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
   }
-
-  return res.json();
 }
