@@ -68,11 +68,17 @@ justify the smallest useful refactoring and explain what should remain unchanged
 
 ### 4. All 23 design patterns
 
+The supplied list names 22 patterns. Add Interpreter as an explicit proposed
+addition to cover the complete GoF catalog; the publisher lists it under
+[Behavioral Patterns](https://www.informit.com/store/design-patterns-elements-of-reusable-object-oriented-9780321770462).
+The inventory below contains five creational, seven structural, and eleven
+behavioral patterns, with no duplicate names.
+
 | Family | Required patterns |
 |---|---|
 | Creational (5) | Singleton; Factory Method; Abstract Factory; Builder; Prototype |
 | Structural (7) | Adapter; Bridge; Composite; Decorator; Facade; Flyweight; Proxy |
-| Behavioral (11) | Iterator; Observer; Strategy; Command; State; Template Method; Visitor; Mediator; Memento; Chain of Responsibility |
+| Behavioral (11) | Iterator; Interpreter; Observer; Strategy; Command; State; Template Method; Visitor; Mediator; Memento; Chain of Responsibility |
 
 Every pattern needs a motivating problem, a plain solution first, responsibilities,
 class diagram, tested Java example, execution explanation, use/avoid guidance,
