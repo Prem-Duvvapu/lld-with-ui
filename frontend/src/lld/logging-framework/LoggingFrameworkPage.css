@@ -1,0 +1,94 @@
+.logging-workspace,
+.logging-workspace * {
+  min-width: 0;
+}
+
+.logging-workspace {
+  overflow-wrap: anywhere;
+}
+
+.logging-controls,
+.logging-fields {
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.logging-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.logging-console-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 20px;
+}
+
+.logging-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+}
+
+.logging-toolbar,
+.logging-sink-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.logging-sink-heading {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.logging-toolbar input {
+  flex: 1 1 120px;
+}
+
+.logging-toolbar input::placeholder {
+  color: #aaa;
+  opacity: 1;
+}
+
+.logging-workspace button,
+.logging-workspace select {
+  min-height: 36px;
+}
+
+.logging-workspace button:disabled,
+.logging-workspace fieldset:disabled button {
+  cursor: wait;
+  opacity: var(--disabled-opacity);
+}
+
+.logging-error {
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.logging-clear-confirmation {
+  padding: 12px;
+  margin-bottom: 12px;
+  color: #eee;
+  border: 1px solid #aaa;
+  border-radius: 6px;
+}
+
+.logging-feed {
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 900px) {
+  .logging-console-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

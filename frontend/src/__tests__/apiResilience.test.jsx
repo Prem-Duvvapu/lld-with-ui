@@ -6,12 +6,10 @@ import { apiFetch, ApiError, BACKEND_STATUS, getBackendStatus, subscribeBackendS
 import { usePolling } from '../hooks/usePolling';
 
 function jsonResponse(body = {}) {
-  return {
-    ok: true,
+  return new Response(JSON.stringify(body), {
     status: 200,
-    headers: { get: () => 'application/json' },
-    json: async () => body,
-  };
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 /** Let queued microtasks run without advancing the fake clock. */
@@ -25,6 +23,26 @@ describe('apiFetch resilience', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it.each([
+    { status: 200 },
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+    { status: 204 },
+  ])('accepts an empty successful response: %j', async (options) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, options)));
+    await expect(apiFetch('/logging/clear', { method: 'POST' })).resolves.toBeNull();
+  });
+
+  it('preserves JSON payloads, plain text, and malformed JSON failures', async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ globalLevel: 'ERROR' }))
+      .mockResolvedValueOnce(new Response('Saved'))
+      .mockResolvedValueOnce(new Response('{broken', { headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetch);
+    await expect(apiFetch('/logging/config')).resolves.toEqual({ globalLevel: 'ERROR' });
+    await expect(apiFetch('/text')).resolves.toBe('Saved');
+    await expect(apiFetch('/broken')).rejects.toBeInstanceOf(SyntaxError);
   });
 
   it('reports the backend as waking while a slow request is in flight, then ok', async () => {

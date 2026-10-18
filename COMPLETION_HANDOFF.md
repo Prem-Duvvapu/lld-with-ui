@@ -78,16 +78,29 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   only on demand, so each needs a per-page decision. A real network outage is already covered
   by the global `BackendStatusBanner`. Hardcoded banners in airline, library, linkedin, coffeemachine, and
   vendingmachine now use the tokens.
-- **Swallowed load errors.** digitalwallet (**fixed**, batch 2); logging-framework (open, see
+- **Swallowed load errors.** digitalwallet (**fixed**, batch 2); logging-framework (**fixed**, batch 4, see
   below).
-- **logging-framework live tab (open, batch 3).** Its mutation handlers lack `try/catch` and
-  busy guards. Invalid MDC JSON is silently dropped. `scrollIntoView` on every 2 s poll can move
-  the page. The fixed `1fr 2fr` grid is cramped at 320px, and the labels are not associated
-  with their inputs.
+- **logging-framework live workspace (fixed, batch 4).** Live reads now expose retryable errors
+  and preserve the last successful snapshot. Mutations have shared busy/error handling and
+  synchronous duplicate-write guards; invalid MDC JSON blocks submission without losing input.
+  Polling no longer scrolls the page, obsolete responses are ignored, and requests are aborted
+  when the live workspace unmounts. Root thresholds use the selected value rather than the
+  emitter severity; formatter and category overrides reflect confirmed backend configuration.
+  Live controls have accessible names, responsive grids, and confirmation before clearing logs.
+  The shared API client also accepts empty successful responses (RCA-091), so a successful
+  clear/reset is not mislabeled as a JSON failure.
+  Simulation controls and the final whole-module browser review remain pending.
 - **Other uncleared animation timers (fixed, batch 1).** coffeemachine brew, vendingmachine
   slot spin and stackoverflow rejection flash now use the same hook.
 - **Custom sim steppers (open).** Most of the 35 have their own Next/step state with no
   shared pause/reset/progress semantics; each needs an adopt-or-justify decision.
+- **Logging simulation outcome mismatch (confirmed open, 2026-10-18).** The threshold
+  selector changes only local React state; the Java sandbox does not receive it. The
+  browser computes PASSED/FILTERED from that local selection instead of the backend
+  response. The illustrated pipeline also describes a capacity-50 async queue while
+  sandbox telemetry reports capacity 20 and async disabled. Replace these misleading
+  controls/outcomes with backend-confirmed behavior, accessible playback and recovery;
+  do not count the live-workspace fix as completing the simulation.
 
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
@@ -120,7 +133,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
-| logging-framework | Not adopted | Manual review 2026-10-05 | No error handling/busy guards on mutations; silent bad JSON; poll-driven scroll; fixed grid at 320px; unlabeled inputs | Pending (batch 3) | Not started | — | Not yet | — |
+| logging-framework | Not adopted | Live workspace reviewed 2026-10-18 | Live error/busy/JSON/scroll/layout/label and root-threshold defects fixed; simulation interaction and final module review pending | Live request/response console; simulation decision pending | Batch 4 live workspace fixes | 17 workspace tests; shared API resilience tests; full frontend 610 and backend 2308 pass | Intercepted Chromium: 3 live tabs × 4 widths × 2 themes, recovery/JSON/clear/slow-write/navigation/keyboard/reduced motion; no page overflow/errors | #160 |
 | lru-cache | Shared guided | Shipped #141–#147 | Final cross-project audit pending | `SimulationControls` | Adopted | Existing sim suites | Partial (prior batches) | #141–#147 |
 | ludo | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending; standalone shell (**fixed**, batch 3) | `SimulationControls` | Adopted; batch 2 a11y fix; batch 3 shell migration | Existing sim suites, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #141–#147, #155, #156 |
 | meeting-scheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
@@ -160,6 +173,21 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 1b | RCA-085 deterministic workflow outcomes (separate PR) | #153 | `WorkflowConcurrencyTest` 6/6 ×3, 2308 mvn; CI green |
 | 2 | Live regions on 77 banners, AA status tokens, wallet load errors, 320px overflow (RCA-088) | #155 | 581 vitest (584 after merging #154), lint 16, budgets; intercepted Chromium 6 routes × 4 views; CI green |
 | 3 | Seven standalone pages onto `LldPage`; Splitwise load-failure crash + retry (RCA-089) | #156 | 586 vitest (29 files), lint 16, entry 307,442 B; intercepted Chromium 8 routes × 4 views |
+| 4 | Logging live workspace recovery/configuration/cleanup and shared empty-response handling (RCA-090/091) | #160 | 610 vitest, 2308 mvn, Maven package pass; lint 16 baseline warnings; build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); intercepted Chromium 24 tab/theme/viewport checks |
+
+Batch 4 browser checks used production-built assets and intercepted API fixtures at
+320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
+failure/retry, invalid MDC, failed/successful writes, empty HTTP 200 clear responses,
+configuration changes, duplicate prevention, pending navigation, and keyboard focus.
+This is browser interaction evidence, not live HTTP end-to-end verification. The
+Vercel analytics script was stubbed in the harness; analytics reporting was not tested.
+
+### Curriculum workstream
+
+`LLD_LEARNING_CURRICULUM_PLAN.md` was merged in #159 with green CI. It specifies the
+requested OOP, principles, patterns, UML, concurrency, and interview curriculum.
+Its delivery phases remain pending; the plan is separate from this existing-module
+UI/UX matrix. Do not infer curriculum completion from the historical 60-module roadmap.
 
 ## Prompt to give the next agent
 
