@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
 
 @Data
 @Builder
@@ -25,6 +26,11 @@ public class Ticket {
     @Builder.Default
     private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
     private String paymentMethod;
+
+    public Long getElapsedMinutes() {
+        if (entryTime == null) return null;
+        return Math.max(0, Duration.between(entryTime, exitTime == null ? LocalDateTime.now() : exitTime).toMinutes());
+    }
 
     public Ticket(String ticketNumber, String vehicleNumber, VehicleType vehicleType, String spotId, LocalDateTime entryTime) {
         this.ticketNumber = ticketNumber;
