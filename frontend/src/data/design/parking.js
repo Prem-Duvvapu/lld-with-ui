@@ -45,11 +45,11 @@ export default {
       description: 'Isolated /sim/* sandbox: its own 2-floor, 10-spot lot, its own gates and tickets, and an in-memory event log — entirely separate state from the live repository, so a demo run driven from the simulation tab can never occupy a real spot or issue a real ticket. Reuses the same strategy factory beans as the live service.',
       fields: [
         { name: 'simSpots / simTickets', type: 'ConcurrentHashMap', description: 'Sandbox-only spot and ticket state' },
-        { name: 'simEventLog', type: 'CopyOnWriteArrayList<SimEvent>', description: 'Telemetry log rendered by the simulation tab\'s event panel' },
-        { name: 'simSpotLock / simTicketLock', type: 'ReentrantLock', description: 'Same locking discipline as the live repository, scoped to the sandbox' }
+        { name: 'simEventLog', type: 'List<SimEvent>', description: 'Telemetry log protected by the sandbox state lock; responses contain detached copies' },
+        { name: 'stateLock', type: 'ReentrantLock', description: 'One transaction boundary for sandbox reset, entry, scan, payment, snapshots and event reads; separate from the live repository locks' }
       ],
       methods: [
-        { name: 'reset()', returns: 'Map<String,Object>', description: 'Reseeds the sandbox lot and clears the event log' },
+        { name: 'reset()', returns: 'Map<String,Object>', description: 'Atomically reseeds the sandbox lot and clears its log after any in-flight operation finishes' },
         { name: 'entry(vehicleNumber, vehicleType, strategy)', returns: 'Map<String,Object>', description: 'Sandbox equivalent of ParkingLotService.entry()' },
         { name: 'scan(ticketNumber, pricingStrategy)', returns: 'Map<String,Object>', description: 'Sandbox price preview' },
         { name: 'pay(ticketNumber, pricingStrategy, paymentMethod)', returns: 'Map<String,Object>', description: 'Sandbox pay & release, logged as a VEHICLE_EXITED event' }
@@ -108,7 +108,7 @@ export default {
         { name: 'paymentStatus', type: 'PaymentStatus', description: 'UNPAID on scan preview, PAID once completeExit() succeeds' },
         { name: 'paymentMethod', type: 'String', description: 'UPI, CARD, or CASH — recorded on payment' }
       ],
-      methods: []
+      methods: [{ name: 'getElapsedMinutes()', returns: 'Long', description: 'Server-reported minutes from entry to recorded exit or the server clock; unknown when entry time is missing. This is not a price calculation.' }]
     },
     {
       name: 'ParkingSpot',

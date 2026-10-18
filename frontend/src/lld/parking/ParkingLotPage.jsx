@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { vehicleEntry, getGates, scanVehicleExit, payVehicleExit, getFloors, getActiveTickets } from './api';
 import ParkingSimulation from './ParkingSimulation';
 import LldPage from '../../components/LldPage';
@@ -9,468 +9,259 @@ import { Input, Select } from '../../components/ui/Input';
 import { Table } from '../../components/ui/Table';
 import EmptyState from '../../components/ui/EmptyState';
 import Skeleton from '../../components/ui/Skeleton';
-import { useToast } from '../../components/ui/ToastContext';
-import { usePolling } from '../../hooks/usePolling';
+import { useParkingAction, useParkingList } from './useParkingRequests';
+import './ParkingLotPage.css';
 
-const PARKING_CSS = `
-.parking-container { max-width: 1100px; margin: 0 auto; }
-.form-card { max-width: 480px; margin: 0 auto; }
-.result-card { margin-top: 16px; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border-primary); box-shadow: var(--shadow-sm); }
-.result-card h3 { margin-bottom: 10px; font-size: 15px; color: var(--info); font-weight: 700; }
-.result-card .detail { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border-secondary); color: var(--text-primary); }
-.result-card .detail:last-child { border-bottom: none; }
-.result-card .label { color: var(--text-secondary); font-weight: 600; } 
-.result-card .value { font-weight: 700; color: var(--text-primary); }
-.error-msg { margin-top: 12px; padding: 10px 14px; background: var(--danger-bg); color: var(--danger); border-radius: var(--radius-sm); border: 1px solid rgba(220,38,38,0.2); font-size: 13px; font-weight: 600; }
-.spots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-.spot-card { padding: 14px; border-radius: var(--radius-md); border: 1px solid var(--border-primary); text-align: center; transition: all var(--duration-fast); background: var(--bg-card); box-shadow: var(--shadow-sm); }
-.spot-card.available { border-color: var(--success); background: var(--success-bg); }
-.spot-card.occupied { border-color: var(--danger); background: var(--danger-bg); }
-.spot-card .spot-id { font-weight: 700; font-size: 16px; color: var(--text-primary); }
-.spot-card .spot-type { font-size: 11px; color: var(--text-secondary); font-weight: 600; margin: 2px 0; }
-.spot-card .spot-status { font-size: 11px; font-weight: 700; margin-top: 4px; }
-.spot-card.available .spot-status { color: var(--success); }
-.spot-card.occupied .spot-status { color: var(--danger); }
-.floor-section { margin-bottom: 24px; }
-.floor-section h3 { margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border-primary); font-size: 16px; color: var(--info); font-weight: 700; }
+function serverTime(value) {
+  return typeof value === 'string' ? value.replace('T', ' ').replace(/\.\d+/, '') : '—';
+}
 
-`;
+function ReadFeedback({ resource, noun }) {
+  if (resource.error) return (
+    <div role="alert" className="parking-error">
+      <p>{resource.error}{resource.data !== null ? ' Showing the last successful snapshot.' : ''}</p>
+      <Button variant="secondary" loading={resource.loading} onClick={resource.retry}>Retry</Button>
+    </div>
+  );
+  if (resource.loading && resource.data === null) return <p role="status">Loading {noun}…</p>;
+  return null;
+}
+
+function GateSelect({ resource, type, gateId, onChange }) {
+  const gates = (resource.data || []).filter(gate => gate.type === type);
+  const label = type === 'ENTRY' ? 'Entry Gate' : 'Exit Gate';
+  return <>
+    <ReadFeedback resource={resource} noun="gates" />
+    {!resource.loading && !resource.error && gates.length === 0 && <div role="status" className="parking-notice">
+      <p>No {type.toLowerCase()} gates are configured.</p>
+      <Button variant="secondary" onClick={resource.retry}>Refresh gates</Button>
+    </div>}
+    <Select label={label} value={gateId} onChange={onChange} disabled={!gates.length} required>
+      {!gates.length && <option value="">No gates available</option>}
+      {gates.map(gate => <option key={gate.id} value={gate.id}>{gate.name}</option>)}
+    </Select>
+  </>;
+}
+
+function selectedGate(resource, type, draft) {
+  const gates = (resource.data || []).filter(gate => gate.type === type);
+  return gates.find(gate => gate.id === draft)?.id || gates[0]?.id || '';
+}
+
+function requireTicket(data, needsAmount = false) {
+  if (!data?.ticketNumber || !data.spotId || (needsAmount && (typeof data.amount !== 'number' || !Number.isFinite(data.amount)))) {
+    throw new Error('The server returned an incomplete ticket response.');
+  }
+  return data;
+}
+
+function TicketDetails({ ticket }) {
+  return <>
+    <div className="parking-detail"><span>Ticket #</span><strong>{ticket.ticketNumber}</strong></div>
+    <div className="parking-detail"><span>Vehicle</span><strong>{ticket.vehicleNumber}</strong></div>
+    <div className="parking-detail"><span>Vehicle type</span><strong>{ticket.vehicleType}</strong></div>
+    <div className="parking-detail"><span>Assigned spot</span><strong>{ticket.spotId}</strong></div>
+  </>;
+}
 
 function EntryForm() {
-  const toast = useToast();
-  const [gates, setGates] = useState([]);
-  const [gateId, setGateId] = useState('');
+  const gates = useParkingList(getGates, 60000);
+  const action = useParkingAction();
+  const [gateDraft, setGateDraft] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [vehicleType, setVehicleType] = useState('CAR');
   const [strategy, setStrategy] = useState('NEAREST');
   const [result, setResult] = useState(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [inputError, setInputError] = useState('');
+  const heading = useRef(null);
+  const gateId = selectedGate(gates, 'ENTRY', gateDraft);
+  useEffect(() => { if (result) heading.current?.focus(); }, [result]);
 
-  useEffect(() => {
-    getGates().then((all) => {
-      if (Array.isArray(all)) {
-        const entryGates = all.filter((g) => g.type === 'ENTRY');
-        setGates(entryGates);
-        if (entryGates.length > 0) setGateId(entryGates[0].id);
-      }
-    }).catch(() => {});
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError(''); setResult(null); setLoading(true);
-    try {
-      const data = await vehicleEntry(gateId, vehicleNumber, vehicleType, strategy);
-      if (data.error) {
-        setError(data.error);
-        toast.error(data.error);
-      } else {
-        setResult(data);
-        setVehicleNumber('');
-        toast.success(`Vehicle parked at spot ${data.spotId}`);
-      }
-    } catch (err) {
-      const msg = err.message || 'Failed to connect to server';
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
+  const submit = event => {
+    event.preventDefault();
+    if (action.busy || !gateId || gates.error) return;
+    if (!vehicleNumber.trim()) { setInputError('Enter a vehicle number.'); return; }
+    setInputError('');
+    void action.run(options => vehicleEntry(gateId, vehicleNumber.trim(), vehicleType, strategy, options), data => {
+      setResult(requireTicket(data));
+      setVehicleNumber('');
+    }, 'The server may have issued a ticket. Check Active Tickets before trying again; this action is not automatically retried.');
   };
 
-  return (
-    <div className="form-card">
-      <Card>
-        <CardHeader title="🚗 Vehicle Entry" subtitle="Issue parking ticket and assign spot" />
-        <CardBody>
-          <form onSubmit={handleSubmit}>
-            <Select
-              label="Entry Gate"
-              value={gateId}
-              onChange={(e) => setGateId(e.target.value)}
-              required
-            >
-              {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </Select>
-
-            <Input
-              label="Vehicle Number"
-              type="text"
-              value={vehicleNumber}
-              onChange={(e) => setVehicleNumber(e.target.value)}
-              placeholder="e.g. KA-01-AB-1234"
-              required
-            />
-
-            <Select
-              label="Vehicle Type"
-              value={vehicleType}
-              onChange={(e) => setVehicleType(e.target.value)}
-            >
-              <option value="CAR">Car (₹20/hr)</option>
-              <option value="BIKE">Bike (₹10/hr)</option>
-              <option value="TRUCK">Truck (₹40/hr)</option>
-            </Select>
-
-            <Select
-              label="Spot Strategy"
-              value={strategy}
-              onChange={(e) => setStrategy(e.target.value)}
-            >
-              <option value="NEAREST">Nearest Spot First</option>
-              <option value="FARTHEST">Farthest Spot First</option>
-            </Select>
-
-            <Button type="submit" variant="primary" loading={loading} style={{ width: '100%', marginTop: 'var(--space-2)' }}>
-              Park Vehicle & Issue Ticket
-            </Button>
-          </form>
-
-          {error && <div role="alert" className="error-msg">{error}</div>}
-
-          {result && (
-            <div className="result-card">
-              <h3>🎟️ Ticket Issued</h3>
-              <div className="detail"><span className="label">Ticket #</span><span className="value">{result.ticketNumber}</span></div>
-              <div className="detail"><span className="label">Vehicle</span><span className="value">{result.vehicleNumber}</span></div>
-              <div className="detail"><span className="label">Type</span><span className="value">{result.vehicleType}</span></div>
-              <div className="detail"><span className="label">Assigned Spot</span><span className="value">{result.spotId}</span></div>
-              <div className="detail"><span className="label">Entry Time</span><span className="value">{new Date(result.entryTime).toLocaleTimeString()}</span></div>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-    </div>
-  );
+  return <div className="parking-form-card"><Card>
+    <CardHeader title="🚗 Vehicle Entry" subtitle="Issue a live parking ticket and reserve a spot" />
+    <CardBody>
+      <p className="parking-time-note">This changes the live lot. Leaving this tab stops waiting, but cannot cancel an entry already received by the server.</p>
+      <form onSubmit={submit} aria-label="Vehicle entry">
+        <fieldset disabled={action.busy} className="parking-fields">
+          <legend>Vehicle entry details</legend>
+          <GateSelect resource={gates} type="ENTRY" gateId={gateId} onChange={event => setGateDraft(event.target.value)} />
+          <Input label="Vehicle Number" value={vehicleNumber} onChange={event => setVehicleNumber(event.target.value)} placeholder="e.g. KA-01-AB-1234" required aria-invalid={Boolean(inputError)} />
+          <Select label="Vehicle Type" value={vehicleType} onChange={event => setVehicleType(event.target.value)}>
+            <option value="CAR">Car</option><option value="BIKE">Bike</option><option value="TRUCK">Truck</option>
+          </Select>
+          <Select label="Spot Strategy" value={strategy} onChange={event => setStrategy(event.target.value)}>
+            <option value="NEAREST">Nearest Spot First</option><option value="FARTHEST">Farthest Spot First</option>
+          </Select>
+          <Button type="submit" disabled={!gateId || Boolean(gates.error)} loading={action.busy} className="parking-wide">Park Vehicle & Issue Ticket</Button>
+        </fieldset>
+      </form>
+      {(inputError || action.error) && <div role="alert" className="parking-error">{inputError || action.error}</div>}
+      {result && <section className="parking-result" aria-label="Issued parking ticket">
+        <h3 ref={heading} tabIndex={-1}>🎟️ Ticket Issued</h3>
+        <TicketDetails ticket={result} />
+        <div className="parking-detail"><span>Entry time (server)</span><strong>{serverTime(result.entryTime)}</strong></div>
+        <p>Keep this ticket number for the Exit tab. This is the live lot, separate from the simulation.</p>
+      </section>}
+    </CardBody>
+  </Card></div>;
 }
 
 function ExitForm() {
-  const toast = useToast();
-  const [gates, setGates] = useState([]);
-  const [gateId, setGateId] = useState('');
+  const gates = useParkingList(getGates, 60000);
+  const action = useParkingAction();
+  const [gateDraft, setGateDraft] = useState('');
   const [ticketNumber, setTicketNumber] = useState('');
   const [pricingStrategy, setPricingStrategy] = useState('HOURLY');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
-
-  const [step, setStep] = useState('SCAN'); // SCAN | PREVIEW | COMPLETED
-  const [previewTicket, setPreviewTicket] = useState(null);
-  const [paidReceipt, setPaidReceipt] = useState(null);
-
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
+  const [preview, setPreview] = useState(null);
+  const [receipt, setReceipt] = useState(null);
+  const [inputError, setInputError] = useState('');
+  const heading = useRef(null);
+  const gateId = selectedGate(gates, 'EXIT', gateDraft);
+  const ticketInput = useRef(null);
+  const restoreFocus = useRef(false);
   useEffect(() => {
-    getGates().then((all) => {
-      if (Array.isArray(all)) {
-        const exitGates = all.filter((g) => g.type === 'EXIT');
-        setGates(exitGates);
-        if (exitGates.length > 0) setGateId(exitGates[0].id);
-      }
-    }).catch(() => {});
-  }, []);
+    if (preview || receipt) heading.current?.focus();
+    else if (restoreFocus.current) { ticketInput.current?.focus(); restoreFocus.current = false; }
+  }, [preview, receipt]);
 
-  const handleScanTicket = async (e) => {
-    e.preventDefault();
-    setError(''); setPreviewTicket(null); setLoading(true);
-    try {
-      const data = await scanVehicleExit(gateId, ticketNumber, pricingStrategy);
-      if (data.error) {
-        setError(data.error);
-        toast.error(data.error);
-      } else {
-        setPreviewTicket(data);
-        setStep('PREVIEW');
-      }
-    } catch (err) {
-      const msg = err.message || 'Failed to connect to server';
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
+  const scan = event => {
+    event.preventDefault();
+    if (action.busy || !gateId || gates.error) return;
+    if (!ticketNumber.trim()) { setInputError('Enter a ticket number.'); return; }
+    setInputError('');
+    void action.run(options => scanVehicleExit(gateId, ticketNumber.trim(), pricingStrategy, options), data => setPreview(requireTicket(data, true)));
+  };
+  const pay = () => {
+    if (action.error || !preview) return;
+    void action.run(options => payVehicleExit(gateId, preview.ticketNumber, pricingStrategy, paymentMethod, options), data => setReceipt(requireTicket(data, true)),
+      'Payment may have completed. Rescan this ticket before paying again; this action is not automatically retried.');
+  };
+  const back = (clearTicket = false) => {
+    if (action.busy) return;
+    restoreFocus.current = true;
+    setPreview(null); setReceipt(null); setInputError(''); action.clear();
+    if (clearTicket) setTicketNumber('');
   };
 
-  const handlePayAndExit = async () => {
-    setError(''); setLoading(true);
-    try {
-      const data = await payVehicleExit(gateId, ticketNumber, pricingStrategy, paymentMethod);
-      if (data.error) {
-        setError(data.error);
-        toast.error(data.error);
-      } else {
-        setPaidReceipt(data);
-        setStep('COMPLETED');
-        toast.success(`Payment processed! Exit gate opened.`);
-      }
-    } catch (err) {
-      const msg = err.message || 'Failed to process payment';
-      setError(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleReset = () => {
-    setStep('SCAN');
-    setPreviewTicket(null);
-    setPaidReceipt(null);
-    setTicketNumber('');
-    setError('');
-  };
-
-  return (
-    <div className="form-card">
-      <Card>
-        <CardHeader title="💳 Vehicle Exit & Payment" subtitle="Scan ticket, preview price, pay & exit" />
-        <CardBody>
-          {step === 'SCAN' && (
-            <form onSubmit={handleScanTicket}>
-              <Select
-                label="Exit Gate"
-                value={gateId}
-                onChange={(e) => setGateId(e.target.value)}
-                required
-              >
-                {gates.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </Select>
-
-              <Input
-                label="Ticket Number"
-                type="text"
-                value={ticketNumber}
-                onChange={(e) => setTicketNumber(e.target.value)}
-                placeholder="e.g. TKT-00001"
-                required
-              />
-
-              <Select
-                label="Pricing Strategy"
-                value={pricingStrategy}
-                onChange={(e) => setPricingStrategy(e.target.value)}
-              >
-                <option value="HOURLY">Hourly Pricing (Standard)</option>
-                <option value="FLAT">Flat Rate Pricing</option>
-                <option value="DYNAMIC">Dynamic Surge Pricing (1.5x)</option>
-              </Select>
-
-              <Button type="submit" variant="primary" loading={loading} style={{ width: '100%', marginTop: 'var(--space-2)' }}>
-                Scan Ticket & Calculate Price
-              </Button>
-            </form>
-          )}
-
-          {step === 'PREVIEW' && previewTicket && (
-            <div className="result-card" style={{ marginTop: 0 }}>
-              <h3 style={{ color: 'var(--accent)' }}>🎟️ Ticket Details & Price Preview</h3>
-              <div className="detail"><span className="label">Ticket #</span><span className="value">{previewTicket.ticketNumber}</span></div>
-              <div className="detail"><span className="label">Vehicle</span><span className="value">{previewTicket.vehicleNumber}</span></div>
-              <div className="detail"><span className="label">Vehicle Type</span><span className="value">{previewTicket.vehicleType}</span></div>
-              <div className="detail"><span className="label">Assigned Spot</span><span className="value">{previewTicket.spotId}</span></div>
-              <div className="detail"><span className="label">Pricing Applied</span><span className="value">{pricingStrategy}</span></div>
-              <div className="detail" style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 8, marginTop: 4 }}>
-                <span className="label" style={{ fontWeight: 700, fontSize: 16 }}>Total Due</span>
-                <span className="value" style={{ fontWeight: 700, fontSize: 18, color: 'var(--warning)' }}>₹{previewTicket.amount.toFixed(2)}</span>
-              </div>
-
-              <Select
-                label="Select Payment Method"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                style={{ marginTop: 12 }}
-              >
-                <option value="UPI">UPI / QR Code</option>
-                <option value="CARD">Credit / Debit Card</option>
-                <option value="CASH">Cash</option>
-              </Select>
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                <Button onClick={handlePayAndExit} variant="primary" loading={loading} style={{ flex: 1 }}>
-                  Pay ₹{previewTicket.amount.toFixed(2)} & Exit
-                </Button>
-                <Button onClick={handleReset} variant="secondary">
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {step === 'COMPLETED' && paidReceipt && (
-            <div className="result-card" style={{ marginTop: 0 }}>
-              <h3 style={{ color: 'var(--success)' }}>✅ Payment Successful! Exit Gate Opened</h3>
-              <div className="detail"><span className="label">Ticket #</span><span className="value">{paidReceipt.ticketNumber}</span></div>
-              <div className="detail"><span className="label">Vehicle</span><span className="value">{paidReceipt.vehicleNumber}</span></div>
-              <div className="detail"><span className="label">Spot Released</span><span className="value">{paidReceipt.spotId}</span></div>
-              <div className="detail"><span className="label">Amount Paid</span><span className="value">₹{paidReceipt.amount.toFixed(2)} ({paidReceipt.paymentMethod})</span></div>
-
-              <Button onClick={handleReset} variant="primary" style={{ marginTop: 16, width: '100%' }}>
-                Process Another Vehicle Exit
-              </Button>
-            </div>
-          )}
-
-          {error && <div role="alert" className="error-msg">{error}</div>}
-        </CardBody>
-      </Card>
-    </div>
-  );
+  return <div className="parking-form-card"><Card>
+    <CardHeader title="💳 Vehicle Exit & Payment" subtitle="Scan a live ticket, preview the fee, then pay and release the spot" />
+    <CardBody>
+      <p className="parking-time-note">Leaving this tab stops waiting, but cannot cancel a payment already received by the server.</p>
+      {!preview && !receipt && <form onSubmit={scan} aria-label="Ticket scan">
+        <fieldset disabled={action.busy} className="parking-fields">
+          <legend>Ticket scan details</legend>
+          <GateSelect resource={gates} type="EXIT" gateId={gateId} onChange={event => setGateDraft(event.target.value)} />
+          <Input ref={ticketInput} label="Ticket Number" value={ticketNumber} onChange={event => setTicketNumber(event.target.value)} placeholder="e.g. TKT-00001" required aria-invalid={Boolean(inputError)} />
+          <Select label="Pricing Strategy" value={pricingStrategy} onChange={event => setPricingStrategy(event.target.value)}>
+            <option value="HOURLY">Hourly Pricing</option><option value="FLAT">Flat Rate Pricing</option><option value="DYNAMIC">Dynamic Surge Pricing</option>
+          </Select>
+          <Button type="submit" disabled={!gateId || Boolean(gates.error)} loading={action.busy} className="parking-wide">Scan Ticket & Calculate Price</Button>
+        </fieldset>
+      </form>}
+      {preview && !receipt && <section className="parking-result" aria-label="Parking fee preview">
+        <h3 ref={heading} tabIndex={-1}>🎟️ Ticket Details & Price Preview</h3>
+        <TicketDetails ticket={preview} />
+        <div className="parking-detail"><span>Pricing applied</span><strong>{pricingStrategy}</strong></div>
+        <div className="parking-detail"><span>Preview amount</span><strong>₹{preview.amount.toFixed(2)}</strong></div>
+        <p>The server recalculates the final charge at payment time. The preview does not release the spot.</p>
+        <Select label="Select Payment Method" value={paymentMethod} onChange={event => setPaymentMethod(event.target.value)} disabled={action.busy}>
+          <option value="UPI">UPI / QR Code</option><option value="CARD">Credit / Debit Card</option><option value="CASH">Cash</option>
+        </Select>
+        <div className="parking-actions">
+          <Button onClick={pay} loading={action.busy} disabled={Boolean(action.error)}>Pay & Exit</Button>
+          <Button onClick={() => back()} disabled={action.busy} variant="secondary">Back to ticket scan</Button>
+        </div>
+      </section>}
+      {receipt && <section className="parking-result" aria-label="Parking payment receipt">
+        <h3 ref={heading} tabIndex={-1}>✅ Payment Successful! Exit Gate Opened</h3>
+        <TicketDetails ticket={receipt} />
+        <div className="parking-detail"><span>Amount paid</span><strong>₹{receipt.amount.toFixed(2)} ({receipt.paymentMethod})</strong></div>
+        <Button onClick={() => back(true)} className="parking-wide">Process Another Vehicle Exit</Button>
+      </section>}
+      {(inputError || action.error) && <div role="alert" className="parking-error">{inputError || action.error}</div>}
+      {preview && !receipt && action.error && <p className="parking-time-note">Return to the ticket scan to refresh this ticket before another payment attempt.</p>}
+    </CardBody>
+  </Card></div>;
 }
 
 function SpotGrid() {
-  const [floors, setFloors] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');
+  const resource = useParkingList(getFloors);
   const [filter, setFilter] = useState('ALL');
-
-  const fetchSpots = useCallback(async () => {
-    try {
-      const data = await getFloors();
-      if (Array.isArray(data)) setFloors(data);
-      setFetchError('');
-    } catch {
-      setFetchError('Failed to load spot data from server');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  usePolling(fetchSpots, 5000, []);
-
-  if (loading && floors.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Skeleton height={40} />
-        <Skeleton height={180} />
-      </div>
-    );
-  }
-
-  if (fetchError && floors.length === 0) {
-    return <EmptyState icon="⚠️" title="Failed to load parking lot layout" description={fetchError} />;
-  }
-
-  const total = floors.reduce((s, f) => s + f.spots.length, 0);
-  const occupied = floors.reduce((s, f) => s + f.spots.filter((sp) => sp.occupied).length, 0);
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h2 style={{ color: 'var(--info)', fontSize: 18, fontWeight: 700 }}>Parking Lot Real-Time Layout</h2>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{occupied}/{total} spots occupied</span>
-        </div>
-        <Select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 'auto' }}>
-          <option value="ALL">All Spots ({total})</option>
-          <option value="AVAILABLE">Available Only ({total - occupied})</option>
+  const floors = resource.data || [];
+  const spots = floors.flatMap(floor => floor.spots);
+  const occupied = spots.filter(spot => spot.occupied).length;
+  return <section aria-label="Live parking spaces">
+    <ReadFeedback resource={resource} noun="parking spaces" />
+    {resource.data === null && resource.loading && <Skeleton height={180} />}
+    {resource.data !== null && <>
+      <div className="parking-toolbar">
+        <div><h2>Parking Lot Real-Time Layout</h2><p>{occupied}/{spots.length} spots occupied</p></div>
+        <Select label="Show parking spots" value={filter} onChange={event => setFilter(event.target.value)}>
+          <option value="ALL">All Spots ({spots.length})</option><option value="AVAILABLE">Available Only ({spots.length - occupied})</option>
         </Select>
       </div>
-
-      {floors.map((floor) => (
-        <div key={floor.floorNumber} className="floor-section">
+      {!floors.length && <EmptyState title="No parking floors configured" description="Refresh after a floor has been configured on the backend." />}
+      {floors.map(floor => {
+        const visible = floor.spots.filter(spot => filter === 'ALL' || !spot.occupied);
+        return <section key={floor.floorNumber} className="parking-floor">
           <h3>Floor {floor.floorNumber}</h3>
-          <div className="spots-grid">
-            {(filter === 'ALL' ? floor.spots : floor.spots.filter((s) => !s.occupied)).map((spot) => (
-              <div key={spot.id} className={`spot-card ${spot.occupied ? 'occupied' : 'available'}`}>
-                <div className="spot-id">{spot.id}</div>
-                <div className="spot-type">{spot.vehicleType}</div>
-                <div className="spot-status">{spot.occupied ? 'Occupied' : 'Available'}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 16, fontSize: 13 }}>
-        <Badge variant="success">● Available</Badge>
-        <Badge variant="danger">● Occupied</Badge>
-      </div>
-    </div>
-  );
+          {!visible.length && <p>No {filter === 'AVAILABLE' ? 'available ' : ''}spots on this floor.</p>}
+          <div className="parking-spots">{visible.map(spot => <div key={spot.id} className={`parking-spot ${spot.occupied ? 'occupied' : 'available'}`}>
+            <strong>{spot.id}</strong><span>{spot.vehicleType}</span><span>{spot.occupied ? 'Occupied' : 'Available'}</span>
+          </div>)}</div>
+        </section>;
+      })}
+      <div className="parking-actions"><Badge variant="success">● Available</Badge><Badge variant="danger">● Occupied</Badge></div>
+    </>}
+  </section>;
 }
 
 function ActiveTickets() {
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');
-
-  const fetchTickets = useCallback(async () => {
-    try {
-      const data = await getActiveTickets();
-      if (Array.isArray(data)) setTickets(data);
-      setFetchError('');
-    } catch {
-      setFetchError('Failed to load tickets');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  usePolling(fetchTickets, 5000, []);
-
-  if (loading && tickets.length === 0) {
-    return <Skeleton height={200} />;
-  }
-
-  if (fetchError) {
-    return <EmptyState icon="⚠️" title="Error loading tickets" description={fetchError} />;
-  }
-
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ color: 'var(--info)', fontSize: 18, fontWeight: 700 }}>Active Parking Tickets</h2>
-        <Badge variant="info">{tickets.length} Active</Badge>
-      </div>
-
-      {tickets.length === 0 ? (
-        <EmptyState icon="🎟️" title="No active tickets" description="Park a vehicle in the Entry tab to see active tickets here." />
-      ) : (
-        <Table
-          headers={['Ticket #', 'Vehicle Number', 'Vehicle Type', 'Spot ID', 'Entry Time', 'Duration']}
-          data={tickets}
-          renderRow={(t) => {
-            const entry = new Date(t.entryTime);
-            const mins = Math.floor((Date.now() - entry.getTime()) / 60000);
-            const h = Math.floor(mins / 60);
-            const m = mins % 60;
-            const label = h > 0 ? `${h}h ${m}m` : `${m}m`;
-            return (
-              <tr key={t.ticketNumber}>
-                <td><strong>{t.ticketNumber}</strong></td>
-                <td>{t.vehicleNumber}</td>
-                <td><Badge variant="neutral">{t.vehicleType}</Badge></td>
-                <td style={{ fontFamily: 'var(--code-font)' }}>{t.spotId}</td>
-                <td>{entry.toLocaleTimeString()}</td>
-                <td><Badge variant="success">{label}</Badge></td>
-              </tr>
-            );
-          }}
-        />
-      )}
-    </div>
-  );
+  const resource = useParkingList(getActiveTickets);
+  const [page, setPage] = useState(0);
+  const tickets = [...(resource.data || [])].sort((first, second) => first.ticketNumber.localeCompare(second.ticketNumber, undefined, { numeric: true }));
+  const pages = Math.max(1, Math.ceil(tickets.length / 25));
+  const currentPage = Math.min(page, pages - 1);
+  return <section aria-label="Live active tickets">
+    <ReadFeedback resource={resource} noun="active tickets" />
+    {resource.data === null && resource.loading && <Skeleton height={180} />}
+    {resource.data !== null && <>
+      <div className="parking-toolbar"><h2>Active Parking Tickets</h2><Badge variant="info">{tickets.length} Active</Badge></div>
+      {!tickets.length ? <EmptyState icon="🎟️" title="No active tickets" description="Park a vehicle in the Entry tab to see active tickets here." /> : <>
+        <div className="parking-table-scroll" role="region" aria-label="Active parking tickets table" tabIndex={0}>
+          <Table headers={['Ticket #', 'Vehicle Number', 'Vehicle Type', 'Spot ID', 'Entry Time (server)', 'Elapsed (server)']} data={tickets.slice(currentPage * 25, (currentPage + 1) * 25)} renderRow={ticket => <tr key={ticket.ticketNumber}>
+            <td><strong>{ticket.ticketNumber}</strong></td><td>{ticket.vehicleNumber}</td><td>{ticket.vehicleType}</td><td>{ticket.spotId}</td><td>{serverTime(ticket.entryTime)}</td><td>{Number.isFinite(ticket.elapsedMinutes) ? `${ticket.elapsedMinutes} min` : '—'}</td>
+          </tr>} />
+        </div>
+        <p className="parking-time-note">Times and elapsed minutes are reported by the server, not a fee estimate.</p>
+        {pages > 1 && <nav className="parking-actions" aria-label="Active ticket pages">
+          <Button variant="secondary" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="Previous ticket page">Previous</Button>
+          <span role="status">Page {currentPage + 1} of {pages}</span>
+          <Button variant="secondary" disabled={currentPage === pages - 1} onClick={() => setPage(currentPage + 1)} aria-label="Next ticket page">Next</Button>
+        </nav>}
+      </>}
+    </>}
+  </section>;
 }
 
-
 export default function ParkingLotPage() {
-  return (
-    <LldPage
-      module="parking"
-      title="Parking Lot System"
-      icon="🅿️"
-      tabs={['entry', 'exit', 'spots', 'tickets', 'simulation', 'diagram', 'sequence', 'design']}
-    >
-      {(activeTab) => (
-        <div className="parking-container">
-          <style>{PARKING_CSS}</style>
-          {activeTab === 'entry' && <EntryForm />}
-          {activeTab === 'exit' && <ExitForm />}
-          {activeTab === 'spots' && <SpotGrid />}
-          {activeTab === 'tickets' && <ActiveTickets />}
-          {activeTab === 'simulation' && <ParkingSimulation />}
-        </div>
-      )}
-    </LldPage>
-  );
+  return <LldPage module="parking" title="Parking Lot System" icon="🅿️" tabs={['entry', 'exit', 'spots', 'tickets', 'simulation', 'diagram', 'sequence', 'design']}>
+    {activeTab => <div className="parking-container">
+      {activeTab === 'entry' && <EntryForm />}{activeTab === 'exit' && <ExitForm />}
+      {activeTab === 'spots' && <SpotGrid />}{activeTab === 'tickets' && <ActiveTickets />}
+      {activeTab === 'simulation' && <ParkingSimulation />}
+    </div>}
+  </LldPage>;
 }

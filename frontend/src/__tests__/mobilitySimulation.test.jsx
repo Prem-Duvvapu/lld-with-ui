@@ -88,14 +88,14 @@ describe('Parking and Uber guided playback', () => {
     fireEvent.change(screen.getByLabelText('Payment method'), { target: { value: 'CARD' } });
     await advance(1);
     await advance(2);
-    expect(parking.simEntry).toHaveBeenCalledWith('TRUCK-42', 'TRUCK', 'FARTHEST');
+    expect(parking.simEntry).toHaveBeenCalledWith('TRUCK-42', 'TRUCK', 'FARTHEST', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     const assigned = screen.getByText('SF2-T1', { selector: '.parking-sim-spot strong' }).parentElement;
     expect(assigned.className).toContain('assigned');
     expect(within(assigned).getByText('Occupied')).toBeDefined();
     expect(screen.getByLabelText('Vehicle type').closest('fieldset').disabled).toBe(true);
     for (let completed = 3; completed <= 9; completed++) await advance(completed);
-    expect(parking.simScan).toHaveBeenCalledWith(ticket.ticketNumber, 'DYNAMIC');
-    expect(parking.simPay).toHaveBeenCalledWith(ticket.ticketNumber, 'DYNAMIC', 'CARD');
+    expect(parking.simScan).toHaveBeenCalledWith(ticket.ticketNumber, 'DYNAMIC', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(parking.simPay).toHaveBeenCalledWith(ticket.ticketNumber, 'DYNAMIC', 'CARD', expect.objectContaining({ signal: expect.any(AbortSignal) }));
     expect(parking.simState).toHaveBeenCalledTimes(1);
     expect(screen.getByText('₹87.65 via CARD')).toBeDefined();
     expect(within(assigned).getByText('Available')).toBeDefined();

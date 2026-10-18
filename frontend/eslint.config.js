@@ -59,7 +59,7 @@ export default [
   },
 
   {
-    files: ['src/components/DiagramViewer.jsx', 'src/lld/logging-framework/LoggingFrameworkPage.jsx'],
+    files: ['src/components/DiagramViewer.jsx', 'src/lld/logging-framework/LoggingFrameworkPage.jsx', 'src/lld/parking/ParkingLotPage.jsx'],
     rules: {
       'jsx-a11y/no-noninteractive-tabindex': ['error', { roles: ['region'] }],
     },
