@@ -28,6 +28,9 @@
   --warning-solid: #a14a07;
   --info-solid: #0369a1;
   --on-status-solid: #ffffff;
+  --accent-solid: #4338ca;
+  --accent-solid-gradient: linear-gradient(135deg, #4338ca, #6d28d9);
+  --on-accent-solid: #ffffff;
   --code-field: #1d4ed8;
   --code-method: #15803d;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);

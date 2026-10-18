@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import designDetails from '../data/designDetails';
 import { useModuleData } from '../hooks/useModuleData';
 import ModuleDataState from './ModuleDataState';
@@ -17,6 +17,7 @@ export default function DesignDetails({ module, customData }) {
   const revealed = isRevealed(module);
 
   const [subTab, setSubTab] = useState('reqs');
+  const activeSection = useRef(null);
 
   if (status !== 'ready') {
     return <ModuleDataState status={status} label="Design details" />;
@@ -43,7 +44,7 @@ export default function DesignDetails({ module, customData }) {
       </h3>
 
       {/* Sub-tab Navigation */}
-      <nav data-tour="design-subtabs" style={{
+      <nav aria-label="Design detail sections" data-tour="design-subtabs" style={{
         display: 'flex',
         gap: 'var(--space-2)',
         justifyContent: 'center',
@@ -55,17 +56,20 @@ export default function DesignDetails({ module, customData }) {
         {subTabs.map((t) => (
           <button
             key={t.id}
+            type="button"
+            aria-pressed={subTab === t.id}
+            ref={subTab === t.id ? activeSection : undefined}
             onClick={() => setSubTab(t.id)}
             style={{
               padding: '6px 14px',
+              minHeight: 44,
               borderRadius: 'var(--radius-md)',
               border: subTab === t.id ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
-              background: subTab === t.id ? 'var(--accent)' : 'var(--bg-tertiary)',
-              color: subTab === t.id ? '#ffffff' : 'var(--text-secondary)',
+              background: subTab === t.id ? 'var(--accent-solid)' : 'var(--bg-tertiary)',
+              color: subTab === t.id ? 'var(--on-accent-solid)' : 'var(--text-secondary)',
               cursor: 'pointer',
               fontSize: 'var(--font-sm)',
               fontWeight: 600,
-              transition: 'all var(--duration-fast) var(--ease-out)',
               display: 'flex',
               alignItems: 'center',
               gap: 'var(--space-1)'
@@ -75,8 +79,8 @@ export default function DesignDetails({ module, customData }) {
             {t.count !== undefined && (
               <span style={{
                 fontSize: 'var(--font-xs)',
-                opacity: 0.8,
-                background: subTab === t.id ? 'rgba(255,255,255,0.2)' : 'var(--bg-primary)',
+                background: subTab === t.id ? 'var(--accent-solid)' : 'var(--bg-primary)',
+                border: '1px solid currentColor',
                 padding: '1px 6px',
                 borderRadius: 'var(--radius-full)'
               }}>
@@ -93,15 +97,15 @@ export default function DesignDetails({ module, customData }) {
           <RequirementsTab requirements={data.requirements} tldr={data.tldr} />
         )}
         {subTab !== 'reqs' && !revealed && (
-          <RevealGate onReveal={() => reveal(module)} label="the design" module={module} />
+          <RevealGate onReveal={() => { reveal(module); activeSection.current?.focus(); }} label="the design" module={module} />
         )}
         {subTab !== 'reqs' && revealed && (
           <>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-2)' }}>
               <button
                 type="button"
-                onClick={() => hide(module)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 'var(--font-xs)', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => { hide(module); activeSection.current?.focus(); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 'var(--font-sm)', minHeight: 44, padding: '6px 12px', cursor: 'pointer', textDecoration: 'underline' }}
               >
                 🔒 Hide again
               </button>

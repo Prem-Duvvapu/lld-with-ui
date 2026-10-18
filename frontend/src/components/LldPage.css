@@ -65,12 +65,12 @@
   cursor: pointer;
   font-size: var(--font-sm);
   font-weight: 600;
-  transition: all var(--duration-fast) var(--ease-out);
+  transition: box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .lld-page-nav button.active {
-  background: var(--accent);
-  color: #ffffff;
+  background: var(--accent-solid);
+  color: var(--on-accent-solid);
   border-color: var(--accent);
   box-shadow: var(--shadow-sm);
 }

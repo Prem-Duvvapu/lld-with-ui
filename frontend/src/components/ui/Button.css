@@ -45,8 +45,8 @@
 
 /* Variants */
 .ui-btn--primary {
-  background: var(--accent-gradient);
-  color: #ffffff;
+  background: var(--accent-solid-gradient);
+  color: var(--on-accent-solid);
   box-shadow: var(--shadow-sm);
 }
 

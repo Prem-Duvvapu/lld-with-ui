@@ -113,6 +113,7 @@
 }
 
 .tour-btn {
+  min-height: 44px;
   border: none;
   border-radius: var(--radius-md);
   padding: 7px 14px;
@@ -122,8 +123,8 @@
 }
 
 .tour-btn-primary {
-  background: var(--accent-gradient);
-  color: #fff;
+  background: var(--accent-solid-gradient);
+  color: var(--on-accent-solid);
 }
 .tour-btn-primary:hover {
   filter: brightness(1.08);

@@ -39,6 +39,33 @@ function sourceFiles(directory) {
 }
 
 describe('Filled status surfaces', () => {
+  it('shared learning controls use the solid accent role rather than a text accent fill', () => {
+    for (const file of ['ClassDiagram.jsx', 'SequenceDiagram.jsx', 'DesignDetails.jsx', 'RevealGate.jsx']) {
+      const source = fs.readFileSync(path.join(sourceRoot, 'components', file), 'utf8');
+      expect(source, file).not.toMatch(/background:\s*[^,;\n]*var\(--accent\)/);
+      expect(source, file).toContain('var(--accent-solid)');
+      if (file === 'DesignDetails.jsx') expect(source).not.toMatch(/transition:\s*'all/);
+    }
+    for (const [file, selector] of [['ui/Button.css', '.ui-btn--primary'], ['WebsiteTour.css', '.tour-btn-primary']]) {
+      const source = fs.readFileSync(path.join(sourceRoot, 'components', file), 'utf8');
+      const start = source.indexOf(`${selector} {`);
+      expect(source.slice(start, source.indexOf('}', start))).toContain('var(--accent-solid-gradient)');
+    }
+  });
+
+  it.each(['light', 'dark'])('%s accent fills and gradient endpoints support white labels', (name) => {
+    const tokens = themeTokens(name);
+    const foreground = channels(tokens['on-accent-solid']);
+    const fills = [tokens['accent-solid'], ...tokens['accent-solid-gradient'].match(/#[\da-f]{6}/gi)];
+    for (const fill of fills) {
+      expect(contrast(foreground, channels(fill))).toBeGreaterThanOrEqual(4.5);
+      const base = channels(tokens['bg-card']);
+      const hover = channels(fill).map((channel, index) => 0.95 * channel + 0.05 * base[index]);
+      const hoverText = foreground.map((channel, index) => 0.95 * channel + 0.05 * base[index]);
+      expect(contrast(hoverText, hover)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   for (const name of ['light', 'dark']) {
     it(`${name} filled statuses support normal text and existing enabled hover effects`, () => {
       const tokens = themeTokens(name);
