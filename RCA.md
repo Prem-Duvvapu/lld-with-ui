@@ -8,6 +8,10 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-098](#rca-098-shared-learning-controls-had-low-contrast-and-lost-focus-on-disclosure) | 2026-10-18 | Frontend / Shared Learning UI | Text accent colors were reused as fills; revealing solutions moved keyboard focus to BODY | Resolved |
+| [RCA-097](#rca-097-parking-duration-depended-on-the-visitors-timezone) | 2026-10-18 | Parking / Time Display | A timezone-free server timestamp was subtracted from the browser clock | Resolved |
+| [RCA-096](#rca-096-parking-sandbox-reset-and-returned-snapshots-were-not-isolated-from-mutations) | 2026-10-18 | Parking / Sandbox | Reset bypassed mutation locks and responses exposed live mutable models and events | Resolved |
+| [RCA-095](#rca-095-parking-live-workflows-hid-load-failures-and-allowed-unsafe-retries) | 2026-10-18 | Parking / Frontend | Silent gate errors, stale-data loss, duplicate requests and ambiguous payment retry | Resolved |
 | [RCA-094](#rca-094-status-text-tokens-were-reused-as-filled-control-backgrounds) | 2026-10-18 | Frontend / Theme & Accessibility | Bright dark-theme status fills washed out white labels; light warning controls also used dark foregrounds | Resolved |
 | [RCA-093](#rca-093-logging-simulation-displayed-filter-outcomes-that-java-never-applied) | 2026-10-18 | Logging / Sandbox & Playback | Local-only threshold, incorrect startup telemetry, and timed pipeline claims diverged from Java behavior | Resolved |
 | [RCA-092](#rca-092-returning-to-a-visible-tab-started-overlapping-polls) | 2026-10-18 | Frontend / Shared Polling | Visibility events bypassed request serialization and created competing poll loops | Resolved |
@@ -33,6 +37,187 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-098: Shared Learning Controls Had Low Contrast and Lost Focus on Disclosure
+
+### 1. Overview & Severity
+
+Medium. Shared selected tabs, view selectors, reveal buttons, tour actions and primary
+buttons used bright text-accent colors behind white labels. Keyboard focus was lost
+when a reveal button disappeared, and design-section selection had no semantic state.
+
+### 2. Symptoms & Error Logs
+
+Parking's eight browser contexts all recorded `BODY` as the focused element after
+revealing a diagram. Two disclosure tests failed for missing region focus and missing
+`aria-pressed`. Two palette tests failed before the dedicated accent roles existed.
+The active design-section count also inherited reduced opacity over a lightened fill.
+
+### 3. Root Cause
+
+Text, gradients and filled controls shared the same accent token. The reveal action
+unmounted the focused button without choosing a stable focus destination. Design
+sections exposed selection only through inline colors, not an accessible state.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/statusSurfaces.test.js src/__tests__/revealFocus.test.jsx
+```
+
+Check actual computed colors and focus in both themes; exercise reveal/hide, section
+selection, fullscreen Escape and narrow layouts independently of token calculations.
+
+### 5. Step-by-Step Resolution
+
+1. Introduced independent solid accent, solid gradient and foreground tokens while
+   retaining the existing text/link accent and decorative gradient.
+2. Migrated shared primary/tour buttons, main tabs, design sections, class view toggles,
+   sequence flow selectors and reveal buttons. Removed low-opacity active-count text.
+3. Kept a stable, named diagram solution region and focused it on reveal/hide. Design
+   sections now expose `aria-pressed` and regain focus after disclosure.
+4. Kept disclosure/view controls at 44px touch height and added focused regressions
+   for palette roles and keyboard focus. Reveal storage and attempt drafts are unchanged.
+5. Browser checks caught a 3.18:1 intermediate count label while section colors
+   animated. Removed broad color transitions on learning sections and main tabs;
+   kept the contrast assertion instead of waiting out or suppressing the failure.
+
+### 6. Preventative Measures
+
+Use solid accent roles for white-labelled surfaces, not text/link tokens. Test gradient
+endpoints and hover effects. When a user action removes its own control, explicitly
+choose a persistent focus target. Module-specific accent fills still require review.
+
+## RCA-097: Parking Duration Depended on the Visitor's Timezone
+
+### 1. Overview & Severity
+
+Medium. The active-ticket duration could differ by hours from the actual parking time.
+It was a display defect; backend pricing continued to use server timestamps.
+
+### 2. Symptoms & Error Logs
+
+With a UTC server timestamp `2026-10-18T10:00:00` observed at the same UTC instant,
+the old browser calculation reported 330 elapsed minutes in Asia/Kolkata instead of
+zero. Java's `LocalDateTime` JSON has no offset, so the browser interpreted it locally.
+
+### 3. Root Cause
+
+The table used `Date.now() - new Date(ticket.entryTime)` during render, mixing a
+browser absolute clock with a server-local timestamp and suppressing render purity.
+
+### 4. Diagnostic Commands
+
+```bash
+TZ=Asia/Kolkata node -e 'console.log((Date.parse("2026-10-18T10:00:00Z")-new Date("2026-10-18T10:00:00").getTime())/60000)'
+cd backend && mvn -Dtest=ParkingTicketElapsedTest,ParkingLotControllerIntegrationTest test
+```
+
+### 5. Step-by-Step Resolution
+
+1. Added a Java-derived `elapsedMinutes` property using the server's own entry/exit
+   timestamps and clock, with null for an unknown entry and zero for a future entry.
+2. Restored the duration column using the returned minutes only. Server-local entry
+   times are displayed as such, without silently converting them to a visitor timezone.
+3. Tested recorded intervals, live/future entries, unknown time and the real HTTP body.
+   Existing pricing strategies and their billing arithmetic are unchanged.
+
+### 6. Preventative Measures
+
+Do not infer an instant from an offset-free timestamp. Prefer server-provided time
+observations for domain displays, label their clock, and distinguish elapsed time
+from the amount charged. Formatting is presentation; pricing remains on the backend.
+
+## RCA-096: Parking Sandbox Reset and Returned Snapshots Were Not Isolated from Mutations
+
+### 1. Overview & Severity
+
+Medium. Sandbox reset could clear tickets and spots during payment. Snapshot lists
+copied containers incompletely or not at all, so older responses changed afterward.
+
+### 2. Symptoms & Error Logs
+
+Three focused regressions failed before the fix: a returned unpaid ticket gained an
+exit timestamp after payment; changing a returned spot changed sandbox occupancy;
+and reset completed while a deliberately held pricing operation was still running.
+The event list and event-detail maps were also shared with callers.
+
+### 3. Root Cause
+
+Entry and payment used separate spot/ticket locks, but reset, reads and event access
+did not share either transaction boundary. `getState()` returned live model objects
+and the live event list. A collection copy alone cannot detach its mutable elements.
+
+### 4. Diagnostic Commands
+
+```bash
+cd backend
+mvn -Dtest=ParkingLotSnapshotTest,ParkingLotSimServiceTest test
+```
+
+### 5. Step-by-Step Resolution
+
+1. Reproduced all three failures with real services and a latch-controlled payment.
+2. Replaced the independent sandbox locks with one reentrant state lock covering
+   reset, entry, scan, payment, snapshots and event reads.
+3. Detached spots, tickets, events and their detail maps before returning them.
+   Stable spot ordering is a presentation convenience, not a new allocation policy.
+4. Passed all 10 focused sandbox tests, including retained-snapshot stability,
+   caller-mutation isolation and reset waiting for an in-flight payment.
+
+### 6. Preventative Measures
+
+Treat a reset as a transaction, not independent map clears. Keep reset and snapshot
+serialization inputs under the same boundary as mutations; never expose mutable
+repository objects as historical snapshots. Browser abort does not undo server work.
+
+## RCA-095: Parking Live Workflows Hid Load Failures and Allowed Unsafe Retries
+
+### 1. Overview & Severity
+
+Medium. Parking forms could appear usable without gates, failed polls hid or silently
+staled their results, and payment failures offered no safe reconciliation guidance.
+
+### 2. Symptoms & Error Logs
+
+Twelve new workspace tests failed against the original page. Gate directory failures
+were swallowed, retries were absent, failed ticket refreshes replaced valid data,
+and a pending payment did not freeze every related control. Request helpers accepted
+no cancellation options; the old API tests exercised copied functions, not production.
+
+### 3. Root Cause
+
+Each tab managed unrelated fetch/loading/error state, caught poll failures without
+rethrowing them for backoff, and relied only on React loading state for write safety.
+There was no common abort ownership, synchronous mutation guard, or distinction
+between a known rejection and a lost response after a potentially completed write.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/parkingWorkspace.test.jsx src/__tests__/parkingApi.test.js src/__tests__/mobilitySimulation.test.jsx
+npx eslint src/lld/parking
+```
+
+### 5. Step-by-Step Resolution
+
+1. Added retryable read feedback, explicit no-gates/empty states, retained successful
+   snapshots, serial reads, and errors propagated to the shared polling backoff.
+2. Guarded mutations synchronously, froze request inputs, preserved failed drafts,
+   focused issued tickets/receipts, and explained potentially completed writes.
+3. Required a fresh scan after uncertain payment, separated preview from the actual
+   charge, and paginated active tickets in a keyboard-scrollable local table.
+4. Passed cancellation through real API wrappers and sandbox calls. Replaced copied
+   API tests with contract tests importing the production module. Removed the obsolete
+   render-time purity suppression rather than adding new blanket suppressions.
+
+### 6. Preventative Measures
+
+Test rejection, timeout, duplicate submission, tab departure and late completion,
+not only the happy path. Keep a useful snapshot visible when refresh fails and make
+retry an explicit read operation. Never infer mutation failure from a lost response.
 
 ## RCA-094: Status Text Tokens Were Reused as Filled Control Backgrounds
 
