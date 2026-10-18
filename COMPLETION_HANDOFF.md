@@ -179,7 +179,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 2 | Live regions on 77 banners, AA status tokens, wallet load errors, 320px overflow (RCA-088) | #155 | 581 vitest (584 after merging #154), lint 16, budgets; intercepted Chromium 6 routes × 4 views; CI green |
 | 3 | Seven standalone pages onto `LldPage`; Splitwise load-failure crash + retry (RCA-089) | #156 | 586 vitest (29 files), lint 16, entry 307,442 B; intercepted Chromium 8 routes × 4 views |
 | 4 | Logging live workspace recovery/configuration/cleanup and shared empty-response handling (RCA-090/091) | #160 | 610 vitest, 2308 mvn, Maven package pass; lint 16 baseline warnings; build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); intercepted Chromium 24 tab/theme/viewport checks |
-| 5 | Serialize visibility-triggered polls with pending requests (RCA-092) | Pending | Reproduced three overlapping calls before fix; 612 frontend and 2308 backend tests pass; lint 16 baseline warnings; Maven package, Vite build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); 24 intercepted browser tab/theme/viewport checks plus 8 controlled visibility checks pass |
+| 5 | Serialize visibility-triggered polls with pending requests (RCA-092) | #162 | Reproduced three overlapping calls before fix; 612 frontend and 2308 backend tests pass; lint 16 baseline warnings; Maven package, Vite build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); 24 intercepted browser tab/theme/viewport checks plus 8 controlled visibility checks pass |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
