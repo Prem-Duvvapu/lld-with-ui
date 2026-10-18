@@ -20,9 +20,9 @@ const CSS = `
 .cric-btn-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
 .cric-btn { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-weight: 700; font-size: 13px; transition: opacity .15s; }
 .cric-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.cric-btn.four { background: var(--info); color: #fff; border: none; }
-.cric-btn.six { background: var(--success); color: #fff; border: none; }
-.cric-btn.wicket { background: var(--danger); color: #fff; border: none; }
+.cric-btn.four { background: var(--info-solid); color: var(--on-status-solid); border: none; }
+.cric-btn.six { background: var(--success-solid); color: var(--on-status-solid); border: none; }
+.cric-btn.wicket { background: var(--danger-solid); color: var(--on-status-solid); border: none; }
 .cric-btn.primary { background: var(--accent-gradient); color: #fff; border: none; }
 
 .cric-log { margin-top: 14px; background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-primary); font-size: 12px; color: var(--info); text-align: center; font-weight: 600; }

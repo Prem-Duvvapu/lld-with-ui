@@ -39,8 +39,8 @@ const CSS = `
 .tm-btn:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
 .tm-btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-primary); }
 .tm-btn-secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); background: var(--bg-card); }
-.tm-btn-danger { background: var(--danger); color: #fff; }
-.tm-btn-danger:hover:not(:disabled) { background: var(--danger); opacity: 0.85; }
+.tm-btn-danger { background: var(--danger-solid); color: var(--on-status-solid); }
+.tm-btn-danger:hover:not(:disabled) { background: var(--danger-solid); opacity: 0.85; color: var(--on-status-solid); }
 .tm-select { padding: 7px 10px; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); color: var(--text-primary); font-size: var(--font-sm); transition: border-color var(--duration-fast); }
 .tm-select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
 

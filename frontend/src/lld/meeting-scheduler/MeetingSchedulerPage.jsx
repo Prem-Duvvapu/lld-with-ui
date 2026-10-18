@@ -15,7 +15,7 @@ const CSS = `
 .ms-form label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .ms-form input, .ms-form select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font-size: 13px; }
 .ms-btn { padding: 10px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; border: none; background: var(--accent-gradient); color: #fff; }
-.ms-btn.danger { background: var(--danger); }
+.ms-btn.danger { background: var(--danger-solid); color: var(--on-status-solid); }
 .ms-btn:hover { opacity: 0.9; }
 .ms-meeting-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--bg-primary); border: 1px solid var(--border-primary); margin-bottom: 8px; }
 .ms-meeting-title { font-weight: 700; font-size: 13px; }

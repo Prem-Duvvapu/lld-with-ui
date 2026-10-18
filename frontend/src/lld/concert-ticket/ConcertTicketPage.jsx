@@ -16,8 +16,8 @@ const CSS = `
 .ct-btn:hover:not(:disabled) { transform: translateY(-1px); }
 .ct-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .ct-btn-primary { background: var(--accent-gradient, var(--accent)); color: #fff; }
-.ct-btn-success { background: var(--success); color: #fff; }
-.ct-btn-danger { background: var(--danger); color: #fff; }
+.ct-btn-success { background: var(--success-solid); color: var(--on-status-solid); }
+.ct-btn-danger { background: var(--danger-solid); color: var(--on-status-solid); }
 .ct-btn-ghost { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-primary); }
 
 .ct-event-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; margin-bottom: 20px; }
@@ -37,7 +37,7 @@ const CSS = `
 .seat-item.gold { border-color: var(--accent); color: var(--accent); }
 .seat-item.silver { border-color: var(--info); color: var(--info); }
 .seat-item.general { border-color: var(--text-muted); color: var(--text-muted); }
-.seat-item.selected { border-color: var(--success); background: var(--success); color: #fff; transform: scale(1.08); }
+.seat-item.selected { border-color: var(--success); background: var(--success-solid); color: var(--on-status-solid); transform: scale(1.08); }
 .seat-item.held { border-color: var(--danger); background: rgba(248,81,73,0.15); color: var(--danger); cursor: not-allowed; }
 .seat-item.booked { background: var(--border-primary); color: var(--text-muted); cursor: not-allowed; border-color: transparent; }
 

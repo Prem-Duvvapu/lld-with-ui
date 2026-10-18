@@ -14,7 +14,7 @@ const CSS = `
 .ff-btn { padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; background: var(--accent-gradient); color: #fff; }
 .ff-btn:hover { opacity: 0.9; }
 .ff-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.ff-btn.danger { background: var(--danger); }
+.ff-btn.danger { background: var(--danger-solid); color: var(--on-status-solid); }
 .ff-flags { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 16px; }
 .ff-card { background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 10px; padding: 14px; }
 .ff-card h4 { margin: 0 0 6px; font-size: 14px; color: var(--text-primary); display: flex; justify-content: space-between; align-items: center; }

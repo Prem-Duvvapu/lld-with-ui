@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-094](#rca-094-status-text-tokens-were-reused-as-filled-control-backgrounds) | 2026-10-18 | Frontend / Theme & Accessibility | Bright dark-theme status fills washed out white labels; light warning controls also used dark foregrounds | Resolved |
 | [RCA-093](#rca-093-logging-simulation-displayed-filter-outcomes-that-java-never-applied) | 2026-10-18 | Logging / Sandbox & Playback | Local-only threshold, incorrect startup telemetry, and timed pipeline claims diverged from Java behavior | Resolved |
 | [RCA-092](#rca-092-returning-to-a-visible-tab-started-overlapping-polls) | 2026-10-18 | Frontend / Shared Polling | Visibility events bypassed request serialization and created competing poll loops | Resolved |
 | [RCA-091](#rca-091-empty-successful-api-responses-were-reported-as-json-failures) | 2026-10-18 | Frontend / API Client | Empty HTTP 200 responses from successful mutations rejected during JSON parsing | Resolved |
@@ -32,6 +33,70 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-094: Status Text Tokens Were Reused as Filled Control Backgrounds
+
+### 1. Overview & Severity
+
+Medium. Filled action buttons, badges, elevator cars, and numbered auction steps
+reused colors intended for semantic text. Labels failed normal-text contrast in
+dark mode. Warning actions with fixed black text also failed in light mode.
+
+### 2. Symptoms & Error Logs
+
+White text on the existing dark status colors measured approximately 1.9–3.35:1.
+The historical inventory included text-free dots and bars as well as real labels;
+those graphics must not be confused with text contrast failures. New regression
+tests initially failed all four cases: missing dedicated palette tokens, unsafe
+CSS fills, and 15 inline controls without an explicit matching foreground.
+
+### 3. Root Cause
+
+The theme distinguished status text and tinted surfaces, but not filled surfaces.
+Dark-mode text colors were brightened for readability on cards while buttons kept
+white labels. Some variants inherited a foreground from an unrelated base class.
+Shopping-cart and workflow warning actions instead hardcoded black text, although
+the light warning color had been darkened for its separate text role.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/statusSurfaces.test.js src/__tests__/accessibilityContracts.test.js
+rg -n 'background.*var\(--(success|danger|warning|info)\)' src --glob '*.{jsx,css}'
+```
+
+Inspect computed foreground, fill, opacity, and brightness in Chromium for both
+themes, including enabled hover and focus states. Separate CSS cascade probes
+from routed application checks; neither implies a completed module-wide review.
+
+### 5. Step-by-Step Resolution
+
+1. Added four dedicated `--*-solid` fills and `--on-status-solid`, inherited in
+   both themes without changing existing text/tint tokens.
+2. Migrated 50 declarations across the shared danger button and 18 modules,
+   explicitly pairing each fill with its foreground instead of relying on inheritance.
+3. Preserved text-free progress dots, bars, and signal indicators, as well as
+   existing semantic text, borders, tint backgrounds, and business/API behavior.
+4. Added palette tests for normal text, opacity and brightness hover effects, plus
+   source contracts covering CSS and inline control pairings. The original tinted
+   text contrast contract continues to pass.
+5. Verified 48 distinct source controls in 576 Chromium cascade probes at 320/1280px
+   across both themes and normal/hover/focus states; minimum measured contrast was
+   4.85:1. Separately checked three production-built routes across eight theme/viewport
+   contexts (24 views, 56 control checks), including keyboard actions, retry, and
+   approval completion. These routed checks intercepted API fixtures, not live servers.
+6. Passed 629 frontend tests, 2320 backend tests, both production builds, and chunk
+   budgets (310,324-byte entry; 55,479-byte largest non-entry). Lint retains 14 existing
+   warnings and no errors.
+
+### 6. Preventative Measures
+
+Use `--success/--danger/--warning/--info` for text and their `-bg` counterparts for
+tints. Text-bearing filled surfaces use `--*-solid` with `--on-status-solid`.
+Test both foreground roles independently and include actual hover effects rather
+than checking the base palette alone. Brand/accent surfaces need their own audit;
+this fix does not claim that every UI color or every module is fully accessible.
 
 ## RCA-093: Logging Simulation Displayed Filter Outcomes That Java Never Applied
 

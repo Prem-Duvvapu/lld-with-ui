@@ -14,8 +14,8 @@ const CSS = `
 .cr-btn { padding: 9px 18px; border-radius: var(--radius-sm); border: none; background: var(--accent-gradient); color: #fff; font-weight: 600; cursor: pointer; font-size: var(--font-sm); }
 .cr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cr-btn.secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-primary); }
-.cr-btn.danger { background: var(--danger); }
-.cr-btn.success { background: var(--success); }
+.cr-btn.danger { background: var(--danger-solid); color: var(--on-status-solid); }
+.cr-btn.success { background: var(--success-solid); color: var(--on-status-solid); }
 .cr-error { margin-top: 8px; padding: 10px; background: var(--danger-bg); color: var(--danger); border-radius: var(--radius-sm); font-size: var(--font-sm); border: 1px solid var(--danger-bg); }
 .cr-fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3); }
 .cr-vehicle-card { background: var(--bg-card); border: 2px solid var(--border-primary); border-radius: var(--radius-md); padding: var(--space-3); cursor: pointer; transition: all 0.2s; }
@@ -32,7 +32,7 @@ const CSS = `
 .cr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .cr-actions button { padding: 5px 10px; font-size: 11px; border-radius: 6px; border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; }
 .cr-actions button.primary { background: var(--accent); color: #fff; border: none; }
-.cr-actions button.danger { background: var(--danger); color: #fff; border: none; }
+.cr-actions button.danger { background: var(--danger-solid); color: var(--on-status-solid); border: none; }
 
 `;
 

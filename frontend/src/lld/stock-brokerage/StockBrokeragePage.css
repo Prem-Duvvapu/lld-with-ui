@@ -87,8 +87,8 @@
   font-size: var(--font-sm);
   transition: all var(--duration-fast) var(--ease-out);
 }
-.sb-toggle-btn.buy.active { background: var(--success); border-color: var(--success); color: #fff; }
-.sb-toggle-btn.sell.active { background: var(--danger); border-color: var(--danger); color: #fff; }
+.sb-toggle-btn.buy.active { background: var(--success-solid); border-color: var(--success); color: var(--on-status-solid); }
+.sb-toggle-btn.sell.active { background: var(--danger-solid); border-color: var(--danger); color: var(--on-status-solid); }
 .sb-toggle-btn.type.active { background: var(--info-bg); border-color: var(--info); color: var(--info); }
 
 .sb-field { margin-bottom: var(--space-3); }
@@ -135,8 +135,8 @@
   cursor: pointer;
   transition: filter var(--duration-fast) var(--ease-out);
 }
-.sb-submit-btn.buy { background: var(--success); }
-.sb-submit-btn.sell { background: var(--danger); }
+.sb-submit-btn.buy { background: var(--success-solid); color: var(--on-status-solid); }
+.sb-submit-btn.sell { background: var(--danger-solid); color: var(--on-status-solid); }
 .sb-submit-btn:hover { filter: brightness(1.08); }
 .sb-submit-btn:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
 
@@ -197,7 +197,7 @@
 .sb-order-meta { color: var(--text-muted); font-size: 10px; margin-top: 2px; }
 .sb-cancel-btn {
   padding: 4px 10px; border-radius: 4px; border: none;
-  background: var(--danger); color: #fff; font-size: 11px; cursor: pointer;
+  background: var(--danger-solid); color: var(--on-status-solid); font-size: 11px; cursor: pointer;
 }
 
 .sb-scroll { max-height: 260px; overflow-y: auto; }
@@ -246,7 +246,7 @@
 }
 .sb-btn-trigger:hover { filter: brightness(1.1); }
 .sb-btn-trigger:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
-.sb-btn-trigger.danger { background: var(--danger); }
+.sb-btn-trigger.danger { background: var(--danger-solid); color: var(--on-status-solid); }
 .sb-btn-trigger.ghost { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-primary); }
 .sb-sim-hint { font-size: var(--font-xs); color: var(--text-secondary); max-width: 520px; text-align: center; }
 
