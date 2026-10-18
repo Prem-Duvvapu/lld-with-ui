@@ -74,7 +74,7 @@ from routed application checks; neither implies a completed module-wide review.
 
 1. Added four dedicated `--*-solid` fills and `--on-status-solid`, inherited in
    both themes without changing existing text/tint tokens.
-2. Migrated 50 declarations across the shared danger button and 18 modules,
+2. Migrated 49 CSS/inline rules across the shared danger button and 18 modules,
    explicitly pairing each fill with its foreground instead of relying on inheritance.
 3. Preserved text-free progress dots, bars, and signal indicators, as well as
    existing semantic text, borders, tint backgrounds, and business/API behavior.

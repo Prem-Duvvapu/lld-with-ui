@@ -57,7 +57,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   and dark `--danger` failed 4.5:1 as text on their own tints. Light tokens are darkened in
   place and the dark danger tint alpha is lowered; the same test guards both.
 - **Filled status contrast (fixed, batch 7).** Dedicated `--*-solid` fills and
-  `--on-status-solid` now pair explicitly in 50 declarations across the shared danger
+  `--on-status-solid` now pair explicitly in 49 CSS/inline rules across the shared danger
   button and 18 modules. Existing text/tint colors are unchanged. The historical 69-site
   inventory also included text-free dots and bars, which retain their original colors.
   Tests cover both themes, enabled hover effects, and CSS/inline foreground pairing
