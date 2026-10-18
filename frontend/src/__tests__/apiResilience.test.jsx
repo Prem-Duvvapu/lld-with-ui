@@ -119,6 +119,72 @@ describe('usePolling', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('does not overlap requests when a tab returns to view during a pending poll', async () => {
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    let release;
+    let activeRequests = 0;
+    let peakRequests = 0;
+    const fetchData = vi.fn(() => {
+      activeRequests += 1;
+      peakRequests = Math.max(peakRequests, activeRequests);
+      return new Promise((resolve) => {
+        release = () => { activeRequests -= 1; resolve(); };
+      });
+    });
+    function Poller() {
+      usePolling(fetchData, 1000, []);
+      return null;
+    }
+    const view = render(<Poller />);
+    await flush();
+    hidden.mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flush();
+    expect(fetchData).toHaveBeenCalledTimes(1);
+    expect(peakRequests).toBe(1);
+    release();
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    expect(peakRequests).toBe(1);
+    const signal = fetchData.mock.calls[1][0];
+    view.unmount();
+    expect(signal.aborted).toBe(true);
+    release();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchData).toHaveBeenCalledTimes(2);
+  });
+
+  it('pauses while hidden and refreshes immediately on return without another timer loop', async () => {
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    let release;
+    const fetchData = vi.fn(() => new Promise((resolve) => { release = resolve; }));
+    function Poller() {
+      usePolling(fetchData, 1000, []);
+      return null;
+    }
+    render(<Poller />);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(fetchData).not.toHaveBeenCalled();
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(fetchData).toHaveBeenCalledTimes(1);
+    hidden.mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    release();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchData).toHaveBeenCalledTimes(1);
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(fetchData).toHaveBeenCalledTimes(2);
+    release();
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(fetchData).toHaveBeenCalledTimes(3);
   });
 
   it('never runs two polls at once, however slow the backend is', async () => {

@@ -94,6 +94,11 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   slot spin and stackoverflow rejection flash now use the same hook.
 - **Custom sim steppers (open).** Most of the 35 have their own Next/step state with no
   shared pause/reset/progress semantics; each needs an adopt-or-justify decision.
+- **Overlapping polls on tab return (fixed, batch 5).** The shared poll executor now
+  guards all entry paths, including visibility notifications, while a request is in
+  flight. Repeated return-to-view events cannot create duplicate reads or timer loops.
+  Regression tests reproduce the former three-request overlap and verify hidden-tab
+  pause, immediate idle refresh, error backoff, and unmount cancellation (RCA-092).
 - **Logging simulation outcome mismatch (confirmed open, 2026-10-18).** The threshold
   selector changes only local React state; the Java sandbox does not receive it. The
   browser computes PASSED/FILTERED from that local selection instead of the backend
@@ -174,6 +179,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 2 | Live regions on 77 banners, AA status tokens, wallet load errors, 320px overflow (RCA-088) | #155 | 581 vitest (584 after merging #154), lint 16, budgets; intercepted Chromium 6 routes × 4 views; CI green |
 | 3 | Seven standalone pages onto `LldPage`; Splitwise load-failure crash + retry (RCA-089) | #156 | 586 vitest (29 files), lint 16, entry 307,442 B; intercepted Chromium 8 routes × 4 views |
 | 4 | Logging live workspace recovery/configuration/cleanup and shared empty-response handling (RCA-090/091) | #160 | 610 vitest, 2308 mvn, Maven package pass; lint 16 baseline warnings; build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); intercepted Chromium 24 tab/theme/viewport checks |
+| 5 | Serialize visibility-triggered polls with pending requests (RCA-092) | #162 | Reproduced three overlapping calls before fix; 612 frontend and 2308 backend tests pass; lint 16 baseline warnings; Maven package, Vite build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); 24 intercepted browser tab/theme/viewport checks plus 8 controlled visibility checks pass |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -181,6 +187,11 @@ failure/retry, invalid MDC, failed/successful writes, empty HTTP 200 clear respo
 configuration changes, duplicate prevention, pending navigation, and keyboard focus.
 This is browser interaction evidence, not live HTTP end-to-end verification. The
 Vercel analytics script was stubbed in the harness; analytics reporting was not tested.
+
+Batch 5 repeated the same browser matrix and held one configuration request pending
+while sending repeated hidden/visible notifications. Each theme/viewport combination
+retained exactly one request. These checks synthesize document visibility events;
+they do not assert operating-system tab switching or live-backend behavior.
 
 ### Curriculum workstream
 
