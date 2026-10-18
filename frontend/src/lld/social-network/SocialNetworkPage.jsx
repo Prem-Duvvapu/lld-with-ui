@@ -63,8 +63,8 @@ const CSS = `
 .sn-comment-form button { padding: 6px 12px; border-radius: 6px; border: none; background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
 .sn-req-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; margin-bottom: 8px; }
 .sn-req-actions button { margin-left: 6px; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; }
-.sn-accept { background: var(--success); color: #fff; }
-.sn-reject { background: var(--danger); color: #fff; }
+.sn-accept { background: var(--success-solid); color: var(--on-status-solid); }
+.sn-reject { background: var(--danger-solid); color: var(--on-status-solid); }
 .sn-section-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
 
 /* ---------------------------------------------------------- simulation tab */
@@ -118,8 +118,8 @@ const CSS = `
 .sn-event-desc { color: var(--text-secondary); margin-top: 2px; }
 
 .sn-race-bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border-primary); }
-.sn-race-bar .won { background: var(--success); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; }
-.sn-race-bar .lost { background: var(--danger); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 700; }
+.sn-race-bar .won { background: var(--success-solid); display: flex; align-items: center; justify-content: center; color: var(--on-status-solid); font-size: 11px; font-weight: 700; }
+.sn-race-bar .lost { background: var(--danger-solid); display: flex; align-items: center; justify-content: center; color: var(--on-status-solid); font-size: 11px; font-weight: 700; }
 `;
 
 function timeAgo(ts) {

@@ -285,16 +285,16 @@ export default function WorkflowPage() {
 
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button onClick={handleApprove} disabled={!currentStep}
-                      style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'var(--success)', color: '#fff', border: 'none', fontWeight: '700', cursor: currentStep ? 'pointer' : 'default', opacity: currentStep ? 1 : 0.5 }}>
+                      style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'var(--success-solid)', color: 'var(--on-status-solid)', border: 'none', fontWeight: '700', cursor: currentStep ? 'pointer' : 'default', opacity: currentStep ? 1 : 0.5 }}>
                       Approve (as {currentStep ? currentStep.role : '—'})
                     </button>
                     <button onClick={handleReject} disabled={!currentStep}
-                      style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'var(--danger)', color: '#fff', border: 'none', fontWeight: '700', cursor: currentStep ? 'pointer' : 'default', opacity: currentStep ? 1 : 0.5 }}>
+                      style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'var(--danger-solid)', color: 'var(--on-status-solid)', border: 'none', fontWeight: '700', cursor: currentStep ? 'pointer' : 'default', opacity: currentStep ? 1 : 0.5 }}>
                       Reject
                     </button>
                   </div>
                   <button onClick={handleEscalate} disabled={!currentStep}
-                    style={{ width: '100%', marginTop: '10px', padding: '12px', borderRadius: '8px', background: 'var(--warning)', color: '#111', border: 'none', fontWeight: '700', cursor: currentStep ? 'pointer' : 'default', opacity: currentStep ? 1 : 0.5 }}>
+                    style={{ width: '100%', marginTop: '10px', padding: '12px', borderRadius: '8px', background: 'var(--warning-solid)', color: 'var(--on-status-solid)', border: 'none', fontWeight: '700', cursor: currentStep ? 'pointer' : 'default', opacity: currentStep ? 1 : 0.5 }}>
                     Trigger Timeout Escalation
                   </button>
                 </>

@@ -29,8 +29,8 @@ const CSS = `
 .cap-fill.full { background: var(--warning); }
 .crs-btn { padding: 5px 10px; border-radius: 6px; border: none; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer; background: var(--accent-gradient); }
 .crs-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.crs-btn.waitlist { background: var(--warning); }
-.crs-btn.drop { background: var(--danger); }
+.crs-btn.waitlist { background: var(--warning-solid); color: var(--on-status-solid); }
+.crs-btn.drop { background: var(--danger-solid); color: var(--on-status-solid); }
 
 .reg-table-scroll { overflow-x: auto; }
 .reg-table { width: 100%; border-collapse: collapse; font-size: 12px; }

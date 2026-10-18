@@ -34,8 +34,8 @@ const styles = `
 .el-floor-btn { width: 26px; height: 26px; border: none; border-radius: 50%; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 700; transition: transform 0.15s, box-shadow 0.15s; }
 .el-floor-btn:hover:not(:disabled) { transform: scale(1.15); }
 .el-floor-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
-.el-floor-btn-up { background: var(--success); color: #fff; }
-.el-floor-btn-down { background: var(--warning); color: #fff; }
+.el-floor-btn-up { background: var(--success-solid); color: var(--on-status-solid); }
+.el-floor-btn-down { background: var(--warning-solid); color: var(--on-status-solid); }
 .el-floor-btn.pending { animation: el-pending-pulse 1.1s ease-in-out infinite; }
 .el-shaft-headers { display: flex; gap: 6px; justify-content: center; margin-bottom: 3px; }
 .el-shaft-header { width: 56px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--bg-primary); border: 1px solid var(--border-primary); border-bottom: none; }
@@ -50,8 +50,8 @@ const styles = `
 .el-shaft { width: 56px; position: relative; border-left: 1px solid var(--border-primary); border-right: 1px solid var(--border-primary); background: var(--bg-tertiary); }
 .el-car { position: absolute; left: 3px; right: 3px; height: 36px; top: 50%; transform: translateY(-50%); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px; font-weight: 700; z-index: 2; box-shadow: var(--shadow-md); overflow: visible; }
 .el-car.idle { background: var(--accent-gradient); }
-.el-car.moving { background: var(--danger); }
-.el-car.door-open { background: var(--success); }
+.el-car.moving { background: var(--danger-solid); color: var(--on-status-solid); }
+.el-car.door-open { background: var(--success-solid); color: var(--on-status-solid); }
 .el-car.maintenance { background: var(--text-muted); }
 .el-car.tracked { box-shadow: 0 0 0 3px var(--warning), 0 0 14px var(--warning); }
 .el-car.arrived-flash { animation: el-arrive-flash 0.9s ease-out; }
@@ -109,7 +109,7 @@ const styles = `
 .el-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .el-btn-outline { padding: 8px 16px; border: 1px solid var(--border-primary); border-radius: var(--radius-md); font-size: 12px; font-weight: 700; cursor: pointer; background: transparent; color: var(--text-primary); }
 .el-btn-outline:hover { border-color: var(--accent); color: var(--accent); }
-.el-btn-danger { background: var(--danger); }
+.el-btn-danger { background: var(--danger-solid); color: var(--on-status-solid); }
 .el-error { text-align: center; padding: 8px 12px; margin: 8px 0; font-size: 12.5px; color: var(--danger); background: var(--danger-bg); border-radius: var(--radius-sm); font-weight: 600; }
 .el-intro { text-align: center; padding: 24px 12px; color: var(--text-secondary); font-size: 13px; }
 .el-intro code { background: var(--bg-primary); padding: 1px 5px; border-radius: 4px; }

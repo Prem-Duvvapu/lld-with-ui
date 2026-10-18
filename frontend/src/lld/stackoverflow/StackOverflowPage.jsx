@@ -48,7 +48,7 @@ const CSS = `
 .so-answer.accepted { border-color: var(--success); background: var(--success-bg); }
 .so-answer-body { flex: 1; }
 .so-answer-meta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 11.5px; color: var(--text-muted); margin-top: 8px; }
-.so-accepted-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--success); color: #fff; padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
+.so-accepted-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--success-solid); color: var(--on-status-solid); padding: 2px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 700; }
 .so-comment { padding: 7px 10px; margin: 5px 0; background: var(--bg-primary); border-radius: 6px; font-size: 12px; border-left: 3px solid var(--border-secondary); color: var(--text-secondary); }
 .so-comment b { color: var(--accent); font-size: 11.5px; }
 .so-add-comment { display: flex; gap: 8px; margin-top: 8px; }

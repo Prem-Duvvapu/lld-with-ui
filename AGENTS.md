@@ -75,6 +75,7 @@ shape as elevator/ludo.
 - Light/dark themes via CSS custom properties (`data-theme` attribute on `<html>`).
 - `ThemeContext` + one global `ThemeToggle` in the `App.jsx` header (pages must not render their own). Default: light.
 - Status colours (`--success/--danger/--warning/--info`) must stay ≥ 4.5:1 as text on their own `-bg` tint in both themes (RCA-088).
+- Text-bearing status fills use `--success-solid/--danger-solid/--warning-solid/--info-solid` with `--on-status-solid`; do not reuse text tokens as button backgrounds (RCA-094). Text-free dots and bars can keep the original status colors.
 - Theme persisted in localStorage under `lld-theme`.
 
 ### Frontend

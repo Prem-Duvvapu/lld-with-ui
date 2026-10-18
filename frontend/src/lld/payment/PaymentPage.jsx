@@ -234,7 +234,7 @@ export default function PaymentPage() {
                     <StatusBadge status={p.status} />
                     {p.status === 'CAPTURED' && (
                       <button onClick={() => handleRefund(p.id)}
-                        style={{ padding: '6px 14px', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                        style={{ padding: '6px 14px', background: 'var(--danger-solid)', color: 'var(--on-status-solid)', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
                         Refund
                       </button>
                     )}

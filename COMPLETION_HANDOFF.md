@@ -14,10 +14,11 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest batch validation: 2320 backend tests, 625 frontend tests, and eight Chromium
-  contexts covering both themes at 320/390/768/1280px, including 16 accepted/filtered
-  outcome checks, recovery, keyboard focus and pending navigation. These checks cover
-  the logging sandbox, not every page of the project.
+- Latest batch validation: 2320 backend tests and 629 frontend tests. Chromium passed
+  576 status-style cascade checks and 24 production-built route views / 56 control checks,
+  covering both themes, mobile/desktop layouts, hover/focus, and keyboard actions.
+  The preceding logging sandbox batch covered 16 accepted/filtered outcomes, recovery,
+  and pending navigation. These are scoped checks, not a completed whole-project audit.
 - Latest build: entry 310324 bytes; largest non-entry JavaScript chunk 55479 bytes.
 - Lint has 14 existing warnings and a suppression baseline; a successful lint exit
   is not evidence that every suppressed issue has been resolved.
@@ -55,9 +56,12 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 - **Status-token contrast (fixed, batch 2).** Light `--success/--danger/--warning/--info`
   and dark `--danger` failed 4.5:1 as text on their own tints. Light tokens are darkened in
   place and the dark danger tint alpha is lowered; the same test guards both.
-- **Dark white-on-solid status colours (open).** At 69 sites (buttons, badges, step dots),
-  white text on solid dark `--success/--warning/--info/--danger` is 1.9–3.35:1. This needs
-  dedicated solid/`--on-*` tokens rather than a change to the text tokens.
+- **Filled status contrast (fixed, batch 7).** Dedicated `--*-solid` fills and
+  `--on-status-solid` now pair explicitly in 49 CSS/inline rules across the shared danger
+  button and 18 modules. Existing text/tint colors are unchanged. The historical 69-site
+  inventory also included text-free dots and bars, which retain their original colors.
+  Tests cover both themes, enabled hover effects, and CSS/inline foreground pairing
+  (RCA-094). Brand/accent surfaces and the full module-wide accessibility review remain open.
 - **320px page overflow (fixed, batch 2).** coupon 16px (fixed two-column grid → `auto-fit`),
   airline 6px (non-wrapping passenger picker and seat legend), course-registration 69px (tables
   now in a local `overflow-x: auto` container). Airline's passenger `<select>` also had
@@ -89,7 +93,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   Live controls have accessible names, responsive grids, and confirmation before clearing logs.
   The shared API client also accepts empty successful responses (RCA-091), so a successful
   clear/reset is not mislabeled as a JSON failure.
-  Simulation controls and the final whole-module browser review remain pending.
+  Simulation controls shipped in batch 6; the final whole-module browser review remains pending.
 - **Other uncleared animation timers (fixed, batch 1).** coffeemachine brew, vendingmachine
   slot spin and stackoverflow rejection flash now use the same hook.
 - **Custom sim steppers (open).** Most remaining candidates have their own Next/step state with no
@@ -180,6 +184,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 4 | Logging live workspace recovery/configuration/cleanup and shared empty-response handling (RCA-090/091) | #160 | 610 vitest, 2308 mvn, Maven package pass; lint 16 baseline warnings; build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); intercepted Chromium 24 tab/theme/viewport checks |
 | 5 | Serialize visibility-triggered polls with pending requests (RCA-092) | #162 | Reproduced three overlapping calls before fix; 612 frontend and 2308 backend tests pass; lint 16 baseline warnings; Maven package, Vite build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); 24 intercepted browser tab/theme/viewport checks plus 8 controlled visibility checks pass |
 | 6 | Logging sandbox configuration, real outcomes, atomic snapshots and guided playback (RCA-093) | #163 | 625 frontend and 2320 backend tests, Maven package, Vite build and both budgets pass (entry 310,324 B; largest non-entry 55,479 B); lint 14 existing warnings; 8 browser contexts / 16 outcome checks pass |
+| 7 | Separate filled status surfaces from text/tint roles in shared controls and 18 modules (RCA-094) | #164 | 629 frontend and 2320 backend tests, Maven package, Vite build, both budgets pass (entry 310,324 B; largest non-entry 55,479 B); lint 14 existing warnings; 576 cascade probes plus 24 routed views / 56 control checks pass |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -199,6 +204,16 @@ configuration failure/reset recovery, frozen settings, keyboard sink selection,
 and navigation during a pending reset. No page errors or horizontal overflow were
 observed. Java service and MockMvc tests independently cover the real threshold,
 HTTP 204 filtering, isolation, startup/reset defaults, and concurrent snapshots.
+
+Batch 7 separated the historical status-fill inventory into text-bearing controls
+and text-free graphics. Chromium evaluated actual source CSS for 48 distinct controls
+at 320/1280px in both themes, in normal/hover/focus states (576 checks, minimum
+4.85:1). These are isolated cascade probes, not complete rendered module workflows.
+Separately, production-built cricinfo, workflow, and traffic-signal routes used
+intercepted API fixtures at 320/390/768/1280px in both themes (24 views, 56 control
+checks). Keyboard ball recording, approval completion, retry, and responsive layout
+checks passed without page errors or horizontal overflow. No application server
+was started; other module flows and brand/accent contrast remain unverified.
 
 ### Curriculum workstream
 

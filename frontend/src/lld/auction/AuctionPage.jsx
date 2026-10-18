@@ -53,7 +53,7 @@ const CSS = `
 .stepper { display: flex; align-items: center; justify-content: center; gap: 2px; margin-bottom: 4px; flex-wrap: wrap; }
 .stepper-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--bg-tertiary); border: 2px solid var(--border-primary); color: var(--text-muted); transition: all 0.35s ease; flex-shrink: 0; }
 .stepper-circle.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 0 5px rgba(88, 101, 242, 0.16); transform: scale(1.08); }
-.stepper-circle.done { background: var(--success); border-color: var(--success); color: #fff; }
+.stepper-circle.done { background: var(--success-solid); border-color: var(--success); color: var(--on-status-solid); }
 .stepper-line { width: 18px; height: 2px; background: var(--border-primary); transition: background 0.35s ease; }
 .stepper-line.done { background: var(--success); }
 .step-caption { text-align: center; margin: 10px 0 18px; min-height: 40px; }
@@ -287,7 +287,7 @@ function AuctionDetail({ auctionId, bidders, onUpdate }) {
         </>
       )}
       {auction.status !== 'CLOSED' && (
-        <button className="btn-primary" style={{ width: 'auto', padding: '8px 16px', background: 'var(--danger)', marginBottom: 16 }} onClick={handleClose}>
+        <button className="btn-primary" style={{ width: 'auto', padding: '8px 16px', background: 'var(--danger-solid)', color: 'var(--on-status-solid)', marginBottom: 16 }} onClick={handleClose}>
           Close Auction
         </button>
       )}

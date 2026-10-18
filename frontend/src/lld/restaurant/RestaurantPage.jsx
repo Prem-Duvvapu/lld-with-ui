@@ -305,17 +305,17 @@ function AppTab() {
         </button>
         <button className="rest-action-btn" onClick={handlePrepare}
           disabled={activeOrder?.status !== 'PLACED'}
-          style={{ background: 'var(--info)' }}>
+          style={{ background: 'var(--info-solid)', color: 'var(--on-status-solid)' }}>
           🍳 Prepare
         </button>
         <button className="rest-action-btn" onClick={handleReady}
           disabled={activeOrder?.status !== 'PREPARING'}
-          style={{ background: 'var(--success)' }}>
+          style={{ background: 'var(--success-solid)', color: 'var(--on-status-solid)' }}>
           ✅ Ready
         </button>
         <button className="rest-action-btn" onClick={handleServe}
           disabled={activeOrder?.status !== 'READY'}
-          style={{ background: 'var(--success)' }}>
+          style={{ background: 'var(--success-solid)', color: 'var(--on-status-solid)' }}>
           🍽️ Serve
         </button>
         <button className="rest-action-btn" onClick={handleBill}
@@ -325,12 +325,12 @@ function AppTab() {
         </button>
         <button className="rest-action-btn" onClick={handlePay}
           disabled={activeOrder?.status !== 'BILLED'}
-          style={{ background: 'var(--warning)' }}>
+          style={{ background: 'var(--warning-solid)', color: 'var(--on-status-solid)' }}>
           💳 Pay
         </button>
         <button className="rest-action-btn" onClick={handleCancel}
           disabled={!activeOrder || (activeOrder.status !== 'PLACED' && activeOrder.status !== 'PREPARING')}
-          style={{ background: 'var(--danger)' }}>
+          style={{ background: 'var(--danger-solid)', color: 'var(--on-status-solid)' }}>
           ❌ Cancel
         </button>
       </div>
@@ -618,7 +618,7 @@ function SimulationTab() {
       {/* Controls */}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 14 }}>
         <button className="rest-action-btn" onClick={resetAll} disabled={busy}
-          style={{ background: 'var(--danger)' }}>
+          style={{ background: 'var(--danger-solid)', color: 'var(--on-status-solid)' }}>
           \uD83D\uDD04 Reset
         </button>
         <button className="rest-action-btn" onClick={runStep} disabled={busy || done}

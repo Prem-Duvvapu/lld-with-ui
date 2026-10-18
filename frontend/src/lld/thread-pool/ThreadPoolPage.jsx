@@ -19,7 +19,7 @@ const CSS = `
 .tp-btn { padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; border: none; background: var(--accent-gradient); color: #fff; margin-top: 8px; margin-right: 6px; }
 .tp-btn:hover { opacity: 0.9; }
 .tp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.tp-btn.danger { background: var(--danger); }
+.tp-btn.danger { background: var(--danger-solid); color: var(--on-status-solid); }
 .tp-banner { max-width: 520px; margin: 0 auto 16px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; }
 .tp-banner.ok { background: rgba(34,197,94,0.12); border: 1px solid #22c55e; color: #22c55e; }
 .tp-banner.err { background: var(--danger-bg); border: 1px solid var(--danger); color: var(--danger); }

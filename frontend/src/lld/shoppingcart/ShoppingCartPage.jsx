@@ -394,7 +394,7 @@ export default function ShoppingCartPage() {
                   <button
                     onClick={handleUndo}
                     style={{
-                      padding: '8px 16px', background: 'var(--warning)', color: '#000', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer'
+                      padding: '8px 16px', background: 'var(--warning-solid)', color: 'var(--on-status-solid)', borderRadius: '8px', border: 'none', fontWeight: '700', cursor: 'pointer'
                     }}
                   >
                     ↩️ Undo Last Cart Action
@@ -434,7 +434,7 @@ export default function ShoppingCartPage() {
                           </div>
                           <button
                             onClick={() => handleRemoveFromCart(item.productId)}
-                            style={{ padding: '6px 12px', background: 'var(--danger)', color: '#fff', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: '600' }}
+                            style={{ padding: '6px 12px', background: 'var(--danger-solid)', color: 'var(--on-status-solid)', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: '600' }}
                           >
                             Remove
                           </button>
@@ -510,7 +510,7 @@ export default function ShoppingCartPage() {
                         {o.status !== 'SHIPPED' && o.status !== 'DELIVERED' && o.status !== 'CANCELLED' && (
                           <button
                             onClick={() => handleCancelOrder(o.orderId)}
-                            style={{ padding: '6px 12px', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
+                            style={{ padding: '6px 12px', background: 'var(--danger-solid)', color: 'var(--on-status-solid)', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}
                           >
                             Cancel & Restock
                           </button>

@@ -68,8 +68,8 @@
 }
 
 .ui-btn--danger {
-  background: var(--danger);
-  color: #ffffff;
+  background: var(--danger-solid);
+  color: var(--on-status-solid);
 }
 
 .ui-btn--danger:hover:not(:disabled) {
