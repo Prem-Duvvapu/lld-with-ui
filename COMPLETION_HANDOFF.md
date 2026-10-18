@@ -188,6 +188,10 @@ Vercel analytics script was stubbed in the harness; analytics reporting was not 
 requested OOP, principles, patterns, UML, concurrency, and interview curriculum.
 Its delivery phases remain pending; the plan is separate from this existing-module
 UI/UX matrix. Do not infer curriculum completion from the historical 60-module roadmap.
+The pattern inventory was checked on 2026-10-18: the original request named 22
+patterns, and Interpreter is now an explicit proposed addition to complete the
+23-pattern catalog (5 creational, 7 structural, 11 behavioral). The full curriculum
+coverage audit and lesson implementation remain pending.
 
 ## Prompt to give the next agent
 
