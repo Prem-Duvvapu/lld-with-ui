@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-092](#rca-092-returning-to-a-visible-tab-started-overlapping-polls) | 2026-10-18 | Frontend / Shared Polling | Visibility events bypassed request serialization and created competing poll loops | Resolved |
 | [RCA-091](#rca-091-empty-successful-api-responses-were-reported-as-json-failures) | 2026-10-18 | Frontend / API Client | Empty HTTP 200 responses from successful mutations rejected during JSON parsing | Resolved |
 | [RCA-090](#rca-090-logging-console-hid-failures-and-submitted-the-wrong-root-threshold) | 2026-10-18 | Frontend / Logging Framework | Silent failures, discarded MDC, duplicate writes, wrong root threshold, and polling-driven scroll | Resolved |
 | [RCA-087](#rca-087-welcome-tour-added-a-duplicate-history-entry-on-arrival-from-the-learning-hub) | 2026-10-05 | Frontend / Navigation | First-visit welcome added a duplicate Home entry and interrupted Back to the hub | Resolved |
@@ -30,6 +31,57 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-092: Returning to a Visible Tab Started Overlapping Polls
+
+### 1. Overview & Severity
+
+Medium. Pages using `usePolling` could issue overlapping reads after a learner
+switched away and returned while a request was still pending. Slow backends made
+the overlap last longer and could produce competing refresh loops.
+
+### 2. Symptoms & Error Logs
+
+A controlled pending-request regression failed before the fix:
+
+```text
+expected "spy" to be called 1 times, but got 3 times
+```
+
+One initial request followed by two visible-state notifications invoked the fetch
+callback three times before the first request completed.
+
+### 3. Root Cause
+
+The timeout path waited for the fetch to settle before scheduling its next read,
+but `visibilitychange` called the same async executor immediately. The executor
+checked lifecycle and visibility only; it had no in-flight guard. Clearing a timer
+did not stop an already pending request, so visibility notifications bypassed the
+intended serialization.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/apiResilience.test.jsx
+rg -n 'executePoll|visibilitychange|polling' src/hooks/usePolling.js
+```
+
+### 5. Step-by-Step Resolution
+
+1. Reproduce the race using a controlled unresolved promise and repeated visibility
+   notifications; assert callback count and peak concurrent requests.
+2. Add a shared in-flight guard at the executor entry used by all trigger paths.
+3. Release the guard in `finally`, preserving error backoff and abort cleanup.
+4. Verify hidden tabs do not schedule reads, return-to-view refresh remains immediate
+   when idle, and unmount aborts the pending request without rescheduling.
+
+### 6. Preventative Measures
+
+Protect every entry point to asynchronous work, including browser events as well
+as timers. Test slow requests across hide/show transitions, repeated notifications,
+and cleanup. A visibility change does not cancel or replace an in-flight request;
+the existing request remains the sole poll until it settles.
 
 ## RCA-091: Empty Successful API Responses Were Reported as JSON Failures
 

@@ -29,6 +29,7 @@ export function usePolling(fetchFn, intervalMs = 5000, deps = []) {
     let active = true;
     let timerId = null;
     let failures = 0;
+    let polling = false;
     const controller = new AbortController();
 
     const delay = () =>
@@ -40,7 +41,8 @@ export function usePolling(fetchFn, intervalMs = 5000, deps = []) {
     };
 
     const executePoll = async () => {
-      if (!active || document.hidden) return;
+      if (!active || document.hidden || polling) return;
+      polling = true;
       try {
         await fetchRef.current(controller.signal);
         failures = 0;
@@ -48,6 +50,8 @@ export function usePolling(fetchFn, intervalMs = 5000, deps = []) {
         if (err.name === 'AbortError') return;
         failures += 1;
         console.error('[usePolling] Poll failed:', err);
+      } finally {
+        polling = false;
       }
       schedule();
     };
