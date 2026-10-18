@@ -92,3 +92,114 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.logging-simulation {
+  display: grid;
+  gap: 16px;
+}
+
+.logging-sim-card {
+  padding: 20px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.logging-sim-card p,
+.logging-sim-card dt {
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.logging-sim-settings,
+.logging-sim-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 16px;
+}
+
+.logging-sim-settings legend {
+  padding-bottom: 12px;
+  font-weight: 600;
+}
+
+.logging-sim-settings label {
+  display: grid;
+  gap: 8px;
+}
+
+.logging-sim-settings input,
+.logging-sim-settings select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+.logging-sim-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.logging-sim-steps li {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+.logging-sim-steps .complete {
+  border-color: var(--success);
+}
+
+.logging-sim-steps .current {
+  border-color: var(--accent);
+}
+
+.logging-sim-stats dd {
+  margin: 8px 0 0;
+  font-weight: 700;
+}
+
+.logging-sim-sinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.logging-sim-sinks button {
+  padding: 8px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.logging-sim-sinks button[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.logging-sim-output-list {
+  max-height: 260px;
+  overflow: auto;
+  padding-left: 24px;
+}
+
+.logging-sim-output {
+  max-height: 200px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

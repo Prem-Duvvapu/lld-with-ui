@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-093](#rca-093-logging-simulation-displayed-filter-outcomes-that-java-never-applied) | 2026-10-18 | Logging / Sandbox & Playback | Local-only threshold, incorrect startup telemetry, and timed pipeline claims diverged from Java behavior | Resolved |
 | [RCA-092](#rca-092-returning-to-a-visible-tab-started-overlapping-polls) | 2026-10-18 | Frontend / Shared Polling | Visibility events bypassed request serialization and created competing poll loops | Resolved |
 | [RCA-091](#rca-091-empty-successful-api-responses-were-reported-as-json-failures) | 2026-10-18 | Frontend / API Client | Empty HTTP 200 responses from successful mutations rejected during JSON parsing | Resolved |
 | [RCA-090](#rca-090-logging-console-hid-failures-and-submitted-the-wrong-root-threshold) | 2026-10-18 | Frontend / Logging Framework | Silent failures, discarded MDC, duplicate writes, wrong root threshold, and polling-driven scroll | Resolved |
@@ -31,6 +32,61 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-093: Logging Simulation Displayed Filter Outcomes That Java Never Applied
+
+### 1. Overview & Severity
+
+Medium. The educational sandbox could label an accepted log as filtered or a
+filtered log as accepted. Its animated steps also claimed async processing that
+the synchronous sandbox never performed.
+
+### 2. Symptoms & Error Logs
+
+Changing the threshold only changed React state. The browser compared selected
+levels locally while Java retained its existing threshold. Startup telemetry said
+DEBUG, but a DEBUG emission before the first reset returned null; a regression
+test failed its `assertNotNull` assertion. Pipeline cards claimed a capacity-50
+queue and async worker activity while telemetry reported capacity 20 and sync mode.
+
+### 3. Root Cause
+
+There was no sandbox configuration endpoint. Animation timers advanced local cards
+independently of backend operations. A separate `simGlobalLevel` field disagreed
+with `LogManager`'s initial INFO root logger, and reset, emission, and telemetry
+had no common lock protecting their multi-object state.
+
+### 4. Diagnostic Commands
+
+```bash
+cd backend
+mvn -Dtest=LoggingSimulationServiceTest,LoggingControllerIntegrationTest,LoggingServiceTest test
+cd ../frontend
+npx vitest run src/__tests__/loggingSimulation.test.jsx src/__tests__/loggingApi.test.js
+```
+
+### 5. Step-by-Step Resolution
+
+1. Reproduce the startup threshold mismatch before any reset.
+2. Initialize the real root logger to DEBUG and derive telemetry from that logger.
+   Add a typed sandbox-only threshold endpoint reusing the existing level parser.
+3. Serialize reset, configuration, emission, and snapshot reads under one sandbox
+   lock; verify consistent counters during concurrent emission/reset/read activity.
+4. Return HTTP 204 for filtered emissions and preserve the live/sandbox separation.
+5. Replace timer-driven pseudo-execution with eight shared guided steps: reset,
+   configure, emit, inspect repository, and inspect each of the four real sinks.
+6. Display returned outcomes and metrics, label synchronous dispatch and snapshots,
+   bound rendered records, and forward cancellation through every sandbox API helper.
+7. Test server-authoritative outcomes, typed failures, recovery, duplicate starts,
+   pause/unmount cleanup, isolation, and bounded snapshot rendering.
+
+### 6. Preventative Measures
+
+Every working configuration control must reach the backend. Educational outcomes
+come from API responses; frontend comparisons must not substitute for Java rules.
+Keep illustrative architecture separate from execution evidence, initialize real
+state before reporting it, and guard aggregate snapshot reads with the same lock
+as writes. Test startup as well as reset-seeded fixtures.
 
 ## RCA-092: Returning to a Visible Tab Started Overlapping Polls
 

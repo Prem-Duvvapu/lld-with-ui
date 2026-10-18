@@ -126,7 +126,13 @@ public class LoggingController {
         Map<String, Object> context = (Map<String, Object>) body.get("context");
 
         LogMessage result = simulationService.simEmitLog(loggerName, level, message, context);
-        return ResponseEntity.ok(result);
+        return result == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/sim/configure")
+    @Operation(summary = "Set the isolated sandbox's log threshold")
+    public ResponseEntity<Map<String, Object>> simConfigure(@RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(simulationService.simConfigure(body.get("level")));
     }
 
     @GetMapping("/sim/logs")
