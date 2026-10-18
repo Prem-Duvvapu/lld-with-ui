@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
@@ -42,9 +41,8 @@ public class ParkingLotSimService {
 
     private final Map<String, ParkingSpot> simSpots = new ConcurrentHashMap<>();
     private final Map<String, Ticket> simTickets = new ConcurrentHashMap<>();
-    private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
-    private final ReentrantLock simSpotLock = new ReentrantLock();
-    private final ReentrantLock simTicketLock = new ReentrantLock();
+    private final List<SimEvent> simEventLog = new ArrayList<>();
+    private final ReentrantLock stateLock = new ReentrantLock();
     private final AtomicLong simEventIdGen = new AtomicLong(1);
     private int simTicketCounter = 0;
 
@@ -55,34 +53,39 @@ public class ParkingLotSimService {
     }
 
     public Map<String, Object> reset() {
-        simSpots.clear();
-        simTickets.clear();
-        simEventLog.clear();
-        simTicketCounter = 0;
+        stateLock.lock();
+        try {
+            simSpots.clear();
+            simTickets.clear();
+            simEventLog.clear();
+            simTicketCounter = 0;
 
-        for (int floorNum = 1; floorNum <= 2; floorNum++) {
-            for (int i = 1; i <= 2; i++) {
-                simSpots.put("SF" + floorNum + "-C" + i, new ParkingSpot("SF" + floorNum + "-C" + i, floorNum, i, VehicleType.CAR));
+            for (int floorNum = 1; floorNum <= 2; floorNum++) {
+                for (int i = 1; i <= 2; i++) {
+                    simSpots.put("SF" + floorNum + "-C" + i, new ParkingSpot("SF" + floorNum + "-C" + i, floorNum, i, VehicleType.CAR));
+                }
+                for (int i = 1; i <= 2; i++) {
+                    simSpots.put("SF" + floorNum + "-B" + i, new ParkingSpot("SF" + floorNum + "-B" + i, floorNum, i, VehicleType.BIKE));
+                }
+                simSpots.put("SF" + floorNum + "-T1", new ParkingSpot("SF" + floorNum + "-T1", floorNum, 1, VehicleType.TRUCK));
             }
-            for (int i = 1; i <= 2; i++) {
-                simSpots.put("SF" + floorNum + "-B" + i, new ParkingSpot("SF" + floorNum + "-B" + i, floorNum, i, VehicleType.BIKE));
-            }
-            simSpots.put("SF" + floorNum + "-T1", new ParkingSpot("SF" + floorNum + "-T1", floorNum, 1, VehicleType.TRUCK));
+
+            logEvent("SIM_RESET", "System", "Sandbox reset: 2 floors, 10 spots (4 CAR, 4 BIKE, 2 TRUCK), gates " + ENTRY_GATE_ID + "/" + EXIT_GATE_ID, null);
+            return getState();
+        } finally {
+            stateLock.unlock();
         }
-
-        logEvent("SIM_RESET", "System", "Sandbox reset: 2 floors, 10 spots (4 CAR, 4 BIKE, 2 TRUCK), gates " + ENTRY_GATE_ID + "/" + EXIT_GATE_ID, null);
-        return getState();
     }
 
     public Map<String, Object> entry(String vehicleNumber, String vehicleTypeStr, String spotStrategyName) {
-        VehicleType vehicleType = parseVehicleType(vehicleTypeStr);
-        SpotAssignmentStrategy strategy = spotStrategyFactory.getStrategy(spotStrategyName);
-
-        ParkingSpot spot;
-        String ticketNumber;
-        Ticket ticket;
-        simSpotLock.lock();
+        stateLock.lock();
         try {
+            VehicleType vehicleType = parseVehicleType(vehicleTypeStr);
+            SpotAssignmentStrategy strategy = spotStrategyFactory.getStrategy(spotStrategyName);
+
+            ParkingSpot spot;
+            String ticketNumber;
+            Ticket ticket;
             List<ParkingSpot> available = simSpots.values().stream().filter(s -> !s.isOccupied()).collect(Collectors.toList());
             spot = strategy.findSpot(available, vehicleType);
             if (spot == null) {
@@ -90,59 +93,59 @@ public class ParkingLotSimService {
                 throw new SpotNotAvailableException(vehicleType);
             }
             spot.setOccupied(true);
-        } finally {
-            simSpotLock.unlock();
-        }
 
-        simTicketLock.lock();
-        try {
             simTicketCounter++;
             ticketNumber = "SIM-TKT-" + String.format("%05d", simTicketCounter);
+
+            ticket = new Ticket(ticketNumber, vehicleNumber, vehicleType, spot.getId(), LocalDateTime.now());
+            simTickets.put(ticketNumber, ticket);
+
+            Map<String, Object> details = new HashMap<>();
+            details.put("ticketNumber", ticketNumber);
+            details.put("spotId", spot.getId());
+            details.put("vehicleType", vehicleType);
+            logEvent("VEHICLE_ENTERED", vehicleNumber, vehicleNumber + " entered at " + ENTRY_GATE_ID + ", assigned spot " + spot.getId() + ", ticket " + ticketNumber, details);
+
+            return getState();
         } finally {
-            simTicketLock.unlock();
+            stateLock.unlock();
         }
-
-        ticket = new Ticket(ticketNumber, vehicleNumber, vehicleType, spot.getId(), LocalDateTime.now());
-        simTickets.put(ticketNumber, ticket);
-
-        Map<String, Object> details = new HashMap<>();
-        details.put("ticketNumber", ticketNumber);
-        details.put("spotId", spot.getId());
-        details.put("vehicleType", vehicleType);
-        logEvent("VEHICLE_ENTERED", vehicleNumber, vehicleNumber + " entered at " + ENTRY_GATE_ID + ", assigned spot " + spot.getId() + ", ticket " + ticketNumber, details);
-
-        return getState();
     }
 
     public Map<String, Object> scan(String ticketNumber, String pricingStrategyName) {
-        Ticket ticket = simTickets.get(ticketNumber);
-        if (ticket == null) throw new TicketNotFoundException(ticketNumber);
-        if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
-            throw new TicketAlreadyExitedException(ticketNumber);
+        stateLock.lock();
+        try {
+            Ticket ticket = simTickets.get(ticketNumber);
+            if (ticket == null) throw new TicketNotFoundException(ticketNumber);
+            if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
+                throw new TicketAlreadyExitedException(ticketNumber);
+            }
+
+            Ticket preview = new Ticket(ticket.getTicketNumber(), ticket.getVehicleNumber(), ticket.getVehicleType(), ticket.getSpotId(), ticket.getEntryTime());
+            preview.setExitTime(LocalDateTime.now());
+            PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
+            double amount = pricingStrategy.calculatePrice(preview);
+
+            Map<String, Object> details = new HashMap<>();
+            details.put("ticketNumber", ticketNumber);
+            details.put("amount", amount);
+            logEvent("TICKET_SCANNED", ticket.getVehicleNumber(), "Ticket " + ticketNumber + " scanned at " + EXIT_GATE_ID + " — preview ₹" + amount, details);
+
+            Map<String, Object> result = getState();
+            result.put("previewAmount", amount);
+            result.put("previewTicketNumber", ticketNumber);
+            return result;
+        } finally {
+            stateLock.unlock();
         }
-
-        Ticket preview = new Ticket(ticket.getTicketNumber(), ticket.getVehicleNumber(), ticket.getVehicleType(), ticket.getSpotId(), ticket.getEntryTime());
-        preview.setExitTime(LocalDateTime.now());
-        PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
-        double amount = pricingStrategy.calculatePrice(preview);
-
-        Map<String, Object> details = new HashMap<>();
-        details.put("ticketNumber", ticketNumber);
-        details.put("amount", amount);
-        logEvent("TICKET_SCANNED", ticket.getVehicleNumber(), "Ticket " + ticketNumber + " scanned at " + EXIT_GATE_ID + " — preview ₹" + amount, details);
-
-        Map<String, Object> result = getState();
-        result.put("previewAmount", amount);
-        result.put("previewTicketNumber", ticketNumber);
-        return result;
     }
 
     public Map<String, Object> pay(String ticketNumber, String pricingStrategyName, String paymentMethod) {
-        PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
-
-        Ticket ticket;
-        simTicketLock.lock();
+        stateLock.lock();
         try {
+            PricingStrategy pricingStrategy = pricingStrategyFactory.getStrategy(pricingStrategyName);
+
+            Ticket ticket;
             ticket = simTickets.get(ticketNumber);
             if (ticket == null) throw new TicketNotFoundException(ticketNumber);
             if (ticket.getPaymentStatus() == Ticket.PaymentStatus.PAID || ticket.getExitTime() != null) {
@@ -153,42 +156,63 @@ public class ParkingLotSimService {
             ticket.setAmount(amount);
             ticket.setPaymentStatus(Ticket.PaymentStatus.PAID);
             ticket.setPaymentMethod(paymentMethod != null && !paymentMethod.isBlank() ? paymentMethod : "CASH");
-        } finally {
-            simTicketLock.unlock();
-        }
 
-        simSpotLock.lock();
-        try {
             ParkingSpot spot = simSpots.get(ticket.getSpotId());
             if (spot != null) spot.setOccupied(false);
+
+            Map<String, Object> details = new HashMap<>();
+            details.put("ticketNumber", ticketNumber);
+            details.put("amount", ticket.getAmount());
+            details.put("paymentMethod", ticket.getPaymentMethod());
+            logEvent("VEHICLE_EXITED", ticket.getVehicleNumber(), ticket.getVehicleNumber() + " paid ₹" + ticket.getAmount() + " via " + ticket.getPaymentMethod() + " and exited " + EXIT_GATE_ID + ", spot " + ticket.getSpotId() + " released", details);
+
+            return getState();
         } finally {
-            simSpotLock.unlock();
+            stateLock.unlock();
         }
-
-        Map<String, Object> details = new HashMap<>();
-        details.put("ticketNumber", ticketNumber);
-        details.put("amount", ticket.getAmount());
-        details.put("paymentMethod", ticket.getPaymentMethod());
-        logEvent("VEHICLE_EXITED", ticket.getVehicleNumber(), ticket.getVehicleNumber() + " paid ₹" + ticket.getAmount() + " via " + ticket.getPaymentMethod() + " and exited " + EXIT_GATE_ID + ", spot " + ticket.getSpotId() + " released", details);
-
-        return getState();
     }
 
     public Map<String, Object> getState() {
-        Map<String, Object> state = new HashMap<>();
-        state.put("entryGateId", ENTRY_GATE_ID);
-        state.put("exitGateId", EXIT_GATE_ID);
-        state.put("spots", new ArrayList<>(simSpots.values()));
-        state.put("activeTickets", simTickets.values().stream()
-                .filter(t -> t.getExitTime() == null)
-                .sorted(Comparator.comparing(Ticket::getEntryTime).reversed())
-                .collect(Collectors.toList()));
-        state.put("events", simEventLog);
-        return state;
+        stateLock.lock();
+        try {
+            Map<String, Object> state = new HashMap<>();
+            state.put("entryGateId", ENTRY_GATE_ID);
+            state.put("exitGateId", EXIT_GATE_ID);
+            state.put("spots", simSpots.values().stream()
+                    .sorted(Comparator.comparing(ParkingSpot::getId))
+                    .map(spot -> new ParkingSpot(spot.getId(), spot.getFloorNumber(), spot.getSpotNumber(), spot.getVehicleType(), spot.isOccupied()))
+                    .collect(Collectors.toList()));
+            state.put("activeTickets", simTickets.values().stream()
+                    .filter(t -> t.getExitTime() == null)
+                    .sorted(Comparator.comparing(Ticket::getEntryTime).reversed())
+                    .map(this::copyTicket)
+                    .collect(Collectors.toList()));
+            state.put("events", copyEvents());
+            return state;
+        } finally {
+            stateLock.unlock();
+        }
     }
 
     public List<SimEvent> getEvents() {
-        return simEventLog;
+        stateLock.lock();
+        try {
+            return copyEvents();
+        } finally {
+            stateLock.unlock();
+        }
+    }
+
+    private Ticket copyTicket(Ticket ticket) {
+        return new Ticket(ticket.getTicketNumber(), ticket.getVehicleNumber(), ticket.getVehicleType(),
+                ticket.getSpotId(), ticket.getEntryTime(), ticket.getExitTime(), ticket.getAmount(),
+                ticket.getPaymentStatus(), ticket.getPaymentMethod());
+    }
+
+    private List<SimEvent> copyEvents() {
+        return simEventLog.stream().map(event -> new SimEvent(event.getId(), event.getTimestamp(),
+                event.getEventType(), event.getActorName(), event.getDescription(),
+                event.getData() == null ? null : new HashMap<>(event.getData()))).collect(Collectors.toList());
     }
 
     private VehicleType parseVehicleType(String vehicleTypeStr) {

@@ -1,0 +1,36 @@
+.parking-container { max-width: 1100px; margin: 0 auto; min-width: 0; color: var(--text-primary); }
+.parking-form-card { max-width: 520px; margin: 0 auto; min-width: 0; }
+.parking-fields { border: 0; padding: 0; min-width: 0; }
+.parking-fields legend { margin-bottom: 12px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.parking-time-note { margin: 12px 0; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.parking-wide { width: 100%; margin-top: 12px; white-space: normal; }
+.parking-container .ui-btn, .parking-container .ui-input, .parking-container .ui-select { min-height: 44px; }
+.parking-container .ui-btn--primary { background: var(--accent-solid); color: var(--on-accent-solid); }
+.parking-container .ui-btn--primary:hover:not(:disabled) { opacity: 1; filter: brightness(0.94); }
+.parking-container :focus-visible, .parking-result h3:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
+.parking-result { margin-top: 16px; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-primary); overflow-wrap: anywhere; }
+.parking-result h3 { margin: 0 0 12px; font-size: 16px; line-height: 1.5; color: var(--text-primary); }
+.parking-result p, .parking-notice p { color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin: 10px 0; }
+.parking-detail { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 8px 0; font-size: 13px; border-bottom: 1px solid var(--border-secondary); }
+.parking-detail > span { color: var(--text-secondary); }
+.parking-detail strong { min-width: 0; overflow-wrap: anywhere; }
+.parking-error { margin: 12px 0; padding: 12px; background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-sm); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.parking-error p { margin: 0 0 10px; }
+.parking-actions, .parking-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 16px 0; }
+.parking-actions .ui-btn { flex: 1 1 160px; white-space: normal; }
+.parking-toolbar h2 { font-size: 18px; color: var(--text-primary); }
+.parking-toolbar p { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+.parking-toolbar .ui-form-group { margin: 0; max-width: 100%; }
+.parking-floor { margin: 24px 0; }
+.parking-floor h3 { margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-primary); font-size: 16px; }
+.parking-spots { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 12px; }
+.parking-spot { display: grid; gap: 6px; padding: 14px; border-radius: var(--radius-md); border: 1px solid; text-align: center; overflow-wrap: anywhere; }
+.parking-spot.available { border-color: var(--success); background: var(--success-bg); }
+.parking-spot.occupied { border-color: var(--danger); background: var(--danger-bg); }
+.parking-spot > span { color: var(--text-secondary); font-size: 12px; }
+.parking-spot.available > span:last-child { color: var(--success); }
+.parking-spot.occupied > span:last-child { color: var(--danger); }
+.parking-table-scroll { max-width: 100%; overflow-x: auto; border-radius: var(--radius-md); }
+.parking-table-scroll .ui-table-container { overflow: visible; }
+.parking-table-scroll td { overflow-wrap: anywhere; min-width: 100px; }
+@media (prefers-reduced-motion: reduce) { .parking-container * { transition: none !important; animation: none !important; } }

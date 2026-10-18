@@ -1,4 +1,6 @@
-.parking-simulation { min-width: 0; }
+.parking-simulation { min-width: 0; --parking-road: #334155; --parking-marking: #facc15; --parking-gate: #1e293b; }
+.parking-sim-description { font-size: 13px; line-height: 1.6; margin-bottom: 16px; color: var(--text-secondary); }
+.parking-simulation summary, .parking-simulation input, .parking-simulation select { min-height: 44px; }
 .parking-sim-settings, .parking-sim-summary, .parking-sim-events { min-width: 0; padding: 18px; margin-bottom: 18px; border: 1px solid var(--border-primary); border-radius: 12px; background: var(--bg-card); color: var(--text-primary); }
 .parking-sim-settings legend { padding: 0 6px; font-weight: 700; }
 .parking-sim-settings-shell > summary { cursor: pointer; padding: 12px 0; font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
@@ -13,11 +15,11 @@
 .parking-sim-spot { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 4px; border: 1px dashed var(--border-primary); border-radius: 8px; text-align: center; font-size: 11px; overflow-wrap: anywhere; color: var(--text-primary); background: var(--bg-card); }
 .parking-sim-spot.occupied { background: var(--danger-bg); border-color: var(--danger); }
 .parking-sim-spot.assigned { outline: 2px solid var(--accent); outline-offset: 1px; }
-.parking-sim-road { height: 110px; position: relative; background: #334155; border-top: 3px dashed #facc15; color: #fff; }
-.parking-sim-gate { position: absolute; bottom: 15px; font-size: 12px; padding: 8px; background: #1e293b; border-radius: 4px; }
+.parking-sim-road { height: 110px; position: relative; background: var(--parking-road); border-top: 3px dashed var(--parking-marking); color: var(--on-status-solid); }
+.parking-sim-gate { position: absolute; bottom: 15px; font-size: 12px; padding: 8px; background: var(--parking-gate); border-radius: 4px; }
 .parking-sim-gate.entry { left: 12px; }
 .parking-sim-gate.exit { right: 12px; }
-.parking-sim-gate span { position: absolute; width: 42px; height: 5px; background: #facc15; top: -10px; left: 8px; transform-origin: left; transition: transform 0.3s; }
+.parking-sim-gate span { position: absolute; width: 42px; height: 5px; background: var(--parking-marking); top: -10px; left: 8px; transform-origin: left; transition: transform 0.3s; }
 .parking-sim-gate span.open { transform: rotate(-70deg); }
 .parking-sim-car { position: absolute; top: 15px; font-size: 32px; transition: left 0.7s ease; }
 .parking-sim-person { position: absolute; left: 30%; top: 18px; font-size: 18px; }

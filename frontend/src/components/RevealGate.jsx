@@ -31,10 +31,11 @@ export default function RevealGate({ onReveal, label, module }) {
         onClick={onReveal}
         style={{
           padding: '10px 22px',
+          minHeight: 44,
           borderRadius: 'var(--radius-md, 10px)',
           border: 'none',
-          background: 'var(--accent)',
-          color: '#fff',
+          background: 'var(--accent-solid)',
+          color: 'var(--on-accent-solid)',
           fontSize: 'var(--font-sm, 14px)',
           fontWeight: 700,
           cursor: 'pointer',

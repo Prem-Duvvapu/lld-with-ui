@@ -3,6 +3,7 @@ import { simReset, simEntry, simScan, simPay, simState } from './api';
 import { Input, Select } from '../../components/ui/Input';
 import SimulationControls from '../../components/SimulationControls';
 import { useSimulationPlayback } from '../../hooks/useSimulationPlayback';
+import { useParkingLifecycle } from './useParkingRequests';
 import './ParkingSimulation.css';
 
 const STEPS = [
@@ -24,26 +25,31 @@ export default function ParkingSimulation() {
   const [pricingStrategy, setPricingStrategy] = useState('HOURLY');
   const [paymentMethod, setPaymentMethod] = useState('UPI');
   const [activity, setActivity] = useState('Shopping');
+  const lifecycle = useParkingLifecycle();
 
   const playback = useSimulationPlayback(STEPS.length, async (index, previous) => {
-    if (index === 0) return { snapshot: await simReset(), ticket: null, previewAmount: null, receipt: null };
+    const options = { signal: lifecycle.current.signal };
+    if (index === 0) {
+      return { snapshot: await simReset(options), ticket: null, previewAmount: null, receipt: null };
+    }
     if (index === 1) {
-      const snapshot = await simEntry(vehicleNumber, vehicleType, spotStrategy);
+      if (!vehicleNumber.trim()) throw new Error('Enter a vehicle number before issuing a ticket.');
+      const snapshot = await simEntry(vehicleNumber.trim(), vehicleType, spotStrategy, options);
       const ticket = snapshot.activeTickets?.[0];
       if (!ticket?.ticketNumber) throw new Error('The entry response did not include a ticket. Reset the sandbox to continue.');
       return { ...previous, snapshot, ticket };
     }
     if (index === 5) {
-      const snapshot = await simScan(previous.ticket.ticketNumber, pricingStrategy);
+      const snapshot = await simScan(previous.ticket.ticketNumber, pricingStrategy, options);
       return { ...previous, snapshot, previewAmount: snapshot.previewAmount };
     }
     if (index === 6) {
-      const snapshot = await simPay(previous.ticket.ticketNumber, pricingStrategy, paymentMethod);
+      const snapshot = await simPay(previous.ticket.ticketNumber, pricingStrategy, paymentMethod, options);
       const receipt = snapshot.events?.slice().reverse().find(event => event.eventType === 'VEHICLE_EXITED' && event.data?.ticketNumber === previous.ticket.ticketNumber)?.data;
       if (!receipt) throw new Error('The payment response did not include a receipt. Reset the sandbox to continue.');
       return { ...previous, snapshot, receipt };
     }
-    if (index === 8) return { ...previous, snapshot: await simState() };
+    if (index === 8) return { ...previous, snapshot: await simState(options) };
     return previous;
   });
 
@@ -58,7 +64,8 @@ export default function ParkingSimulation() {
 
   return (
     <div className="parking-simulation">
-      <SimulationControls steps={STEPS} playback={playback} />
+      <p className="parking-sim-description">Start/reset clears all tickets in this shared demo sandbox only. The live parking lot is unchanged. Leaving this tab stops waiting, not an action already received by the server.</p>
+      <SimulationControls steps={STEPS} playback={playback} validationMessage={!vehicleNumber.trim() && playback.completed < 2 ? 'Enter a vehicle number before starting or issuing a ticket.' : ''} />
       <details className="parking-sim-settings-shell" open={playback.completed < 2}>
         <summary>Vehicle and parking settings{ticket ? ` · ${ticket.vehicleType}, ${spotStrategy}, ${pricingStrategy}, ${paymentMethod}` : ''}</summary>
         <fieldset className="parking-sim-settings" disabled={playback.busy || playback.playing || playback.completed > 1}>
@@ -85,7 +92,7 @@ export default function ParkingSimulation() {
         </fieldset>
       </details>
 
-      <p className="parking-sim-status">{status}{away ? ` · ${activity}` : ''}</p>
+      <p role="status" className="parking-sim-status">{status}{away ? ` · ${activity}` : ''}</p>
       <div className="parking-sim-scene" aria-label="Parking sandbox layout">
         <div className="parking-sim-floors">
           {!spots.length && <p>Start the simulation to load the parking spaces.</p>}
@@ -121,7 +128,8 @@ export default function ParkingSimulation() {
       </div>
       <details className="parking-sim-events" open>
         <summary>Sandbox activity ({snapshot?.events?.length || 0})</summary>
-        <ol>{snapshot?.events?.slice().reverse().map(event => <li key={event.id}><strong>{event.eventType}</strong> · {event.timestamp}<p>{event.description}</p></li>)}</ol>
+        {(snapshot?.events?.length || 0) > 50 && <p>Showing the latest 50 of {snapshot.events.length} events.</p>}
+        <ol>{snapshot?.events?.slice(-50).reverse().map(event => <li key={event.id}><strong>{event.eventType}</strong> · {event.timestamp}<p>{event.description}</p></li>)}</ol>
         {!snapshot?.events?.length && <p>Activity appears as you progress through the simulation.</p>}
       </details>
     </div>

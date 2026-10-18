@@ -72,10 +72,10 @@ export default function SequenceDiagram({ module, customData }) {
                 aria-pressed={flow === f}
                 onClick={() => { setFlowIdx(i); setHoveredStep(null); }}
                 style={{
-                  padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere',
+                  padding: '6px 14px', minHeight: 44, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere',
                   border: flow === f ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
-                  background: flow === f ? 'var(--accent)' : 'var(--bg-tertiary)',
-                  color: flow === f ? '#fff' : 'var(--text-primary)'
+                  background: flow === f ? 'var(--accent-solid)' : 'var(--bg-tertiary)',
+                  color: flow === f ? 'var(--on-accent-solid)' : 'var(--text-primary)'
                 }}
               >
                 {f.label || f.id || `Flow ${i + 1}`}

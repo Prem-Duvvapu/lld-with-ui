@@ -1,100 +1,54 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as parking from '../lld/parking/api';
+import { apiFetch } from '../utils/api';
 
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+vi.mock('../utils/api', () => ({ apiFetch: vi.fn() }));
+beforeEach(() => vi.resetAllMocks());
 
-beforeEach(() => { mockFetch.mockReset(); });
+const requests = [
+  ['getGates', [], '/gates'],
+  ['getFloors', [], '/floors'],
+  ['getActiveTickets', [], '/tickets/active'],
+  ['getAvailableSpots', ['CAR'], '/spots/available?vehicleType=CAR'],
+  ['vehicleEntry', ['G1', 'CAR-42', 'CAR', 'FARTHEST'], '/entry', { gateId: 'G1', vehicleNumber: 'CAR-42', vehicleType: 'CAR', strategy: 'FARTHEST' }],
+  ['scanVehicleExit', ['G3', 'TKT-1', 'FLAT'], '/exit/scan', { gateId: 'G3', ticketNumber: 'TKT-1', pricingStrategy: 'FLAT' }],
+  ['payVehicleExit', ['G3', 'TKT-1', 'FLAT', 'CARD'], '/exit/pay', { gateId: 'G3', ticketNumber: 'TKT-1', pricingStrategy: 'FLAT', paymentMethod: 'CARD' }],
+  ['vehicleExit', ['G3', 'TKT-1'], '/exit', { gateId: 'G3', ticketNumber: 'TKT-1' }],
+  ['simReset', [], '/sim/reset', null],
+  ['simEntry', ['SIM-42', 'TRUCK', 'FARTHEST'], '/sim/entry', { vehicleNumber: 'SIM-42', vehicleType: 'TRUCK', strategy: 'FARTHEST' }],
+  ['simScan', ['SIM-TKT-1', 'DYNAMIC'], '/sim/scan', { ticketNumber: 'SIM-TKT-1', pricingStrategy: 'DYNAMIC' }],
+  ['simPay', ['SIM-TKT-1', 'DYNAMIC', 'UPI'], '/sim/pay', { ticketNumber: 'SIM-TKT-1', pricingStrategy: 'DYNAMIC', paymentMethod: 'UPI' }],
+  ['simState', [], '/sim/state'],
+  ['simEvents', [], '/sim/events'],
+];
 
-const BASE = 'http://localhost:59190/api/parking';
-
-async function getGates() {
-  const res = await fetch(`${BASE}/gates`);
-  return res.json();
-}
-
-async function vehicleEntry(gateId, vehicleNumber, vehicleType) {
-  const res = await fetch(`${BASE}/entry`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gateId, vehicleNumber, vehicleType }),
-  });
-  return res.json();
-}
-
-async function vehicleExit(gateId, ticketNumber) {
-  const res = await fetch(`${BASE}/exit`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ gateId, ticketNumber }),
-  });
-  return res.json();
-}
-
-async function getFloors() {
-  const res = await fetch(`${BASE}/floors`);
-  return res.json();
-}
-
-async function getActiveTickets() {
-  const res = await fetch(`${BASE}/tickets/active`);
-  return res.json();
-}
-
-describe('Parking API', () => {
-  it('getGates calls correct URL', async () => {
-    const gates = [{ id: 'G1', name: 'Main Entry', type: 'ENTRY' }];
-    mockFetch.mockResolvedValue({ json: async () => gates });
-
-    const result = await getGates();
-    expect(mockFetch).toHaveBeenCalledWith(`${BASE}/gates`);
-    expect(result).toEqual(gates);
+describe('Production parking API wrappers', () => {
+  it.each(requests)('%s sends the real contract and forwards cancellation', async (name, args, suffix, body) => {
+    const response = { recorded: true };
+    apiFetch.mockResolvedValue(response);
+    const signal = new AbortController().signal;
+    await expect(parking[name](...args, { signal })).resolves.toBe(response);
+    const [url, options] = apiFetch.mock.calls[0];
+    expect(url).toBe(`/parking${suffix}`);
+    expect(options.signal).toBe(signal);
+    if (body !== undefined) expect(options.method).toBe('POST');
+    else expect(options.method).toBeUndefined();
+    if (body) expect(JSON.parse(options.body)).toEqual(body);
   });
 
-  it('vehicleEntry sends POST with correct body', async () => {
-    const ticket = { ticketNumber: 'TKT-00001', vehicleNumber: 'KA-01', vehicleType: 'CAR', spotId: 'F1-C1' };
-    mockFetch.mockResolvedValue({ json: async () => ticket });
-
-    const result = await vehicleEntry('G1', 'KA-01', 'CAR');
-    expect(mockFetch).toHaveBeenCalledWith(`${BASE}/entry`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gateId: 'G1', vehicleNumber: 'KA-01', vehicleType: 'CAR' }),
-    });
-    expect(result).toEqual(ticket);
+  it('keeps backwards-compatible defaults and encodes filter values', async () => {
+    await parking.vehicleEntry('G1', 'CAR-42', 'CAR');
+    expect(JSON.parse(apiFetch.mock.calls[0][1].body).strategy).toBe('NEAREST');
+    await parking.payVehicleExit('G3', 'TKT-1');
+    expect(JSON.parse(apiFetch.mock.calls[1][1].body)).toEqual({ gateId: 'G3', ticketNumber: 'TKT-1', pricingStrategy: 'HOURLY', paymentMethod: 'UPI' });
+    await parking.getAvailableSpots('CAR & BIKE');
+    expect(apiFetch.mock.calls[2][0]).toBe('/parking/spots/available?vehicleType=CAR%20%26%20BIKE');
   });
 
-  it('vehicleExit sends POST with correct body', async () => {
-    const receipt = { ticketNumber: 'TKT-00001', amount: 20 };
-    mockFetch.mockResolvedValue({ json: async () => receipt });
-
-    const result = await vehicleExit('G3', 'TKT-00001');
-    expect(mockFetch).toHaveBeenCalledWith(`${BASE}/exit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gateId: 'G3', ticketNumber: 'TKT-00001' }),
-    });
-    expect(result).toEqual(receipt);
-  });
-
-  it('vehicleEntry passes error responses through', async () => {
-    const err = { error: 'No available spot' };
-    mockFetch.mockResolvedValue({ json: async () => err });
-
-    const result = await vehicleEntry('G1', 'KA-01', 'TRUCK');
-    expect(result.error).toBe('No available spot');
-  });
-
-  it('getFloors calls correct URL', async () => {
-    mockFetch.mockResolvedValue({ json: async () => [{ floorNumber: 1, spots: [] }] });
-    const result = await getFloors();
-    expect(mockFetch).toHaveBeenCalledWith(`${BASE}/floors`);
-    expect(result[0].floorNumber).toBe(1);
-  });
-
-  it('getActiveTickets calls correct URL', async () => {
-    mockFetch.mockResolvedValue({ json: async () => [] });
-    const result = await getActiveTickets();
-    expect(mockFetch).toHaveBeenCalledWith(`${BASE}/tickets/active`);
-    expect(result).toEqual([]);
+  it('does not swallow typed failures or repeat a mutation', async () => {
+    const failure = Object.assign(new Error('Already exited'), { status: 409 });
+    apiFetch.mockRejectedValue(failure);
+    await expect(parking.payVehicleExit('G3', 'TKT-1')).rejects.toBe(failure);
+    expect(apiFetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import './SimulationControls.css';
 
-export default function SimulationControls({ steps, playback }) {
+export default function SimulationControls({ steps, playback, validationMessage = '' }) {
   const labelId = useId();
   const { completed, busy, playing, speed, error, done, next, reset, play, pause, setSpeed } = playback;
   const current = steps[Math.min(completed, steps.length - 1)];
@@ -15,8 +15,8 @@ export default function SimulationControls({ steps, playback }) {
       <p><strong>{done ? 'Completed: ' : 'Next: '}{current.title}</strong></p>
       <p>{current.detail || current.desc}</p>
       <div className="simulation-controls-actions">
-        <button type="button" onClick={playing ? pause : play} disabled={done || Boolean(error)}>{playing ? 'Pause' : 'Play'}</button>
-        <button type="button" onClick={next} disabled={busy || playing || done || Boolean(error)}>{completed ? 'Next step' : 'Start simulation'}</button>
+        <button type="button" onClick={playing ? pause : play} disabled={done || Boolean(error) || (!playing && Boolean(validationMessage))}>{playing ? 'Pause' : 'Play'}</button>
+        <button type="button" onClick={next} disabled={busy || playing || done || Boolean(error) || Boolean(validationMessage)}>{completed ? 'Next step' : 'Start simulation'}</button>
         <button type="button" onClick={reset} disabled={busy}>Reset sandbox</button>
         <label>Playback speed
           <select value={speed} onChange={event => setSpeed(Number(event.target.value))}>
@@ -25,6 +25,7 @@ export default function SimulationControls({ steps, playback }) {
         </label>
       </div>
       <p className="simulation-controls-note">Pause stops upcoming steps, not a request already sent. Speed changes the delay between steps, not backend time. Reset runs the first step again.</p>
+      {validationMessage && <p role="alert">{validationMessage}</p>}
       {error && <div role="alert" className="simulation-controls-error"><strong>{error}</strong><p>The server may have received this action. Reset the sandbox before continuing; actions are not automatically retried.</p></div>}
     </section>
   );

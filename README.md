@@ -38,6 +38,9 @@ to be a complete UML reference. Text explanation provides unscaled, selectable c
 class members and relationships, or sequence participants, complete messages, notes, and
 activation details. Class boxes can be selected with Enter or Space. Select a sequence flow
 before opening it fullscreen. Loading states and solution-reveal gates remain unchanged.
+Revealing or hiding a diagram keeps focus in its named solution region; design-section
+disclosure restores focus to the selected section button. Draft attempts stay saved in
+this browser. Shared filled controls use separate accessible accent roles in both themes.
 
 ### Recorded experiment playback
 
@@ -98,6 +101,17 @@ assigned spot, and its receipt uses the paid amount rather than the earlier prev
 steps explain parking and returning without changing the server's clock. Uber includes separate
 wrong-OTP and correct-OTP steps, refreshes driver availability after each action, and fetches a
 final snapshot with payment and complete activity.
+
+Parking Lot's live Entry/Exit forms show gate-directory failures with Retry, preserve failed
+drafts, and prevent duplicate submissions. A lost payment response requires rescanning before
+paying again; a timeout does not prove that the server rejected the payment. Spots and Tickets
+keep their last successful snapshot when a refresh fails. Active tickets use 25-row pages and
+server-reported elapsed minutes, not a duration inferred from the browser's timezone. Gate
+directories refresh every 60 seconds; spot/ticket snapshots refresh every five seconds while
+their tab is visible. Leaving a live tab or the sandbox aborts browser requests and stops its
+polling/playback; it cannot undo work already received by Java. The sandbox serializes reset
+with mutations and returns detached model/event snapshots. Its event panel shows the latest
+50 events with the full returned count.
 
 Zomato walks through assignment contention, order preparation, the cancellation guard, and
 incorrect/correct delivery OTPs before fetching the final delivery state. Its payment method

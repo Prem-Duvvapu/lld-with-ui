@@ -41,8 +41,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # currently 2064 tests
-cd frontend && npx vitest run  # currently 358 tests
+cd backend  && mvn test        # latest validated: 2329 tests
+cd frontend && npx vitest run  # latest validated: 664 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -61,13 +61,15 @@ shape as elevator/ludo.
 - **Lombok models**: `Floor`, `Gate`, `ParkingSpot`, `Ticket` converted from `@Getter @Setter` to `@Data @Builder @NoArgsConstructor @AllArgsConstructor`, matching `inventory.model.Product`'s shape; each model's existing convenience constructor (e.g. `new Ticket(ticketNumber, vehicleNumber, vehicleType, spotId, entryTime)`) is kept alongside the generated one.
 - **`dto`/`ParkingLotDocumentationService` removed as a legacy deviation**: this module used to additionally serve `GET /api/parking/class-diagram` and `GET /api/parking/design-details`, backed by `ClassDiagramDto`/`DesignDetailsDto` and a hand-maintained copy of the exact same prose that `frontend/src/data/design/parking.js` / `diagrams/parking.js` already own — a second source of truth guaranteed to drift (and it had: the backend copy still described the pre-Strategy-Factory `switch`-based design). The frontend's `getParkingClassDiagram()`/`getParkingDesignDetails()` API wrappers were never actually called anywhere in `ParkingLotPage.jsx` (`classDiagramData`/`designDetailsData`/`loadingDoc` state existed but nothing fetched into it or read it back — the `design`/`diagram` tabs are rendered by `LldPage` itself from the frontend's own data, per this repo's actual convention). Both endpoints, `ParkingLotDocumentationService`, `ClassDiagramDto`, `DesignDetailsDto`, and the dead frontend state/imports are removed; `ParkingSpotRequestDto` (the real, `@Valid`-annotated entry request body) is untouched.
 - Isolated `/api/parking/sim/*` engine (new): `ParkingLotSimService` owns its own 2-floor, 10-spot lot (4 CAR + 4 BIKE + 2 TRUCK), its own `SIM-G1`/`SIM-G2` gates, its own tickets, and a `SimEvent` telemetry log — entirely separate `ConcurrentHashMap`/lock state from the live repository, so a replayed demo can never occupy a real spot or issue a real ticket. Reuses the same `SpotAssignmentStrategyFactory`/`PricingStrategyFactory` beans as the live service, so the pricing and assignment math is never duplicated — only the state is sandboxed. `reset()`/`entry()`/`scan()`/`pay()`/`getState()`/`getEvents()` mirror the live service's shape.
-- Tests (1 file -> 6): `ParkingLotServiceTest` (expanded — typed-exception assertions replacing `IllegalArgumentException`/`IllegalStateException`, scan-preview isolation from the live ticket), `ParkingLotPricingStrategyTest` (new — pins the exact math of all three pricing strategies plus the factory's string resolution and default), `ParkingLotSpotAssignmentStrategyTest` (new — pins Nearest/Farthest selection order, type filtering, occupied-spot exclusion, factory resolution), `ParkingLotRepositoryTest` (new — `occupySpot`/`releaseSpot`/`completeExit`/`generateTicketNumber`/`getActiveTickets` are real independent locking and sequencing behavior, not a bare CRUD wrapper), `ParkingLotConcurrencyTest` (new, see above), `ParkingLotSimServiceTest` (new — sandbox reset/entry/scan/pay/double-pay rejection).
+- Tests (9 files): `ParkingLotServiceTest` (expanded — typed-exception assertions replacing `IllegalArgumentException`/`IllegalStateException`, scan-preview isolation from the live ticket), `ParkingLotPricingStrategyTest` (new — pins the exact math of all three pricing strategies plus the factory's string resolution and default), `ParkingLotSpotAssignmentStrategyTest` (new — pins Nearest/Farthest selection order, type filtering, occupied-spot exclusion, factory resolution), `ParkingLotRepositoryTest` (new — `occupySpot`/`releaseSpot`/`completeExit`/`generateTicketNumber`/`getActiveTickets` are real independent locking and sequencing behavior, not a bare CRUD wrapper), `ParkingLotConcurrencyTest` (new, see above), `ParkingLotSimServiceTest` (new — sandbox reset/entry/scan/pay/double-pay rejection). Added completion coverage: `ParkingLotSnapshotTest` (detached responses and reset/payment serialization), `ParkingTicketElapsedTest` (server clock and recorded intervals), `ParkingLotControllerIntegrationTest` (real-service MockMvc live/sandbox contracts).
 
 ### Frontend
 - 8 tabs: Entry, Exit, Spots, Tickets, Interactive Simulation, Class Diagram, Sequence Diagram, Design Details.
 - Entry/Exit/Spots/Tickets tabs call the real, live `/api/parking/*` endpoints only — unchanged by this pass.
 - Interactive simulation tab (pre-existing 9-step animated flow, rewired): previously called the *live* `/parking/entry`/`/parking/exit/scan`/`/parking/exit/pay` endpoints directly, meaning every demo run created real tickets and occupied real spots visible to the Spots/Tickets tabs — exactly the corruption the isolated `/sim/*` convention exists to prevent. Now calls `simEntry`/`simScan`/`simPay`/`simReset` against the sandbox instead; the on-screen parking grid shrank from 12 cells to the sandbox's real 10-spot layout, and a reverse-chronological sandbox event-log panel (telemetry HUD) was added below the animated scene.
 - SpotGrid polls `/floors` every 5s. ActiveTickets polls `/tickets/active` every 5s.
+- Live gate directories refresh every 60s. Reads retain their last good snapshot on failure and expose Retry; pending requests abort on tab departure. Entry/scan/pay use synchronous request guards, preserve rejected drafts and freeze their controls while pending. An uncertain payment requires a fresh scan before another payment attempt. Active tickets use 25-row pages and Java's `elapsedMinutes`, not browser-side duration arithmetic.
+- The sandbox now uses one `stateLock` across reset/mutations/reads and returns detached spot/ticket/event models and event-detail maps (RCA-096). Browser cancellation does not roll back server work. The simulation forwards abort signals, bounds its event display to the latest 50 and preserves the total count.
 - New sequence diagram (`data/sequences/parking.js`) walks two concurrent `payAndExit` calls racing to pay and exit the same ticket through `completeExit`'s single lock acquisition, showing why the second call's status read only ever sees post-commit ticket state.
 - `DesignDetails` component renders requirements, entities, design patterns, SOLID, OOP concepts, extensibility — content refreshed in `data/design/parking.js` to describe the EnumMap factories, the exception hierarchy, and the sim engine (removing stale claims about a pre-Strategy `switch` statement).
 
@@ -76,14 +78,8 @@ shape as elevator/ludo.
 - `ThemeContext` + one global `ThemeToggle` in the `App.jsx` header (pages must not render their own). Default: light.
 - Status colours (`--success/--danger/--warning/--info`) must stay ≥ 4.5:1 as text on their own `-bg` tint in both themes (RCA-088).
 - Text-bearing status fills use `--success-solid/--danger-solid/--warning-solid/--info-solid` with `--on-status-solid`; do not reuse text tokens as button backgrounds (RCA-094). Text-free dots and bars can keep the original status colors.
+- Shared filled accent controls use `--accent-solid` / `--accent-solid-gradient` with `--on-accent-solid`. Keep `--accent` for semantic text, links and borders. Reveal/hide must leave focus at the stable solution region or selected design section (RCA-098).
 - Theme persisted in localStorage under `lld-theme`.
-
-### Frontend
-- 7 tabs: Entry, Exit, Spots, Tickets, Animated Demo, Class Diagram, Design Details.
-- AnimatedDemo flow: Start → Entry → Ticket → Park → Away(simulated activity) → Return → Exit → Done.
-- SpotGrid polls `/floors` every 5s. ActiveTickets polls `/tickets/active` every 5s.
-- `DesignDetails` component renders requirements, entities, design patterns, SOLID, OOP concepts, extensibility.
-- All pages use CSS variables (`var(--bg-primary)`, `var(--text-primary)`, etc.) from `src/styles/theme.css`.
 
 ### Files
 - `src/styles/theme.css` — CSS variables for light + dark themes, global resets.
@@ -2045,8 +2041,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2286 tests, 277 classes
-cd frontend && npx vitest run # 450 tests, 11 files
+cd backend && mvn test        # 2329 tests, 284 classes
+cd frontend && npx vitest run # 664 tests, 36 files
 ```
 
 ### Cross-cutting suites — keep these green

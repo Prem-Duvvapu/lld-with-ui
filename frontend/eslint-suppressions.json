@@ -252,11 +252,6 @@
       "count": 1
     }
   },
-  "src/lld/parking/ParkingLotPage.jsx": {
-    "react-hooks/purity": {
-      "count": 1
-    }
-  },
   "src/lld/payment/PaymentPage.jsx": {
     "jsx-a11y/label-has-associated-control": {
       "count": 3

@@ -162,10 +162,10 @@ export default function ClassDiagram({ module, customData }) {
             onClick={() => setViewMode('graph')}
             aria-pressed={viewMode === 'graph'}
             style={{
-              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              padding: '6px 14px', minHeight: 44, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               border: viewMode === 'graph' ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
-              background: viewMode === 'graph' ? 'var(--accent)' : 'var(--bg-tertiary)',
-              color: viewMode === 'graph' ? '#fff' : 'var(--text-primary)'
+              background: viewMode === 'graph' ? 'var(--accent-solid)' : 'var(--bg-tertiary)',
+              color: viewMode === 'graph' ? 'var(--on-accent-solid)' : 'var(--text-primary)'
             }}
           >
             📐 Graph View
@@ -174,10 +174,10 @@ export default function ClassDiagram({ module, customData }) {
             onClick={() => setViewMode('list')}
             aria-pressed={viewMode === 'list'}
             style={{
-              padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              padding: '6px 14px', minHeight: 44, borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               border: viewMode === 'list' ? '1px solid var(--accent)' : '1px solid var(--border-primary)',
-              background: viewMode === 'list' ? 'var(--accent)' : 'var(--bg-tertiary)',
-              color: viewMode === 'list' ? '#fff' : 'var(--text-primary)'
+              background: viewMode === 'list' ? 'var(--accent-solid)' : 'var(--bg-tertiary)',
+              color: viewMode === 'list' ? 'var(--on-accent-solid)' : 'var(--text-primary)'
             }}
           >
             📋 Relationships List ({relationships.length})
