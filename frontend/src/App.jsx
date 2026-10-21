@@ -5,12 +5,15 @@ import LearningNetworkNav from './components/LearningNetworkNav'
 import ThemeToggle from './components/ThemeToggle'
 import Skeleton from './components/ui/Skeleton'
 import BackendStatusBanner from './components/BackendStatusBanner'
+import PageErrorBoundary from './components/PageErrorBoundary'
 import { GITHUB_REPO_URL } from './data/moduleSourceLinks'
 import { ALL_LLDS, itemPath } from './data/moduleCatalog'
 import { rememberModule } from './utils/navigationMemory'
 
 // Lazy like every module page: a visitor who never opens it shouldn't pay for it.
 const LearningPath = lazy(() => import('./pages/LearningPath'))
+const Learn = lazy(() => import('./pages/Learn'))
+const Lesson = lazy(() => import('./pages/Lesson'))
 
 // Lazy on purpose: an eager glob put all 45 module pages in the entry chunk, so
 // every visitor downloaded ~1.5 MB to look at one of them. Each page is now its
@@ -253,16 +256,20 @@ export default function App() {
 
   return (
     <Layout>
-      <Suspense fallback={<PageLoading />}>
+      <PageErrorBoundary key={pathname}>
+        <Suspense fallback={<PageLoading />}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/learning-path" element={<LearningPath />} />
+          <Route path="/learn" element={<Learn />} />
+          <Route path="/learn/:lessonId" element={<Lesson />} />
           {routes.map(({ path, Page }) => (
             <Route key={path} path={`/${path}`} element={<Page />} />
           ))}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </Suspense>
+        </Suspense>
+      </PageErrorBoundary>
       <BackendStatusBanner />
     </Layout>
   )

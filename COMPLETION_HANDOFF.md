@@ -14,12 +14,17 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest batch validation: 2320 backend tests and 629 frontend tests. Chromium passed
-  576 status-style cascade checks and 24 production-built route views / 56 control checks,
-  covering both themes, mobile/desktop layouts, hover/focus, and keyboard actions.
-  The preceding logging sandbox batch covered 16 accepted/filtered outcomes, recovery,
-  and pending navigation. These are scoped checks, not a completed whole-project audit.
-- Latest build: entry 310324 bytes; largest non-entry JavaScript chunk 55479 bytes.
+- Latest validation: 2334 backend tests (285 suites) and 684 frontend tests (39 files).
+  The curriculum reference slice passed 96 production-built browser view checks across
+  both themes and 320/390/768/1280px, including route/content failures, reload recovery,
+  keyboard code scrolling, persistence, and links to actual system practice.
+  Parking's preceding batch passed 72 views across the same theme/viewport matrix.
+  These are scoped checks, not a completed whole-project audit.
+- Latest build: entry 312191 bytes; largest non-entry JavaScript chunk 56068 bytes.
+- The curriculum catalog and Classes and Objects reference lesson are implemented;
+  the remaining 68 topics are visibly planned. See the curriculum workstream below.
+- Rejected route imports/render failures now have focused reload/library recovery,
+  rather than blanking the application. Suspense remains for pending imports.
 - Lint has 14 existing warnings and a suppression baseline; a successful lint exit
   is not evidence that every suppressed issue has been resolved.
 - RCA-085's flaky scheduler-distribution assertion was resolved in #153 using
@@ -74,8 +79,8 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   every routed page (RCA-089).
 - **Splitwise crash on load failure (fixed, batch 3).** `.catch(setError)` rendered an `Error`
   object (React #31) and blanked the page; its early-return errors now show a retryable alert.
-- **Silent typed API failures (open, batch 4).** With every `/api` call answered by a typed 503,
-  28 routes render no message: parking-lot, zomato, uber, stackoverflow, tic-tac-toe,
+- **Silent typed API failures (open, batch 4 inventory; Parking resolved in batch 8).** With every `/api` call answered by a typed 503,
+  27 other routes remain to review: zomato, uber, stackoverflow, tic-tac-toe,
   snake-ladders, atm, splitwise (other tabs), elevator, movie-ticket, chess, ludo, inventory,
   shopping-cart, minesweeper, lru-cache, pub-sub, car-rental, auction, concert-ticket, locker,
   payment, webcrawler, cachelibrary, kvstore, coupon, blackjack, workflow. Some of these fetch
@@ -150,7 +155,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | movieticket | Shared guided | Shipped #141–#147 | standalone shell (**fixed**, batch 3); final cross-project audit pending | `SimulationControls` | Adopted; batch 3 shell migration | Existing sim suites, `accessibilityContracts.test.js` | Intercepted Chromium, 4 views (batch 3) | #141–#147, #156 |
 | music-streaming | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | notification | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
-| parking | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, #155 |
+| parking | Shared guided | Live workspace, sandbox and learning tabs reviewed 2026-10-18 | Retry/duplicate/abort/payment ambiguity, server-time display, reset/snapshot isolation and learning contrast/focus fixed; formal final sign-off remains open | Live request/response forms; nine guided sandbox steps | Batch 8; shared learning accessibility fixes | 83 Parking backend tests including real-service MockMvc; 20 workspace tests; actual API wrappers; full 2329/664 suites pass | 72 intercepted production views, all 8 tabs + Home, 4 widths × both themes; keyboard, reduced motion, recovery, pending navigation and persisted return state | #165 |
 | payment | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | pubsub | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | rate-limiter | Shared guided | Shipped #141–#147 | Banner live region (**fixed**, batch 2); final cross-project audit pending | `SimulationControls` | Adopted; batch 2 a11y fix | Existing sim suites, `accessibilityContracts.test.js` | Partial (prior batches) | #141–#147, #155 |
@@ -185,6 +190,8 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 5 | Serialize visibility-triggered polls with pending requests (RCA-092) | #162 | Reproduced three overlapping calls before fix; 612 frontend and 2308 backend tests pass; lint 16 baseline warnings; Maven package, Vite build and both budgets pass (entry 310,318 B; largest non-entry 55,479 B); 24 intercepted browser tab/theme/viewport checks plus 8 controlled visibility checks pass |
 | 6 | Logging sandbox configuration, real outcomes, atomic snapshots and guided playback (RCA-093) | #163 | 625 frontend and 2320 backend tests, Maven package, Vite build and both budgets pass (entry 310,324 B; largest non-entry 55,479 B); lint 14 existing warnings; 8 browser contexts / 16 outcome checks pass |
 | 7 | Separate filled status surfaces from text/tint roles in shared controls and 18 modules (RCA-094) | #164 | 629 frontend and 2320 backend tests, Maven package, Vite build, both budgets pass (entry 310,324 B; largest non-entry 55,479 B); lint 14 existing warnings; 576 cascade probes plus 24 routed views / 56 control checks pass |
+| 8 | Parking live recovery, cancellation/duplicate guards, Java elapsed time, sandbox snapshots/reset lock and learning contrast/focus (RCA-095–098) | #165 | 664 frontend / 2329 backend tests; Maven package, Vite build, budgets and CI pass; 14 existing lint warnings; 72 intercepted browser views across 8 contexts |
+| 9 | Curriculum catalog and reference lesson; canonical Java examples, local lesson learning state, route/content recovery, cross-tab visit protection and portable output checks (RCA-099–102) | #166 | 684 frontend / 2334 backend tests; lint 14 existing warnings; Maven package and Vite build pass; entry 312,191 B / largest non-entry 56,068 B; 96 intercepted browser views across 8 contexts |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -215,16 +222,36 @@ checks). Keyboard ball recording, approval completion, retry, and responsive lay
 checks passed without page errors or horizontal overflow. No application server
 was started; other module flows and brand/accent contrast remain unverified.
 
+Batch 8 used production assets and Java-generated fixtures (not live HTTP), including
+typed failure injection, duplicate-write checks, stale-read recovery, a 30-ticket page
+fixture, actual sandbox outcomes, abort on departure, and Home/progress/revisit/tab
+memory. Backend service/concurrency/MockMvc suites separately cover real operations.
+
+Batch 9 adds a self-contained frontend curriculum with one published reference lesson.
+The browser matrix covers initial route-chunk and later lesson-content failures,
+explicit reload recovery, catalog/search/bookmarks, object illustration selection,
+keyboard code scrolling, prediction feedback, notes/review across navigation and
+reload, actual Parking Lot and system-path links, and planned/unknown deep links.
+It checks page overflow and filled-accent contrast; mobile light and desktop dark
+screenshots were inspected. No application server was started. The Java example and
+its output/snapshots are separately compiled and checked by five real Java tests.
+
 ### Curriculum workstream
 
 `LLD_LEARNING_CURRICULUM_PLAN.md` was merged in #159 with green CI. It specifies the
 requested OOP, principles, patterns, UML, concurrency, and interview curriculum.
-Its delivery phases remain pending; the plan is separate from this existing-module
-UI/UX matrix. Do not infer curriculum completion from the historical 60-module roadmap.
+Phase 1's Classes and Objects reference slice is implemented in batch 9: `/learn`,
+`/learn/classes-and-objects`, a shared content renderer, Java-verified source/visuals,
+exercise/self-check, local notes/bookmarks/review/resume, and verified practice links.
+The canonical manifest inventories 69 topics; only one is published and 68 are planned.
+The full Phase 0 per-topic coverage/prerequisite/exercise/module-evidence audit and
+Phases 2–7 remain open. This is separate from the existing-module UI/UX matrix; do not
+infer overall completion from either one lesson or the historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22
 patterns, and Interpreter is now an explicit proposed addition to complete the
-23-pattern catalog (5 creational, 7 structural, 11 behavioral). The full curriculum
-coverage audit and lesson implementation remain pending.
+23-pattern catalog (5 creational, 7 structural, 11 behavioral). Planned prerequisite
+links currently express only a minimum object foundation, not a finished dependency
+audit. Remaining lesson implementation and the final 60-module sign-off are pending.
 
 ## Prompt to give the next agent
 

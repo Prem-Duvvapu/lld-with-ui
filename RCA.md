@@ -8,6 +8,10 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-102](#rca-102-java-example-output-checks-assumed-checkout-and-runtime-newlines-matched) | 2026-10-21 | Curriculum / Windows-WSL Portability | A CRLF text checkout differed from the same Java output emitted with Linux LF | Resolved |
+| [RCA-101](#rca-101-recording-a-lesson-visit-overwrote-newer-cross-tab-notes) | 2026-10-21 | Curriculum / Browser Storage | Resume metadata was written from a stale initialization snapshot | Resolved |
+| [RCA-100](#rca-100-a-failed-lazy-route-blanked-the-application) | 2026-10-21 | Frontend / Route Recovery | Suspense handled pending imports but there was no boundary for rejected imports or render failures | Resolved |
+| [RCA-099](#rca-099-retrying-a-failed-lesson-import-did-not-fetch-the-content-again) | 2026-10-21 | Curriculum / Lazy Loading | A same-document import retry remained rejected after a transient chunk failure | Resolved |
 | [RCA-098](#rca-098-shared-learning-controls-had-low-contrast-and-lost-focus-on-disclosure) | 2026-10-18 | Frontend / Shared Learning UI | Text accent colors were reused as fills; revealing solutions moved keyboard focus to BODY | Resolved |
 | [RCA-097](#rca-097-parking-duration-depended-on-the-visitors-timezone) | 2026-10-18 | Parking / Time Display | A timezone-free server timestamp was subtracted from the browser clock | Resolved |
 | [RCA-096](#rca-096-parking-sandbox-reset-and-returned-snapshots-were-not-isolated-from-mutations) | 2026-10-18 | Parking / Sandbox | Reset bypassed mutation locks and responses exposed live mutable models and events | Resolved |
@@ -35,6 +39,244 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-015](#rca-015-minesweepers-mine-placement-loop-could-spin-forever-on-an-unvalidated-mine-count) | 2026-08-25 | Backend / Minesweeper / Input Validation & Availability | `placeMines`'s `while (placed < totalMines)` loop had no termination guarantee once `totalMines >= rows * cols`, spinning one CPU core forever on a single bad request | Resolved |
 | [RCA-016](#rca-016-minesweepers-reveal-and-flag-endpoints-skipped-bounds-checking-and-threw-an-unhandled-500) | 2026-08-25 | Backend / Minesweeper / Input Validation | `revealCell`/`flagCell` indexed the board with caller-supplied `row`/`col` with no bounds check, so an out-of-range request threw a bare, unhandled `ArrayIndexOutOfBoundsException` (500, message stripped) | Resolved |
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
+
+---
+
+## RCA-102: Java Example Output Checks Assumed Checkout and Runtime Newlines Matched
+
+### 1. Overview & Severity
+
+Low, caught before merge. The new teaching example's output contract compared
+whole strings. This repository has `core.autocrlf=true`; a Windows-drive checkout
+can supply CRLF fixtures while the required WSL Java process emits LF.
+
+### 2. Symptoms & Error Logs
+
+`git cat-file --filters` confirmed that Git would write the text fixture as CRLF.
+A deterministic CRLF copy in the test's temporary directory reproduced the failure:
+
+```text
+Tests run: 5, Failures: 1, Errors: 0, Skipped: 0
+ClassesAndObjectsExampleTest.runnableDemoMatchesTheDisplayedOutput:123
+expected: <first: Objects, reviews=2 ...> but was: <first: Objects, reviews=2 ...>
+```
+
+The visible text was identical; the internal line separators were not. `.strip()`
+removed only outer whitespace and did not normalize the interior line endings.
+
+### 3. Root Cause
+
+The output is instructional line-oriented text, not a byte-level wire protocol.
+The test unintentionally asserted an OS/checkout convention instead of its four
+meaningful lines. Linux CI alone would not expose this Windows/WSL mismatch.
+
+### 4. Diagnostic Commands
+
+```bash
+git config --get core.autocrlf
+git check-attr -a -- frontend/src/learning/examples/classes-and-objects-output.txt
+git cat-file --filters HEAD:frontend/src/learning/examples/classes-and-objects-output.txt
+cd backend && mvn -Dtest=ClassesAndObjectsExampleTest test
+```
+
+The red regression is retained in
+`/home/prem/validation/lld-curriculum/crlf-red.log` on this machine.
+
+### 5. Step-by-Step Resolution
+
+1. Kept an explicit CRLF fixture copy in the existing output-contract test.
+2. Compared `Files.readAllLines(...)` with `actual.lines().toList()` for both the
+   canonical fixture and that CRLF copy.
+3. Retained all output values, line ordering, exit-code, termination, identity,
+   and illustration assertions. No repository line-ending settings were changed.
+
+### 6. Preventative Measures
+
+- Test line-oriented output in both LF and CRLF forms when WSL and Windows checkouts mix.
+- Reserve byte-exact comparisons for formats that actually require byte identity.
+- Keep generated fixtures/classes in JUnit's temporary directory, not in Git.
+
+---
+
+## RCA-101: Recording a Lesson Visit Overwrote Newer Cross-Tab Notes
+
+### 1. Overview & Severity
+
+Medium, pre-release curriculum data-loss defect. Another tab could save notes
+after the progress hook read its initial snapshot but before the lesson recorded
+its resume destination. Recording that visit overwrote the newer stored notes.
+
+### 2. Symptoms & Error Logs
+
+The full learning-flow suite intermittently lost a simulated cross-tab update.
+A deterministic hook test narrowed the issue to initialization followed by a
+storage update and then `visit()`:
+
+```text
+does not overwrite notes saved by another tab between initialization and recording a visit
+Cannot read properties of undefined (reading 'notes')
+```
+
+The old implementation replaced the saved lesson map with its earlier empty map.
+
+### 3. Root Cause
+
+`visit()` merged `lastLessonId` into a ref initialized from an earlier storage read.
+It assumed the storage listener had already applied every intervening change.
+That assumption is invalid during mounting, before passive subscriptions run.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/learningLessons.test.jsx -t 'between initialization'
+npx vitest run src/__tests__/curriculum.test.js src/__tests__/learningLessons.test.jsx src/__tests__/pageRecovery.test.jsx
+```
+
+The first command failed on the original implementation; evidence is retained in
+`/home/prem/validation/lld-curriculum/storage-visit-red.log` on this machine.
+
+### 5. Step-by-Step Resolution
+
+1. Replaced a timing-dependent symptom with a deterministic initialization/write/visit test.
+2. Re-read and normalize the latest stored progress immediately before recording a visit.
+3. Merge only the resume ID into that fresh map. If storage cannot be read, preserve
+   the current in-page snapshot rather than discarding it.
+4. Retained the cross-tab subscription, bounded notes, publication validation, and
+   storage-failure warning. The focused 20-test curriculum/recovery suite passes.
+
+### 6. Preventative Measures
+
+- Test cross-tab writes between initial reads and bootstrap metadata writes.
+- Do not assume that a DOM node appearing proves every passive effect has run.
+- Keep lesson and module progress separate; never infer mastery from review marks.
+- Browser storage remains a local, last-writer-wins convenience, not transactional
+  multi-user storage or cross-device synchronization.
+
+---
+
+## RCA-100: A Failed Lazy Route Blanked the Application
+
+### 1. Overview & Severity
+
+Medium. While checking curriculum recovery, a rejected route chunk exposed a
+pre-existing application-wide gap: the route tree had Suspense but no error
+boundary. The same mechanism is used by existing lazy module pages.
+
+### 2. Symptoms & Error Logs
+
+A production-built `/learn` route whose page asset returned HTTP 503 produced:
+
+```text
+{"unhandledErrors":["Failed to fetch dynamically imported module: http://lld.test/assets/Learn-D2FkIGEc.js"],"mainCount":0,"alerts":[],"body":""}
+```
+
+The error unmounted the page and global navigation; there was no recovery control.
+
+### 3. Root Cause
+
+Suspense displays a loading fallback for a pending lazy import, not for a rejected
+one or a component render exception. No ancestor boundary caught these errors.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npm run build
+npx vitest run src/__tests__/pageRecovery.test.jsx
+node /home/prem/validation/lld-curriculum/route-failure.cjs
+```
+
+The external browser probe intercepts production assets and starts no application
+server. Its before/after evidence is in `route-failure-red.log` and
+`route-failure-green.log` under the same local validation directory.
+
+### 5. Step-by-Step Resolution
+
+1. Reproduced the empty document with a failed route chunk, separately from the
+   lesson-content failure in RCA-099.
+2. Wrapped the shared route Suspense tree in `PageErrorBoundary`, leaving global
+   navigation and utilities outside the failure boundary.
+3. Added a named, focused recovery heading, explicit Reload page action, and a
+   full-navigation library link. Recovery warns that unsaved changes may be lost.
+4. Keyed the boundary by pathname so one failed route does not poison the next.
+5. Verified rejected imports and render failures in component tests. The same
+   production browser probe now returns one main landmark, a recovery alert,
+   preserved global navigation, and zero unhandled page errors.
+
+### 6. Preventative Measures
+
+- Test pending, rejected, and successful lazy loads as distinct cases.
+- Keep route/data imports lazy; do not hide loading failures by bundling every page.
+- Never automatically clear saved learning or enter automatic reload loops.
+- Boundaries do not catch arbitrary event-handler errors or repair the original
+  backend/render bug. Those defects still require per-module investigation.
+
+---
+
+## RCA-099: Retrying a Failed Lesson Import Did Not Fetch the Content Again
+
+### 1. Overview & Severity
+
+Medium, caught before release while building the first curriculum lesson. The
+initial recovery button re-invoked the same dynamic import; in the production
+Chromium test it could not recover after the lesson chunk first returned HTTP 503.
+The catalog and saved progress were unaffected, but the lesson stayed unavailable.
+
+### 2. Symptoms & Error Logs
+
+The intercepted production build showed the lesson error panel correctly. After
+restoring the asset response and pressing Retry, the heading never appeared:
+
+```text
+Context light 320
+{"afterRetry":true,"contentRequests":["/assets/classes-and-objects-WZmL3SRX.js"],"failureStillVisible":true}
+locator.waitFor: Timeout 10000ms exceeded.
+```
+
+There was only one asset request, even after the retry. A unit test whose mocked
+loader rejected once and then resolved did not reproduce this browser behavior.
+
+### 3. Root Cause
+
+The component treated dynamic module loading like a repeatable API read. The
+browser/build-loader path retained the failed module load in the same document;
+changing a React attempt counter did not create a fresh asset request. This is a
+measured Chromium production-build behavior, not a claim that every failure is
+cached identically by every JavaScript runtime.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/curriculum.test.js src/__tests__/learningLessons.test.jsx
+npm run build
+node /home/prem/validation/lld-curriculum/browser.cjs
+```
+
+The last command is a local external validation harness, not a tracked project
+dependency. It intercepts built assets at `http://lld.test`; it starts no frontend
+or backend server. Browser requests and the persistent error panel were recorded
+in `/home/prem/validation/lld-curriculum/chunk-retry-red.log`.
+
+### 5. Step-by-Step Resolution
+
+1. Reproduced a real asset 503 and the ineffective retry in production Chromium.
+2. Removed the attempt counter and same-document retry from the lesson page.
+3. Offered an explicit **Reload lesson** action using `window.location.reload()`.
+   Reload is user-initiated only; there is no automatic reload loop.
+4. Preserved the catalog link and explained that saved notes/progress are unchanged.
+5. Updated the component test to assert reload and preservation, then verified
+   failure-to-reload-to-lesson recovery with the actual production assets.
+
+### 6. Preventative Measures
+
+- Verify chunk-failure recovery in a browser, not only with a mocked import helper.
+- Keep lesson notes in the separate browser-storage namespace; do not clear them
+  when content loading fails or an address is invalid/unpublished.
+- Keep the lesson asset lazy and expose publication status honestly. Planned topics
+  must never render as empty completed lessons.
+- Retain mounted-lifecycle guards so late imports cannot update a departed page.
 
 ---
 

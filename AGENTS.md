@@ -41,10 +41,17 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2329 tests
-cd frontend && npx vitest run  # latest validated: 664 tests
+cd backend  && mvn test        # latest validated: 2334 tests
+cd frontend && npx vitest run  # latest validated: 684 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
+
+## Learning Curriculum
+- `/learn` and `/learn/:lessonId` are lazy routes. `frontend/src/learning/curriculum.js` is the canonical topic/publication manifest; only published lessons have content files. Planned topics are a labelled roadmap, not empty completed pages.
+- Content lives in `frontend/src/learning/lessons/`. Displayed Java comes from canonical `.java` files in `frontend/src/learning/examples/`, imported with `?raw`; do not duplicate it as a string. `ClassesAndObjectsExampleTest` compiles those exact files with JDK 17 and checks the output/illustration fixtures. The frontend build remains self-contained for Vercel/Docker.
+- `lld-lessons-v1` stores only lesson resume, bookmarks, review marks, and bounded notes. Keep it separate from module progress/import/export; reviewed is not mastery. Read the latest storage before writing resume metadata (RCA-101).
+- `PageErrorBoundary` wraps the shared route Suspense tree, keyed by pathname. Suspense alone does not handle rejected imports. Content-import failures and route failures offer explicit reload; never loop or clear saved progress automatically (RCA-099/100).
+- Track remaining curriculum work in `LLD_LEARNING_CURRICULUM_PLAN.md`; one reference lesson does not complete the full curriculum or module UX audit.
 
 ## Parking Lot Module
 ### Backend
@@ -2041,8 +2048,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2329 tests, 284 classes
-cd frontend && npx vitest run # 664 tests, 36 files
+cd backend && mvn test        # 2334 tests, 285 classes
+cd frontend && npx vitest run # 684 tests, 39 files
 ```
 
 ### Cross-cutting suites — keep these green

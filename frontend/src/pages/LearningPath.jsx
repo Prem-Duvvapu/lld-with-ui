@@ -10,8 +10,9 @@ export default function LearningPath() {
 
   return (
     <div className="learning-path">
-      <nav className="learning-path-breadcrumb">
+      <nav className="learning-path-breadcrumb" aria-label="Learning navigation">
         <Link to="/">← Home</Link>
+        <Link to="/learn">Learn LLD concepts →</Link>
       </nav>
 
       <header className="learning-path-header">
