@@ -218,6 +218,7 @@ export default function Home() {
             <div className="home-hero-actions">
               <a className="home-primary-action" href="#module-library">Explore {ALL_LLDS.length} modules <span aria-hidden="true">↗</span></a>
               <Link to="/learning-path">Follow the learning path →</Link>
+              <Link to="/learn">Learn LLD concepts →</Link>
             </div>
           </div>
           <aside className="home-design-preview" aria-label="Parking Lot design example" hidden={!introOpen}>
@@ -247,6 +248,9 @@ export default function Home() {
                 </button>
                 <Link to="/learning-path" className="home-menu-item" role="menuitem" onClick={() => setMenuOpen(false)}>
                   📚 Learning path
+                </Link>
+                <Link to="/learn" className="home-menu-item" role="menuitem" onClick={() => setMenuOpen(false)}>
+                  Learn LLD concepts
                 </Link>
                 <button type="button" className="home-menu-item" role="menuitem" onClick={() => { setMenuOpen(false); downloadProgress() }}>
                   ⬇️ Export progress

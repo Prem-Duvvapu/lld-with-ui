@@ -1,8 +1,11 @@
 .learning-path { max-width: 800px; margin: 0 auto; padding: 40px 20px 80px; }
 
-.learning-path-breadcrumb { margin-bottom: 24px; }
+.learning-path-breadcrumb { margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 12px 24px; }
 
 .learning-path-breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 600;

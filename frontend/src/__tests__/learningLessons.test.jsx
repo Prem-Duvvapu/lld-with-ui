@@ -1,0 +1,160 @@
+// @vitest-environment happy-dom
+import '@testing-library/jest-dom/vitest';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
+import Learn from '../pages/Learn';
+import Lesson from '../pages/Lesson';
+import { LESSON_STORAGE_KEY, useLessonProgress } from '../learning/useLessonProgress';
+import { loadLesson } from '../learning/lessonLoader';
+import content from '../learning/lessons/classes-and-objects';
+
+vi.mock('../learning/lessonLoader', () => ({ loadLesson: vi.fn() }));
+
+function renderLearning(path = '/learn') {
+  return render(<MemoryRouter initialEntries={[path]}><Link to="/learn">Catalog test link</Link><Routes><Route path="/learn" element={<Learn />} /><Route path="/learn/:lessonId" element={<Lesson />} /></Routes></MemoryRouter>);
+}
+
+async function openLesson() {
+  renderLearning('/learn/classes-and-objects');
+  await screen.findByRole('heading', { name: 'Classes and Objects', level: 1 });
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  localStorage.clear();
+  sessionStorage.clear();
+  loadLesson.mockReset().mockResolvedValue(content);
+});
+
+describe('Published curriculum learning journey', () => {
+  it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
+    renderLearning();
+    expect(screen.getByText('One complete lesson is available now.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Classes and Objects.*Available/ })).toHaveAttribute('href', '/learn/classes-and-objects');
+    expect(screen.queryByRole('link', { name: 'Enums' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search lessons' }), { target: { value: 'SOLID' } });
+    expect(screen.getByText('SOLID Principles with Pictures')).toBeVisible();
+    expect(screen.getByText('SOLID Principles with Code')).toBeVisible();
+    expect(screen.getByText('2 topics match. 0 available to open.')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no-match' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+  });
+
+  it('focuses the lesson heading, explains the illustration, and shows independent Java object state', async () => {
+    await openLesson();
+    expect(screen.getByRole('heading', { name: 'Classes and Objects', level: 1 })).toHaveFocus();
+    const third = screen.getByRole('button', { name: '3. Add an alias and review again' });
+    fireEvent.click(third);
+    expect(third).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('first + alias')).toBeInTheDocument();
+    expect(screen.getByText('One class definition · two object instances · 3 references shown')).toBeInTheDocument();
+    expect(screen.getByText(/not a live JVM/)).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'StudyCard.java, scrollable code' })).toHaveAttribute('tabindex', '0');
+  });
+
+  it('gives actionable prediction feedback without making review a quiz gate', async () => {
+    await openLesson();
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText('Choose one answer before checking.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'first: 1, second: 0; three objects' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText(/Assignment copies a reference here/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'first: 2, second: 0; two objects' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText(/Exactly\. first and alias share/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
+    expect(screen.getByRole('button', { name: 'Mark lesson not reviewed' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('persists notes, bookmark, resume and review independently from module progress', async () => {
+    localStorage.setItem('lld-progress-v1', JSON.stringify({ parking: 123 }));
+    await openLesson();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Each session has independent progress; the alias shares the first.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
+    fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
+    expect(screen.getByText(/1 of 1 published lessons marked reviewed/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
+    expect(screen.getByText('1 topics match. 1 available to open.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Resume learning →' }));
+    await screen.findByRole('textbox', { name: 'Your explanation' });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Each session has independent progress; the alias shares the first.');
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute('aria-pressed', 'true');
+    expect(JSON.parse(localStorage.getItem('lld-progress-v1'))).toEqual({ parking: 123 });
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe('classes-and-objects');
+  });
+
+  it.each(['/learn/enums', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
+    renderLearning(path);
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mark lesson/ })).not.toBeInTheDocument();
+    expect(loadLesson).not.toHaveBeenCalled();
+  });
+
+  it('recovers from a lesson chunk failure without altering saved notes', async () => {
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lessons: { 'classes-and-objects': { notes: 'Retain this draft' } } }));
+    loadLesson.mockRejectedValueOnce(new Error('chunk unavailable'));
+    const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+    const first = renderLearning('/learn/classes-and-objects');
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText(/saved notes and progress have not been changed/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reload lesson' }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons['classes-and-objects'].notes).toBe('Retain this draft');
+    first.unmount();
+    renderLearning('/learn/classes-and-objects');
+    expect(await screen.findByRole('textbox', { name: 'Your explanation' })).toHaveValue('Retain this draft');
+    expect(loadLesson).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores content arriving after navigation away', async () => {
+    let resolve;
+    loadLesson.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    renderLearning('/learn/classes-and-objects');
+    expect(screen.getByRole('status')).toHaveTextContent('Loading lesson…');
+    fireEvent.click(screen.getByRole('link', { name: 'Catalog test link' }));
+    await act(async () => resolve(content));
+    expect(screen.getByRole('heading', { name: 'Learn low-level design' })).toBeInTheDocument();
+    expect(localStorage.getItem(LESSON_STORAGE_KEY)).toBeNull();
+  });
+
+  it('bounds and validates stored lesson data and ignores unpublished completion marks', async () => {
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'enums', lessons: { enums: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
+    await openLesson();
+    expect(screen.getByRole('textbox', { name: 'Your explanation' }).value).toHaveLength(2000);
+    expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.enums).toBeUndefined();
+  });
+
+  it('keeps a usable session when storage is malformed or blocked', async () => {
+    localStorage.setItem(LESSON_STORAGE_KEY, '{');
+    await openLesson();
+    vi.spyOn(window, 'localStorage', 'get').mockReturnValue({ setItem: () => { throw new Error('quota'); } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Keep this in the session' } });
+    expect(screen.getByText(/Browser storage is unavailable/)).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Keep this in the session');
+    fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
+    expect(screen.getByRole('button', { name: 'Mark lesson not reviewed' })).toBeInTheDocument();
+  });
+
+  it('synchronizes valid cross-tab changes and removes its storage listener on departure', async () => {
+    const remove = vi.spyOn(window, 'removeEventListener');
+    await openLesson();
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lessons: { 'classes-and-objects': { notes: 'Updated in another tab', bookmarked: true } } }));
+    fireEvent(window, new StorageEvent('storage', { key: LESSON_STORAGE_KEY }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Updated in another tab'));
+    fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
+    expect(remove).toHaveBeenCalledWith('storage', expect.any(Function));
+  });
+
+  it('does not overwrite notes saved by another tab between initialization and recording a visit', () => {
+    const { result } = renderHook(() => useLessonProgress());
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lessons: { 'classes-and-objects': { notes: 'Saved during mount', bookmarked: true } } }));
+    act(() => result.current.visit('classes-and-objects'));
+    expect(result.current.progress.lessons['classes-and-objects'].notes).toBe('Saved during mount');
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons['classes-and-objects'].bookmarked).toBe(true);
+  });
+});
