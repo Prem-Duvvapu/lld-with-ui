@@ -16,7 +16,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # latest validated: 2329 tests, 284 classes
+mvn test                                  # latest validated: 2334 tests, 285 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 664 tests, 36 files
+npx vitest run                            # latest validated: 684 tests, 39 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -91,6 +91,21 @@ prop is called as `children(tab, setTab)` — the second argument (added alongsi
 `shoppingcart`'s checkout could still jump to the Orders tab after migrating off its own local
 `activeTab` state) is optional and every pre-existing caller ignores it; reach for it only when a
 page genuinely needs to switch tabs programmatically.
+
+### Learning curriculum
+
+`/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
+manifest in `src/learning/curriculum.js`. One reference lesson is published; planned
+topics must not be presented as delivered content. Lesson data stays separate from
+module design data. Its displayed `.java` files live under `src/learning/examples/`
+and are compiled by the backend's `ClassesAndObjectsExampleTest`, including output
+and visual-state contracts. Frontend deployment does not need backend source files.
+
+`useLessonProgress` owns the separate `lld-lessons-v1` key. Resume writes must read
+the current storage before merging, and notes are bounded at 2000 characters. Do not
+mix lesson and module-reviewed state or call review marks mastery. `PageErrorBoundary`
+handles failed route imports/rendering; lesson-content failures explicitly reload the
+document because a same-document retry was ineffective in production Chromium.
 
 ### Design-data content
 

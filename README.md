@@ -26,6 +26,32 @@ Learning Hub have independent analytics. A plain local server or Docker deployme
 does not supply Vercel's analytics endpoint; blocked/unavailable analytics must not
 prevent learning or navigation. Live visitor totals require dashboard verification.
 
+## Learn LLD concepts
+
+Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
+has a searchable curriculum catalog and one published reference lesson:
+**Classes and Objects** at `/learn/classes-and-objects`. The other 68 topics are
+explicitly planned, not empty published lessons; five proposed additions remain labelled.
+
+The lesson connects a motivating problem, three inspectable Java-verified object
+snapshots, the actual Java source, a prediction question with explanations, a modeling
+exercise and self-check rubric, and a verified Parking Lot example. Java source lives
+in `frontend/src/learning/examples/` so a frontend-only deployment can build without
+reaching outside its project root. The backend test suite compiles those exact files
+with Java 17 and checks their output and illustration snapshots. No learner code is
+submitted or executed by the application.
+
+Bookmarks, notes (up to 2000 characters), a resume destination, and review marks use
+the separate `lld-lessons-v1` browser-storage key. They do not change module-reviewed
+status, sync across devices, or participate in module progress import/export. Review
+is a personal checklist, not a mastery score. Storage failures are visible; copy notes
+before leaving if saving is unavailable. A content-download failure offers an explicit
+reload without clearing saved learning. The shared route boundary also provides
+recovery for failed page imports and render errors instead of a blank application.
+
+`LLD_LEARNING_CURRICULUM_PLAN.md` tracks the remaining delivery phases. This first
+lesson does not complete the curriculum or the separate 60-module UI/UX audit.
+
 ## Projects Overview
 
 ### Reading diagrams

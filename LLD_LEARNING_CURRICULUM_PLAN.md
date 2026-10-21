@@ -1,6 +1,7 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Status: proposed; planning only, not implemented.
+Saved: 2026-10-17. Updated: 2026-10-21. Status: reference lesson implemented;
+remaining curriculum delivery and the full coverage audit are in progress.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -21,12 +22,14 @@ In particular, a generic Factory label does not prove Factory Method or Abstract
 Factory is implemented.
 
 Proposed navigation:
-- Learn LLD: `/learn` and `/learn/:lessonId`.
+- Learn LLD: `/learn` and `/learn/:lessonId` (implemented for the published reference lesson).
 - Practice Systems: existing module library and `/learning-path`.
 - Interview Preparation: `/interview-prep`.
 - My Learning: resume, bookmarks, revision, and lesson progress within the learning experience.
 
-These routes are proposals, not shipped features.
+Interview preparation remains proposed. My Learning currently means local notes,
+bookmarks, resume, and review marks in the lesson/catalog, not a separate dashboard.
+Only published lessons open as content; planned topics remain visibly unavailable.
 
 ## Complete topic coverage
 
@@ -168,11 +171,12 @@ status and the other applications' storage.
 
 ## Delivery phases and exit gates
 
-All phases below are pending implementation.
+The reference slice is implemented and locally verified. The other delivery phases
+remain open; the publication manifest must not be mistaken for a complete coverage audit.
 
 - [ ] **Phase 0 — Coverage audit:** map every requested topic to source evidence,
   missing content, prerequisites, exercises, and intended module connections.
-- [ ] **Phase 1 — Reference lesson:** deliver Classes and Objects end-to-end,
+- [x] **Phase 1 — Reference lesson:** deliver Classes and Objects end-to-end,
   including the shared renderer, accessible visuals, tested code, exercise,
   navigation, and progress. Review this vertical slice before scaling content.
 - [ ] **Phase 2 — OOP and relationships:** complete all fifteen concepts with
@@ -191,6 +195,30 @@ All phases below are pending implementation.
 
 Estimate remaining effort after the reference lesson establishes the real content
 and implementation cost. Do not publish empty topic pages as completed lessons.
+
+### Reference-slice evidence (2026-10-21)
+
+- `frontend/src/learning/curriculum.js` is the canonical inventory: 69 stable topic
+  IDs, one published lesson, 68 planned topics, and five explicit proposed additions.
+  It accounts for all fifteen OOP concepts, 23 patterns, five UML diagrams and the
+  requested concurrency topics. Planned prerequisite links currently indicate only
+  the minimum object foundation, not a completed topic-by-topic dependency audit.
+- `frontend/src/learning/lessons/classes-and-objects.js` supplies the problem,
+  objectives, explanatory text/illustration, source, prediction feedback, exercise,
+  rubric, pitfalls, summary, references and verified Parking Lot source links.
+- `ClassesAndObjectsExampleTest` compiles the two displayed Java files with release
+  17 and checks independent instances, alias identity, validation, every illustrated
+  snapshot, and the actual command-line output. No application server is started.
+- The curriculum and learning-flow suites cover search, availability, lazy loading,
+  storage validation/failures, bounded notes, cross-tab updates, resume, bookmarks,
+  review marks, stale imports, and recovery. The route boundary is tested separately.
+- Browser verification uses production assets with explicit route/content failures,
+  both themes, keyboard interaction, reduced motion and 320/390/768/1280px layouts.
+  It is intercepted browser evidence, not live HTTP end-to-end or user research.
+
+The remaining Phase 0 work is to verify each planned topic's existing sources,
+full prerequisites, missing lesson/exercise content, and genuine module connections.
+Do not infer those results from generic pattern labels or this inventory alone.
 
 ## Technical boundaries
 
