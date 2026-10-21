@@ -117,7 +117,10 @@ class ClassesAndObjectsExampleTest {
             assertTrue(process.waitFor(10, TimeUnit.SECONDS), "The small Java demo must terminate");
             String actual = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             assertEquals(0, process.exitValue(), actual);
-            assertEquals(Files.readString(EXAMPLES.resolve("classes-and-objects-output.txt")).strip(), actual.strip());
+            assertEquals(Files.readAllLines(EXAMPLES.resolve("classes-and-objects-output.txt")), actual.lines().toList());
+            Path windowsFixture = classes.resolve("expected-output-crlf.txt");
+            Files.writeString(windowsFixture, String.join("\r\n", Files.readAllLines(EXAMPLES.resolve("classes-and-objects-output.txt"))) + "\r\n");
+            assertEquals(Files.readAllLines(windowsFixture), actual.lines().toList());
         } finally {
             if (process.isAlive()) process.destroyForcibly();
         }

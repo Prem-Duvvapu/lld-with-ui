@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-102](#rca-102-java-example-output-checks-assumed-checkout-and-runtime-newlines-matched) | 2026-10-21 | Curriculum / Windows-WSL Portability | A CRLF text checkout differed from the same Java output emitted with Linux LF | Resolved |
 | [RCA-101](#rca-101-recording-a-lesson-visit-overwrote-newer-cross-tab-notes) | 2026-10-21 | Curriculum / Browser Storage | Resume metadata was written from a stale initialization snapshot | Resolved |
 | [RCA-100](#rca-100-a-failed-lazy-route-blanked-the-application) | 2026-10-21 | Frontend / Route Recovery | Suspense handled pending imports but there was no boundary for rejected imports or render failures | Resolved |
 | [RCA-099](#rca-099-retrying-a-failed-lesson-import-did-not-fetch-the-content-again) | 2026-10-21 | Curriculum / Lazy Loading | A same-document import retry remained rejected after a transient chunk failure | Resolved |
@@ -38,6 +39,62 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-015](#rca-015-minesweepers-mine-placement-loop-could-spin-forever-on-an-unvalidated-mine-count) | 2026-08-25 | Backend / Minesweeper / Input Validation & Availability | `placeMines`'s `while (placed < totalMines)` loop had no termination guarantee once `totalMines >= rows * cols`, spinning one CPU core forever on a single bad request | Resolved |
 | [RCA-016](#rca-016-minesweepers-reveal-and-flag-endpoints-skipped-bounds-checking-and-threw-an-unhandled-500) | 2026-08-25 | Backend / Minesweeper / Input Validation | `revealCell`/`flagCell` indexed the board with caller-supplied `row`/`col` with no bounds check, so an out-of-range request threw a bare, unhandled `ArrayIndexOutOfBoundsException` (500, message stripped) | Resolved |
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
+
+---
+
+## RCA-102: Java Example Output Checks Assumed Checkout and Runtime Newlines Matched
+
+### 1. Overview & Severity
+
+Low, caught before merge. The new teaching example's output contract compared
+whole strings. This repository has `core.autocrlf=true`; a Windows-drive checkout
+can supply CRLF fixtures while the required WSL Java process emits LF.
+
+### 2. Symptoms & Error Logs
+
+`git cat-file --filters` confirmed that Git would write the text fixture as CRLF.
+A deterministic CRLF copy in the test's temporary directory reproduced the failure:
+
+```text
+Tests run: 5, Failures: 1, Errors: 0, Skipped: 0
+ClassesAndObjectsExampleTest.runnableDemoMatchesTheDisplayedOutput:123
+expected: <first: Objects, reviews=2 ...> but was: <first: Objects, reviews=2 ...>
+```
+
+The visible text was identical; the internal line separators were not. `.strip()`
+removed only outer whitespace and did not normalize the interior line endings.
+
+### 3. Root Cause
+
+The output is instructional line-oriented text, not a byte-level wire protocol.
+The test unintentionally asserted an OS/checkout convention instead of its four
+meaningful lines. Linux CI alone would not expose this Windows/WSL mismatch.
+
+### 4. Diagnostic Commands
+
+```bash
+git config --get core.autocrlf
+git check-attr -a -- frontend/src/learning/examples/classes-and-objects-output.txt
+git cat-file --filters HEAD:frontend/src/learning/examples/classes-and-objects-output.txt
+cd backend && mvn -Dtest=ClassesAndObjectsExampleTest test
+```
+
+The red regression is retained in
+`/home/prem/validation/lld-curriculum/crlf-red.log` on this machine.
+
+### 5. Step-by-Step Resolution
+
+1. Kept an explicit CRLF fixture copy in the existing output-contract test.
+2. Compared `Files.readAllLines(...)` with `actual.lines().toList()` for both the
+   canonical fixture and that CRLF copy.
+3. Retained all output values, line ordering, exit-code, termination, identity,
+   and illustration assertions. No repository line-ending settings were changed.
+
+### 6. Preventative Measures
+
+- Test line-oriented output in both LF and CRLF forms when WSL and Windows checkouts mix.
+- Reserve byte-exact comparisons for formats that actually require byte identity.
+- Keep generated fixtures/classes in JUnit's temporary directory, not in Git.
 
 ---
 
