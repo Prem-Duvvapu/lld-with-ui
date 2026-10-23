@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-108](#rca-108-the-spa-rewrite-returned-html-for-vercels-analytics-script) | 2026-10-23 | Deployment / Vercel Routing | The SPA fallback captured reserved platform and asset paths; the live analytics script returned HTML and threw a syntax error | Resolved in configuration |
 | [RCA-107](#rca-107-recorded-lesson-values-collapsed-meaningful-whitespace) | 2026-10-23 | Curriculum / Illustration Fidelity | Normal HTML whitespace collapsed recorded input spaces; narrow field columns split implementation names on mobile | Resolved |
 | [RCA-106](#rca-106-kv-map-updates-and-log-appends-could-replay-in-different-orders) | 2026-10-23 | Backend / KV / Concurrency | Separate map mutation and command append let replay restore an older value or retain a pre-reset write | Resolved |
 | [RCA-105](#rca-105-shared-design-pattern-cards-overflowed-a-320px-page) | 2026-10-23 | Shared Learning UI / Mobile | A fixed 320px grid minimum exceeded the available width after page padding | Resolved |
@@ -46,6 +47,73 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-108: The SPA Rewrite Returned HTML for Vercel's Analytics Script
+
+### 1. Overview & Severity
+
+Medium deployment issue found by a real production browser check after the
+Enums/Interfaces release. Lessons rendered, but loading the analytics script
+produced an unhandled syntax error. The configuration fix is covered locally;
+the deployed platform response must be checked after this change ships.
+
+### 2. Symptoms & Error Logs
+
+The public production endpoint returned:
+
+```text
+GET /_vercel/insights/script.js
+HTTP/2 200
+content-type: text/html; charset=utf-8
+<!doctype html>
+```
+
+Playwright recorded `Unexpected token '<'`. Actual app/lesson chunks had JavaScript
+MIME types. Earlier intercepted browser checks stubbed the analytics script, so
+they correctly verified lesson behavior but did not exercise Vercel's routing.
+
+### 3. Root Cause
+
+The negative-lookahead SPA rewrite excluded API/Swagger and several metadata
+paths, but included `/_vercel/*` and `/assets/*`. A missing/platform script could
+therefore receive index.html with a successful status. Mounting the SDK does not
+prove that Vercel Web Analytics is enabled; the app must leave its reserved paths
+to Vercel whether the resulting platform response is JavaScript or an unavailable
+resource. Dashboard enablement and visitor totals remain separately unverified.
+
+### 4. Diagnostic Commands
+
+```bash
+curl -i https://lld-with-ui.vercel.app/_vercel/insights/script.js
+cd frontend
+npx vitest run src/__tests__/deploymentRouting.test.js
+node /home/prem/validation/lld-oop/live.cjs
+```
+
+The live response and failing browser evidence are retained under
+`/home/prem/validation/lld-oop/`; matcher red/green evidence is under
+`/home/prem/validation/lld-routing/`. Two matcher groups failed before the fix:
+reserved platform paths and build-asset paths incorrectly matched the HTML fallback.
+
+### 5. Step-by-Step Resolution
+
+1. Inspect actual script response status/MIME and the production page error rather
+   than assuming the lesson chunk caused it.
+2. Add route-boundary tests using the actual fallback source. Preserve module/
+   lesson/not-found deep links, API/Swagger proxies and metadata routes.
+3. Exclude `/_vercel/` and `/assets/` from the SPA rewrite. Keep the analytics SDK
+   and existing URL redaction unchanged; do not hide the error with an exception filter.
+4. Re-run the routing checks, required suites, lint, package and build budgets.
+   After deployment, repeat the real production browser and inspect the analytics
+   endpoint's status/MIME; do not count a login page or SPA HTML as a working script.
+
+### 6. Preventative Measures
+
+Keep reserved platform paths and missing asset requests outside SPA fallbacks.
+Use [Vercel's analytics troubleshooting guidance](https://vercel.com/docs/analytics/troubleshooting)
+for enablement/redeployment and reserved analytics paths. Retain a real deployed
+asset/MIME check alongside intercepted browser flows. A successful build or
+deployment check alone does not prove routing or dashboard collection works.
 
 ## RCA-107: Recorded Lesson Values Collapsed Meaningful Whitespace
 
