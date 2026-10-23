@@ -5,6 +5,7 @@ import com.lld.kvstore.command.Command;
 import com.lld.kvstore.command.SetCommand;
 import com.lld.kvstore.exception.KeyNotFoundException;
 import com.lld.kvstore.exception.VersionConflictException;
+import com.lld.kvstore.exception.InvalidKvRequestException;
 import com.lld.kvstore.model.KvEntry;
 import com.lld.kvstore.template.GetOperation;
 import com.lld.kvstore.template.PeekOperation;
@@ -35,7 +36,7 @@ public class KvStoreRepository {
         lifecycle.readLock().lock();
         try {
             return copy(store.compute(key, (k, existing) -> {
-                Long expiresAt = (ttlMillis != null && ttlMillis > 0) ? System.currentTimeMillis() + ttlMillis : null;
+                Long expiresAt = expiryFromNow(ttlMillis);
                 long newVersion = existing == null ? 1 : existing.getVersion() + 1;
                 KvEntry updated = KvEntry.builder().value(value).version(newVersion).expiresAtEpoch(expiresAt).build();
                 wal.append(new SetCommand(key, value, expiresAt, newVersion));
@@ -160,5 +161,15 @@ public class KvStoreRepository {
 
     private boolean isExpired(KvEntry entry) {
         return entry.getExpiresAtEpoch() != null && System.currentTimeMillis() >= entry.getExpiresAtEpoch();
+    }
+
+    private static Long expiryFromNow(Long ttlMillis) {
+        if (ttlMillis == null) return null;
+        if (ttlMillis < 1) throw new InvalidKvRequestException("TTL must be positive milliseconds, or null for no expiry");
+        try {
+            return Math.addExact(System.currentTimeMillis(), ttlMillis);
+        } catch (ArithmeticException overflow) {
+            throw new InvalidKvRequestException("TTL is too large to represent an expiry timestamp");
+        }
     }
 }

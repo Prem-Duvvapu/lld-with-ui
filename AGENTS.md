@@ -42,7 +42,7 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2395 tests
+cd backend  && mvn test        # latest validated: 2453 tests
 cd frontend && npx vitest run  # latest validated: 726 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
@@ -1869,12 +1869,23 @@ Package `com.lld.kvstore`.
   `DomainExceptionContractTest`'s `BASES` allowlist) with `KeyNotFoundException` (404 — shares
   its simple name with `cachelibrary.exception.KeyNotFoundException`, harmless since exceptions
   are plain classes, not Spring beans, so RCA-059's bean-collision lesson doesn't apply),
-  `VersionConflictException` (409 — the request was well-formed, it just lost a race).
+  `VersionConflictException` (409 — the request was well-formed, it just lost a race),
+  `InvalidKvRequestException` (400 — malformed field types, blank keys, null values,
+  nonpositive versions/TTLs, overflow or out-of-range experiment sizes; RCA-110).
+- Live/sandbox SET accept actual string values (including empty strings) and optional
+  whole JSON integer TTL seconds. Omitted/null TTL means no expiry; zero/negative,
+  strings, fractions and overflow are rejected. Seconds conversion and the actual
+  repository expiry addition both use checked arithmetic before changing map/log.
+  CAS expectedVersion is a positive whole JSON integer; newValue is a string.
+  Service entry points validate independently of controller binding. CAS experiments
+  default to eight workers and accept only 1–32, checked before seed/log/pool creation.
 - Isolated `/api/kvstore/sim/*` engine: a second `KvStoreRepository` instance, seeded empty.
-- Tests (7 files): `KvStoreServiceTest`, `KvStoreConcurrencyTest` (the load-bearing suite
+- Tests (8 files): `KvStoreServiceTest`, `KvStoreConcurrencyTest` (the load-bearing suite
   above), `CommandTest`, `KvReadTemplateTest`, `KvStoreRepositoryTest`,
   `KvStoreReplayConcurrencyTest`, `KvStoreControllerIntegrationTest` (real-service
-  MockMvc live status/version contracts, sandbox replay/reset and JSON shape).
+  MockMvc live status/version contracts, sandbox replay/reset and JSON shape),
+  `KvStoreRequestValidationTest` (58 actual HTTP/domain cases, unchanged state on
+  rejection, null/omitted TTL, expiry overflow, and real 1/8/32-worker races).
 
 ### Frontend
 - 6 tabs: Store, CAS, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design
@@ -1891,8 +1902,8 @@ Package `com.lld.kvstore`.
 - Labeled forms preserve rejected drafts and accept empty string values. DELETE
   requires confirmation, with safe cancellation and stable focus. Recent SET responses
   are bounded to ten per-key snapshots and displayed after forms/confirmed data; they
-  are not a live inventory or an eviction policy. Full simulation/lifecycle/backend
-  validation and final module sign-off remain open.
+  are not a live inventory or an eviction policy. Full simulation/lifecycle review
+  and final module sign-off remain open; request validation is covered by RCA-110.
 - Simulation tab: 6-step guided demo — reset, a clean SET/GET, in-memory WAL replay, a
   real 1-second TTL expiry wait, a live 8-worker CAS race, and a final review of the WAL and
   event log.

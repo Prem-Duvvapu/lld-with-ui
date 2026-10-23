@@ -16,7 +16,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # latest validated: 2395 tests, 289 classes
+mvn test                                  # latest validated: 2453 tests, 290 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -98,6 +98,12 @@ scope only while a live tab is visible. Preserve last good reads; only a typed
 late results and keep unknown outcomes explicit. A fresh read plus a user decision
 permits another write; it does not prove cancellation or rollback of the old one
 (RCA-109). The KV simulation and final whole-module review remain open.
+
+KV HTTP value fields are actual strings, numeric fields are whole JSON integers,
+and omitted/null TTL means no expiry. Keep checked TTL multiplication and expiry
+addition; rejected inputs cannot append commands or change state. The typed
+`InvalidKvRequestException` is HTTP 400. CAS experiments accept 1–32 workers
+(default eight), validated before seeding or allocating the pool (RCA-110).
 
 ### Learning curriculum
 

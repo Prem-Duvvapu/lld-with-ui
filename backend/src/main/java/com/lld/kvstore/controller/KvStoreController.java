@@ -2,11 +2,13 @@ package com.lld.kvstore.controller;
 
 import com.lld.kvstore.model.KvEntry;
 import com.lld.kvstore.model.SimEvent;
+import com.lld.kvstore.exception.InvalidKvRequestException;
 import com.lld.kvstore.service.KvStoreService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.math.BigInteger;
 
 @RestController
 @RequestMapping("/api/kvstore")
@@ -21,8 +23,8 @@ public class KvStoreController {
 
     @PutMapping("/{key}")
     public KvEntry set(@PathVariable String key, @RequestBody Map<String, Object> body) {
-        String value = body.get("value").toString();
-        Long ttlSeconds = body.containsKey("ttlSeconds") ? Long.parseLong(body.get("ttlSeconds").toString()) : null;
+        String value = stringField(body, "value");
+        Long ttlSeconds = optionalInteger(body, "ttlSeconds");
         return service.set(key, value, ttlSeconds);
     }
 
@@ -38,8 +40,8 @@ public class KvStoreController {
 
     @PostMapping("/{key}/cas")
     public KvEntry cas(@PathVariable String key, @RequestBody Map<String, Object> body) {
-        long expectedVersion = Long.parseLong(body.get("expectedVersion").toString());
-        String newValue = body.get("newValue").toString();
+        long expectedVersion = integerField(body, "expectedVersion");
+        String newValue = stringField(body, "newValue");
         return service.cas(key, expectedVersion, newValue);
     }
 
@@ -55,8 +57,8 @@ public class KvStoreController {
 
     @PutMapping("/sim/{key}")
     public Map<String, Object> simSet(@PathVariable String key, @RequestBody Map<String, Object> body) {
-        String value = body.get("value").toString();
-        Long ttlSeconds = body.containsKey("ttlSeconds") ? Long.parseLong(body.get("ttlSeconds").toString()) : null;
+        String value = stringField(body, "value");
+        Long ttlSeconds = optionalInteger(body, "ttlSeconds");
         return service.simSet(key, value, ttlSeconds);
     }
 
@@ -77,7 +79,7 @@ public class KvStoreController {
 
     @PostMapping("/sim/cas-race")
     public Map<String, Object> simCasRace(@RequestBody Map<String, Object> body) throws InterruptedException {
-        int workerCount = Integer.parseInt(body.getOrDefault("workerCount", "8").toString());
+        long workerCount = body.containsKey("workerCount") ? integerField(body, "workerCount") : 8;
         return service.simCasRace(workerCount);
     }
 
@@ -89,5 +91,24 @@ public class KvStoreController {
     @GetMapping("/sim/snapshot")
     public Map<String, Object> simGetSnapshot() {
         return service.getSimSnapshots();
+    }
+
+    private static String stringField(Map<String, Object> body, String name) {
+        if (body.get(name) instanceof String value) return value;
+        throw new InvalidKvRequestException("'" + name + "' must be a string; an empty string is allowed");
+    }
+
+    private static Long optionalInteger(Map<String, Object> body, String name) {
+        return body.get(name) == null ? null : integerField(body, name);
+    }
+
+    private static long integerField(Map<String, Object> body, String name) {
+        Object value = body.get(name);
+        // JSON decimals and strings are not silently rounded or coerced to integers.
+        if (value instanceof Byte || value instanceof Short || value instanceof Integer || value instanceof Long) {
+            return ((Number) value).longValue();
+        }
+        if (value instanceof BigInteger integer && integer.bitLength() <= 63) return integer.longValue();
+        throw new InvalidKvRequestException("'" + name + "' must be a whole JSON integer in the signed 64-bit range");
     }
 }
