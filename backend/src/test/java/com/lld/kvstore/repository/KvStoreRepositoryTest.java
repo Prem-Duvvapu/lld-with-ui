@@ -74,15 +74,15 @@ public class KvStoreRepositoryTest {
         repository.set("a", "1", null);
         repository.set("a", "2", null);
         repository.delete("a");
-        assertEquals(3, repository.getWal().size());
+        assertEquals(3, repository.snapshot().commands().size());
     }
 
     @Test
     void aFailedCasNeverAppendsToTheWal() {
         repository.set("a", "1", null);
-        int sizeBefore = repository.getWal().size();
+        int sizeBefore = repository.snapshot().commands().size();
         assertThrows(VersionConflictException.class, () -> repository.cas("a", 999, "x"));
-        assertEquals(sizeBefore, repository.getWal().size(), "a losing CAS must not be logged as if it succeeded");
+        assertEquals(sizeBefore, repository.snapshot().commands().size(), "a losing CAS must not be logged as if it succeeded");
     }
 
     @Test
@@ -114,6 +114,6 @@ public class KvStoreRepositoryTest {
         repository.set("a", "1", null);
         repository.reset();
         assertThrows(KeyNotFoundException.class, () -> repository.get("a"));
-        assertEquals(0, repository.getWal().size());
+        assertEquals(0, repository.snapshot().commands().size());
     }
 }

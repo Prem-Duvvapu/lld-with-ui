@@ -1,6 +1,7 @@
 package com.lld.kvstore.repository;
 
 import com.lld.kvstore.command.DeleteCommand;
+import com.lld.kvstore.command.Command;
 import com.lld.kvstore.command.SetCommand;
 import com.lld.kvstore.exception.KeyNotFoundException;
 import com.lld.kvstore.exception.VersionConflictException;
@@ -11,46 +12,71 @@ import org.springframework.stereotype.Repository;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * The store itself, plus its {@link WriteAheadLog}. {@link #cas} is the concurrency centerpiece
  * — see its javadoc. It uses a per-key atomic {@link ConcurrentHashMap#compute}
- * operation instead of a repository-owned lock. Contending map updates may block;
- * this is an atomicity guarantee, not a lock-free progress guarantee.
+ * operation, including its log append. A shared lifecycle lock permits concurrent
+ * key operations; its exclusive side protects replay, reset and coherent snapshots.
+ * Contending updates may block; there is no lock-free progress guarantee.
  */
 @Repository
 public class KvStoreRepository {
 
     private final ConcurrentHashMap<String, KvEntry> store = new ConcurrentHashMap<>();
     private final WriteAheadLog wal = new WriteAheadLog();
+    private final ReentrantReadWriteLock lifecycle = new ReentrantReadWriteLock(true);
 
     public KvEntry set(String key, String value, Long ttlMillis) {
-        Long expiresAt = (ttlMillis != null && ttlMillis > 0) ? System.currentTimeMillis() + ttlMillis : null;
-        KvEntry result = store.compute(key, (k, existing) -> {
-            long newVersion = existing == null ? 1 : existing.getVersion() + 1;
-            return KvEntry.builder().value(value).version(newVersion).expiresAtEpoch(expiresAt).build();
-        });
-        wal.append(new SetCommand(key, value, expiresAt, result.getVersion()));
-        return result;
+        lifecycle.readLock().lock();
+        try {
+            return copy(store.compute(key, (k, existing) -> {
+                Long expiresAt = (ttlMillis != null && ttlMillis > 0) ? System.currentTimeMillis() + ttlMillis : null;
+                long newVersion = existing == null ? 1 : existing.getVersion() + 1;
+                KvEntry updated = KvEntry.builder().value(value).version(newVersion).expiresAtEpoch(expiresAt).build();
+                wal.append(new SetCommand(key, value, expiresAt, newVersion));
+                return updated;
+            }));
+        } finally {
+            lifecycle.readLock().unlock();
+        }
     }
 
     public KvEntry get(String key) {
-        return new GetOperation().read(store, key);
+        lifecycle.readLock().lock();
+        try {
+            return copy(new GetOperation().read(store, key));
+        } finally {
+            lifecycle.readLock().unlock();
+        }
     }
 
     public Optional<KvEntry> peek(String key) {
-        return new PeekOperation().read(store, key);
+        lifecycle.readLock().lock();
+        try {
+            return new PeekOperation().read(store, key).map(KvStoreRepository::copy);
+        } finally {
+            lifecycle.readLock().unlock();
+        }
     }
 
     public void delete(String key) {
-        if (store.remove(key) == null) {
-            throw new KeyNotFoundException("No entry for key: " + key);
+        lifecycle.readLock().lock();
+        try {
+            store.compute(key, (k, existing) -> {
+                if (existing == null) {
+                    throw new KeyNotFoundException("No entry for key: " + key);
+                }
+                wal.append(new DeleteCommand(key));
+                return null;
+            });
+        } finally {
+            lifecycle.readLock().unlock();
         }
-        wal.append(new DeleteCommand(key));
     }
 
     /**
@@ -64,59 +90,72 @@ public class KvStoreRepository {
      * simply lost a race) rather than a silently-overwritten or lost update.
      */
     public KvEntry cas(String key, long expectedVersion, String newValue) {
-        AtomicReference<KvEntry> resultHolder = new AtomicReference<>();
-        AtomicBoolean notFound = new AtomicBoolean(false);
-        AtomicBoolean versionMismatch = new AtomicBoolean(false);
-
-        store.compute(key, (k, existing) -> {
-            if (existing == null || isExpired(existing)) {
-                notFound.set(true);
-                return null; // lazily evict if it was merely expired
-            }
-            if (existing.getVersion() != expectedVersion) {
-                versionMismatch.set(true);
-                resultHolder.set(existing);
-                return existing; // unchanged -- this thread lost the race
-            }
-            KvEntry updated = KvEntry.builder()
-                    .value(newValue)
-                    .version(existing.getVersion() + 1)
-                    .expiresAtEpoch(existing.getExpiresAtEpoch())
-                    .build();
-            resultHolder.set(updated);
-            return updated;
-        });
-
-        if (notFound.get()) {
-            throw new KeyNotFoundException("No entry for key: " + key);
+        lifecycle.readLock().lock();
+        try {
+            return copy(store.compute(key, (k, existing) -> {
+                if (existing == null || isExpired(existing)) {
+                    // A rejected CAS is not a write: leave even an expired mapping untouched.
+                    throw new KeyNotFoundException("No entry for key: " + key);
+                }
+                if (existing.getVersion() != expectedVersion) {
+                    throw new VersionConflictException("Expected version " + expectedVersion + " but was "
+                            + existing.getVersion() + " for key: " + key);
+                }
+                KvEntry updated = KvEntry.builder()
+                        .value(newValue)
+                        .version(existing.getVersion() + 1)
+                        .expiresAtEpoch(existing.getExpiresAtEpoch())
+                        .build();
+                wal.append(new SetCommand(key, updated.getValue(), updated.getExpiresAtEpoch(), updated.getVersion()));
+                return updated;
+            }));
+        } finally {
+            lifecycle.readLock().unlock();
         }
-        if (versionMismatch.get()) {
-            throw new VersionConflictException("Expected version " + expectedVersion + " but was "
-                    + resultHolder.get().getVersion() + " for key: " + key);
-        }
-        KvEntry result = resultHolder.get();
-        wal.append(new SetCommand(key, result.getValue(), result.getExpiresAtEpoch(), result.getVersion()));
-        return result;
     }
 
     public Map<String, KvEntry> getAllEntries() {
-        return new HashMap<>(store);
+        return snapshot().entries();
     }
 
-    public WriteAheadLog getWal() {
-        return wal;
+    /** Detached entries and commands from the same committed point, never a partial replay. */
+    public Snapshot snapshot() {
+        lifecycle.writeLock().lock();
+        try {
+            Map<String, KvEntry> entries = new HashMap<>();
+            store.forEach((key, entry) -> entries.put(key, copy(entry)));
+            return new Snapshot(Map.copyOf(entries), List.copyOf(wal.getCommands()));
+        } finally {
+            lifecycle.writeLock().unlock();
+        }
     }
+
+    public record Snapshot(Map<String, KvEntry> entries, List<Command> commands) {}
 
     /** Rebuilds the map from the retained in-memory WAL; this is not process-crash recovery. */
     public void replayFromWal() {
-        store.clear();
-        wal.replay(store);
+        lifecycle.writeLock().lock();
+        try {
+            store.clear();
+            wal.replay(store);
+        } finally {
+            lifecycle.writeLock().unlock();
+        }
     }
 
     /** Wipes everything, WAL included. Used only to reset the isolated {@code /sim/*} sandbox. */
     public void reset() {
-        store.clear();
-        wal.clear();
+        lifecycle.writeLock().lock();
+        try {
+            store.clear();
+            wal.clear();
+        } finally {
+            lifecycle.writeLock().unlock();
+        }
+    }
+
+    private static KvEntry copy(KvEntry entry) {
+        return new KvEntry(entry.getValue(), entry.getVersion(), entry.getExpiresAtEpoch());
     }
 
     private boolean isExpired(KvEntry entry) {

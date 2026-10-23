@@ -5,10 +5,10 @@ import com.lld.kvstore.model.KvEntry;
 import java.util.Map;
 
 /**
- * Command Pattern, applied to durability/replay rather than the more familiar undo/redo use —
- * the same GoF pattern serving a genuinely different purpose. Every successful write appends one
- * {@link Command} to the {@code WriteAheadLog}; replaying the whole log against an empty map
- * from a cold start rebuilds identical state, which is exactly what {@code /sim/reset} proves.
+ * Command Pattern applied to in-memory reconstruction. Every successful write appends one
+ * {@link Command} inside its atomic map update. Replaying commands in their recorded order
+ * rebuilds state while the repository excludes concurrent key operations. The log is lost on
+ * process restart; {@code /sim/replay} reconstructs state and {@code /sim/reset} clears both.
  *
  * <p>{@code apply} mutates the raw state map directly — WAL replay is a low-level operation, not
  * a user request, so it deliberately bypasses {@code KvStoreService}'s validation and exception

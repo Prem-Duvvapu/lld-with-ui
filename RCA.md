@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-106](#rca-106-kv-map-updates-and-log-appends-could-replay-in-different-orders) | 2026-10-23 | Backend / KV / Concurrency | Separate map mutation and command append let replay restore an older value or retain a pre-reset write | Resolved |
 | [RCA-105](#rca-105-shared-design-pattern-cards-overflowed-a-320px-page) | 2026-10-23 | Shared Learning UI / Mobile | A fixed 320px grid minimum exceeded the available width after page padding | Resolved |
 | [RCA-104](#rca-104-kv-learning-views-overstated-atomicity-immutability-and-durability) | 2026-10-23 | KV Store / Teaching Contracts | Atomic compute was called lock-free, mutable entries were called immutable, and retained-memory replay was called durability proof | Resolved |
 | [RCA-103](#rca-103-atm-learning-data-invented-a-transaction-template-method) | 2026-10-23 | ATM / Design Accuracy | Design prose, diagram, filter and README described an execution method absent from the Java transaction record | Resolved |
@@ -44,6 +45,86 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-106: KV Map Updates and Log Appends Could Replay in Different Orders
+
+### 1. Overview & Severity
+
+High correctness issue. Concurrent SET/CAS/DELETE operations could leave the retained
+in-memory log in a different order from map mutations. Replay could silently change
+the latest committed value or resurrect a removed key. Replay/reset could also split
+a write between mutation and append. This does not concern disk persistence; this
+application has none.
+
+### 2. Symptoms & Error Logs
+
+A latch-controlled probe paused the first CAS before its append, completed a second
+CAS, then released the first. The original code produced:
+
+```text
+live=second@v3; replayed=first@v2
+AssertionError: Replay must preserve the latest committed value and version
+```
+
+The initial repository regression matrix failed all 15 interleavings: paused SET,
+CAS or DELETE overtaken by another same-key write, replay or reset. Existing tests
+proved CAS winner counts and sequential replay, not their composition.
+
+### 3. Root Cause
+
+ConcurrentHashMap.compute protected only the map mutation. The append happened
+after compute returned; delete similarly removed before appending. The log's
+CopyOnWriteArrayList made list access safe but supplied no cross-object ordering.
+Replay/reset had no common exclusion with key operations. Mutable entry responses
+also let callers change stored values without any command, and snapshot reads
+collected entries and commands independently.
+
+### 4. Diagnostic Commands
+
+Run in the WSL checkout, without starting application servers:
+
+```bash
+cd backend
+mvn -Dtest=KvStoreReplayConcurrencyTest test
+mvn -Dtest='com.lld.kvstore.**' test
+```
+
+The external initial probe and red log are retained under
+`/home/prem/validation/lld-coverage/`; the 15-case red matrix and subsequent
+validation are under `/home/prem/validation/lld-kv-order/` on this machine.
+
+### 5. Step-by-Step Resolution
+
+1. Reproduce map/log inversion with an append spy and bounded latches.
+2. Append SET/CAS/DELETE commands inside the key's compute callback, before
+   returning the replacement/removal. A rejected CAS throws inside compute,
+   preserving the mapping and command list, including on expiry.
+3. Use the shared side of a fair ReentrantReadWriteLock for key operations and its
+   exclusive side for replay/reset/snapshots. Independent bins retain concurrent
+   writes; readers cannot observe the cleared map midway through reconstruction.
+4. Capture detached entries and commands together; build the simulation's entry,
+   WAL and WAL-count fields from that snapshot. Remove the public mutable WAL
+   accessor. Return detached entries from SET/CAS/GET/peek as well.
+5. Verify contention, lifecycle exclusion, independent-key concurrency, rejected
+   appends, detached responses and original expiry. Correct sequence/class/design
+   views and source comments to explain the actual two layers of coordination.
+
+Validation: 2,360 backend tests / 287 suites and 693 frontend tests / 40 files
+passed; Maven package, frontend lint (14 existing warnings), production build and
+both chunk budgets passed. The initial frontend run hit one existing Bloom test's
+5-second timeout on a loaded host. Its focused file and the complete suite passed
+with one worker, unchanged assertions and unchanged timeouts. Eight intercepted
+browser contexts passed 80 learning/diagram views across both themes and
+320/390/768/1280px, including keyboard flow selection. This is scoped browser
+evidence plus real-service MockMvc, not live HTTP end-to-end verification.
+
+### 6. Preventative Measures
+
+Keep deterministic append/replay pause tests alongside simultaneous CAS races.
+Do not sort commands by version: DELETE followed by SET restarts the version at 1.
+Do not call ConcurrentHashMap updates lock-free or imply that an in-memory log
+survives restart. The repository snapshot proves map/log consistency only; complete
+sandbox-operation/event serialization and the module-wide UI audit remain open.
 
 ## RCA-105: Shared Design Pattern Cards Overflowed a 320px Page
 

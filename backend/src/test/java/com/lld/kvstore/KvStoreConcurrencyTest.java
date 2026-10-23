@@ -16,9 +16,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Proves {@code KvStoreRepository#cas} is a genuine compare-and-swap, not a {@code get()}
- * followed by an unconditional {@code set()} — and that it closes the race entirely
- * lock-free, via {@code ConcurrentHashMap#compute}, unlike every other module in this repo
- * (which all use a per-entity {@code ReentrantLock}).
+ * followed by an unconditional {@code set()}. ConcurrentHashMap.compute serializes contending
+ * key updates and their log appends; the shared lifecycle gate excludes replay/reset.
+ * These tests establish single-winner atomicity, not a lock-free progress guarantee.
  */
 public class KvStoreConcurrencyTest {
 

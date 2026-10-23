@@ -14,7 +14,12 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest validation: 2334 backend tests (285 suites) and 693 frontend tests (40 files).
+- Latest validation: 2360 backend tests (287 suites) and 693 frontend tests (40 files).
+  The KV ordering batch adds 24 deterministic repository checks and two real-service
+  MockMvc cases, plus 80 intercepted learning/diagram views across both themes and
+  320/390/768/1280px. The default local frontend run hit one existing Bloom test's
+  5s timeout on a loaded host; its focused file and the full suite passed with one
+  worker and unchanged timeouts/assertions. CI remains a required merge gate.
   The coverage audit adds 56 production-built Home/ATM/KV view checks across both
   themes and 320/390/768/1280px. Its first run exposed a 16px shared pattern-grid
   overflow; the corrected grid passed all 56 checks. The reference slice's 96 browser
@@ -31,6 +36,10 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   delivered lessons. Unsupported module mappings remain explicit gaps.
 - Rejected route imports/render failures now have focused reload/library recovery,
   rather than blanking the application. Suspense remains for pending imports.
+- KV writes now append inside per-key compute; a lifecycle gate protects replay,
+  reset and coherent detached map/log snapshots (RCA-106). Deterministic regressions
+  cover the reproduced stale-replay bug. This does not complete sandbox event
+  serialization, shared playback adoption or the final KV workspace review.
 - Lint has 14 existing warnings and a suppression baseline; a successful lint exit
   is not evidence that every suppressed issue has been resolved.
 - RCA-085's flaky scheduler-distribution assertion was resolved in #153 using
@@ -148,7 +157,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | hotel | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | inventory | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | jobscheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
-| kvstore | Not adopted | Teaching-contract audit 2026-10-23; live/simulation review remains open | Lock-free/immutable-value/crash-durability teaching claims corrected; concurrent map-update/log-append ordering needs separate verification | Existing manual operations/stepper still needs review | Batch 10 teaching copy/source-documentation correction; runtime algorithms unchanged | `curriculumCoverage.test.js`; existing KV/replay/concurrency suites green, not a proof of untested WAL ordering | 24 intercepted requirements/OOP/tradeoff views, not live-operation/simulation verification | #152, #155; coverage-audit branch |
+| kvstore | Not adopted | Teaching-contract audit and repository ordering fix 2026-10-23; final live/simulation review remains open | Stale replay/reset race fixed; detached responses and coherent entry/WAL/count snapshots; complete sandbox operation/event serialization, input/failure handling and playback review remain open | Existing manual operations/stepper still needs review | Batch 10 teaching corrections; batch 11 runtime ordering and lifecycle gate (RCA-106) | `KvStoreReplayConcurrencyTest`, `KvStoreControllerIntegrationTest`, existing CAS suites and curriculum contracts | Requirements/OOP/tradeoff views previously checked; sequence/class/design views rechecked in batch 11; not live HTTP E2E | #152, #155, #167; `fix/kv-wal-write-order` |
 | library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
@@ -198,7 +207,8 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 7 | Separate filled status surfaces from text/tint roles in shared controls and 18 modules (RCA-094) | #164 | 629 frontend and 2320 backend tests, Maven package, Vite build, both budgets pass (entry 310,324 B; largest non-entry 55,479 B); lint 14 existing warnings; 576 cascade probes plus 24 routed views / 56 control checks pass |
 | 8 | Parking live recovery, cancellation/duplicate guards, Java elapsed time, sandbox snapshots/reset lock and learning contrast/focus (RCA-095–098) | #165 | 664 frontend / 2329 backend tests; Maven package, Vite build, budgets and CI pass; 14 existing lint warnings; 72 intercepted browser views across 8 contexts |
 | 9 | Curriculum catalog and reference lesson; canonical Java examples, local lesson learning state, route/content recovery, cross-tab visit protection and portable output checks (RCA-099–102) | #166 | 684 frontend / 2334 backend tests; lint 14 existing warnings; Maven package and Vite build pass; entry 312,191 B / largest non-entry 56,068 B; 96 intercepted browser views across 8 contexts |
-| 10 | Phase 0 evidence map and prerequisite DAG; ATM/KV teaching-contract corrections; shared pattern-grid mobile minimum (RCA-103–105) | `docs/curriculum-coverage-audit` | 693 frontend / 2334 backend tests; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 56 targeted learning/filter views plus 96 reference-flow checks pass |
+| 10 | Phase 0 evidence map and prerequisite DAG; ATM/KV teaching-contract corrections; shared pattern-grid mobile minimum (RCA-103–105) | #167 | 693 frontend / 2334 backend tests; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 56 targeted learning/filter views plus 96 reference-flow checks pass |
+| 11 | KV per-key append ordering, replay/reset gate, detached responses and coherent map/log snapshots; corrected sequence/class/design views (RCA-106) | `fix/kv-wal-write-order` | 2360 backend / 693 frontend tests; full frontend pass uses one worker after one loaded-host timeout; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 80 intercepted learning/diagram views across 8 contexts |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -269,9 +279,10 @@ The pattern inventory was checked on 2026-10-18: the original request named 22
 patterns, and Interpreter is now an explicit proposed addition to complete the
 23-pattern catalog (5 creational, 7 structural, 11 behavioral). Prerequisites are
 guidance, not enrollment locks. Remaining lesson implementation and the final
-60-module sign-off are pending. A newly identified source-review task is to test
-concurrent KV map-mutation/log-append ordering separately; the current tests and
-copy correction do not establish that guarantee or resolve a runtime ordering bug.
+60-module sign-off are pending. KV map/log ordering is now fixed with deterministic
+append/lifecycle regressions (RCA-106), separate from the original teaching-copy
+correction. Complete sandbox operation/event serialization and final KV UX review
+remain open.
 
 ## Prompt to give the next agent
 

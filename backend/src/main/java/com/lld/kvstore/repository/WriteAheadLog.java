@@ -12,8 +12,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * An append-only log of every successful write, replayable against an empty map to rebuild
  * state in recorded command order. The list is in memory and does not survive a restart.
  * {@link CopyOnWriteArrayList} provides safe list access for appends and replay snapshots;
- * it does not make a map update and its later log append one atomic operation, nor establish
- * a concurrent execution order across those separate operations.
+ * it does not coordinate map state. KvStoreRepository appends within each key's compute and
+ * excludes all key operations during replay/reset/snapshot using its lifecycle lock.
  */
 public class WriteAheadLog {
 
