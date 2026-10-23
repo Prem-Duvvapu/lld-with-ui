@@ -85,7 +85,7 @@ public class KvStoreService {
         return getSimSnapshots();
     }
 
-    /** Deletes the live sim state, then rebuilds it purely from the WAL -- proves durability. */
+    /** Rebuilds sandbox state from its retained in-memory WAL, not from persistent storage. */
     public Map<String, Object> simReplayDemo() {
         int commandCountBefore = simRepository.getWal().size();
         simRepository.replayFromWal();

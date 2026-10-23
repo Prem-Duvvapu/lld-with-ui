@@ -27,7 +27,7 @@ export default {
         '+ set(key, value, ttlMillis): KvEntry',
         '+ get(key): KvEntry',
         '+ delete(key): void',
-        '+ cas(key, expectedVersion, newValue): KvEntry  // lock-free, via ConcurrentHashMap#compute',
+        '+ cas(key, expectedVersion, newValue): KvEntry  // per-key atomic compute; updates may block',
         '+ replayFromWal(): void',
       ],
     },

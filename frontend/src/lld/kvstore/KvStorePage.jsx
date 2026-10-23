@@ -70,7 +70,7 @@ export default function KvStorePage() {
   }
 
   // SIMULATION -- a 6-step walkthrough against the isolated /api/kvstore/sim/* sandbox: reset,
-  // a clean set/get, a WAL-replay durability demo, a real TTL expiry wait, a live 8-worker CAS
+  // a clean set/get, an in-memory WAL replay, a real TTL expiry wait, a live 8-worker CAS
   // race (exactly one winner per version bump), and a final review of the WAL and event log.
   const SIM_STEPS = [
     {
@@ -83,7 +83,7 @@ export default function KvStorePage() {
     },
     {
       title: 'Clean SET / GET',
-      detail: 'A straightforward SET followed by a GET, so there is something in the WAL before the durability demo.',
+      detail: 'A straightforward SET followed by a GET, so there is something in the in-memory log before replay.',
       run: async () => {
         await api.simSet('demo-key', 'demo-value')
         const snap = await api.simGet('demo-key')
@@ -91,8 +91,8 @@ export default function KvStorePage() {
       },
     },
     {
-      title: 'WAL Replay: Durability Proof',
-      detail: 'Wipes the live sandbox state, then rebuilds it purely by replaying every logged Command — proving the WAL alone is enough to reconstruct identical state.',
+      title: 'WAL Replay: In-Memory Reconstruction',
+      detail: 'Clears the sandbox map and rebuilds it from the retained in-memory command log. This is not recovery after a process restart; restarting loses the log too.',
       run: async () => {
         const snap = await api.simReplay()
         setSimSnapshot(snap)
@@ -156,7 +156,7 @@ export default function KvStorePage() {
       {(activeTab) => (
         <div>
           <p style={{ margin: '-8px 0 20px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
-            Command (Write-Ahead Log) • Template Method (Read Path) • Lock-Free Compare-and-Swap
+            Command (In-Memory Replay) • Template Method (Read Path) • Per-Key Atomic Compare-and-Swap
           </p>
 
           {message && (
@@ -280,7 +280,7 @@ function KvStoreSimulationTab({ simSnapshot, simStep, simLoading, simError, simS
       <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)', marginBottom: '20px' }}>
         <h2 style={{ margin: '0 0 4px', fontSize: '20px' }}>🕹️ Interactive KV Store Concurrency Walkthrough</h2>
         <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-          Write a few keys, replay the WAL to prove durability, watch a TTL expire, then race 8
+          Write a few keys, replay the in-memory WAL, watch a TTL expire, then race 8
           workers on a single CAS. Every step below calls the real
           <code> /api/kvstore/sim/*</code> sandbox endpoints — completely separate from the live
           store in the other tabs.

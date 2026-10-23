@@ -10,11 +10,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * An append-only log of every successful write, replayable against an empty map to rebuild
- * identical state from nothing — the durability story {@code /sim/reset} demonstrates.
- * {@link CopyOnWriteArrayList} is the right shape here: appends are rare relative to reads
- * (replay, snapshot listing), and appends never need to observe each other's ordering beyond
- * "happens after" — which the underlying {@code ConcurrentHashMap#compute} call that always
- * precedes an append already guarantees for the entry it produced.
+ * state in recorded command order. The list is in memory and does not survive a restart.
+ * {@link CopyOnWriteArrayList} provides safe list access for appends and replay snapshots;
+ * it does not make a map update and its later log append one atomic operation, nor establish
+ * a concurrent execution order across those separate operations.
  */
 public class WriteAheadLog {
 
