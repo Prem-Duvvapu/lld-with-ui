@@ -25,6 +25,8 @@ Network panel for the analytics script and page-view requests. Each app and the
 Learning Hub have independent analytics. A plain local server or Docker deployment
 does not supply Vercel's analytics endpoint; blocked/unavailable analytics must not
 prevent learning or navigation. Live visitor totals require dashboard verification.
+The SPA fallback excludes `/_vercel/*` and `/assets/*`: platform scripts and missing
+chunks must receive their own resource response, never `index.html` (RCA-108).
 
 ## Learn LLD concepts
 

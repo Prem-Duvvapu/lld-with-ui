@@ -15,6 +15,7 @@
 - **Module key lookup**: `frontend/src/data/moduleKeys.js` is the only resolver (`resolveModuleData`). Add new spellings to its `ALIAS_MAP` rather than to a component.
 - **Design components take a `module` prop** — not `lldKey`, not `moduleKey`. `LldPage` renders the `design` / `diagram` tabs itself and suppresses `children` for them, so a page must not also render `<ClassDiagram>` for those tabs.
 - **Route pages lazily.** `App.jsx` globs `./lld/**/*Page.jsx` without `eager` and wraps each in `React.lazy` inside a `<Suspense>`; every page is its own chunk. Register a `path="*"` fallback so a bad URL is visible, not blank.
+- Vercel SPA rewrites must exclude `/_vercel/*` and `/assets/*` as well as API/Swagger/metadata paths. Never serve index.html as an analytics script or missing JavaScript chunk. Intercepted browser fixtures do not validate deployed resource MIME types (RCA-108).
 - Frontend: one folder per LLD in `src/lld/`, each with `{Name}Page.jsx` + `api.js`.
 - **Terminal Execution**: ALWAYS use WSL (`wsl <command>`) for running commands.
 - **Server Execution**: NEVER start backend or frontend automatically — the user starts/stops servers manually.
@@ -42,7 +43,7 @@ Before opening the PR, run the suites locally so CI is a confirmation, not a dis
 
 ```bash
 cd backend  && mvn test        # latest validated: 2376 tests
-cd frontend && npx vitest run  # latest validated: 699 tests
+cd frontend && npx vitest run  # latest validated: 703 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
