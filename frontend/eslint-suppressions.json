@@ -151,11 +151,6 @@
       "count": 1
     }
   },
-  "src/lld/kvstore/KvStorePage.jsx": {
-    "jsx-a11y/label-has-associated-control": {
-      "count": 3
-    }
-  },
   "src/lld/library/LibraryPage.jsx": {
     "jsx-a11y/label-has-associated-control": {
       "count": 2

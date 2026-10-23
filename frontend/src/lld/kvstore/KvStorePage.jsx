@@ -1,73 +1,17 @@
 import { useState } from 'react'
-import { useTransientMessage } from '../../hooks/useTransientMessage'
 import * as api from './api'
 import LldPage from '../../components/LldPage'
 import StepIndicator from '../../components/ui/StepIndicator'
+import KvStoreWorkspace from './KvStoreWorkspace'
+import { useKvWorkspace } from './useKvWorkspace'
 
 export default function KvStorePage() {
-  const [message, setMessage] = useTransientMessage()
-
-  const [setKey, setSetKey] = useState('welcome')
-  const [setValue, setSetValue] = useState('')
-  const [setTtl, setSetTtl] = useState('')
-  const [getKey, setGetKey] = useState('welcome')
-  const [lastGetResult, setLastGetResult] = useState(null)
-  const [history, setHistory] = useState([])
-
-  const [casKey, setCasKey] = useState('welcome')
-  const [casExpectedVersion, setCasExpectedVersion] = useState(1)
-  const [casNewValue, setCasNewValue] = useState('')
-  const [casResult, setCasResult] = useState(null)
+  const workspace = useKvWorkspace()
 
   const [simSnapshot, setSimSnapshot] = useState(null)
   const [simStep, setSimStep] = useState(0)
   const [simLoading, setSimLoading] = useState(false)
   const [simError, setSimError] = useState('')
-
-  const showBanner = (text, type) => {
-    setMessage({ text, type })
-  }
-
-  const handleSet = async () => {
-    try {
-      const entry = await api.set(setKey, setValue, setTtl ? Number(setTtl) : undefined)
-      setHistory(h => [{ key: setKey, value: setValue, version: entry.version }, ...h].slice(0, 10))
-      showBanner(`SET "${setKey}" -> version ${entry.version}`, 'success')
-    } catch (err) {
-      showBanner(err.message || 'Failed to SET', 'error')
-    }
-  }
-
-  const handleGet = async () => {
-    try {
-      const entry = await api.get(getKey)
-      setLastGetResult({ key: getKey, ...entry, hit: true })
-      showBanner(`GET "${getKey}" -> "${entry.value}" (v${entry.version})`, 'success')
-    } catch (err) {
-      setLastGetResult({ key: getKey, hit: false })
-      showBanner(err.message || `No entry for "${getKey}"`, 'error')
-    }
-  }
-
-  const handleDelete = async (key) => {
-    try {
-      await api.del(key)
-      showBanner(`Deleted "${key}"`, 'success')
-    } catch (err) {
-      showBanner(err.message || 'Failed to delete', 'error')
-    }
-  }
-
-  const handleCas = async () => {
-    try {
-      const entry = await api.cas(casKey, Number(casExpectedVersion), casNewValue)
-      setCasResult({ success: true, entry })
-      showBanner(`CAS succeeded -> version ${entry.version}`, 'success')
-    } catch (err) {
-      setCasResult({ success: false, message: err.message })
-      showBanner(err.message || 'CAS failed', 'error')
-    }
-  }
 
   // SIMULATION -- a 6-step walkthrough against the isolated /api/kvstore/sim/* sandbox: reset,
   // a clean set/get, an in-memory WAL replay, a real TTL expiry wait, a live 8-worker CAS
@@ -159,97 +103,7 @@ export default function KvStorePage() {
             Command (In-Memory Replay) • Template Method (Read Path) • Per-Key Atomic Compare-and-Swap
           </p>
 
-          {message && (
-            <div role={message.type === 'error' ? 'alert' : 'status'} style={{
-              padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', fontWeight: '600',
-              background: message.type === 'error' ? 'var(--danger-bg)' : 'var(--success-bg)',
-              color: message.type === 'error' ? 'var(--danger)' : 'var(--success)',
-              border: `1px solid ${message.type === 'error' ? 'var(--danger)' : 'var(--success)'}`
-            }}>
-              {message.text}
-            </div>
-          )}
-
-          {activeTab === 'store' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
-                <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>SET</h3>
-                <input value={setKey} onChange={(e) => setSetKey(e.target.value)} placeholder="key"
-                  style={{ width: '100%', padding: '8px 10px', marginBottom: '8px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} />
-                <input value={setValue} onChange={(e) => setSetValue(e.target.value)} placeholder="value"
-                  style={{ width: '100%', padding: '8px 10px', marginBottom: '8px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} />
-                <input type="number" min={0} value={setTtl} onChange={(e) => setSetTtl(e.target.value)} placeholder="ttlSeconds (optional)"
-                  style={{ width: '100%', padding: '8px 10px', marginBottom: '12px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} />
-                <button onClick={handleSet}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
-                  SET
-                </button>
-
-                {history.length > 0 && (
-                  <div style={{ marginTop: '16px' }}>
-                    <h4 style={{ margin: '0 0 8px', fontSize: '13px' }}>Recent Writes (this session)</h4>
-                    {history.map((h, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontFamily: 'monospace', color: 'var(--text-secondary)', padding: '4px 0' }}>
-                        <span>{h.key} = {h.value} (v{h.version})</span>
-                        <button onClick={() => handleDelete(h.key)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '11px' }}>delete</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
-                <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>GET</h3>
-                <input value={getKey} onChange={(e) => setGetKey(e.target.value)} placeholder="key"
-                  style={{ width: '100%', padding: '8px 10px', marginBottom: '12px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} />
-                <button onClick={handleGet}
-                  style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
-                  GET
-                </button>
-                {lastGetResult && (
-                  <p style={{ marginTop: '12px', fontSize: '13px', color: lastGetResult.hit ? 'var(--success)' : 'var(--danger)' }}>
-                    {lastGetResult.hit
-                      ? `"${lastGetResult.key}" -> "${lastGetResult.value}" (version ${lastGetResult.version})`
-                      : `"${lastGetResult.key}" — miss (404)`}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'cas' && (
-            <div style={{ maxWidth: '480px', margin: '0 auto', background: 'var(--bg-secondary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Compare-and-Swap</h3>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Key</label>
-              <input value={casKey} onChange={(e) => setCasKey(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', marginBottom: '12px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} />
-
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>Expected Version</label>
-              <input type="number" min={1} value={casExpectedVersion} onChange={(e) => setCasExpectedVersion(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', marginBottom: '12px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} />
-
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px' }}>New Value</label>
-              <input value={casNewValue} onChange={(e) => setCasNewValue(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', marginBottom: '16px', borderRadius: '8px', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} />
-
-              <button onClick={handleCas}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', background: 'var(--accent)', color: '#fff', border: 'none', fontWeight: '700', cursor: 'pointer' }}>
-                Attempt CAS
-              </button>
-
-              {casResult && (
-                <div style={{
-                  marginTop: '16px', padding: '12px', borderRadius: '8px', textAlign: 'center', fontWeight: '700',
-                  background: casResult.success ? 'var(--success-bg)' : 'var(--danger-bg)',
-                  color: casResult.success ? 'var(--success)' : 'var(--danger)'
-                }}>
-                  {casResult.success
-                    ? `Succeeded — now at version ${casResult.entry.version}`
-                    : `Failed — ${casResult.message}`}
-                </div>
-              )}
-            </div>
-          )}
+          {(activeTab === 'store' || activeTab === 'cas') && <KvStoreWorkspace activeTab={activeTab} model={workspace} />}
 
           {activeTab === 'sim' && (
             <KvStoreSimulationTab

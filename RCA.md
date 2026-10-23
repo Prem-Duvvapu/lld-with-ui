@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-109](#rca-109-kv-read-failures-were-reported-as-missing-keys-and-writes-could-overlap) | 2026-10-23 | Frontend / KV Live Workspace | Every failed GET became a false 404; unguarded mutations and stale responses could mislead users | Resolved in live workspace; full module audit remains open |
 | [RCA-108](#rca-108-the-spa-rewrite-returned-html-for-vercels-analytics-script) | 2026-10-23 | Deployment / Vercel Routing | The SPA fallback captured reserved platform and asset paths; the live analytics script returned HTML and threw a syntax error | Resolved; deployed routing verified |
 | [RCA-107](#rca-107-recorded-lesson-values-collapsed-meaningful-whitespace) | 2026-10-23 | Curriculum / Illustration Fidelity | Normal HTML whitespace collapsed recorded input spaces; narrow field columns split implementation names on mobile | Resolved |
 | [RCA-106](#rca-106-kv-map-updates-and-log-appends-could-replay-in-different-orders) | 2026-10-23 | Backend / KV / Concurrency | Separate map mutation and command append let replay restore an older value or retain a pre-reset write | Resolved |
@@ -47,6 +48,73 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-109: KV Read Failures Were Reported as Missing Keys and Writes Could Overlap
+
+### 1. Overview & Severity
+
+High for correctness of the live Store/CAS workspace. A service failure was shown as
+a missing key, and repeated submissions could issue multiple writes. The simulation
+and backend request-validation audit remain separate unfinished work.
+
+### 2. Symptoms & Error Logs
+
+The production-build browser reproduction read `welcome` successfully at version 7,
+then received a typed HTTP 503. It recorded `falseMisses: 1` and
+`confirmedRecordVisible: false`. A focused regression submitted SET twice before the
+first response and observed two API calls. These failures are retained in
+`/home/prem/validation/lld-state/kv-read-red.*` and
+`/home/prem/validation/lld-kv-live/red.log`.
+
+### 3. Root Cause
+
+The GET catch handler replaced the last result with `hit: false` for every error,
+without checking HTTP status or the Java domain error code. Mutations had no
+synchronous request guard or request ownership. They could overlap, and results
+could update the page after tab departure. The shared shell suppresses its children
+on built-in design tabs, so putting draft ownership inside the live view would also
+discard input on those transitions.
+
+### 4. Diagnostic Commands
+
+```bash
+node /home/prem/validation/lld-state/kv-read-red.cjs
+cd frontend
+npx vitest run src/__tests__/kvWorkspace.test.jsx --maxWorkers=1
+npm run lint
+```
+
+The browser uses the actual production build and API client with intercepted HTTP
+responses; it starts no application server and does not mutate deployed data.
+
+### 5. Step-by-Step Resolution
+
+1. Reproduce the false missing-key result and overlapping writes before fixing them.
+2. Preserve the last confirmed record; identify a missing key only from HTTP 404
+   with Java's `KeyNotFoundException` code. Pin that code in the real-service MockMvc
+   contract. Offer an explicit retry of the failed read's captured key.
+3. Keep live drafts above the shared shell. Attach an abortable scope to each live
+   tab visit, guard requests synchronously and ignore obsolete responses. Forward
+   abort signals through the four live API wrappers.
+4. Preserve rejected drafts, validate labeled fields and refresh a CAS version only
+   by an explicit read. Require confirmation before DELETE, with safe cancellation
+   focus and a stable focus target after dismissal.
+5. Explain uncertain write outcomes after cancellation, connection failure or 5xx.
+   Require a read and explicit user decision before another write. State clearly
+   that a read cannot cancel or prove completion of an earlier server request.
+6. Add responsive theme-based controls and bounded recent response history after
+   the forms/confirmed record, with non-shrinking mobile Delete labels, without
+   treating saved responses as a current inventory or deleting server keys to cap it.
+   Sixteen focused regressions passed after these changes.
+
+### 6. Preventative Measures
+
+Test HTTP domain failures separately from route/proxy failures and network outages.
+Cover rapid submissions, late responses, tab departure, renewed requests, unknown
+write outcomes and keyboard confirmation. Keep Java responsible for key state,
+versions, expiry and CAS decisions. Browser cancellation must never be presented as
+server rollback. Finish full-suite and production-build browser validation before
+merging; these scoped fixes do not close the entire KV module review.
 
 ## RCA-108: The SPA Rewrite Returned HTML for Vercel's Analytics Script
 

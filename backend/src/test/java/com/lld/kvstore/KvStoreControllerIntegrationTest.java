@@ -43,7 +43,7 @@ class KvStoreControllerIntegrationTest {
                 .andExpect(jsonPath("$.value").value("latest")).andExpect(jsonPath("$.version").value(2));
         http.perform(delete("/api/kvstore/key")).andExpect(status().isOk());
         http.perform(get("/api/kvstore/key")).andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.status").value(404)).andExpect(jsonPath("$.code").isString());
+                .andExpect(jsonPath("$.status").value(404)).andExpect(jsonPath("$.code").value("KeyNotFoundException"));
     }
 
     @Test

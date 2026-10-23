@@ -43,7 +43,7 @@ Before opening the PR, run the suites locally so CI is a confirmation, not a dis
 
 ```bash
 cd backend  && mvn test        # latest validated: 2395 tests
-cd frontend && npx vitest run  # latest validated: 710 tests
+cd frontend && npx vitest run  # latest validated: 726 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -1879,6 +1879,20 @@ Package `com.lld.kvstore`.
 ### Frontend
 - 6 tabs: Store, CAS, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design
   Details — built on the shared `LldPage` shell from the start.
+- Live Store/CAS drafts and confirmed responses are owned above that shell, so built-in
+  design tabs do not discard them. The mounted live view attaches an abortable scope;
+  synchronous guards prevent duplicate writes, and obsolete responses cannot change a
+  newer request or result. Live API wrappers forward caller signals (RCA-109).
+- Only HTTP 404 with `KeyNotFoundException` means a missing key. Failed reads retain
+  the previous confirmed record and offer an explicit retry for the captured key.
+  CAS version refresh is a read, never an automatic mutation retry. Unknown write
+  outcomes require inspection and an explicit user decision; reads cannot prove an
+  earlier request will not finish later. Cancellation is not server rollback.
+- Labeled forms preserve rejected drafts and accept empty string values. DELETE
+  requires confirmation, with safe cancellation and stable focus. Recent SET responses
+  are bounded to ten per-key snapshots and displayed after forms/confirmed data; they
+  are not a live inventory or an eviction policy. Full simulation/lifecycle/backend
+  validation and final module sign-off remain open.
 - Simulation tab: 6-step guided demo — reset, a clean SET/GET, in-memory WAL replay, a
   real 1-second TTL expiry wait, a live 8-worker CAS race, and a final review of the WAL and
   event log.
