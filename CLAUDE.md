@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 710 tests, 41 files
+npx vitest run                            # latest validated: 726 tests, 42 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -91,6 +91,13 @@ prop is called as `children(tab, setTab)` — the second argument (added alongsi
 `shoppingcart`'s checkout could still jump to the Orders tab after migrating off its own local
 `activeTab` state) is optional and every pre-existing caller ignores it; reach for it only when a
 page genuinely needs to switch tabs programmatically.
+
+KV Store/CAS keeps draft/result ownership above this shell and attaches a request
+scope only while a live tab is visible. Preserve last good reads; only a typed
+`KeyNotFoundException`/404 is a miss. Prevent duplicate writes synchronously, ignore
+late results and keep unknown outcomes explicit. A fresh read plus a user decision
+permits another write; it does not prove cancellation or rollback of the old one
+(RCA-109). The KV simulation and final whole-module review remain open.
 
 ### Learning curriculum
 

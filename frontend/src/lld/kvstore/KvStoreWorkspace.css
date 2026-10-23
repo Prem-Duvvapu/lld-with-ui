@@ -1,0 +1,34 @@
+.kv-workspace { color: var(--text-primary); min-width: 0; overflow-wrap: anywhere; }
+.kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 24px; }
+.kv-card { min-width: 0; padding: 24px; border: 1px solid var(--border-primary); border-radius: 12px; background: var(--bg-secondary); }
+.kv-card h3 { margin: 0 0 12px; font-size: 1.15rem; }
+.kv-card p { color: var(--text-secondary); line-height: 1.6; }
+.kv-workspace fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.kv-field { margin: 16px 0; min-width: 0; }
+.kv-field label { display: block; margin-bottom: 6px; font-weight: 600; }
+.kv-field input { box-sizing: border-box; width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-primary); background: var(--bg-primary); color: var(--text-primary); font: inherit; }
+.kv-field small { display: block; margin-top: 6px; color: var(--text-secondary); line-height: 1.5; }
+.kv-field input[aria-invalid='true'] { border-color: var(--danger); }
+.kv-field-error { color: var(--danger) !important; }
+.kv-workspace button { min-height: 44px; padding: 10px 16px; border: 1px solid var(--accent-solid); border-radius: 8px; background: var(--accent-solid); color: var(--on-accent-solid); font: inherit; font-weight: 600; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; }
+.kv-workspace .kv-secondary { background: var(--bg-primary); color: var(--text-primary); border-color: var(--border-primary); }
+.kv-workspace .kv-danger { background: var(--danger-solid); color: var(--on-status-solid); border-color: var(--danger-solid); }
+.kv-workspace button:disabled { cursor: not-allowed; }
+.kv-workspace :is(button, input, h3):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
+.kv-workspace .kv-feedback, .kv-uncertain, .kv-confirmation, .kv-pending, .kv-missing { padding: 14px 16px; margin: 0 0 20px; border-radius: 8px; border: 1px solid var(--border-primary); line-height: 1.6; }
+.kv-feedback[data-tone='error'], .kv-missing { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.kv-feedback[data-tone='success'] { color: var(--success); background: var(--success-bg); border-color: var(--success); }
+.kv-feedback[data-tone='info'] { color: var(--info); background: var(--info-bg); border-color: var(--info); }
+.kv-uncertain { color: var(--warning); background: var(--warning-bg); border-color: var(--warning); }
+.kv-confirmation, .kv-pending { background: var(--bg-secondary); }
+.kv-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.kv-record { margin-top: 24px; }
+.kv-record dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: 12px; }
+.kv-record dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.kv-cas { max-width: 680px; margin: 0 auto; }
+.kv-recent { margin-top: 24px; }
+.kv-recent ul { list-style: none; margin: 0; padding: 0; }
+.kv-recent li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border-primary); }
+.kv-recent li span { min-width: 0; }
+.kv-recent li button { flex-shrink: 0; white-space: nowrap; }
+@media (max-width: 480px) { .kv-card { padding: 16px; } .kv-record dl { grid-template-columns: minmax(0, 1fr); gap: 6px; } .kv-record dd { margin-bottom: 10px; } }

@@ -14,7 +14,9 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest validation: 2395 backend tests (289 suites) and 710 frontend tests (41 files).
+- Latest validation: 2395 backend tests (289 suites) and 726 frontend tests (42 files).
+  The KV live workspace adds 16 cases for typed errors, guarded writes, lifecycle,
+  uncertain outcomes, explicit CAS refresh, safe deletion and bounded responses.
   The state-boundary lesson batch adds 19 Java cases covering ten canonical files,
   constructor trace/rejections, access decisions and collection invariants. Seven
   added UI/content cases cover the lessons, durations and guided prerequisite order.
@@ -44,7 +46,7 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   keyboard code scrolling, persistence, and links to actual system practice.
   Parking's preceding batch passed 72 views across the same theme/viewport matrix.
   These are scoped checks, not a completed whole-project audit.
-- Latest build: entry 312173 bytes; largest non-entry JavaScript chunk 56079 bytes.
+- Latest build: entry 312211 bytes; largest non-entry JavaScript chunk 56079 bytes.
 - The curriculum catalog and Classes and Objects, Constructors, Access Modifiers,
   Enums, Interfaces and Encapsulation lessons are implemented; the remaining 63
   topics are visibly planned. Phase 2 remains open.
@@ -57,7 +59,15 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 - KV writes now append inside per-key compute; a lifecycle gate protects replay,
   reset and coherent detached map/log snapshots (RCA-106). Deterministic regressions
   cover the reproduced stale-replay bug. This does not complete sandbox event
-  serialization, shared playback adoption or the final KV workspace review.
+  serialization, shared playback adoption or the final whole-module KV review.
+- KV live Store/CAS now preserve confirmed records after failed reads, distinguish
+  domain 404s from service/route failures, guard duplicate writes, cancel waiting on
+  tab departure and ignore late results. Drafts survive built-in design tabs. CAS
+  refresh and retry are explicit; DELETE has keyboard-safe confirmation. Unknown
+  write outcomes require inspection and a user decision, without claiming rollback
+  or that a read proves earlier work cannot finish (RCA-109). Backend input validation,
+  complete sandbox operation/event serialization, simulation playback and the final
+  whole-module audit remain open.
 - Lint has 14 existing warnings and a suppression baseline; a successful lint exit
   is not evidence that every suppressed issue has been resolved.
 - RCA-085's flaky scheduler-distribution assertion was resolved in #153 using
@@ -120,6 +130,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
   only on demand, so each needs a per-page decision. A real network outage is already covered
   by the global `BackendStatusBanner`. Hardcoded banners in airline, library, linkedin, coffeemachine, and
   vendingmachine now use the tokens.
+  KV's live Store/CAS are resolved in batch 15; its simulation is still in this queue.
 - **Swallowed load errors.** digitalwallet (**fixed**, batch 2); logging-framework (**fixed**, batch 4, see
   below).
 - **logging-framework live workspace (fixed, batch 4).** Live reads now expose retryable errors
@@ -175,7 +186,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | hotel | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | inventory | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | jobscheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
-| kvstore | Not adopted | Teaching-contract audit and repository ordering fix 2026-10-23; final live/simulation review remains open | Stale replay/reset race fixed; detached responses and coherent entry/WAL/count snapshots; complete sandbox operation/event serialization, input/failure handling and playback review remain open | Existing manual operations/stepper still needs review | Batch 10 teaching corrections; batch 11 runtime ordering and lifecycle gate (RCA-106) | `KvStoreReplayConcurrencyTest`, `KvStoreControllerIntegrationTest`, existing CAS suites and curriculum contracts | Requirements/OOP/tradeoff views previously checked; sequence/class/design views rechecked in batch 11; not live HTTP E2E | #152, #155, #167, #168 |
+| kvstore | Not adopted | Teaching/backend ordering and live Store/CAS review 2026-10-23; final simulation/module review remains open | False misses, duplicate writes, ambiguous outcomes and mobile form controls fixed; backend input validation, complete sandbox operation/event serialization and playback review remain open | Explicit live forms, retained drafts/confirmed snapshots and manual CAS refresh; simulation decision pending | Batches 10–11 teaching/runtime fixes; batch 15 live workspace (RCA-109) | `kvWorkspace.test.jsx` (16), real-service `KvStoreControllerIntegrationTest`, replay/concurrency and curriculum contracts | 168 intercepted live-workspace views across both themes and 320/390/768/1280px; prior teaching views; not live HTTP E2E | #152, #155, #167, #168; `fix/kv-live-workspace` |
 | library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
@@ -229,7 +240,8 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 11 | KV per-key append ordering, replay/reset gate, detached responses and coherent map/log snapshots; corrected sequence/class/design views (RCA-106) | #168 | 2360 backend / 693 frontend tests; full frontend pass uses one worker after one loaded-host timeout; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 80 intercepted learning/diagram views across 8 contexts |
 | 12 | Enums and Interfaces lessons, canonical Java/compiler cases, generic recorded fields, prerequisite/navigation links and faithful mobile input rendering (RCA-107) | #169 | 2376 backend / 699 frontend tests; lint 14 existing warnings; Maven package, Vite build and both budgets pass (entry 312,173 B / largest non-entry 56,079 B); 184 intercepted browser views across 8 contexts |
 | 13 | Keep reserved Vercel endpoints and build assets outside the SPA HTML rewrite (RCA-108) | #170 | 2376 backend / 703 frontend tests, lint (14 existing warnings), Maven package, Vite build and budgets pass. Post-deployment: six real lesson views and two catalogs pass without runtime JS errors; analytics and missing-asset endpoints return 404/text/plain instead of HTML/200. Analytics collection still requires dashboard setup/verification. |
-| 14 | Constructors, Access Modifiers and Encapsulation lessons; canonical Java/compiler/fixture checks, manifest durations, proposed labels and guided sequence | `feat/constructors-access-encapsulation` | 2395 backend / 710 frontend tests; lint 14 existing warnings; Maven package, Vite build and both budgets pass (entry 312,173 B / largest non-entry 56,079 B); 320 intercepted browser views across 8 contexts. |
+| 14 | Constructors, Access Modifiers and Encapsulation lessons; canonical Java/compiler/fixture checks, manifest durations, proposed labels and guided sequence | #171 | 2395 backend / 710 frontend tests; lint 14 existing warnings; Maven package, Vite build and both budgets pass (entry 312,173 B / largest non-entry 56,079 B); 320 intercepted browser views across 8 contexts. |
+| 15 | KV live Store/CAS errors, request ownership, guarded mutations, uncertain outcomes, confirmation and mobile forms; remove three obsolete label suppressions (RCA-109) | `fix/kv-live-workspace` | 2395 backend / 726 frontend tests; Maven package and Vite build pass; lint 14 existing warnings; entry 312,211 B / largest non-entry 56,079 B; 168 intercepted browser views across 8 contexts. |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -274,6 +286,24 @@ It checks page overflow and filled-accent contrast; mobile light and desktop dar
 screenshots were inspected. No application server was started. The Java example and
 its output/snapshots are separately compiled and checked by five real Java tests.
 
+Batch 15 browser evidence uses production assets and intercepted response/error
+fixtures, including delayed requests, typed 503/domain 404/route 404/network failures,
+captured-key retries, draft preservation across built-in tabs, duplicate submissions,
+CAS conflicts/refresh, uncertain writes, keyboard confirmation, long values and ten
+recent responses. Both themes and four widths pass page-overflow, enabled-control
+contrast and 44px touch-height checks. Screenshot review additionally caught mobile
+Delete label compression; labels now stay on one line and history follows the live
+forms and confirmed record. Java MockMvc independently pins the real missing-key
+code; these browser responses are intercepted, not live-backend E2E. The KV simulation
+and backend request-validation audit remain open; adoption stays 26/60 and final
+module sign-off stays 0/60.
+
+Read-only production checks after #171 also passed all six published lessons in
+both themes at 390px (12 lesson views and two catalogs), including every recorded
+illustration's exact field values. No runtime errors or backend mutations occurred.
+Evidence is retained under `/home/prem/validation/lld-kv-live/live*`; this verifies
+deployed lesson delivery, not all curriculum or module behavior.
+
 ### Curriculum workstream
 
 Phase 0 is complete in `LLD_CURRICULUM_COVERAGE.md`: every canonical topic has a
@@ -298,7 +328,7 @@ recorded illustrations, predictions, exercises/rubrics and actual Parking source
 links. The shared renderer supports concept-specific fields and published
 prerequisite links. `OopExamplesTest` also compiles negative examples and checks
 both formatter implementations against one input contract.
-The next Phase 2 batch adds Constructors, Access Modifiers and Encapsulation,
+The second Phase 2 batch (#171) adds Constructors, Access Modifiers and Encapsulation,
 canonical Java/compiler/fixture checks, per-topic durations and a guided sequence
 that visits published prerequisites first. Both new supplemental topics retain
 their proposed-addition labels. Nine OOP/relationship concepts and the final
