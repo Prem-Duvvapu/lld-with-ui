@@ -19,7 +19,7 @@ export default {
     { title: 'State and behavior belong together', text: 'topic and reviewCount are instance fields: every card has its own values. review() is an instance method and changes the count of the card on which it is called. private keeps direct field access inside the class; getters let callers inspect the values. Encapsulation is explored in a later lesson.' },
     { title: 'A reference is not the object itself', text: 'first and second are reference variables. StudyCard alias = first does not call a constructor or create another StudyCard. Both first and alias refer to Object A. Calling review() through either name changes that same object. == compares reference identity here, not topic text.' },
   ],
-  visual: { title: 'Follow the references', typeLabel: 'StudyCard', summary: 'One class definition · two object instances', snapshots },
+  visual: { title: 'Follow the references', typeLabel: 'StudyCard', showReferenceCount: true, summary: 'One class definition · two object instances', snapshots },
   code: [
     { filename: 'StudyCard.java', source: modelSource },
     { filename: 'StudyCardDemo.java', source: demoSource },

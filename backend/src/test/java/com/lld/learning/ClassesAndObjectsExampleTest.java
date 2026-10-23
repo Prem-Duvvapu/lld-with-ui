@@ -94,12 +94,14 @@ class ClassesAndObjectsExampleTest {
                 Object alias = first;
                 review(alias);
             }
-            JsonNode objects = snapshots.get(step).get("objects");
+            JsonNode objects = snapshots.get(step).get("items");
             assertEquals(2, objects.size());
             for (int index = 0; index < 2; index++) {
                 Object actual = index == 0 ? first : second;
-                assertEquals(cardClass.getMethod("getTopic").invoke(actual), objects.get(index).get("topic").asText());
-                assertEquals(count(actual), objects.get(index).get("reviewCount").asInt());
+                assertEquals("topic", objects.get(index).get("fields").get(0).get("name").asText());
+                assertEquals(cardClass.getMethod("getTopic").invoke(actual), objects.get(index).get("fields").get(0).get("value").asText());
+                assertEquals("reviewCount", objects.get(index).get("fields").get(1).get("name").asText());
+                assertEquals(count(actual), objects.get(index).get("fields").get(1).get("value").asInt());
             }
             assertEquals(step == 2 ? 2 : 1, objects.get(0).get("references").size());
             assertEquals("first", objects.get(0).get("references").get(0).asText());

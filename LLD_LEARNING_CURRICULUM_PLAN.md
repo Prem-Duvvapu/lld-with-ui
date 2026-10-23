@@ -1,7 +1,8 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-23. Status: coverage audit and reference lesson
-implemented; the remaining 68 topic deliveries and final integration are open.
+Saved: 2026-10-17. Updated: 2026-10-23. Status: coverage audit and three lessons
+implemented (Classes and Objects, Enums, Interfaces); the remaining 66 topic
+deliveries and final integration are open. Phase 2 remains in progress.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -179,7 +180,8 @@ for the remaining topics is still open; an audited gap is not a published lesson
 - [x] **Phase 1 — Reference lesson:** deliver Classes and Objects end-to-end,
   including the shared renderer, accessible visuals, tested code, exercise,
   navigation, and progress. Review this vertical slice before scaling content.
-- [ ] **Phase 2 — OOP and relationships:** complete all fifteen concepts with
+- [ ] **Phase 2 — OOP and relationships:** three of fifteen concepts delivered;
+  complete the remaining concepts with
   foundational class diagrams and a domain-model assessment.
 - [ ] **Phase 3 — UML and principles:** complete all five diagram types and all
   requested principles, with connected SOLID picture/code examples.
@@ -234,7 +236,23 @@ and KV's unsupported lock-free, immutable-value and crash-durability claims. A r
 class-initialized ATM state Singleton and the feature-flag Boolean-tree interpretation
 are retained as narrower source reuse examples. No new topic is marked published.
 
-Next delivery work is Phase 2 plus the two introductory guides, followed by the UML,
+The first Phase 2 batch delivers Enums and Interfaces with canonical Java, recorded
+illustrations, prediction feedback, an exercise/rubric and verified Parking links.
+`OopExamplesTest` compiles the displayed examples and checks outputs, fixture facts,
+shared input contracts, locale independence and negative compiler cases. The shared
+renderer now supports named fields for different concepts and links published
+prerequisites. This is three published topics, not all fifteen OOP concepts.
+
+Validation for this batch: 2,376 backend tests / 288 suites and 699 frontend tests /
+40 files pass; Maven package, frontend lint (14 existing warnings), production
+build and both chunk budgets pass. Eight intercepted browser contexts cover 184
+views at 320/390/768/1280px in light/dark themes, including content/route failures,
+reload recovery, keyboard controls, per-lesson persistence and navigation. Browser
+checks also reproduce and prevent collapsed input whitespace and split mobile
+implementation names (RCA-107). No application servers were started; this is not
+a live HTTP end-to-end sign-off.
+
+Next delivery work is the rest of Phase 2 plus the two introductory guides, followed by the UML,
 principles, pattern, concurrency, interview and integration gates below. Preserve
 the audit's explicit gaps until their own implementation or validation evidence
 exists. KV map/log ordering now has an implementation fix and deterministic

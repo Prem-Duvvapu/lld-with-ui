@@ -41,8 +41,9 @@
 .learn-object-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; margin-top: 20px; }
 .learn-object { background: var(--bg-card); border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 16px; min-width: 0; }
 .learn-object h3 { margin: 0; }
-.learn-object dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.learn-object dd { margin: 0; font-weight: 700; }
+.learn-object dl { display: grid; gap: 8px; }
+.learn-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px; overflow-wrap: anywhere; }
+.learn-object dd { margin: 0; font-weight: 700; white-space: pre-wrap; }
 .learn-code { margin: 20px 0; min-width: 0; }
 .learn-code figcaption { padding: 8px 12px; border: 1px solid var(--border-primary); border-bottom: 0; background: var(--bg-tertiary); border-radius: var(--radius-sm) var(--radius-sm) 0 0; font-weight: 600; }
 .learn-code pre { margin: 0; max-width: 100%; overflow-x: auto; border: 1px solid var(--border-primary); padding: 16px; background: var(--bg-card); border-radius: 0 0 var(--radius-sm) var(--radius-sm); font-size: .85rem; line-height: 1.7; tab-size: 4; }
@@ -53,4 +54,4 @@
 .learn-quiz input { margin-top: 4px; }
 .learn-notes { display: grid; gap: 10px; font-weight: 600; }
 .learn-link-button { display: inline-flex; align-items: center; }
-@media (max-width: 480px) { .learn-page { padding-inline: 16px; } .learn-callout, .learn-quiz, .learn-visual { padding: 16px; } .learn-hero { padding-top: 20px; } }
+@media (max-width: 480px) { .learn-page { padding-inline: 16px; } .learn-callout, .learn-quiz, .learn-visual { padding: 16px; } .learn-hero { padding-top: 20px; } .learn-field { grid-template-columns: minmax(0, 1fr); gap: 2px; } .learn-object dl { gap: 12px; } }

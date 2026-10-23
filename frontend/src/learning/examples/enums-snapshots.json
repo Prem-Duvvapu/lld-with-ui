@@ -1,0 +1,30 @@
+[
+  {
+    "title": "Inspect the constants",
+    "explanation": "ReviewPriority declares three named instances. Input parsing chooses one of them; it does not create a fourth priority.",
+    "items": [{ "label": "ReviewPriority", "typeLabel": "enum type", "fields": [
+      { "name": "declared values", "value": "LOW, MEDIUM, HIGH" },
+      { "name": "weights", "value": "1, 2, 3" }
+    ] }]
+  },
+  {
+    "title": "Normalize one input",
+    "explanation": "Our parse method trims spaces and uses Locale.ROOT before calling valueOf. The result is the existing HIGH constant with its declared weight.",
+    "items": [{ "label": "Accepted request", "typeLabel": "parsing boundary", "fields": [
+      { "name": "input", "value": "\" high \"" },
+      { "name": "normalized name", "value": "HIGH" },
+      { "name": "result", "value": "HIGH" },
+      { "name": "weight", "value": 3 },
+      { "name": "same as HIGH", "value": true }
+    ] }]
+  },
+  {
+    "title": "Reject an unknown name",
+    "explanation": "URGENT is not declared. parse throws IllegalArgumentException; no extra enum value is invented and no default priority is silently chosen.",
+    "items": [{ "label": "Rejected request", "typeLabel": "parsing boundary", "fields": [
+      { "name": "input", "value": "urgent" },
+      { "name": "outcome", "value": "rejected" },
+      { "name": "message", "value": "Unsupported priority: urgent" }
+    ] }]
+  }
+]

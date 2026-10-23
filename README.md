@@ -29,16 +29,20 @@ prevent learning or navigation. Live visitor totals require dashboard verificati
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and one published reference lesson:
-**Classes and Objects** at `/learn/classes-and-objects`. The other 68 topics are
+has a searchable curriculum catalog and three published lessons:
+**Classes and Objects** (`/learn/classes-and-objects`), **Enums** (`/learn/enums`),
+and **Interfaces** (`/learn/interfaces`).
+The other 66 topics are
 explicitly planned, not empty published lessons; five proposed additions remain labelled.
 
-The lesson connects a motivating problem, three inspectable Java-verified object
-snapshots, the actual Java source, a prediction question with explanations, a modeling
+Each lesson connects a motivating problem, inspectable Java-verified illustrations,
+the actual Java source, a prediction question with explanations, a modeling
 exercise and self-check rubric, and a verified Parking Lot example. Java source lives
 in `frontend/src/learning/examples/` so a frontend-only deployment can build without
 reaching outside its project root. The backend test suite compiles those exact files
-with Java 17 and checks their output and illustration snapshots. No learner code is
+with Java 17 and checks their output and illustration snapshots. The Enums and
+Interfaces examples also have negative compiler checks and shared-contract tests.
+No learner code is
 submitted or executed by the application.
 
 Bookmarks, notes (up to 2000 characters), a resume destination, and review marks use

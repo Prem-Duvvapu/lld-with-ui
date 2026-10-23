@@ -1,0 +1,2 @@
+plain=Hello
+tagged=[LLD] Hello

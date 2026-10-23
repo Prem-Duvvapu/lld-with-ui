@@ -1,0 +1,36 @@
+[
+  {
+    "title": "Call the plain implementation",
+    "explanation": "present accepts MessageFormatter. The referenced object is a PlainFormatter, so its format method runs and trims the text.",
+    "items": [{ "label": "formatter", "typeLabel": "MessageFormatter reference", "fields": [
+      { "name": "runtime class", "value": "PlainFormatter" },
+      { "name": "input", "value": "\"  Hello  \"" },
+      { "name": "output", "value": "Hello" }
+    ] }]
+  },
+  {
+    "title": "Substitute a tagged implementation",
+    "explanation": "The variable still has type MessageFormatter but now refers to a TaggedFormatter. The same present method calls that object's format method. Reassigning the reference does not transform the earlier object.",
+    "items": [{ "label": "formatter", "typeLabel": "MessageFormatter reference", "fields": [
+      { "name": "runtime class", "value": "TaggedFormatter" },
+      { "name": "input", "value": "\"  Hello  \"" },
+      { "name": "output", "value": "[LLD] Hello" }
+    ] }]
+  },
+  {
+    "title": "Check the shared contract",
+    "explanation": "Both implementations reject blank input. Their Java signatures alone do not enforce that semantic agreement; the shared contract tests check it.",
+    "items": [
+      { "label": "PlainFormatter", "typeLabel": "contract check", "fields": [
+        { "name": "input", "value": "\"   \"" },
+        { "name": "outcome", "value": "IllegalArgumentException" },
+        { "name": "message", "value": "Text is required" }
+      ] },
+      { "label": "TaggedFormatter", "typeLabel": "contract check", "fields": [
+        { "name": "input", "value": "\"   \"" },
+        { "name": "outcome", "value": "IllegalArgumentException" },
+        { "name": "message", "value": "Text is required" }
+      ] }
+    ]
+  }
+]

@@ -14,7 +14,14 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest validation: 2360 backend tests (287 suites) and 693 frontend tests (40 files).
+- Latest validation: 2376 backend tests (288 suites) and 699 frontend tests (40 files).
+  The Enums/Interfaces batch adds 16 Java semantic/compiler cases and six UI/content
+  cases, retaining the original object/reference lesson's verified behavior.
+  Its final production-build browser run passed 184 views across both themes and
+  320/390/768/1280px, including all three lessons, recovery, persistence and
+  cross-lesson navigation. An explicit whitespace check failed before the CSS fix
+  and passed afterward; mobile values now avoid splitting implementation names
+  (RCA-107). Full frontend validation after the CSS change used one worker.
   The KV ordering batch adds 24 deterministic repository checks and two real-service
   MockMvc cases, plus 80 intercepted learning/diagram views across both themes and
   320/390/768/1280px. The default local frontend run hit one existing Bloom test's
@@ -29,8 +36,9 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   Parking's preceding batch passed 72 views across the same theme/viewport matrix.
   These are scoped checks, not a completed whole-project audit.
 - Latest build: entry 312173 bytes; largest non-entry JavaScript chunk 56079 bytes.
-- The curriculum catalog and Classes and Objects reference lesson are implemented;
-  the remaining 68 topics are visibly planned. See the curriculum workstream below.
+- The curriculum catalog and Classes and Objects, Enums and Interfaces lessons are
+  implemented; the remaining 66 topics are visibly planned. Phase 2 remains open.
+  See the curriculum workstream below.
 - Phase 0 now has a complete 69-topic outcome/prerequisite/evidence/exercise/gap
   matrix and a cycle-checked canonical graph. This is an authoring audit, not 69
   delivered lessons. Unsupported module mappings remain explicit gaps.
@@ -157,7 +165,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | hotel | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | inventory | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | jobscheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
-| kvstore | Not adopted | Teaching-contract audit and repository ordering fix 2026-10-23; final live/simulation review remains open | Stale replay/reset race fixed; detached responses and coherent entry/WAL/count snapshots; complete sandbox operation/event serialization, input/failure handling and playback review remain open | Existing manual operations/stepper still needs review | Batch 10 teaching corrections; batch 11 runtime ordering and lifecycle gate (RCA-106) | `KvStoreReplayConcurrencyTest`, `KvStoreControllerIntegrationTest`, existing CAS suites and curriculum contracts | Requirements/OOP/tradeoff views previously checked; sequence/class/design views rechecked in batch 11; not live HTTP E2E | #152, #155, #167; `fix/kv-wal-write-order` |
+| kvstore | Not adopted | Teaching-contract audit and repository ordering fix 2026-10-23; final live/simulation review remains open | Stale replay/reset race fixed; detached responses and coherent entry/WAL/count snapshots; complete sandbox operation/event serialization, input/failure handling and playback review remain open | Existing manual operations/stepper still needs review | Batch 10 teaching corrections; batch 11 runtime ordering and lifecycle gate (RCA-106) | `KvStoreReplayConcurrencyTest`, `KvStoreControllerIntegrationTest`, existing CAS suites and curriculum contracts | Requirements/OOP/tradeoff views previously checked; sequence/class/design views rechecked in batch 11; not live HTTP E2E | #152, #155, #167, #168 |
 | library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
@@ -208,7 +216,8 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 8 | Parking live recovery, cancellation/duplicate guards, Java elapsed time, sandbox snapshots/reset lock and learning contrast/focus (RCA-095–098) | #165 | 664 frontend / 2329 backend tests; Maven package, Vite build, budgets and CI pass; 14 existing lint warnings; 72 intercepted browser views across 8 contexts |
 | 9 | Curriculum catalog and reference lesson; canonical Java examples, local lesson learning state, route/content recovery, cross-tab visit protection and portable output checks (RCA-099–102) | #166 | 684 frontend / 2334 backend tests; lint 14 existing warnings; Maven package and Vite build pass; entry 312,191 B / largest non-entry 56,068 B; 96 intercepted browser views across 8 contexts |
 | 10 | Phase 0 evidence map and prerequisite DAG; ATM/KV teaching-contract corrections; shared pattern-grid mobile minimum (RCA-103–105) | #167 | 693 frontend / 2334 backend tests; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 56 targeted learning/filter views plus 96 reference-flow checks pass |
-| 11 | KV per-key append ordering, replay/reset gate, detached responses and coherent map/log snapshots; corrected sequence/class/design views (RCA-106) | `fix/kv-wal-write-order` | 2360 backend / 693 frontend tests; full frontend pass uses one worker after one loaded-host timeout; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 80 intercepted learning/diagram views across 8 contexts |
+| 11 | KV per-key append ordering, replay/reset gate, detached responses and coherent map/log snapshots; corrected sequence/class/design views (RCA-106) | #168 | 2360 backend / 693 frontend tests; full frontend pass uses one worker after one loaded-host timeout; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 80 intercepted learning/diagram views across 8 contexts |
+| 12 | Enums and Interfaces lessons, canonical Java/compiler cases, generic recorded fields, prerequisite/navigation links and faithful mobile input rendering (RCA-107) | `feat/oop-enums-interfaces` | 2376 backend / 699 frontend tests; lint 14 existing warnings; Maven package, Vite build and both budgets pass (entry 312,173 B / largest non-entry 56,079 B); 184 intercepted browser views across 8 contexts |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -272,7 +281,12 @@ requested OOP, principles, patterns, UML, concurrency, and interview curriculum.
 Phase 1's Classes and Objects reference slice is implemented in batch 9: `/learn`,
 `/learn/classes-and-objects`, a shared content renderer, Java-verified source/visuals,
 exercise/self-check, local notes/bookmarks/review/resume, and verified practice links.
-The canonical manifest inventories 69 topics; only one is published and 68 are planned.
+The first Phase 2 batch adds Enums and Interfaces with canonical Java, verified
+recorded illustrations, predictions, exercises/rubrics and actual Parking source
+links. The shared renderer supports concept-specific fields and published
+prerequisite links. `OopExamplesTest` also compiles negative examples and checks
+both formatter implementations against one input contract.
+The canonical manifest inventories 69 topics; three are published and 66 are planned.
 Phases 2–7 and the two introductory guides remain open. This is separate from the existing-module UI/UX matrix; do not
 infer overall completion from either one lesson or the historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22

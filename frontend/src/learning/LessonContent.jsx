@@ -46,6 +46,14 @@ export default function LessonContent({ lesson, metadata }) {
           <a href="#lesson-exercise">Jump to practice ↓</a>
         </div>
         <p className="learn-muted">Prerequisites: {lesson.prerequisites}</p>
+        {metadata.prerequisites.length > 0 && <nav className="learn-actions" aria-label="Prerequisite lessons">
+          {metadata.prerequisites.map(id => {
+            const prerequisite = LESSONS.find(entry => entry.id === id);
+            return prerequisite.status === 'published'
+              ? <Link key={id} to={`/learn/${id}`}>Review {prerequisite.title}</Link>
+              : <span className="learn-muted" key={id}>{prerequisite.title} (planned)</span>;
+          })}
+        </nav>}
       </header>
       {notice && <p role="status" className="learn-callout">{notice}</p>}
       <nav aria-label="On this lesson" className="learn-section-links">
@@ -70,20 +78,20 @@ export default function LessonContent({ lesson, metadata }) {
         <figure className="learn-visual">
           <figcaption aria-live="polite">{snapshot.explanation}</figcaption>
           <div className="learn-object-grid">
-            {snapshot.objects.map(object => (
+            {snapshot.items.map(object => (
               <div className="learn-object" key={object.label}>
-                <p><code>{object.references.join(' + ')}</code> →</p>
-                <h3>{object.label} : {lesson.visual.typeLabel}</h3>
-                <dl><dt>topic</dt><dd>{object.topic}</dd><dt>reviewCount</dt><dd>{object.reviewCount}</dd></dl>
+                {object.references?.length > 0 && <p><code>{object.references.join(' + ')}</code> →</p>}
+                <h3>{object.label} : {object.typeLabel || lesson.visual.typeLabel}</h3>
+                <dl>{object.fields.map(field => <div key={field.name} className="learn-field"><dt>{field.name}</dt><dd>{String(field.value)}</dd></div>)}</dl>
               </div>
             ))}
           </div>
-          <p>{lesson.visual.summary} · {snapshot.objects.flatMap(object => object.references).length} references shown</p>
+          <p>{lesson.visual.summary}{lesson.visual.showReferenceCount && ` · ${snapshot.items.flatMap(object => object.references || []).length} references shown`}</p>
         </figure>
       </section>
       <section id="lesson-code" aria-labelledby="code-title">
         <h2 id="code-title">Read the Java, then predict</h2>
-        <p>These are the actual source files compiled by the backend test suite, not a separately maintained code string. Save both files in one folder and run with JDK 17.</p>
+        <p>These are the actual source files compiled by the backend test suite, not a separately maintained code string. Save these files in one folder and run with JDK 17.</p>
         {lesson.code.map(block => <CodeBlock key={block.filename} title={block.filename}>{block.source}</CodeBlock>)}
         <CodeBlock title="Run locally">{lesson.run}</CodeBlock>
         <form className="learn-quiz" onSubmit={event => {
@@ -144,7 +152,7 @@ export default function LessonContent({ lesson, metadata }) {
       </section>
       <section aria-labelledby="references-title">
         <h2 id="references-title">Further reading</h2>
-        <p className="learn-muted">Official Java tutorials. These pages use Java 8-era examples; this lesson’s own example is checked with Java 17.</p>
+        <p className="learn-muted">Official Java documentation. Tutorial pages may use Java 8-era examples; this lesson’s own example is checked with Java 17.</p>
         <ul>{lesson.references.map(reference => <li key={reference.url}><a href={reference.url} target="_blank" rel="noopener noreferrer">{reference.title}</a></li>)}</ul>
       </section>
     </article>
