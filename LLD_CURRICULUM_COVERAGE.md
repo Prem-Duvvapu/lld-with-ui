@@ -1,9 +1,9 @@
 # LLD curriculum coverage audit
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
-#168, and the Enums/Interfaces delivery below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are three published lessons
-and 66 undelivered topics. The canonical IDs, publication status, grouping and
+#168, and the OOP lesson deliveries below. This is the Phase 0 source and
+delivery-gap audit, **not a completed curriculum**. There are six published lessons
+and 63 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
 ## Reading the matrix
@@ -39,12 +39,12 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 | `classes-and-objects` — Classes and Objects | Distinguish a class, two independent instances and two references to one instance. | None | [E01](#e01): published `/learn/classes-and-objects`; [E02](#e02): ParkingSpot practice connection. | Predict the two cards' counts and identity; model two independent reading sessions and explain an alias. | Delivered: source, output and three snapshots are Java-tested; prediction feedback, exercise, rubric, notes and review are published. |
 | `enums` — Enums | Model a closed set of valid values and separate enum values from arbitrary request strings. | `classes-and-objects` | [E25](#e25): compiled ReviewPriority, normalization/rejection snapshots and compiler checks; [E02](#e02): real enum/factory boundaries. Practice `/parking-lot`. | Add a declared priority with explicit data; test normalized, unknown, blank and null input; explain why user-created labels need a different model. | Delivered: `/learn/enums`, Java-verified illustration/output, prediction, exercise/rubric and verified module/source links. |
 | `interfaces` — Interfaces | Explain a behavioral contract and substitute implementations through its declared type. | `classes-and-objects` | [E25](#e25): compiled MessageFormatter implementations, dispatch/contract fixtures and compiler checks; [E02](#e02): production pricing-policy call. Practice `/parking-lot`. | Add BracketFormatter without changing the caller, reuse invalid-input tests and explain the cost of unrelated interface methods. | Delivered: `/learn/interfaces`, Java-verified dispatch/contract illustration and output, prediction, exercise/rubric and verified module/source links. |
-| `encapsulation` — Encapsulation | Protect valid state through operations rather than exposing every field for mutation. | `classes-and-objects`, `access-modifiers` | [E01](#e01): private StudyCard fields; [E04](#e04): defensive ingredient-map copies. Practice `/coffee-machine`. | Try to mutate a returned ingredient map and show which object does or does not change. | G: before/after design, invalid-state exercise and explicit limits of setters and final references. |
+| `encapsulation` — Encapsulation | Protect valid state through operations rather than exposing every field for mutation. | `classes-and-objects`, `access-modifiers` | [E26](#e26): LeakyShelf/ReadingShelf mutation boundary, rejected operations and detached snapshots; [E04](#e04): actual mutable ingredient-map copies. Practice `/coffee-machine`. | Add guarded removal, preserve the invariant and an earlier snapshot, then distinguish structural from element immutability. | Delivered: `/learn/encapsulation`, canonical Java counterexample and guarded design, verified snapshots/output, prediction, exercise/rubric and source links. |
 | `abstraction` — Abstraction | Separate the operation a caller needs from a concrete pricing algorithm's implementation. | `encapsulation`, `interfaces` | [E02](#e02): PricingStrategy contract and policies; this is a reusable seam, not proof every module is optimally abstracted. | Replace a concrete-policy dependency with the smallest sufficient contract and justify what stays private. | G: abstraction versus encapsulation comparison, visual and compile-tested refactoring. |
 | `inheritance` — Inheritance | Explain subtype construction and shared state without assuming inheritance supplies an execution algorithm. | `classes-and-objects`, `access-modifiers` | [E03](#e03): abstract Transaction and deposit/withdrawal records. Practice `/atm`. | Trace super-constructor initialization and identify what the subclasses add; explain why there is no Transaction.execute. | G: subtype lesson, composition alternative and substitutability exercise. |
 | `polymorphism` — Polymorphism | Predict runtime implementation dispatch through a common interface. | `interfaces`, `inheritance` | [E02](#e02): calculatePrice implementations selected through the factory; [E04](#e04): CoffeeComponent wrappers. | Predict which getPrice/calculatePrice body executes without branching on the concrete type in the caller. | G: runtime-dispatch visual, contrasted examples and tested prediction exercise. |
-| `constructors` — Constructors and Initialization (proposed) | Distinguish allocation, valid initialization, constructor chaining and later mutation. | `classes-and-objects` | [E01](#e01): valid/nonblank StudyCard construction; [E03](#e03): shared transaction initialization. | Reject an invalid initial value and explain which constructor runs before the subtype fields are set. | G: constructor lesson, overload/chaining examples and compile-tested initialization checks. |
-| `access-modifiers` — Access Modifiers (proposed) | Choose public/private/protected/package visibility by the intended collaboration boundary. | `classes-and-objects` | [E01](#e01): public API and private state; [E04](#e04), [E10](#e10): protected extension hooks. | Place caller and subclass in different packages and predict which accesses compile. | G: visibility matrix and positive/negative compiler exercises, not just prose definitions. |
+| `constructors` — Constructors and Initialization (proposed) | Distinguish allocation, valid initialization, constructor chaining and later mutation. | `classes-and-objects` | [E26](#e26): LearningSession/FocusedSession this/super trace and invalid-construction checks; [E03](#e03): real transaction constructor chain. Practice `/atm`. | Add a convenience default without duplicating validation; explain the base side effect retained after derived-constructor failure and test later updates. | Delivered: `/learn/constructors`, Java-verified trace/output, compiler-negative cases, prediction, exercise/rubric and actual ATM record links; proposed-addition label retained. |
+| `access-modifiers` — Access Modifiers (proposed) | Choose public/private/protected/package visibility by the intended collaboration boundary. | `classes-and-objects` | [E26](#e26): compiler-checked caller matrix across two packages, protected receiver restriction and package-private top-level type; [E10](#e10): actual protected read hooks. Practice `/kvstore`. | Compile same-package and external callers; distinguish child-typed from base-typed protected receivers inside the subclass. | Delivered: `/learn/access-modifiers`, compiled matrix and successful demo, prediction, exercise/rubric and verified source links; proposed-addition label retained. |
 | `overloading-and-overriding` — Method Overloading vs Overriding (proposed) | Distinguish signature-based overload selection from runtime overriding. | `polymorphism`, `constructors` | [E03](#e03): two withdraw signatures; [E04](#e04): getPrice overrides on CoffeeComponent implementations. | Predict the selected overload and then the invoked override for two differently typed references. | G: paired compile-tested examples, diagram and misconception checks. |
 | `static-and-instance` — Static vs Instance Members (proposed) | Separate per-object state from class-associated members and shared constants. | `classes-and-objects` | [E01](#e01): independent instance counters; [E03](#e03): static final state instance and registry. | Explain why a static review counter changes the meaning of the two-card example; contrast it with a shared immutable constant. | G: class/instance visual, tested contrast and explicit thread-safety caveats. |
 
@@ -517,7 +517,41 @@ The illustrations display recorded facts, not a JavaScript parser, formatter or
 live JVM. Each lesson includes prediction feedback, a separate exercise/rubric,
 references to official Java documentation and links to verified Parking source.
 The generic field renderer also preserves the original object/reference lesson.
-Three delivered topics do not complete Phase 2 or the 69-topic curriculum.
+These two lessons do not complete Phase 2 or the 69-topic curriculum.
+
+<a id="e26"></a>
+### E26 — Construction, access and mutation boundaries
+
+[Constructors](frontend/src/learning/lessons/constructors.js) uses canonical
+[LearningSession](frontend/src/learning/examples/LearningSession.java),
+[FocusedSession](frontend/src/learning/examples/FocusedSession.java) and its
+[demo](frontend/src/learning/examples/ConstructorDemo.java). The trace demonstrates
+this/super delegation without exposing an unfinished object. Rejection and overflow
+checks cover initial and later state; the base trace event remains after a derived
+constructor fails, so the lesson does not imply transactional construction.
+
+[Access Modifiers](frontend/src/learning/lessons/access-modifiers.js) compiles
+[VisibilityRecord](frontend/src/learning/examples/visibility/VisibilityRecord.java),
+[VisibilityPeer](frontend/src/learning/examples/visibility/VisibilityPeer.java),
+[VisibilityChild](frontend/src/learning/examples/outside/VisibilityChild.java) and
+[VisibilityDemo](frontend/src/learning/examples/outside/VisibilityDemo.java) across
+two packages. Its matrix is checked against javac decisions, including the
+cross-package protected receiver restriction. It explicitly qualifies separate
+top-level classes, nested private access and unnamed-module scope.
+
+[Encapsulation](frontend/src/learning/lessons/encapsulation.js) compares a deliberate
+[LeakyShelf](frontend/src/learning/examples/LeakyShelf.java) counterexample with
+[ReadingShelf](frontend/src/learning/examples/ReadingShelf.java) and its
+[demo](frontend/src/learning/examples/EncapsulationDemo.java). Private mutation,
+positive capacity, rejected requests and detached unmodifiable snapshots are
+verified; neither owner is described as thread-safe or deeply immutable.
+[StateBoundariesExampleTest](backend/src/test/java/com/lld/learning/StateBoundariesExampleTest.java)
+compiles all ten displayed files, checks outputs/fixtures and exercises compiler
+rejections and state invariants. The frontend only selects recorded facts.
+
+The canonical manifest owns reading durations and an explicit publication sequence
+that places published prerequisites before their dependents. Catalog grouping
+remains a topic taxonomy; it does not force that sequence or lock learners out.
 
 ## Supporting material that must not disappear between lessons
 
@@ -559,5 +593,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 66 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 63 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.

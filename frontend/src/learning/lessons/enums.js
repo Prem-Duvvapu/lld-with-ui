@@ -5,7 +5,6 @@ import snapshots from '../examples/enums-snapshots.json';
 
 export default {
   id: 'enums',
-  duration: '15–20 minutes',
   summary: 'Model a closed set of choices, attach data to each choice, and validate an external string before using it as a Java enum.',
   prerequisites: 'Classes and Objects: fields, constructors, method calls and references. The example explains its parsing steps.',
   objectives: [

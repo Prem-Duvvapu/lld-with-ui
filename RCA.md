@@ -8,7 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
-| [RCA-108](#rca-108-the-spa-rewrite-returned-html-for-vercels-analytics-script) | 2026-10-23 | Deployment / Vercel Routing | The SPA fallback captured reserved platform and asset paths; the live analytics script returned HTML and threw a syntax error | Resolved in configuration |
+| [RCA-108](#rca-108-the-spa-rewrite-returned-html-for-vercels-analytics-script) | 2026-10-23 | Deployment / Vercel Routing | The SPA fallback captured reserved platform and asset paths; the live analytics script returned HTML and threw a syntax error | Resolved; deployed routing verified |
 | [RCA-107](#rca-107-recorded-lesson-values-collapsed-meaningful-whitespace) | 2026-10-23 | Curriculum / Illustration Fidelity | Normal HTML whitespace collapsed recorded input spaces; narrow field columns split implementation names on mobile | Resolved |
 | [RCA-106](#rca-106-kv-map-updates-and-log-appends-could-replay-in-different-orders) | 2026-10-23 | Backend / KV / Concurrency | Separate map mutation and command append let replay restore an older value or retain a pre-reset write | Resolved |
 | [RCA-105](#rca-105-shared-design-pattern-cards-overflowed-a-320px-page) | 2026-10-23 | Shared Learning UI / Mobile | A fixed 320px grid minimum exceeded the available width after page padding | Resolved |
@@ -54,8 +54,8 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 Medium deployment issue found by a real production browser check after the
 Enums/Interfaces release. Lessons rendered, but loading the analytics script
-produced an unhandled syntax error. The configuration fix is covered locally;
-the deployed platform response must be checked after this change ships.
+produced an unhandled syntax error. The configuration fix shipped in #170 and
+the deployed platform response was checked on production after that merge.
 
 ### 2. Symptoms & Error Logs
 
@@ -106,6 +106,14 @@ reserved platform paths and build-asset paths incorrectly matched the HTML fallb
 4. Re-run the routing checks, required suites, lint, package and build budgets.
    After deployment, repeat the real production browser and inspect the analytics
    endpoint's status/MIME; do not count a login page or SPA HTML as a working script.
+
+Post-deployment verification on `lld-with-ui.vercel.app` passed six real lesson
+views (the three then-published lessons in both themes) and two catalog views with
+no runtime JavaScript errors. The analytics and missing-asset endpoints returned
+404/text/plain instead of 200/HTML; actual app/lesson chunks remained JavaScript.
+No backend mutations were made. Evidence is in `lld-routing/live-final.log`,
+`analytics-final-headers.txt`, and `lld-oop/live-results.json` under the external
+validation directory. Dashboard collection remains unavailable/unverified.
 
 ### 6. Preventative Measures
 

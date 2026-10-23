@@ -42,15 +42,16 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2376 tests
-cd frontend && npx vitest run  # latest validated: 703 tests
+cd backend  && mvn test        # latest validated: 2395 tests
+cd frontend && npx vitest run  # latest validated: 710 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
 ## Learning Curriculum
 - `/learn` and `/learn/:lessonId` are lazy routes. `frontend/src/learning/curriculum.js` is the canonical topic/publication manifest; only published lessons have content files. Planned topics are a labelled roadmap, not empty completed pages.
-- Content lives in `frontend/src/learning/lessons/`. Displayed Java comes from canonical `.java` files in `frontend/src/learning/examples/`, imported with `?raw`; do not duplicate it as a string. `ClassesAndObjectsExampleTest` and `OopExamplesTest` compile those exact files with JDK 17 and check output/illustration fixtures; the latter also checks invalid declarations with javac. The frontend build remains self-contained for Vercel/Docker.
-- Three lessons are published: Classes and Objects, Enums, Interfaces. Their recorded illustrations use `snapshots[].items[]` with named scalar `fields`; optional reference labels belong to object/reference views. Keep Java semantics in canonical Java and verified fixtures, not frontend parsers or formatter implementations. The other 66 topics remain planned; Phase 2 is incomplete.
+- Content lives in `frontend/src/learning/lessons/`. Displayed Java comes from canonical `.java` files in `frontend/src/learning/examples/`, imported with `?raw`; do not duplicate it as a string. `ClassesAndObjectsExampleTest`, `OopExamplesTest` and `StateBoundariesExampleTest` compile those exact files with JDK 17 and check output/illustration fixtures and applicable negative compiler cases. The frontend build remains self-contained for Vercel/Docker.
+- Six lessons are published: Classes and Objects, Constructors, Access Modifiers, Enums, Interfaces, Encapsulation. Their recorded illustrations use `snapshots[].items[]` with named scalar `fields`; optional reference labels belong to object/reference views. Keep Java semantics in canonical Java and verified fixtures, not frontend implementations. The other 63 topics remain planned; Phase 2 is incomplete.
+- The curriculum manifest owns reading durations and publication order; `PUBLISHED_LESSONS` places published prerequisites before dependents while catalog grouping stays unchanged. Retain proposed-addition labels for published supplemental topics as well as planned ones. Canonical example filenames may include package directories; show matching save/run paths.
 - Preserve significant whitespace in recorded field values (`pre-wrap`) and readable labels/values on small screens; Java fixture checks alone do not prove visual fidelity (RCA-107).
 - `lld-lessons-v1` stores only lesson resume, bookmarks, review marks, and bounded notes. Keep it separate from module progress/import/export; reviewed is not mastery. Read the latest storage before writing resume metadata (RCA-101).
 - `PageErrorBoundary` wraps the shared route Suspense tree, keyed by pathname. Suspense alone does not handle rejected imports. Content-import failures and route failures offer explicit reload; never loop or clear saved progress automatically (RCA-099/100).

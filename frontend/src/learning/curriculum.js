@@ -169,7 +169,16 @@ const prerequisites = {
 };
 
 export const CURRICULUM_GROUPS = groups.map(([id, title]) => ({ id, title }));
-const published = new Set(['classes-and-objects', 'enums', 'interfaces']);
+// Publication order also defines the guided sequence. Keep published prerequisites earlier.
+const publications = [
+  ['classes-and-objects', '15–20 minutes'],
+  ['constructors', '20–25 minutes'],
+  ['access-modifiers', '20–25 minutes'],
+  ['enums', '15–20 minutes'],
+  ['interfaces', '15–20 minutes'],
+  ['encapsulation', '20–25 minutes'],
+];
+const published = new Map(publications);
 
 export const LESSONS = groups.flatMap(([group, , entries]) => entries.map(([id, title, proposed = false]) => ({
   id,
@@ -177,10 +186,11 @@ export const LESSONS = groups.flatMap(([group, , entries]) => entries.map(([id, 
   group,
   proposed,
   status: published.has(id) ? 'published' : 'planned',
+  duration: published.get(id),
   prerequisites: prerequisites[id],
 })));
 
-export const PUBLISHED_LESSONS = LESSONS.filter(lesson => lesson.status === 'published');
+export const PUBLISHED_LESSONS = publications.map(([id]) => LESSONS.find(lesson => lesson.id === id));
 
 export function findLesson(id) {
   return LESSONS.find(lesson => lesson.id === id);

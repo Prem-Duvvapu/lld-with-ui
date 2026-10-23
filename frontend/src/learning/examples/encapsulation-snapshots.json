@@ -1,0 +1,37 @@
+[
+  {
+    "title": "Bypass an exposed field",
+    "explanation": "LeakyShelf.addTopic rejects blank text, but the public list lets a caller insert an empty string directly. final prevents reassigning the list reference; it does not prevent changing the list.",
+    "items": [{ "label": "leaky", "typeLabel": "LeakyShelf counterexample", "fields": [
+      { "name": "size", "value": 2 }, { "name": "contains empty string", "value": true }
+    ] }]
+  },
+  {
+    "title": "Validate through an operation",
+    "explanation": "ReadingShelf owns a private list and a positive capacity. addTopic(\"\") is rejected before mutation, so the valid Objects topic remains the only entry.",
+    "items": [{ "label": "shelf", "typeLabel": "ReadingShelf", "fields": [
+      { "name": "capacity", "value": 2 }, { "name": "topics", "value": "[Objects]" },
+      { "name": "blank request", "value": "rejected" }
+    ] }]
+  },
+  {
+    "title": "Keep the returned snapshot separate",
+    "explanation": "getTopics returns an unmodifiable snapshot. Attempting snapshot.add(\"\") throws UnsupportedOperationException and leaves the shelf unchanged.",
+    "items": [{ "label": "snapshot", "typeLabel": "List<String>", "fields": [
+      { "name": "topics", "value": "[Objects]" }, { "name": "mutation", "value": "UnsupportedOperationException" }
+    ] }]
+  },
+  {
+    "title": "Preserve both the snapshot and the invariant",
+    "explanation": "Adding Interfaces through the shelf is valid. The earlier snapshot stays unchanged. A third topic exceeds capacity and is rejected without changing the two accepted topics.",
+    "items": [
+      { "label": "shelf", "typeLabel": "ReadingShelf", "fields": [
+        { "name": "topics", "value": "[Objects, Interfaces]" }, { "name": "size", "value": 2 },
+        { "name": "third topic", "value": "rejected" }
+      ] },
+      { "label": "saved snapshot", "typeLabel": "List<String>", "fields": [
+        { "name": "topics", "value": "[Objects]" }
+      ] }
+    ]
+  }
+]

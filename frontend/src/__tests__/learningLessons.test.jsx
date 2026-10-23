@@ -10,6 +10,9 @@ import { loadLesson } from '../learning/lessonLoader';
 import content from '../learning/lessons/classes-and-objects';
 import enumLesson from '../learning/lessons/enums';
 import interfaceLesson from '../learning/lessons/interfaces';
+import constructorLesson from '../learning/lessons/constructors';
+import accessLesson from '../learning/lessons/access-modifiers';
+import encapsulationLesson from '../learning/lessons/encapsulation';
 
 vi.mock('../learning/lessonLoader', () => ({ loadLesson: vi.fn() }));
 
@@ -29,16 +32,21 @@ beforeEach(() => {
   sessionStorage.clear();
   loadLesson.mockReset().mockImplementation(id => Promise.resolve({
     'classes-and-objects': content, enums: enumLesson, interfaces: interfaceLesson,
+    constructors: constructorLesson, 'access-modifiers': accessLesson, encapsulation: encapsulationLesson,
   }[id]));
 });
 
 describe('Published curriculum learning journey', () => {
   it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
     renderLearning();
-    expect(screen.getByText('3 complete lessons are available now.')).toBeInTheDocument();
+    expect(screen.getByText('6 complete lessons are available now.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Classes and Objects.*Available/ })).toHaveAttribute('href', '/learn/classes-and-objects');
     expect(screen.getByRole('link', { name: /Enums.*Available/ })).toHaveAttribute('href', '/learn/enums');
     expect(screen.getByRole('link', { name: /Interfaces.*Available/ })).toHaveAttribute('href', '/learn/interfaces');
+    const constructors = screen.getByRole('link', { name: /Constructors and Initialization.*Available/ });
+    expect(within(constructors).getByText('Proposed addition')).toBeVisible();
+    expect(constructors).toHaveTextContent('20–25 minutes');
+    expect(screen.getByRole('link', { name: /Access Modifiers.*Available/ })).toHaveTextContent('Proposed addition');
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search lessons' }), { target: { value: 'SOLID' } });
     expect(screen.getByText('SOLID Principles with Pictures')).toBeVisible();
     expect(screen.getByText('SOLID Principles with Code')).toBeVisible();
@@ -106,11 +114,68 @@ describe('Published curriculum learning journey', () => {
     expect(screen.getByText(/same interface call reaches the tagged implementation/)).toBeInTheDocument();
   });
 
+  it('shows constructor trace prefixes separately from the returned and later-mutated object', async () => {
+    renderLearning('/learn/constructors');
+    await screen.findByRole('heading', { name: 'Constructors and Initialization', level: 1 });
+    expect(screen.getByText('OOP FUNDAMENTALS · 20–25 minutes')).toBeInTheDocument();
+    expect(screen.getByText('Proposed addition', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('base topic=Objects', { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText('25', { exact: true })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '3. Return the initialized object' }));
+    expect(screen.getByText('25', { exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '4. Change state after construction' }));
+    expect(screen.getByText('30', { exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'Base topic, focused duration, then convenience completion' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText(/super\(\.\.\.\) completes before the full constructor continues/)).toBeInTheDocument();
+  });
+
+  it('explains cross-package protected access without hiding its receiver restriction', async () => {
+    renderLearning('/learn/access-modifiers');
+    await screen.findByRole('heading', { name: 'Access Modifiers', level: 1 });
+    fireEvent.click(screen.getByRole('button', { name: '3. A subclass in another package' }));
+    const allowed = screen.getByText('protected via child receiver').closest('.learn-field');
+    const rejected = screen.getByText('protected via base receiver').closest('.learn-field');
+    expect(within(allowed).getByText('allowed')).toBeInTheDocument();
+    expect(within(rejected).getByText('rejected')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'outside/VisibilityChild.java, scrollable code' })).toHaveAttribute('tabindex', '0');
+    expect(screen.getByText(/Save each file using its shown path/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '4. An unrelated external caller' }));
+    expect(screen.getAllByText('rejected', { exact: true })).toHaveLength(3);
+    fireEvent.click(screen.getByRole('radio', { name: 'Cross-package protected access restricts the qualifying receiver type' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText(/compiler checks this boundary/)).toBeInTheDocument();
+  });
+
+  it('contrasts a leaked final list with a guarded owner and its unchanged snapshot', async () => {
+    renderLearning('/learn/encapsulation');
+    await screen.findByRole('heading', { name: 'Encapsulation', level: 1 });
+    expect(screen.getByText('true', { exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review Access Modifiers' })).toHaveAttribute('href', '/learn/access-modifiers');
+    fireEvent.click(screen.getByRole('button', { name: '3. Keep the returned snapshot separate' }));
+    expect(screen.getByText('UnsupportedOperationException', { exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '4. Preserve both the snapshot and the invariant' }));
+    expect(screen.getByText('[Objects, Interfaces]', { exact: true })).toBeInTheDocument();
+    expect(screen.getByText('[Objects]', { exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'The whole ReadingShelf becomes immutable after calling getTopics' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText(/shelf still accepts valid additions/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('navigates between published lessons with fresh interaction state and separate saved notes', async () => {
     await openLesson();
+    expect(screen.queryByText(/Next planned concept:/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Class notes' } });
     fireEvent.click(screen.getByRole('button', { name: '3. Add an alias and review again' }));
     fireEvent.click(screen.getByRole('radio', { name: 'first: 2, second: 0; two objects' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Next: Constructors and Initialization →' }));
+    expect(await screen.findByRole('heading', { name: 'Constructors and Initialization', level: 1 })).toHaveFocus();
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Constructor notes' } });
+    fireEvent.click(screen.getByRole('link', { name: 'Next: Access Modifiers →' }));
+    await screen.findByRole('heading', { name: 'Access Modifiers', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
     fireEvent.click(screen.getByRole('link', { name: 'Next: Enums →' }));
     expect(await screen.findByRole('heading', { name: 'Enums', level: 1 })).toHaveFocus();
     expect(screen.getByRole('button', { name: '1. Inspect the constants' })).toHaveAttribute('aria-pressed', 'true');
@@ -120,9 +185,20 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Next: Interfaces →' }));
     await screen.findByRole('heading', { name: 'Interfaces', level: 1 });
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+    fireEvent.click(screen.getByRole('link', { name: 'Next: Encapsulation →' }));
+    await screen.findByRole('heading', { name: 'Encapsulation', level: 1 });
+    expect(screen.getByRole('link', { name: 'Review Access Modifiers' })).toHaveAttribute('href', '/learn/access-modifiers');
+    expect(screen.getByText('Next planned concept: Abstraction. It is not published yet.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: '← Interfaces' }));
+    await screen.findByRole('heading', { name: 'Interfaces', level: 1 });
     fireEvent.click(screen.getByRole('link', { name: '← Enums' }));
     await screen.findByRole('heading', { name: 'Enums', level: 1 });
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Enum notes');
+    fireEvent.click(screen.getByRole('link', { name: '← Access Modifiers' }));
+    await screen.findByRole('heading', { name: 'Access Modifiers', level: 1 });
+    fireEvent.click(screen.getByRole('link', { name: '← Constructors and Initialization' }));
+    await screen.findByRole('heading', { name: 'Constructors and Initialization', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Constructor notes');
     fireEvent.click(screen.getByRole('link', { name: '← Classes and Objects' }));
     await screen.findByRole('heading', { name: 'Classes and Objects', level: 1 });
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Class notes');
@@ -135,7 +211,7 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
-    expect(screen.getByText(/1 of 3 published lessons marked reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 6 published lessons marked reviewed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
     expect(screen.getByText('1 topics match. 1 available to open.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('link', { name: 'Resume learning →' }));
@@ -146,7 +222,7 @@ describe('Published curriculum learning journey', () => {
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe('classes-and-objects');
   });
 
-  it.each(['/learn/encapsulation', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
+  it.each(['/learn/abstraction', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
     renderLearning(path);
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Mark lesson/ })).not.toBeInTheDocument();
@@ -181,11 +257,11 @@ describe('Published curriculum learning journey', () => {
   });
 
   it('bounds and validates stored lesson data and ignores unpublished completion marks', async () => {
-    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'encapsulation', lessons: { encapsulation: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'abstraction', lessons: { abstraction: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
     await openLesson();
     expect(screen.getByRole('textbox', { name: 'Your explanation' }).value).toHaveLength(2000);
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
-    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.encapsulation).toBeUndefined();
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.abstraction).toBeUndefined();
   });
 
   it('keeps a usable session when storage is malformed or blocked', async () => {

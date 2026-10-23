@@ -50,7 +50,7 @@ export default function Learn() {
           return (
             <section key={group.id} className="learn-group" aria-labelledby={`group-${group.id}`}>
               <h3 id={`group-${group.id}`}>{group.title}</h3>
-              {available.map(lesson => <Link className="learn-lesson-card" key={lesson.id} to={`/learn/${lesson.id}`}><span><strong>{lesson.title}</strong><small>Read → inspect → predict → explain · 15–20 minutes</small></span><span>{progress.lessons[lesson.id]?.reviewed ? 'Reviewed' : 'Available'} →</span></Link>)}
+              {available.map(lesson => <Link className="learn-lesson-card" key={lesson.id} to={`/learn/${lesson.id}`}><span><strong>{lesson.title}</strong>{lesson.proposed && <span className="learn-tag">Proposed addition</span>}<small>Read → inspect → predict → explain · {lesson.duration}</small></span><span>{progress.lessons[lesson.id]?.reviewed ? 'Reviewed' : 'Available'} →</span></Link>)}
               {lessons.some(lesson => lesson.status === 'planned') && <details className="learn-roadmap" open={Boolean(query.trim())}><summary>{lessons.filter(lesson => lesson.status === 'planned').length} planned topics — not published</summary><ul>{lessons.filter(lesson => lesson.status === 'planned').map(lesson => <li key={lesson.id}>{lesson.title}{lesson.proposed && <span className="learn-tag">Proposed addition</span>}</li>)}</ul></details>}
             </section>
           );

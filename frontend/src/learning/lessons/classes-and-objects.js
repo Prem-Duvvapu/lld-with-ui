@@ -5,7 +5,6 @@ import snapshots from '../examples/classes-and-objects-snapshots.json';
 
 export default {
   id: 'classes-and-objects',
-  duration: '15–20 minutes',
   summary: 'Separate a class definition, an object, and a reference. Then explain which state changes when two variables refer to the same object.',
   prerequisites: 'Read a variable assignment and a method call in Java. No design-pattern knowledge is needed.',
   objectives: [

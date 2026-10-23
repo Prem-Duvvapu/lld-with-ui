@@ -1,0 +1,5 @@
+own: public=A; protected=A; package=A; private=A
+peer: public=A; protected=A; package=A
+child: protected=B
+child receiver: protected=C
+unrelated: public=A

@@ -1,0 +1,5 @@
+base topic=Objects
+focused minutes=25
+default constructor complete
+created: Objects, minutes=25
+extended minutes=30
