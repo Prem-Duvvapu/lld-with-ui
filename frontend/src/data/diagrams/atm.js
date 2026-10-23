@@ -185,7 +185,11 @@ export default {
         '- failureReason: String'
       ],
       methods: [
-        '+ execute(bankingService, cashDispenser)'
+        '+ getTransactionId(): String',
+        '+ getAccountNumber(): String',
+        '+ getAmount(): double',
+        '+ getTimestampEpoch(): long',
+        '+ getStatus(): String'
       ]
     },
     {
