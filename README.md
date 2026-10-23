@@ -31,10 +31,13 @@ chunks must receive their own resource response, never `index.html` (RCA-108).
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and three published lessons:
+has a searchable curriculum catalog and six published lessons:
 **Classes and Objects** (`/learn/classes-and-objects`), **Enums** (`/learn/enums`),
-and **Interfaces** (`/learn/interfaces`).
-The other 66 topics are
+**Interfaces** (`/learn/interfaces`), **Constructors and Initialization**
+(`/learn/constructors`), **Access Modifiers** (`/learn/access-modifiers`), and
+**Encapsulation** (`/learn/encapsulation`). The guided sequence puts published
+prerequisites before dependents. Reading times come from the curriculum manifest.
+The other 63 topics are
 explicitly planned, not empty published lessons; five proposed additions remain labelled.
 
 Each lesson connects a motivating problem, inspectable Java-verified illustrations,
@@ -44,6 +47,8 @@ in `frontend/src/learning/examples/` so a frontend-only deployment can build wit
 reaching outside its project root. The backend test suite compiles those exact files
 with Java 17 and checks their output and illustration snapshots. The Enums and
 Interfaces examples also have negative compiler checks and shared-contract tests.
+Constructor delegation, cross-package access (including protected receivers), and
+collection invariants/snapshots are checked by `StateBoundariesExampleTest`.
 No learner code is
 submitted or executed by the application.
 

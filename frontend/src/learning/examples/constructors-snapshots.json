@@ -1,0 +1,35 @@
+[
+  {
+    "title": "Initialize the base part",
+    "explanation": "The convenience constructor delegates with this(...). The full constructor calls super(...). The first recorded event comes from LearningSession. This view shows a trace prefix, not an externally returned partly constructed object.",
+    "items": [{ "label": "First completed stage", "typeLabel": "constructor trace", "fields": [
+      { "name": "events so far", "value": "base topic=Objects" }
+    ] }]
+  },
+  {
+    "title": "Complete the full constructor",
+    "explanation": "After the base constructor returns, FocusedSession validates minutes, assigns 25 and records its event. The delegating convenience constructor has not finished its remaining statement yet.",
+    "items": [{ "label": "Two completed stages", "typeLabel": "constructor trace", "fields": [
+      { "name": "events so far", "value": "base topic=Objects → focused minutes=25" }
+    ] }]
+  },
+  {
+    "title": "Return the initialized object",
+    "explanation": "The convenience constructor records its final event and returns. Only now does the demo receive the new reference and read its initialized fields.",
+    "items": [
+      { "label": "Completed construction", "typeLabel": "constructor trace", "fields": [
+        { "name": "events", "value": "base topic=Objects → focused minutes=25 → default constructor complete" }
+      ] },
+      { "label": "session", "typeLabel": "FocusedSession", "fields": [
+        { "name": "topic", "value": "Objects" }, { "name": "minutes", "value": 25 }
+      ] }
+    ]
+  },
+  {
+    "title": "Change state after construction",
+    "explanation": "extend(5) changes the existing session from 25 to 30 minutes. It is an ordinary operation after initialization, not a second constructor call or a new object.",
+    "items": [{ "label": "session", "typeLabel": "FocusedSession", "fields": [
+      { "name": "topic", "value": "Objects" }, { "name": "minutes", "value": 30 }
+    ] }]
+  }
+]

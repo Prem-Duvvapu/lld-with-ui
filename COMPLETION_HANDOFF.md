@@ -14,7 +14,14 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest validation: 2376 backend tests (288 suites) and 703 frontend tests (41 files).
+- Latest validation: 2395 backend tests (289 suites) and 710 frontend tests (41 files).
+  The state-boundary lesson batch adds 19 Java cases covering ten canonical files,
+  constructor trace/rejections, access decisions and collection invariants. Seven
+  added UI/content cases cover the lessons, durations and guided prerequisite order.
+  Its final browser pass checks 320 lesson views across eight theme/viewport
+  contexts, including all recorded steps, code/output, recovery and per-lesson
+  persistence. Reading durations now come from the manifest, and the planned-topic
+  hint appears only when there is no published next lesson.
   Four deployment-route cases additionally protect reserved Vercel/asset paths,
   normal lesson/module deep links and existing API/Swagger/metadata boundaries.
   The Enums/Interfaces batch adds 16 Java semantic/compiler cases and six UI/content
@@ -38,8 +45,9 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   Parking's preceding batch passed 72 views across the same theme/viewport matrix.
   These are scoped checks, not a completed whole-project audit.
 - Latest build: entry 312173 bytes; largest non-entry JavaScript chunk 56079 bytes.
-- The curriculum catalog and Classes and Objects, Enums and Interfaces lessons are
-  implemented; the remaining 66 topics are visibly planned. Phase 2 remains open.
+- The curriculum catalog and Classes and Objects, Constructors, Access Modifiers,
+  Enums, Interfaces and Encapsulation lessons are implemented; the remaining 63
+  topics are visibly planned. Phase 2 remains open.
   See the curriculum workstream below.
 - Phase 0 now has a complete 69-topic outcome/prerequisite/evidence/exercise/gap
   matrix and a cycle-checked canonical graph. This is an authoring audit, not 69
@@ -220,7 +228,8 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 10 | Phase 0 evidence map and prerequisite DAG; ATM/KV teaching-contract corrections; shared pattern-grid mobile minimum (RCA-103–105) | #167 | 693 frontend / 2334 backend tests; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 56 targeted learning/filter views plus 96 reference-flow checks pass |
 | 11 | KV per-key append ordering, replay/reset gate, detached responses and coherent map/log snapshots; corrected sequence/class/design views (RCA-106) | #168 | 2360 backend / 693 frontend tests; full frontend pass uses one worker after one loaded-host timeout; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 80 intercepted learning/diagram views across 8 contexts |
 | 12 | Enums and Interfaces lessons, canonical Java/compiler cases, generic recorded fields, prerequisite/navigation links and faithful mobile input rendering (RCA-107) | #169 | 2376 backend / 699 frontend tests; lint 14 existing warnings; Maven package, Vite build and both budgets pass (entry 312,173 B / largest non-entry 56,079 B); 184 intercepted browser views across 8 contexts |
-| 13 | Keep reserved Vercel endpoints and build assets outside the SPA HTML rewrite (RCA-108) | `fix/vercel-platform-routing` | Real production check reproduced analytics script returning HTML/200 and a syntax error; matcher regressions failed before fix and pass afterward; 2376 backend / 703 frontend tests, lint (14 existing warnings), Maven package, Vite build and both budgets pass. Live post-deployment resource/MIME verification remains required. |
+| 13 | Keep reserved Vercel endpoints and build assets outside the SPA HTML rewrite (RCA-108) | #170 | 2376 backend / 703 frontend tests, lint (14 existing warnings), Maven package, Vite build and budgets pass. Post-deployment: six real lesson views and two catalogs pass without runtime JS errors; analytics and missing-asset endpoints return 404/text/plain instead of HTML/200. Analytics collection still requires dashboard setup/verification. |
+| 14 | Constructors, Access Modifiers and Encapsulation lessons; canonical Java/compiler/fixture checks, manifest durations, proposed labels and guided sequence | `feat/constructors-access-encapsulation` | 2395 backend / 710 frontend tests; lint 14 existing warnings; Maven package, Vite build and both budgets pass (entry 312,173 B / largest non-entry 56,079 B); 320 intercepted browser views across 8 contexts. |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -289,7 +298,12 @@ recorded illustrations, predictions, exercises/rubrics and actual Parking source
 links. The shared renderer supports concept-specific fields and published
 prerequisite links. `OopExamplesTest` also compiles negative examples and checks
 both formatter implementations against one input contract.
-The canonical manifest inventories 69 topics; three are published and 66 are planned.
+The next Phase 2 batch adds Constructors, Access Modifiers and Encapsulation,
+canonical Java/compiler/fixture checks, per-topic durations and a guided sequence
+that visits published prerequisites first. Both new supplemental topics retain
+their proposed-addition labels. Nine OOP/relationship concepts and the final
+Phase 2 assessment/diagrams remain open.
+The canonical manifest inventories 69 topics; six are published and 63 are planned.
 Phases 2–7 and the two introductory guides remain open. This is separate from the existing-module UI/UX matrix; do not
 infer overall completion from either one lesson or the historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22

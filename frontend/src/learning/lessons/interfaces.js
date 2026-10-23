@@ -7,7 +7,6 @@ import snapshots from '../examples/interfaces-snapshots.json';
 
 export default {
   id: 'interfaces',
-  duration: '15–20 minutes',
   summary: 'Describe an operation a caller needs, supply two implementations, and follow a call through an interface-typed reference.',
   prerequisites: 'Classes and Objects: constructing an object, reference variables and instance methods. Prior design-pattern knowledge is unnecessary.',
   objectives: [

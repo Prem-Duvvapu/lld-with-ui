@@ -36,7 +36,8 @@ export default function LessonContent({ lesson, metadata }) {
   return (
     <article className="learn-article">
       <header className="learn-hero">
-        <p className="learn-eyebrow">{group.title.toUpperCase()} · {lesson.duration}</p>
+        <p className="learn-eyebrow">{group.title.toUpperCase()} · {metadata.duration}</p>
+        {metadata.proposed && <p className="learn-tag">Proposed addition</p>}
         <h1 ref={heading} tabIndex={-1}>{metadata.title}</h1>
         <p>{lesson.summary}</p>
         <div className="learn-actions">
@@ -91,7 +92,7 @@ export default function LessonContent({ lesson, metadata }) {
       </section>
       <section id="lesson-code" aria-labelledby="code-title">
         <h2 id="code-title">Read the Java, then predict</h2>
-        <p>These are the actual source files compiled by the backend test suite, not a separately maintained code string. Save these files in one folder and run with JDK 17.</p>
+        <p>These are the actual source files compiled by the backend test suite, not a separately maintained code string. Save each file using its shown path, then run with JDK 17.</p>
         {lesson.code.map(block => <CodeBlock key={block.filename} title={block.filename}>{block.source}</CodeBlock>)}
         <CodeBlock title="Run locally">{lesson.run}</CodeBlock>
         <form className="learn-quiz" onSubmit={event => {
@@ -148,7 +149,7 @@ export default function LessonContent({ lesson, metadata }) {
           {next ? <Link to={`/learn/${next.id}`}>Next: {next.title} →</Link> : <Link to="/learn">Back to lessons and roadmap →</Link>}
           <Link to="/learning-path">Continue with system practice →</Link>
         </nav>
-        {nextPlanned && <p className="learn-muted">Next planned concept: {nextPlanned.title}. It is not published yet.</p>}
+        {!next && nextPlanned && <p className="learn-muted">Next planned concept: {nextPlanned.title}. It is not published yet.</p>}
       </section>
       <section aria-labelledby="references-title">
         <h2 id="references-title">Further reading</h2>

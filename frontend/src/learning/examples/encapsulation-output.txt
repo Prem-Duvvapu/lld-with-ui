@@ -1,0 +1,6 @@
+leaky size=2, blank=true
+blank rejected; size=1
+snapshot mutation rejected
+saved snapshot=[Objects]
+shelf=[Objects, Interfaces]
+capacity rejected; size=2

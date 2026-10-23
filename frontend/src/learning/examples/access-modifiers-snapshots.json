@@ -1,0 +1,35 @@
+[
+  {
+    "title": "Inside the declaring type",
+    "explanation": "Inside VisibilityRecord, the inspection method can call all four members. This matrix describes the separate top-level classes shown here; Java also permits private access inside nested types of the same enclosing top-level type.",
+    "items": [{ "label": "VisibilityRecord", "typeLabel": "declaring type", "fields": [
+      { "name": "public", "value": "allowed" }, { "name": "protected", "value": "allowed" },
+      { "name": "package-private", "value": "allowed" }, { "name": "private", "value": "allowed" }
+    ] }]
+  },
+  {
+    "title": "A peer in the same package",
+    "explanation": "VisibilityPeer can call public, protected and package-private methods without being a subclass. A direct call to secret() from this separate top-level class is rejected by javac.",
+    "items": [{ "label": "VisibilityPeer", "typeLabel": "same-package peer", "fields": [
+      { "name": "public", "value": "allowed" }, { "name": "protected", "value": "allowed" },
+      { "name": "package-private", "value": "allowed" }, { "name": "private", "value": "rejected" }
+    ] }]
+  },
+  {
+    "title": "A subclass in another package",
+    "explanation": "Inside VisibilityChild, the protected method is available through this or a VisibilityChild-typed receiver. An arbitrary VisibilityRecord-typed receiver does not grant that protected access. Package-private and private methods remain unavailable.",
+    "items": [{ "label": "VisibilityChild", "typeLabel": "cross-package subclass", "fields": [
+      { "name": "public", "value": "allowed" }, { "name": "protected via child receiver", "value": "allowed" },
+      { "name": "protected via base receiver", "value": "rejected" },
+      { "name": "package-private", "value": "rejected" }, { "name": "private", "value": "rejected" }
+    ] }]
+  },
+  {
+    "title": "An unrelated external caller",
+    "explanation": "VisibilityDemo can call the public API on the public type. Being in the subclass's package does not give it protected access to VisibilityRecord's declarations in the other package.",
+    "items": [{ "label": "VisibilityDemo", "typeLabel": "unrelated cross-package caller", "fields": [
+      { "name": "public", "value": "allowed" }, { "name": "protected", "value": "rejected" },
+      { "name": "package-private", "value": "rejected" }, { "name": "private", "value": "rejected" }
+    ] }]
+  }
+]
