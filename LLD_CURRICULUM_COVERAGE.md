@@ -155,7 +155,7 @@ payment provider or asynchronous processing that the Java module does not implem
 | `signaling` — Signaling Pattern | Coordinate progress using a shared predicate and notification, not a guessed animation delay. | `condition-variables` | [E15](#e15): queue notEmpty/notFull signaling; [E17](#e17): workers signaled after queued submissions. | Explain what a signal means, which predicate becomes true and why the awakened thread still rechecks it. | G: signaling lesson and a small deterministic producer/waiter exercise. |
 | `thread-pool-pattern` — Thread Pool Pattern | Reuse workers while defining queue capacity, saturation and shutdown behavior. | `producer-consumer`, `thread-lifecycle` | [E17](#e17): CustomThreadPool, Worker and real submission/rejection policies. Practice `/thread-pool`. | Submit a bounded batch, predict saturation outcomes and prove shutdown drains or rejects according to the chosen contract. | G: pattern lesson, lifecycle/queue visual and tested configuration exercise. |
 | `producer-consumer` — Producer-Consumer Pattern | Decouple work creation from consumption through a bounded queue with backpressure. | `condition-variables` | [E15](#e15): circular-buffer implementation and real service threads. Practice `/blocking-queue`. | Fill the queue, prove a producer waits, drain one item and explain the resulting progress without inventing thread ownership telemetry. | G: conceptual lesson linked to recorded events, cancellation limits and invariant assessment. |
-| `reader-writer` — Reader-Writer Pattern | Specify concurrent reads, exclusive writes and the fairness/starvation tradeoff. | `mutex`, `locking-granularity` | [E14](#e14) is an exclusive segment-lock comparison, not a Reader-Writer implementation. No dedicated reusable implementation was mapped. | Build a read/write-locked snapshot store; prove writer exclusion and discuss why a fairness setting is not a scheduling guarantee. | G: new tested read/write-lock example, access visual and starvation analysis. |
+| `reader-writer` — Reader-Writer Pattern | Specify concurrent reads, exclusive writes and the fairness/starvation tradeoff. | `mutex`, `locking-granularity` | [E14](#e14) is an exclusive segment-lock comparison. [E10](#e10) now uses a lifecycle read/write gate: both normal reads and per-key writes share admission, while replay/reset/snapshots are exclusive. It is a coordination comparison, not the textbook all-writes-exclusive example. | Build a read/write-locked snapshot store; prove writer exclusion and discuss why a fairness setting is not a scheduling guarantee. | G: dedicated teaching example, access visual and starvation analysis. |
 
 ## Interview preparation
 
@@ -312,8 +312,13 @@ The repository's conditional update uses ConcurrentHashMap.compute, which may bl
 contending updates; it is not a lock-free progress proof. KvEntry has generated
 setters, and WAL replay retains an in-memory log, so neither type-enforced value
 immutability nor persistence across restart should be inferred from these examples.
-Map mutation and log append are also separate operations. Concurrent replay ordering
-is a separate verification gap, not something a single-key CAS winner test proves.
+SET/CAS/DELETE append inside each key's compute before publishing the mapping.
+The lifecycle gate admits key operations together and excludes them during replay,
+reset and snapshots. [KvStoreReplayConcurrencyTest](backend/src/test/java/com/lld/kvstore/repository/KvStoreReplayConcurrencyTest.java)
+pauses real appends to verify ordering and lifecycle exclusion, and checks that
+independent keys can still proceed. Snapshots contain detached entries and matching
+commands; this does not prove complete simulation-event serialization or close the
+module's UI review. See [RCA-106](RCA.md#rca-106-kv-map-updates-and-log-appends-could-replay-in-different-orders).
 
 <a id="e11"></a>
 ### E11 — Coupon eligibility chain

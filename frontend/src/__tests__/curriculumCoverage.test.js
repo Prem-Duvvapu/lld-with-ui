@@ -5,6 +5,7 @@ import atmDesign from '../data/design/atm';
 import atmDiagram from '../data/diagrams/atm';
 import kvDesign from '../data/design/kvstore';
 import kvDiagram from '../data/diagrams/kvstore';
+import kvSequence from '../data/sequences/kvstore';
 import { getModulePatterns } from '../data/modulePatterns';
 
 function read(path) {
@@ -37,8 +38,10 @@ describe('Curriculum evidence audit', () => {
   it('does not teach per-key atomic compute as a lock-free progress guarantee', () => {
     const teaching = [kvDesign.summary, ...kvDesign.requirements, ...kvDesign.tradeoffs, ...kvDesign.highlights,
       ...kvDesign.extensibility.map(entry => entry.description),
-      ...kvDiagram.classes.flatMap(entry => entry.methods)].join(' ');
+      ...kvDesign.entities.map(entry => entry.description),
+      ...kvDiagram.classes.flatMap(entry => entry.methods), JSON.stringify(kvSequence)].join(' ');
     expect(teaching).not.toMatch(/(?:CAS is lock-free|(?:genuinely|fully) lock-free|race proven directly, lock-free|lock-free premise|lock-free, via)/i);
+    expect(JSON.stringify(kvSequence)).not.toMatch(/lock-free|no ReentrantLock anywhere/i);
     expect(teaching).toContain('may block');
     expect(read('backend/src/main/java/com/lld/kvstore/repository/KvStoreRepository.java')).toContain('store.compute(key, (k, existing) ->');
     expect(kvDesign.oopConcepts.some(entry => entry.name === 'Immutable Value Objects')).toBe(false);

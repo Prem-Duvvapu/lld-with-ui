@@ -87,7 +87,7 @@ public class KvStoreService {
 
     /** Rebuilds sandbox state from its retained in-memory WAL, not from persistent storage. */
     public Map<String, Object> simReplayDemo() {
-        int commandCountBefore = simRepository.getWal().size();
+        int commandCountBefore = simRepository.snapshot().commands().size();
         simRepository.replayFromWal();
         logSimEvent("REPLAYED", "System", String.format(
                 "Cleared live state and replayed all %d WAL command(s) -- state rebuilt from nothing", commandCountBefore), null);
@@ -164,10 +164,11 @@ public class KvStoreService {
     }
 
     public Map<String, Object> getSimSnapshots() {
+        KvStoreRepository.Snapshot state = simRepository.snapshot();
         Map<String, Object> res = new HashMap<>();
-        res.put("entries", simRepository.getAllEntries());
-        res.put("walSize", simRepository.getWal().size());
-        res.put("wal", describeWal(simRepository.getWal().getCommands()));
+        res.put("entries", state.entries());
+        res.put("walSize", state.commands().size());
+        res.put("wal", describeWal(state.commands()));
         res.put("events", simEventLog);
         return res;
     }

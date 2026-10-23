@@ -22,6 +22,7 @@ export default {
       fields: [
         '- store: ConcurrentHashMap<String, KvEntry>',
         '- wal: WriteAheadLog',
+        '- lifecycle: ReentrantReadWriteLock',
       ],
       methods: [
         '+ set(key, value, ttlMillis): KvEntry',
@@ -29,6 +30,8 @@ export default {
         '+ delete(key): void',
         '+ cas(key, expectedVersion, newValue): KvEntry  // per-key atomic compute; updates may block',
         '+ replayFromWal(): void',
+        '+ snapshot(): Snapshot  // detached map and commands under exclusive gate',
+        '+ reset(): void',
       ],
     },
     {

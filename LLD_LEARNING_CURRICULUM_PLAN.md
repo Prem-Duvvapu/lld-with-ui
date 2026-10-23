@@ -236,8 +236,10 @@ are retained as narrower source reuse examples. No new topic is marked published
 
 Next delivery work is Phase 2 plus the two introductory guides, followed by the UML,
 principles, pattern, concurrency, interview and integration gates below. Preserve
-the audit's explicit gaps, including unverified concurrent KV log ordering, until
-their own implementation or validation evidence exists.
+the audit's explicit gaps until their own implementation or validation evidence
+exists. KV map/log ordering now has an implementation fix and deterministic
+regressions (RCA-106); complete simulation-event serialization and final module UX
+review remain open. This does not publish another curriculum lesson.
 
 ## Technical boundaries
 

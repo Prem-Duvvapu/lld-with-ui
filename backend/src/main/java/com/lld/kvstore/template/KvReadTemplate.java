@@ -8,9 +8,8 @@ import java.util.Map;
  * Template Method: the "look up a key, decide whether it's live" flow is identical for every
  * read-only query this store offers — only what happens on a miss (throw vs. return empty)
  * varies. {@link #read} is deliberately a pure query with no side effects: it never mutates the
- * store, even for an expired entry. Genuine removal of a stale entry happens lazily, as a side
- * effect of the next SET/CAS's {@code ConcurrentHashMap#compute} on that key (or during WAL
- * replay) — the same "lazy expiry" trade-off {@code cachelibrary}'s {@code ShardedCache} makes.
+ * store, even for an expired entry. Expired mappings remain until SET replaces them, DELETE
+ * removes them, or reset clears the store. Rejected CAS requests do not evict or append.
  *
  * <p>{@code cas}'s own expiry check deliberately does NOT go through this template: it must
  * happen atomically inside {@code ConcurrentHashMap#compute}'s remapping function alongside the

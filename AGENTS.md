@@ -41,7 +41,7 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2334 tests
+cd backend  && mvn test        # latest validated: 2360 tests
 cd frontend && npx vitest run  # latest validated: 693 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
@@ -1829,8 +1829,8 @@ Package `com.lld.kvstore`.
   exception` packages.
 - **Per-key atomic compare-and-swap — this module's centerpiece**: `KvStoreRepository#cas`
   checks the version and replaces the mapping in one `ConcurrentHashMap#compute` operation.
-  Contending updates may block inside the map; avoiding a repository-owned ReentrantLock
-  does not establish a lock-free progress guarantee. `KvStoreConcurrencyTest` checks the
+  Contending updates may block inside the map or at the lifecycle gate; this is not
+  a lock-free progress guarantee. `KvStoreConcurrencyTest` checks the
   atomicity invariant, not nonblocking progress: a 300-round repeated test
   racing 10 threads against the same key with the identical `expectedVersion` (exactly one
   winner, exactly one version bump, every round), plus a 200-round test proving CAS composes
@@ -1843,6 +1843,13 @@ Package `com.lld.kvstore`.
   expiry a write already produced, so replay is a pure "set state to exactly this," with no
   recomputation of a write's version. Replay still depends on command order, and both map
   and log are in memory; this does not demonstrate process-crash durability.
+- **Replay ordering (RCA-106)**: SET/CAS/DELETE append inside compute before publishing
+  the replacement/removal. A fair ReentrantReadWriteLock admits key operations together;
+  replay/reset/snapshot take its exclusive side. Responses are detached, the mutable
+  WAL is private, and simulation entry/WAL/count fields use one repository snapshot.
+  `KvStoreReplayConcurrencyTest` pauses appends/replay to check lifecycle exclusion,
+  write order, failure recovery and independent-key concurrency. Complete sandbox
+  operation/event serialization and final UI review remain separate open work.
 - **Template Method for the read path only**: `KvReadTemplate` governs both a throwing
   `GetOperation` and a non-throwing `PeekOperation` (used by the sim snapshot). Deliberately
   *not* extended to CAS: CAS's expiry-and-version check must happen atomically inside the same
@@ -1860,13 +1867,15 @@ Package `com.lld.kvstore`.
   are plain classes, not Spring beans, so RCA-059's bean-collision lesson doesn't apply),
   `VersionConflictException` (409 — the request was well-formed, it just lost a race).
 - Isolated `/api/kvstore/sim/*` engine: a second `KvStoreRepository` instance, seeded empty.
-- Tests (5 files): `KvStoreServiceTest`, `KvStoreConcurrencyTest` (the load-bearing suite
-  above), `CommandTest`, `KvReadTemplateTest`, `KvStoreRepositoryTest`.
+- Tests (7 files): `KvStoreServiceTest`, `KvStoreConcurrencyTest` (the load-bearing suite
+  above), `CommandTest`, `KvReadTemplateTest`, `KvStoreRepositoryTest`,
+  `KvStoreReplayConcurrencyTest`, `KvStoreControllerIntegrationTest` (real-service
+  MockMvc live status/version contracts, sandbox replay/reset and JSON shape).
 
 ### Frontend
 - 6 tabs: Store, CAS, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design
   Details — built on the shared `LldPage` shell from the start.
-- Simulation tab: 6-step guided demo — reset, a clean SET/GET, a WAL-replay durability proof, a
+- Simulation tab: 6-step guided demo — reset, a clean SET/GET, in-memory WAL replay, a
   real 1-second TTL expiry wait, a live 8-worker CAS race, and a final review of the WAL and
   event log.
 
