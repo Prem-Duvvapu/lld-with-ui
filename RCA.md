@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-110](#rca-110-kv-request-coercion-crashed-on-missing-values-and-silently-overflowed-ttls) | 2026-10-23 | Backend / KV Request Validation | Missing/null fields threw NPEs, structured values were stringified, TTL overflow disabled expiry, and race sizes were unbounded | Resolved; sandbox snapshot/lifecycle audit remains open |
 | [RCA-109](#rca-109-kv-read-failures-were-reported-as-missing-keys-and-writes-could-overlap) | 2026-10-23 | Frontend / KV Live Workspace | Every failed GET became a false 404; unguarded mutations and stale responses could mislead users | Resolved in live workspace; full module audit remains open |
 | [RCA-108](#rca-108-the-spa-rewrite-returned-html-for-vercels-analytics-script) | 2026-10-23 | Deployment / Vercel Routing | The SPA fallback captured reserved platform and asset paths; the live analytics script returned HTML and threw a syntax error | Resolved; deployed routing verified |
 | [RCA-107](#rca-107-recorded-lesson-values-collapsed-meaningful-whitespace) | 2026-10-23 | Curriculum / Illustration Fidelity | Normal HTML whitespace collapsed recorded input spaces; narrow field columns split implementation names on mobile | Resolved |
@@ -48,6 +49,81 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-110: KV Request Coercion Crashed on Missing Values and Silently Overflowed TTLs
+
+### 1. Overview & Severity
+
+High for API correctness and bounded sandbox execution. Invalid input could become
+an internal failure, overwrite a value after coercion, or create a permanent key
+when expiry was requested. Race requests had no upper worker bound.
+
+### 2. Symptoms & Error Logs
+
+Direct calls to the compiled controller/service reproduced:
+
+```text
+missing value: NullPointerException — Cannot invoke "Object.toString()" ... null
+explicit null TTL: NullPointerException — Cannot invoke "Object.toString()" ... null
+structured value: accepted, stored={nested=value}
+negative TTL: accepted, expiry=null
+overflow TTL: accepted, expiry=null
+```
+
+The initial 50-case MockMvc/domain regression run had 35 assertion failures and
+nine errors. Before the guard existed, the red race test used at most 33 workers;
+huge positive worker inputs were added only after the guard to avoid unbounded
+allocation. Evidence is retained in `/home/prem/validation/lld-kv-input/red.log`
+and `/home/prem/validation/lld-kv-live/next-backend-probe.log`.
+
+### 3. Root Cause
+
+Controllers called `.toString()` on unvalidated map fields and parsed the result,
+conflating JSON strings, numbers and structured values. Both service SET methods
+treated nonpositive TTLs as absent and multiplied positive seconds without overflow
+checks. Repository expiry addition was also unchecked. The CAS experiment passed
+the requested count straight to its thread pool before validating a resource bound.
+
+### 4. Diagnostic Commands
+
+```bash
+cd backend
+mvn -Dtest=KvStoreRequestValidationTest,DomainExceptionContractTest test
+mvn test
+mvn package -DskipTests
+```
+
+Tests use the real controller, service and repository through MockMvc, with the
+application's ISO-date Jackson settings. No application server is started.
+
+### 5. Step-by-Step Resolution
+
+1. Require actual JSON strings for value fields and whole JSON integers within the
+   signed 64-bit range for numeric fields. Preserve empty strings; omitted or null
+   TTL means no expiry. Keep malformed bodies under the shared framework handler.
+2. Add `InvalidKvRequestException` under the module's domain hierarchy with HTTP
+   400. Service entry points independently validate keys, values, TTLs and versions.
+3. Use checked multiplication for seconds-to-milliseconds and checked addition at
+   the repository's actual expiry calculation. Reject before publishing state or
+   appending a command; never convert overflow to no expiry.
+4. Bound CAS experiments to 1–32 workers before seeding, logging or pool creation.
+   Omitted worker count remains eight. Preserve real simultaneous Java CAS workers
+   and one-winner semantics within the accepted range.
+5. Verify invalid live/sandbox requests leave values, versions, commands and events
+   unchanged. Compare detached JSON snapshots in the tests so the existing mutable
+   sandbox event list cannot hide changes to the before-state assertion.
+6. Pass all 58 new request cases and the four shared domain-contract cases, then
+   all 2453 backend tests and 726 frontend tests, Maven package, lint (14 existing
+   warnings), Vite build and both chunk budgets.
+
+### 6. Preventative Measures
+
+Exercise the real HTTP parser as well as direct Java entry points. Cover null,
+missing, structured, fractional and out-of-range input, both TTL overflow stages,
+empty-string round trips, valid expiry preservation, and lower/default/upper worker
+bounds. Keep rejected input side-effect free and typed 4xx. Do not use potentially
+unbounded resource requests as pre-fix probes. Sandbox operation/event serialization,
+detached event responses and UI playback remain separate unfinished work.
 
 ## RCA-109: KV Read Failures Were Reported as Missing Keys and Writes Could Overlap
 
