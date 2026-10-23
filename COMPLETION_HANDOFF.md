@@ -14,15 +14,21 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest validation: 2334 backend tests (285 suites) and 684 frontend tests (39 files).
-  The curriculum reference slice passed 96 production-built browser view checks across
+- Latest validation: 2334 backend tests (285 suites) and 693 frontend tests (40 files).
+  The coverage audit adds 56 production-built Home/ATM/KV view checks across both
+  themes and 320/390/768/1280px. Its first run exposed a 16px shared pattern-grid
+  overflow; the corrected grid passed all 56 checks. The reference slice's 96 browser
+  checks were also repeated successfully, covering
   both themes and 320/390/768/1280px, including route/content failures, reload recovery,
   keyboard code scrolling, persistence, and links to actual system practice.
   Parking's preceding batch passed 72 views across the same theme/viewport matrix.
   These are scoped checks, not a completed whole-project audit.
-- Latest build: entry 312191 bytes; largest non-entry JavaScript chunk 56068 bytes.
+- Latest build: entry 312173 bytes; largest non-entry JavaScript chunk 56079 bytes.
 - The curriculum catalog and Classes and Objects reference lesson are implemented;
   the remaining 68 topics are visibly planned. See the curriculum workstream below.
+- Phase 0 now has a complete 69-topic outcome/prerequisite/evidence/exercise/gap
+  matrix and a cycle-checked canonical graph. This is an authoring audit, not 69
+  delivered lessons. Unsupported module mappings remain explicit gaps.
 - Rejected route imports/render failures now have focused reload/library recovery,
   rather than blanking the application. Suspense remains for pending imports.
 - Lint has 14 existing warnings and a suppression baseline; a successful lint exit
@@ -118,7 +124,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
 | airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
-| atm | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
+| atm | Not adopted | Learning-source audit 2026-10-23; live/simulation review remains open | Fictional Transaction.execute/Template Method claim fixed; pattern-card mobile overflow fixed | Existing live terminal/stepper still needs review | Batch 10 learning-data correction; shared grid fix | `curriculumCoverage.test.js`; existing Java suites unchanged and green | 24 intercepted learning-tab views (3 tabs × 4 widths × both themes), not live-operation/simulation verification | #155; coverage-audit branch |
 | auction | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | blocking-queue | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
@@ -142,7 +148,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | hotel | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | inventory | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | jobscheduler | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
-| kvstore | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
+| kvstore | Not adopted | Teaching-contract audit 2026-10-23; live/simulation review remains open | Lock-free/immutable-value/crash-durability teaching claims corrected; concurrent map-update/log-append ordering needs separate verification | Existing manual operations/stepper still needs review | Batch 10 teaching copy/source-documentation correction; runtime algorithms unchanged | `curriculumCoverage.test.js`; existing KV/replay/concurrency suites green, not a proof of untested WAL ordering | 24 intercepted requirements/OOP/tradeoff views, not live-operation/simulation verification | #152, #155; coverage-audit branch |
 | library | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | linkedin | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
 | locker | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
@@ -192,6 +198,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | 7 | Separate filled status surfaces from text/tint roles in shared controls and 18 modules (RCA-094) | #164 | 629 frontend and 2320 backend tests, Maven package, Vite build, both budgets pass (entry 310,324 B; largest non-entry 55,479 B); lint 14 existing warnings; 576 cascade probes plus 24 routed views / 56 control checks pass |
 | 8 | Parking live recovery, cancellation/duplicate guards, Java elapsed time, sandbox snapshots/reset lock and learning contrast/focus (RCA-095–098) | #165 | 664 frontend / 2329 backend tests; Maven package, Vite build, budgets and CI pass; 14 existing lint warnings; 72 intercepted browser views across 8 contexts |
 | 9 | Curriculum catalog and reference lesson; canonical Java examples, local lesson learning state, route/content recovery, cross-tab visit protection and portable output checks (RCA-099–102) | #166 | 684 frontend / 2334 backend tests; lint 14 existing warnings; Maven package and Vite build pass; entry 312,191 B / largest non-entry 56,068 B; 96 intercepted browser views across 8 contexts |
+| 10 | Phase 0 evidence map and prerequisite DAG; ATM/KV teaching-contract corrections; shared pattern-grid mobile minimum (RCA-103–105) | `docs/curriculum-coverage-audit` | 693 frontend / 2334 backend tests; lint 14 existing warnings; Maven package, Vite build and budgets pass (entry 312,173 B / largest non-entry 56,079 B); 56 targeted learning/filter views plus 96 reference-flow checks pass |
 
 Batch 4 browser checks used production-built assets and intercepted API fixtures at
 320, 390, 768, and 1280px, in both themes with reduced motion. They exercised read
@@ -238,20 +245,33 @@ its output/snapshots are separately compiled and checked by five real Java tests
 
 ### Curriculum workstream
 
+Phase 0 is complete in `LLD_CURRICULUM_COVERAGE.md`: every canonical topic has a
+learning outcome, recommended prerequisites, source evidence or an explicit mapping
+gap, a concrete exercise and missing-delivery criteria. Twenty-four inspected
+evidence groups record runtime call paths and tests as well as reuse limits. The
+manifest now contains the same cycle-checked topic-specific prerequisite graph.
+
+The audit corrected ATM's unsupported Template Method/execute claim and KV's
+unsupported lock-free, immutable-value and process-crash persistence descriptions.
+These were teaching/documentation fixes, not a new backend concurrency algorithm.
+The shared pattern grid also now fits a padded 320px page. Browser evidence covers
+these learning views only; neither module is formally closed by this batch.
+
 `LLD_LEARNING_CURRICULUM_PLAN.md` was merged in #159 with green CI. It specifies the
 requested OOP, principles, patterns, UML, concurrency, and interview curriculum.
 Phase 1's Classes and Objects reference slice is implemented in batch 9: `/learn`,
 `/learn/classes-and-objects`, a shared content renderer, Java-verified source/visuals,
 exercise/self-check, local notes/bookmarks/review/resume, and verified practice links.
 The canonical manifest inventories 69 topics; only one is published and 68 are planned.
-The full Phase 0 per-topic coverage/prerequisite/exercise/module-evidence audit and
-Phases 2–7 remain open. This is separate from the existing-module UI/UX matrix; do not
+Phases 2–7 and the two introductory guides remain open. This is separate from the existing-module UI/UX matrix; do not
 infer overall completion from either one lesson or the historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22
 patterns, and Interpreter is now an explicit proposed addition to complete the
-23-pattern catalog (5 creational, 7 structural, 11 behavioral). Planned prerequisite
-links currently express only a minimum object foundation, not a finished dependency
-audit. Remaining lesson implementation and the final 60-module sign-off are pending.
+23-pattern catalog (5 creational, 7 structural, 11 behavioral). Prerequisites are
+guidance, not enrollment locks. Remaining lesson implementation and the final
+60-module sign-off are pending. A newly identified source-review task is to test
+concurrent KV map-mutation/log-append ordering separately; the current tests and
+copy correction do not establish that guarantee or resolve a runtime ordering bug.
 
 ## Prompt to give the next agent
 

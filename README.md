@@ -49,8 +49,12 @@ before leaving if saving is unavailable. A content-download failure offers an ex
 reload without clearing saved learning. The shared route boundary also provides
 recovery for failed page imports and render errors instead of a blank application.
 
-`LLD_LEARNING_CURRICULUM_PLAN.md` tracks the remaining delivery phases. This first
-lesson does not complete the curriculum or the separate 60-module UI/UX audit.
+`LLD_LEARNING_CURRICULUM_PLAN.md` tracks delivery, and
+`LLD_CURRICULUM_COVERAGE.md` audits all 69 topics' outcomes, prerequisites, existing
+source, exercises and missing content. Completing that mapping and the first lesson
+does not complete the curriculum or the separate 60-module UI/UX audit. The audit
+also corrects ATM's fictional transaction execution method and distinguishes KV's
+per-key atomic updates/in-memory replay from stronger progress/persistence claims.
 
 ## Projects Overview
 
@@ -257,7 +261,7 @@ your saved browsing context.
 | 54 | [Payment Gateway](#54-payment-gateway) | Stripe/Razorpay-style charge & refund | Strategy (payment methods), Chain of Responsibility (fraud pipeline), State Machine (payment lifecycle), idempotent double-submit protection |
 | 55 | [Web Crawler](#55-web-crawler) | Multi-threaded frontier crawl | Producer-Consumer (frontier queue + worker pool), Strategy (URL filter policy), atomic dedup claim, per-domain politeness lock |
 | 56 | [Generic Cache Library](#56-generic-cache-library) | Pluggable Cache<K,V> library | Builder (CacheBuilder), Strategy (eviction policy), Decorator (stats), segment/shard-locked concurrency |
-| 57 | [Key-Value Store](#57-key-value-store) | Toy Redis-shaped KV store | Command (write-ahead log), Template Method (read path), fully lock-free compare-and-swap |
+| 57 | [Key-Value Store](#57-key-value-store) | Toy Redis-shaped KV store | Command (in-memory replay), Template Method (read path), per-key atomic compare-and-swap |
 | 58 | [Coupon / Promotion Engine](#58-coupon--promotion-engine) | Cart discount application | Strategy (percentage/flat/BOGO discount), Chain of Responsibility (eligibility), race-free redemption limit |
 | 59 | [Blackjack / Deck of Cards](#59-blackjack--deck-of-cards) | Real blackjack game loop | Factory (shuffled Shoe), Strategy (dealer house rules), State Machine (round lifecycle), lock-free shared-shoe draw |
 | 60 | [Workflow / Approval Engine](#60-workflow--approval-engine) | Multi-step expense approval | Chain of Responsibility (threshold routing), State Machine (instance lifecycle), Strategy (escalation policy), race-free approve-vs-escalate lock |
@@ -385,13 +389,13 @@ just don't be surprised by a slow first click.
 
 | Pattern | Module Usage | Rationale |
 |---------|--------------|-----------|
-| **Singleton** | `AtmService`, `ShoppingCartService`, `PubSubService` | Centralized system state facade |
+| **Singleton** | `IdleSessionState.INSTANCE`, `SessionStates` | Private constructor and shared class-initialized state instance; distinct from Spring's per-container bean scope |
 | **Strategy** | `DenominationDispenseStrategy`, `PaymentStrategy`, `SplitStrategy` | Pluggable runtime algorithms |
 | **Command** | `AddItemCommand`, `RemoveItemCommand`, `UpdateQuantityCommand` | Encapsulates cart actions for single-step Undo |
 | **Observer** | `SignalChangeNotifier`, `SubscriberWorker` | Decoupled event publication & async delivery |
 | **State Machine** | `ATMState`, `OrderStatus`, `RideStatus`, `SeatStatus` | Formal lifecycle transitions with state guards |
-| **Template Method** | `Transaction` (`WithdrawalTransaction`, `DepositTransaction`) | Encapsulates invariant transaction lifecycle |
-| **Concurrency** | `ReentrantLock`, `AtomicInteger`, `ConcurrentHashMap` | Deadlock-free fine-grained thread safety |
+| **Template Method** | `KvReadTemplate`, `GetOperation`, `PeekOperation` | One final read algorithm with different missing/found hooks; ATM transaction records do not execute it |
+| **Concurrency** | `ReentrantLock`, `AtomicInteger`, `ConcurrentHashMap` | Protect workflow invariants; inspect each operation's scope, lock ordering and progress guarantees |
 
 ---
 
@@ -1790,11 +1794,11 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 ### 57. Key-Value Store
 
 #### Key Features
-- **Fully Lock-Free Compare-and-Swap**: `KvStoreRepository#cas` drives its version check and its update through a single `ConcurrentHashMap#compute` call — a deliberate, explicit departure from every other module in this repo, all of which close their races with a per-entity `ReentrantLock`. Proven with a 300-round repeated test racing 10 threads against the same key with the identical `expectedVersion` (exactly one winner every round) plus a second 200-round test proving CAS composes correctly across 5 sequential racing "waves."
-- **Command Pattern for Durability, Not Undo/Redo**: every successful write appends a replayable `Command` to a `WriteAheadLog`; replaying that log against an empty map reconstructs identical state — the same GoF pattern, a genuinely different purpose than the typical undo-stack use.
+- **Per-Key Atomic Compare-and-Swap**: `KvStoreRepository#cas` performs version validation and replacement inside one `ConcurrentHashMap#compute` operation. Contending updates may block; the map does not promise lock-free progress. The existing 300-round single-race and 200-round multi-wave tests check one winner and the expected version changes, not a nonblocking progress property.
+- **Command Pattern for In-Memory Replay**: logged commands rebuild map state from the retained in-memory log. This is not disk durability or recovery after a process restart; both map and log disappear on restart.
 - **Template Method for the Read Path**: `KvReadTemplate` governs both a throwing `GetOperation` and a non-throwing `PeekOperation` — deliberately *not* extended to CAS, whose expiry-and-version check must stay atomic inside `compute()` itself.
 - **No Eviction, By Design**: explicitly differentiated from Generic Cache Library (shipped just before this module) — no capacity limit, no eviction policy at all. Every key lives until explicitly deleted or TTL-expired.
-- **Isolated Simulation**: a 6-step interactive walkthrough — a clean SET/GET, a WAL-replay durability proof, a real TTL expiry wait, and a live 8-worker CAS race.
+- **Isolated Simulation**: a 6-step interactive walkthrough — a clean SET/GET, in-memory WAL replay, a real TTL expiry wait, and a live 8-worker CAS race.
 
 #### API Endpoints
 - `PUT /api/kvstore/{key}`

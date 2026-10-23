@@ -1,7 +1,7 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-21. Status: reference lesson implemented;
-remaining curriculum delivery and the full coverage audit are in progress.
+Saved: 2026-10-17. Updated: 2026-10-23. Status: coverage audit and reference lesson
+implemented; the remaining 68 topic deliveries and final integration are open.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -171,10 +171,10 @@ status and the other applications' storage.
 
 ## Delivery phases and exit gates
 
-The reference slice is implemented and locally verified. The other delivery phases
-remain open; the publication manifest must not be mistaken for a complete coverage audit.
+The reference slice and the Phase 0 evidence mapping are implemented. Content delivery
+for the remaining topics is still open; an audited gap is not a published lesson.
 
-- [ ] **Phase 0 — Coverage audit:** map every requested topic to source evidence,
+- [x] **Phase 0 — Coverage audit:** map every requested topic to source evidence,
   missing content, prerequisites, exercises, and intended module connections.
 - [x] **Phase 1 — Reference lesson:** deliver Classes and Objects end-to-end,
   including the shared renderer, accessible visuals, tested code, exercise,
@@ -201,8 +201,8 @@ and implementation cost. Do not publish empty topic pages as completed lessons.
 - `frontend/src/learning/curriculum.js` is the canonical inventory: 69 stable topic
   IDs, one published lesson, 68 planned topics, and five explicit proposed additions.
   It accounts for all fifteen OOP concepts, 23 patterns, five UML diagrams and the
-  requested concurrency topics. Planned prerequisite links currently indicate only
-  the minimum object foundation, not a completed topic-by-topic dependency audit.
+  requested concurrency topics. The subsequent Phase 0 audit replaced the initial
+  minimum-foundation links with topic-specific, cycle-checked prerequisite guidance.
 - `frontend/src/learning/lessons/classes-and-objects.js` supplies the problem,
   objectives, explanatory text/illustration, source, prediction feedback, exercise,
   rubric, pitfalls, summary, references and verified Parking Lot source links.
@@ -216,9 +216,28 @@ and implementation cost. Do not publish empty topic pages as completed lessons.
   both themes, keyboard interaction, reduced motion and 320/390/768/1280px layouts.
   It is intercepted browser evidence, not live HTTP end-to-end or user research.
 
-The remaining Phase 0 work is to verify each planned topic's existing sources,
-full prerequisites, missing lesson/exercise content, and genuine module connections.
-Do not infer those results from generic pattern labels or this inventory alone.
+### Coverage-audit evidence (2026-10-23)
+
+`LLD_CURRICULUM_COVERAGE.md` maps all 69 canonical IDs to an outcome, conceptual
+prerequisites, an inspected source/mapping decision, an exercise and the precise
+delivery gap. Its 24 evidence groups distinguish implementation/call sites/tests
+from generic pattern labels. The source register explicitly declines unsupported
+module mappings rather than inventing examples for missing patterns.
+
+The canonical manifest carries the same prerequisite graph. `curriculumCoverage`
+tests guard one row per topic, graph consistency/cycles, evidence links and the
+specific teaching errors caught by the audit. Source inspection established the
+roles; the tests alone do not certify every architectural interpretation.
+
+The audit also corrected ATM's fictional Transaction.execute/Template Method claim
+and KV's unsupported lock-free, immutable-value and crash-durability claims. A real
+class-initialized ATM state Singleton and the feature-flag Boolean-tree interpretation
+are retained as narrower source reuse examples. No new topic is marked published.
+
+Next delivery work is Phase 2 plus the two introductory guides, followed by the UML,
+principles, pattern, concurrency, interview and integration gates below. Preserve
+the audit's explicit gaps, including unverified concurrent KV log ordering, until
+their own implementation or validation evidence exists.
 
 ## Technical boundaries
 

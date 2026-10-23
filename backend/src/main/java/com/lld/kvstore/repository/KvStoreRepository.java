@@ -18,10 +18,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The store itself, plus its {@link WriteAheadLog}. {@link #cas} is the concurrency centerpiece
- * — see its javadoc. Every other module shipped in this repo closes its races with a per-entity
- * {@code ReentrantLock}; this one is deliberately lock-free, driven entirely by
- * {@link ConcurrentHashMap#compute}, whose remapping function for a given key runs atomically
- * with respect to every other operation on that same key.
+ * — see its javadoc. It uses a per-key atomic {@link ConcurrentHashMap#compute}
+ * operation instead of a repository-owned lock. Contending map updates may block;
+ * this is an atomicity guarantee, not a lock-free progress guarantee.
  */
 @Repository
 public class KvStoreRepository {
@@ -57,8 +56,9 @@ public class KvStoreRepository {
     /**
      * A genuine compare-and-swap, not a {@code get()} followed by an unconditional
      * {@code set()} — the version check and the update happen inside ONE
-     * {@link ConcurrentHashMap#compute} call, so no other thread can observe or mutate this
-     * key between the check and the write. N threads racing this with the same
+     * {@link ConcurrentHashMap#compute} call, so contending updates cannot split this
+     * version-check-and-replacement operation. Retrievals can still observe the old mapping
+     * while the replacement is being computed. N threads racing this with the same
      * {@code expectedVersion} produce exactly one winner; every loser sees a
      * {@link VersionConflictException} (a genuine version mismatch — the well-formed request
      * simply lost a race) rather than a silently-overwritten or lost update.
@@ -107,7 +107,7 @@ public class KvStoreRepository {
         return wal;
     }
 
-    /** Wipes live state and rebuilds it purely by replaying the (untouched) WAL — proves durability. */
+    /** Rebuilds the map from the retained in-memory WAL; this is not process-crash recovery. */
     public void replayFromWal() {
         store.clear();
         wal.replay(store);

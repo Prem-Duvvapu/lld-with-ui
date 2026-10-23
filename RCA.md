@@ -8,6 +8,9 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-105](#rca-105-shared-design-pattern-cards-overflowed-a-320px-page) | 2026-10-23 | Shared Learning UI / Mobile | A fixed 320px grid minimum exceeded the available width after page padding | Resolved |
+| [RCA-104](#rca-104-kv-learning-views-overstated-atomicity-immutability-and-durability) | 2026-10-23 | KV Store / Teaching Contracts | Atomic compute was called lock-free, mutable entries were called immutable, and retained-memory replay was called durability proof | Resolved |
+| [RCA-103](#rca-103-atm-learning-data-invented-a-transaction-template-method) | 2026-10-23 | ATM / Design Accuracy | Design prose, diagram, filter and README described an execution method absent from the Java transaction record | Resolved |
 | [RCA-102](#rca-102-java-example-output-checks-assumed-checkout-and-runtime-newlines-matched) | 2026-10-21 | Curriculum / Windows-WSL Portability | A CRLF text checkout differed from the same Java output emitted with Linux LF | Resolved |
 | [RCA-101](#rca-101-recording-a-lesson-visit-overwrote-newer-cross-tab-notes) | 2026-10-21 | Curriculum / Browser Storage | Resume metadata was written from a stale initialization snapshot | Resolved |
 | [RCA-100](#rca-100-a-failed-lazy-route-blanked-the-application) | 2026-10-21 | Frontend / Route Recovery | Suspense handled pending imports but there was no boundary for rejected imports or render failures | Resolved |
@@ -39,6 +42,202 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-015](#rca-015-minesweepers-mine-placement-loop-could-spin-forever-on-an-unvalidated-mine-count) | 2026-08-25 | Backend / Minesweeper / Input Validation & Availability | `placeMines`'s `while (placed < totalMines)` loop had no termination guarantee once `totalMines >= rows * cols`, spinning one CPU core forever on a single bad request | Resolved |
 | [RCA-016](#rca-016-minesweepers-reveal-and-flag-endpoints-skipped-bounds-checking-and-threw-an-unhandled-500) | 2026-08-25 | Backend / Minesweeper / Input Validation | `revealCell`/`flagCell` indexed the board with caller-supplied `row`/`col` with no bounds check, so an out-of-range request threw a bare, unhandled `ArrayIndexOutOfBoundsException` (500, message stripped) | Resolved |
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
+
+---
+
+## RCA-105: Shared Design Pattern Cards Overflowed a 320px Page
+
+### 1. Overview & Severity
+
+Medium usability defect. Rendering ATM's corrected Design Patterns section at a
+320px viewport created page-wide horizontal scrolling. The shared PatternsTab
+component made this possible for any module with the same available width.
+
+### 2. Symptoms & Error Logs
+
+Production-asset Chromium checks exercised seven learning/filter views at four
+widths in both themes. Two of 56 views failed the page-overflow assertion:
+
+```text
+{"theme":"light","width":320,"view":"atm-patterns","overflow":16}
+{"theme":"dark","width":320,"view":"atm-patterns","overflow":16}
+```
+
+Other measured widths/views had no overflow or page errors. The original failed
+browser output is retained in `/home/prem/validation/lld-coverage/browser-red.log`.
+
+### 3. Root Cause
+
+PatternsTab used `repeat(auto-fill, minmax(320px, 1fr))`. The viewport was 320px,
+but the actual grid container was narrower after its parent's padding. The fixed
+minimum forced the grid track beyond that container rather than allowing it to shrink.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npm run build
+node /home/prem/validation/lld-coverage/browser.cjs
+npx vitest run src/__tests__/curriculumCoverage.test.js
+```
+
+The external harness serves intercepted production assets; no frontend/backend
+server is started. It measures document scrollWidth minus viewport width, not just
+a component's declared CSS width.
+
+### 5. Step-by-Step Resolution
+
+1. Reproduced the overflow in both themes while checking the corrected ATM content.
+2. Changed the shared track minimum to `min(320px, 100%)`, preserving the desktop
+   card preference while capping the minimum at the actual container width.
+3. Added a regression guard for that responsive minimum without changing themes,
+   module data, business behavior or intentional diagram/table scroll containers.
+4. Repeated all 56 production-built view checks: no page overflow or page errors.
+
+### 6. Preventative Measures
+
+- Use the available container width, not the viewport width, when choosing minimums.
+- Exercise actual design subsections rather than treating a successful module landing
+  page check as complete mobile coverage.
+- Keep local scrolling for genuinely wide diagrams/tables, but do not mask an
+  oversized card grid with document-level overflow hiding.
+
+---
+
+## RCA-104: KV Learning Views Overstated Atomicity, Immutability and Durability
+
+### 1. Overview & Severity
+
+Medium, educational correctness. During the concurrency coverage audit, KV's design
+data, diagram, walkthrough, README and source documentation made stronger guarantees
+than the implementation and its tests establish. No runtime algorithm was changed.
+
+### 2. Symptoms & Error Logs
+
+The UI called ConcurrentHashMap.compute-based CAS "fully lock-free" and used
+"WAL Replay: Durability Proof" for a map rebuilt from a retained in-memory list.
+It also called the Lombok @Data KvEntry model an immutable value object.
+The new regression failed on the original teaching data:
+
+```text
+does not teach per-key atomic compute as a lock-free progress guarantee
+Expected not to match: CAS is lock-free / genuinely lock-free
+Received: ... genuinely lock-free compare-and-swap ...
+```
+
+### 3. Root Cause
+
+- No repository-owned ReentrantLock was incorrectly equated with nonblocking
+  progress; internal map coordination is still relevant.
+- Repository replacement-on-write discipline was confused with an immutable type,
+  although @Data supplies setters.
+- Replaying an in-memory command list was confused with surviving a process crash.
+  A passing winner/version test also does not prove concurrent WAL append ordering.
+
+The [Java 17 compute contract](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html#compute(K,java.util.function.BiFunction))
+specifies atomicity and permits contending updates to block; it does not promise
+lock-free progress. The model and log declarations establish the other limits.
+
+### 4. Diagnostic Commands
+
+```bash
+rg -n -i 'lock.free|durability|immutable' frontend/src/data/design/kvstore.js frontend/src/lld/kvstore/KvStorePage.jsx
+cat backend/src/main/java/com/lld/kvstore/model/KvEntry.java
+cat backend/src/main/java/com/lld/kvstore/repository/WriteAheadLog.java
+rg -n 'compute|wal.append' backend/src/main/java/com/lld/kvstore/repository/KvStoreRepository.java
+cd frontend && npx vitest run src/__tests__/curriculumCoverage.test.js -t 'lock-free progress'
+```
+
+The red regression is retained locally in
+`/home/prem/validation/lld-coverage/kv-red.log`.
+
+### 5. Step-by-Step Resolution
+
+1. Read the actual compute call, generated-setter model and in-memory log, and
+   checked the official Java 17 API contract.
+2. Described the CAS operation as per-key atomic conditional replacement and
+   explicitly stated that contending updates may block.
+3. Replaced immutable-value claims with the repository's replacement discipline
+   and renamed the walkthrough to in-memory reconstruction, without changing calls.
+4. Corrected shared documentation, source documentation and the class-diagram text.
+5. Preserved all existing race/value/version assertions. The focused source/data
+   regression now passes; concurrent WAL ordering remains a separately identified
+   verification gap, not a newly claimed guarantee or a resolved runtime defect.
+
+### 6. Preventative Measures
+
+- Distinguish safety/atomicity, progress, type immutability and crash persistence.
+- Inspect the underlying API's guarantees, not just explicit application locks.
+- Name demonstrations by what was actually tested and retain architectural limits
+  in the coverage matrix before reusing a module as a teaching example.
+- Treat map mutation/log-append ordering as its own future verification concern;
+  do not imply that correcting this teaching copy repairs runtime ordering.
+
+---
+
+## RCA-103: ATM Learning Data Invented a Transaction Template Method
+
+### 1. Overview & Severity
+
+Medium, educational correctness. The curriculum source audit found that ATM's
+learning views advertised Template Method and `Transaction.execute(...)`, although
+the Java base class only holds transaction data and initializes shared fields.
+
+### 2. Symptoms & Error Logs
+
+The design details, class diagram, homepage pattern filter and README repeated the
+claim. Two focused regression tests failed against the original data:
+
+```text
+does not advertise ATM transaction records as a Template Method implementation
+expected false; received true
+does not invent an ATM Transaction.execute method in either learning view
+expected false; received true
+```
+
+No live transaction execution failed; the defect was in what the UI taught.
+
+### 3. Root Cause
+
+An abstract DTO superclass was mistaken for an invariant algorithm with overridable
+hooks. The real withdrawal/deposit algorithms are in `AtmService`, not in
+`Transaction`. A derived pattern-filter map and README propagated the unsupported
+prose without checking the Java call path. The structural content tests checked
+data shape, not the truth of this method/pattern claim.
+
+### 4. Diagnostic Commands
+
+```bash
+rg -n 'execute|Template Method' frontend/src/data/design/atm.js frontend/src/data/diagrams/atm.js
+cat backend/src/main/java/com/lld/atm/model/Transaction.java
+rg -n 'withdraw|deposit' backend/src/main/java/com/lld/atm/service/AtmService.java
+rg -n 'final T read|onMissing|onFound' backend/src/main/java/com/lld/kvstore/template/KvReadTemplate.java
+cd frontend && npx vitest run src/__tests__/curriculumCoverage.test.js -t 'ATM'
+```
+
+The original two failures and corrected pass are retained locally in
+`/home/prem/validation/lld-coverage/atm-red.log` and `atm-green.log`.
+
+### 5. Step-by-Step Resolution
+
+1. Verified the actual base class, subclasses, and service-owned execution path.
+2. Removed the fictional execution method from both learning views and described
+   the record's generated accessor and actual initialization/status semantics.
+3. Marked Template Method unused in ATM, removed ATM from that homepage filter,
+   and replaced the README example with the real `KvReadTemplate` implementation.
+4. Kept inheritance, State, Strategy, and the existing live/sandbox behavior intact.
+5. Added regression checks linking the claim to source and the real KV repository
+   calls to `GetOperation`/`PeekOperation`. Both ATM regressions now pass.
+
+### 6. Preventative Measures
+
+- Verify pattern intent, implementation, and production call sites; names and
+  annotations alone do not establish a GoF pattern.
+- Keep the per-topic curriculum evidence audit distinct from publication status.
+- A class diagram must describe real members, including generated Lombok members,
+  rather than methods that would make the design more textbook-like.
+- Distinguish class-level singleton state instances from Spring bean scope, and
+  simple policy registries from Factory Method or Abstract Factory.
 
 ---
 

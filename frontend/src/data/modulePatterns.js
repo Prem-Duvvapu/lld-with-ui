@@ -17,7 +17,7 @@ export const ALL_DESIGN_PATTERNS = [
 
 const MODULE_PATTERNS = {
   'airline-reservation': ['Factory', 'Strategy'],
-  'atm': ['Factory', 'Singleton', 'State', 'Strategy', 'Template Method'],
+  'atm': ['Factory', 'Singleton', 'State', 'Strategy'],
   'auction': ['Factory', 'Observer', 'Strategy'],
   'blackjack': ['Factory', 'State', 'Strategy'],
   'blocking-queue': ['Observer'],

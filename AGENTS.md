@@ -42,7 +42,7 @@ Before opening the PR, run the suites locally so CI is a confirmation, not a dis
 
 ```bash
 cd backend  && mvn test        # latest validated: 2334 tests
-cd frontend && npx vitest run  # latest validated: 684 tests
+cd frontend && npx vitest run  # latest validated: 693 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -52,6 +52,7 @@ cd frontend && npm run build   # entry chunk must stay under 500 kB
 - `lld-lessons-v1` stores only lesson resume, bookmarks, review marks, and bounded notes. Keep it separate from module progress/import/export; reviewed is not mastery. Read the latest storage before writing resume metadata (RCA-101).
 - `PageErrorBoundary` wraps the shared route Suspense tree, keyed by pathname. Suspense alone does not handle rejected imports. Content-import failures and route failures offer explicit reload; never loop or clear saved progress automatically (RCA-099/100).
 - Track remaining curriculum work in `LLD_LEARNING_CURRICULUM_PLAN.md`; one reference lesson does not complete the full curriculum or module UX audit.
+- `LLD_CURRICULUM_COVERAGE.md` records all 69 topics' outcomes, prerequisites, evidence/mapping limits, exercises and delivery gaps. Keep it aligned with the canonical prerequisite graph and publication statuses; `curriculumCoverage.test.js` guards consistency, not the truth of every architectural interpretation.
 
 ## Parking Lot Module
 ### Backend
@@ -387,6 +388,7 @@ service. Hardened to the reference bar without changing the dispatch model.
 
 ## ATM Module
 ### Backend
+- Learning data must not invent `Transaction.execute`: the abstract base shares record fields/initialization, while `AtmService` owns execution. ATM does not implement Template Method through that record; use `KvReadTemplate` for the verified example (RCA-103). Its static state-object instances are distinct from Spring bean scope.
 Raised from a partially-real module (real dispenser strategy and exceptions, but a bare `ATMState`
 enum with no transition enforcement, a monolithic `BankingService`, and only one test file) to the
 reference bar — same audit-and-harden shape as pubsub/parkinglot.
@@ -1825,22 +1827,22 @@ Package `com.lld.kvstore`.
 ### Backend
 - `com.lld.kvstore`: `controller / service / model / command / template / repository /
   exception` packages.
-- **Fully lock-free compare-and-swap — this module's centerpiece**: `KvStoreRepository#cas`
-  drives its version check and its update through a single `ConcurrentHashMap#compute` call —
-  a deliberate, explicit departure from every other module shipped in this repo, all of which
-  close their races with a per-entity `ReentrantLock`. `compute()`'s remapping function for a
-  given key runs atomically with respect to every other operation on that key, so no separate
-  lock object is ever created. `KvStoreConcurrencyTest` proves it: a 300-round repeated test
+- **Per-key atomic compare-and-swap — this module's centerpiece**: `KvStoreRepository#cas`
+  checks the version and replaces the mapping in one `ConcurrentHashMap#compute` operation.
+  Contending updates may block inside the map; avoiding a repository-owned ReentrantLock
+  does not establish a lock-free progress guarantee. `KvStoreConcurrencyTest` checks the
+  atomicity invariant, not nonblocking progress: a 300-round repeated test
   racing 10 threads against the same key with the identical `expectedVersion` (exactly one
   winner, exactly one version bump, every round), plus a 200-round test proving CAS composes
   correctly across 5 sequential racing "waves" — the winner of one wave genuinely becomes the
   baseline every loser in the next wave must beat.
-- **Command, applied to durability rather than undo/redo**: every successful write (SET or a
+- **Command, applied to in-memory replay rather than undo/redo**: every successful write (SET or a
   winning CAS) appends a `SetCommand`/`DeleteCommand` to a `WriteAheadLog`; replaying the whole
   log against an empty map rebuilds identical state — the same GoF pattern serving a genuinely
   different purpose than the typical undo-stack use. `SetCommand` carries the exact version and
   expiry a write already produced, so replay is a pure "set state to exactly this," with no
-  dependency on command order.
+  recomputation of a write's version. Replay still depends on command order, and both map
+  and log are in memory; this does not demonstrate process-crash durability.
 - **Template Method for the read path only**: `KvReadTemplate` governs both a throwing
   `GetOperation` and a non-throwing `PeekOperation` (used by the sim snapshot). Deliberately
   *not* extended to CAS: CAS's expiry-and-version check must happen atomically inside the same
@@ -2049,7 +2051,7 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 ## Testing
 ```bash
 cd backend && mvn test        # 2334 tests, 285 classes
-cd frontend && npx vitest run # 684 tests, 39 files
+cd frontend && npx vitest run # 693 tests, 40 files
 ```
 
 ### Cross-cutting suites — keep these green

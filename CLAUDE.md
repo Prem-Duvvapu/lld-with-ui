@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 684 tests, 39 files
+npx vitest run                            # latest validated: 693 tests, 40 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -93,6 +93,12 @@ prop is called as `children(tab, setTab)` — the second argument (added alongsi
 page genuinely needs to switch tabs programmatically.
 
 ### Learning curriculum
+
+Phase 0 evidence is in `LLD_CURRICULUM_COVERAGE.md`: all 69 topics have explicit
+outcomes, recommended prerequisites, implementation evidence or a no-mapping
+decision, exercises and delivery gaps. Keep its graph aligned with the canonical
+manifest; an audit row is not a published lesson. The coverage test also guards
+the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 
 `/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
 manifest in `src/learning/curriculum.js`. One reference lesson is published; planned

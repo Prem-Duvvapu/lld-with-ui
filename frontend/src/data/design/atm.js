@@ -215,7 +215,7 @@ export default {
     },
     {
       name: 'Transaction (Abstract)',
-      description: 'Abstract template base class for WithdrawalTransaction and DepositTransaction.',
+      description: 'Abstract transaction record base class for WithdrawalTransaction and DepositTransaction. Execution stays in AtmService; this class has no template execution method.',
       fields: [
         {
           name: 'transactionId',
@@ -235,19 +235,19 @@ export default {
         {
           name: 'status',
           type: 'String',
-          description: 'SUCCESS, FAILED, PENDING'
+          description: 'SUCCESS by default; AtmService marks rejected transactions FAILED'
         },
         {
           name: 'timestampEpoch',
           type: 'long',
-          description: 'Execution epoch millisecond'
+          description: 'Construction time in epoch milliseconds'
         }
       ],
       methods: [
         {
-          name: 'execute(bankingService, cashDispenser)',
-          returns: 'void',
-          description: 'Template method executing transaction lifecycle'
+          name: 'getTransactionId()',
+          returns: 'String',
+          description: 'Lombok-generated accessor for the transaction reference'
         }
       ]
     }
@@ -265,8 +265,8 @@ export default {
     },
     {
       name: 'Template Method Pattern',
-      used: true,
-      explanation: 'Transaction abstract base class defines execution lifecycle for withdrawals and deposits.'
+      used: false,
+      explanation: 'Transaction shares record fields and constructor initialization only. AtmService owns withdrawal and deposit execution; there is no template algorithm with overridable hooks here. KvReadTemplate in Key-Value Store is the verified Template Method example.'
     },
     {
       name: 'Singleton Pattern',

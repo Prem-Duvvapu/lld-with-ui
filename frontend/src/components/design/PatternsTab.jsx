@@ -3,7 +3,7 @@ import Badge from '../ui/Badge';
 
 export default function PatternsTab({ designPatterns = [] }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-4)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: 'var(--space-4)' }}>
       {designPatterns.map((p, i) => (
         <div
           key={i}
