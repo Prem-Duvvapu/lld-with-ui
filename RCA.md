@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-107](#rca-107-recorded-lesson-values-collapsed-meaningful-whitespace) | 2026-10-23 | Curriculum / Illustration Fidelity | Normal HTML whitespace collapsed recorded input spaces; narrow field columns split implementation names on mobile | Resolved |
 | [RCA-106](#rca-106-kv-map-updates-and-log-appends-could-replay-in-different-orders) | 2026-10-23 | Backend / KV / Concurrency | Separate map mutation and command append let replay restore an older value or retain a pre-reset write | Resolved |
 | [RCA-105](#rca-105-shared-design-pattern-cards-overflowed-a-320px-page) | 2026-10-23 | Shared Learning UI / Mobile | A fixed 320px grid minimum exceeded the available width after page padding | Resolved |
 | [RCA-104](#rca-104-kv-learning-views-overstated-atomicity-immutability-and-durability) | 2026-10-23 | KV Store / Teaching Contracts | Atomic compute was called lock-free, mutable entries were called immutable, and retained-memory replay was called durability proof | Resolved |
@@ -45,6 +46,68 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-107: Recorded Lesson Values Collapsed Meaningful Whitespace
+
+### 1. Overview & Severity
+
+Medium teaching-fidelity issue found while adding Enums and Interfaces. Canonical
+Java and fixture values were correct, but their browser presentation lost meaningful
+input spacing. At 320px the value column also split TaggedFormatter across lines.
+
+### 2. Symptoms & Error Logs
+
+The recorded input `"  Hello  "` retained two spaces in the JSON/DOM but appeared
+with one because the definition-list value inherited `white-space: normal`.
+The browser regression added after visual inspection failed on the earlier build:
+
+```text
+AssertionError: recorded input whitespace must remain visible
+false !== true
+```
+
+The earlier mobile screenshot also showed the implementation name split into
+`TaggedForm` and `atter`. Neither issue caused page overflow, so an overflow-only
+check could pass while the illustration was harder to read or visually inaccurate.
+
+### 3. Root Cause
+
+The first reference lesson displayed a topic and a number. Generalizing it to
+recorded strings and longer type names exposed assumptions in the inherited
+two-column layout and default HTML whitespace handling. Verifying JSON values
+against Java proves the facts, not their rendered spacing or line breaks.
+
+### 4. Diagnostic Commands
+
+Build from WSL without starting an application server:
+
+```bash
+cd frontend
+npm run build
+node /home/prem/validation/lld-oop/browser.cjs
+```
+
+The intercepted browser checks inspect computed `whiteSpace` on illustration
+values, DOM Range line rectangles for the mobile implementation name, page width,
+and both themes. The red log is retained as `field-values-red.log` in that directory.
+
+### 5. Step-by-Step Resolution
+
+1. Inspect actual 320px screenshots after the functional browser checks pass.
+2. Add a browser assertion for preserved whitespace and reproduce the failure on
+   the preceding production build.
+3. Apply `white-space: pre-wrap` to recorded values and stack label/value fields
+   at widths up to 480px. Preserve the two-column layout on larger screens.
+4. Rebuild and verify preserved whitespace plus one-line TaggedFormatter values
+   at 320/390px. Repeat the whole light/dark viewport and lesson-flow matrix.
+   Canonical Java, fixture strings and parsing/formatting algorithms stay intact.
+
+### 6. Preventative Measures
+
+Treat significant whitespace as part of displayed code/input data. Keep the Java
+fixture checks, but also inspect computed styles and representative narrow-screen
+renderings. A passing DOM-text assertion or absence of overflow does not prove
+that a recorded illustration faithfully displays its values.
 
 ## RCA-106: KV Map Updates and Log Appends Could Replay in Different Orders
 

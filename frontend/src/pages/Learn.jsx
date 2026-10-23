@@ -30,7 +30,7 @@ export default function Learn() {
         <p className="learn-muted">{reviewed} of {PUBLISHED_LESSONS.length} published lessons marked reviewed. This is a personal checklist, not a mastery score.</p>
       </header>
       <aside className="learn-callout" aria-label="Curriculum availability">
-        <strong>One complete lesson is available now.</strong>
+        <strong>{PUBLISHED_LESSONS.length} complete {PUBLISHED_LESSONS.length === 1 ? 'lesson is' : 'lessons are'} available now.</strong>
         <p>The remaining topics below are a transparent roadmap, not empty lesson pages. Proposed additions are labelled. Concurrency 101 is the overview for the concurrency foundations, not a duplicate introduction.</p>
         <p>Lesson notes, bookmarks, and review marks stay in this browser, separately from module progress. They do not sync across devices and are not included in the module progress export.</p>
       </aside>

@@ -29,12 +29,14 @@ describe('Curriculum inventory and publication contract', () => {
 
   it('publishes content only when a matching lazy-loaded file exists', async () => {
     const files = Object.keys(import.meta.glob('../learning/lessons/*.js'));
-    expect(files).toEqual(PUBLISHED_LESSONS.map(entry => `../learning/lessons/${entry.id}.js`));
-    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['classes-and-objects']);
+    expect(files.sort()).toEqual(PUBLISHED_LESSONS.map(entry => `../learning/lessons/${entry.id}.js`).sort());
+    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['classes-and-objects', 'enums', 'interfaces']);
     expect(lesson.id).toBe(PUBLISHED_LESSONS[0].id);
     expect(lesson.quiz.options.filter(option => option.correct)).toHaveLength(1);
     expect((await loadLesson('classes-and-objects')).id).toBe('classes-and-objects');
-    await expect(loadLesson('enums')).rejects.toThrow('no published content');
+    expect((await loadLesson('enums')).id).toBe('enums');
+    expect((await loadLesson('interfaces')).id).toBe('interfaces');
+    await expect(loadLesson('encapsulation')).rejects.toThrow('no published content');
   });
 
   it('uses the actual Java files and pins output and visual data to the Java contract tests', () => {
@@ -43,9 +45,30 @@ describe('Curriculum inventory and publication contract', () => {
       expect(block.source).toBe(actual);
     }
     expect(lesson.output).toContain('first: Objects, reviews=2');
-    expect(lesson.visual.snapshots[2].objects[0].reviewCount).toBe(2);
+    expect(lesson.visual.snapshots[2].items[0].fields.find(field => field.name === 'reviewCount').value).toBe(2);
     for (const path of lesson.module.sources) expect(fs.existsSync(new URL(`../../../${path}`, import.meta.url))).toBe(true);
     expect(fs.readFileSync(new URL('../../../backend/src/test/java/com/lld/learning/ClassesAndObjectsExampleTest.java', import.meta.url), 'utf8')).toContain('illustrationSnapshotsMatchTheActualJavaStates');
+  });
+
+  it.each(['classes-and-objects', 'enums', 'interfaces'])('keeps %s self-contained with canonical Java and readable illustration fields', async id => {
+    const content = await loadLesson(id);
+    expect(content.id).toBe(id);
+    for (const block of content.code) {
+      expect(block.source).toBe(fs.readFileSync(new URL(`../learning/examples/${block.filename}`, import.meta.url), 'utf8'));
+      expect(content.run).toContain(block.filename);
+    }
+    expect(content.quiz.options.filter(option => option.correct)).toHaveLength(1);
+    for (const snapshot of content.visual.snapshots) {
+      expect(snapshot.items.length).toBeGreaterThan(0);
+      expect(new Set(snapshot.items.map(item => item.label)).size).toBe(snapshot.items.length);
+      for (const item of snapshot.items) {
+        expect(item.typeLabel || content.visual.typeLabel).toBeTruthy();
+        expect(item.fields.length).toBeGreaterThan(0);
+        expect(new Set(item.fields.map(field => field.name)).size).toBe(item.fields.length);
+        expect(item.fields.every(field => ['string', 'number', 'boolean'].includes(typeof field.value))).toBe(true);
+      }
+    }
+    for (const source of content.module.sources) expect(fs.existsSync(new URL(`../../../${source}`, import.meta.url))).toBe(true);
   });
 
   it('registers the catalog and lesson routes lazily and makes learning discoverable', () => {

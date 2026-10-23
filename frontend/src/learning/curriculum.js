@@ -169,13 +169,14 @@ const prerequisites = {
 };
 
 export const CURRICULUM_GROUPS = groups.map(([id, title]) => ({ id, title }));
+const published = new Set(['classes-and-objects', 'enums', 'interfaces']);
 
 export const LESSONS = groups.flatMap(([group, , entries]) => entries.map(([id, title, proposed = false]) => ({
   id,
   title,
   group,
   proposed,
-  status: id === 'classes-and-objects' ? 'published' : 'planned',
+  status: published.has(id) ? 'published' : 'planned',
   prerequisites: prerequisites[id],
 })));
 

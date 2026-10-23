@@ -2,25 +2,25 @@
   {
     "title": "Create two objects",
     "explanation": "Each new expression creates a distinct StudyCard, even though both topics are Objects. Each instance starts with its own reviewCount of zero.",
-    "objects": [
-      { "label": "Object A", "references": ["first"], "topic": "Objects", "reviewCount": 0 },
-      { "label": "Object B", "references": ["second"], "topic": "Objects", "reviewCount": 0 }
+    "items": [
+      { "label": "Object A", "references": ["first"], "fields": [{ "name": "topic", "value": "Objects" }, { "name": "reviewCount", "value": 0 }] },
+      { "label": "Object B", "references": ["second"], "fields": [{ "name": "topic", "value": "Objects" }, { "name": "reviewCount", "value": 0 }] }
     ]
   },
   {
     "title": "Review the first object",
     "explanation": "first.review() changes Object A. Object B is a separate instance and stays unchanged.",
-    "objects": [
-      { "label": "Object A", "references": ["first"], "topic": "Objects", "reviewCount": 1 },
-      { "label": "Object B", "references": ["second"], "topic": "Objects", "reviewCount": 0 }
+    "items": [
+      { "label": "Object A", "references": ["first"], "fields": [{ "name": "topic", "value": "Objects" }, { "name": "reviewCount", "value": 1 }] },
+      { "label": "Object B", "references": ["second"], "fields": [{ "name": "topic", "value": "Objects" }, { "name": "reviewCount", "value": 0 }] }
     ]
   },
   {
     "title": "Add an alias and review again",
     "explanation": "alias = first copies the reference, not the object. alias.review() changes Object A again. There are still two objects, not three.",
-    "objects": [
-      { "label": "Object A", "references": ["first", "alias"], "topic": "Objects", "reviewCount": 2 },
-      { "label": "Object B", "references": ["second"], "topic": "Objects", "reviewCount": 0 }
+    "items": [
+      { "label": "Object A", "references": ["first", "alias"], "fields": [{ "name": "topic", "value": "Objects" }, { "name": "reviewCount", "value": 2 }] },
+      { "label": "Object B", "references": ["second"], "fields": [{ "name": "topic", "value": "Objects" }, { "name": "reviewCount", "value": 0 }] }
     ]
   }
 ]

@@ -1,9 +1,9 @@
 # LLD curriculum coverage audit
 
-Audited: 2026-10-23, against the source baseline merged in PR #166, plus the ATM
-documentation correction in this audit branch. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There is one published lesson
-and 68 undelivered topics. The canonical IDs, publication status, grouping and
+Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
+#168, and the Enums/Interfaces delivery below. This is the Phase 0 source and
+delivery-gap audit, **not a completed curriculum**. There are three published lessons
+and 66 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
 ## Reading the matrix
@@ -37,8 +37,8 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
 | `classes-and-objects` — Classes and Objects | Distinguish a class, two independent instances and two references to one instance. | None | [E01](#e01): published `/learn/classes-and-objects`; [E02](#e02): ParkingSpot practice connection. | Predict the two cards' counts and identity; model two independent reading sessions and explain an alias. | Delivered: source, output and three snapshots are Java-tested; prediction feedback, exercise, rubric, notes and review are published. |
-| `enums` — Enums | Model a closed set of valid values and separate enum values from arbitrary request strings. | `classes-and-objects` | [E02](#e02): VehicleType and PricingStrategyType; factory parsing rejects unknown pricing names. Practice `/parking-lot`. | Add an unsupported input case and explain why an enum alone does not validate every external string. | G: enum lesson, parsing walkthrough, tested invalid-input exercise and value inspection. |
-| `interfaces` — Interfaces | Explain a behavioral contract and substitute implementations through its declared type. | `classes-and-objects` | [E02](#e02): PricingStrategy.calculatePrice, multiple policies and service/repository use. Practice `/parking-lot`. | Substitute flat and hourly policies for one fixed ticket and explain their shared contract. | G: contract lesson, dispatch trace and tested implementation exercise. |
+| `enums` — Enums | Model a closed set of valid values and separate enum values from arbitrary request strings. | `classes-and-objects` | [E25](#e25): compiled ReviewPriority, normalization/rejection snapshots and compiler checks; [E02](#e02): real enum/factory boundaries. Practice `/parking-lot`. | Add a declared priority with explicit data; test normalized, unknown, blank and null input; explain why user-created labels need a different model. | Delivered: `/learn/enums`, Java-verified illustration/output, prediction, exercise/rubric and verified module/source links. |
+| `interfaces` — Interfaces | Explain a behavioral contract and substitute implementations through its declared type. | `classes-and-objects` | [E25](#e25): compiled MessageFormatter implementations, dispatch/contract fixtures and compiler checks; [E02](#e02): production pricing-policy call. Practice `/parking-lot`. | Add BracketFormatter without changing the caller, reuse invalid-input tests and explain the cost of unrelated interface methods. | Delivered: `/learn/interfaces`, Java-verified dispatch/contract illustration and output, prediction, exercise/rubric and verified module/source links. |
 | `encapsulation` — Encapsulation | Protect valid state through operations rather than exposing every field for mutation. | `classes-and-objects`, `access-modifiers` | [E01](#e01): private StudyCard fields; [E04](#e04): defensive ingredient-map copies. Practice `/coffee-machine`. | Try to mutate a returned ingredient map and show which object does or does not change. | G: before/after design, invalid-state exercise and explicit limits of setters and final references. |
 | `abstraction` — Abstraction | Separate the operation a caller needs from a concrete pricing algorithm's implementation. | `encapsulation`, `interfaces` | [E02](#e02): PricingStrategy contract and policies; this is a reusable seam, not proof every module is optimally abstracted. | Replace a concrete-policy dependency with the smallest sufficient contract and justify what stays private. | G: abstraction versus encapsulation comparison, visual and compile-tested refactoring. |
 | `inheritance` — Inheritance | Explain subtype construction and shared state without assuming inheritance supplies an execution algorithm. | `classes-and-objects`, `access-modifiers` | [E03](#e03): abstract Transaction and deposit/withdrawal records. Practice `/atm`. | Trace super-constructor initialization and identify what the subclasses add; explain why there is no Transaction.execute. | G: subtype lesson, composition alternative and substitutability exercise. |
@@ -494,6 +494,31 @@ existing routes, ordering and publication distinction. The
 inventory/publication contract. This does not provide an interview timer, mock
 rubric, full beginner guide or all concept lessons merely because system modules exist.
 
+<a id="e25"></a>
+### E25 — Published Enums and Interfaces examples
+
+[Enums](frontend/src/learning/lessons/enums.js) displays canonical
+[ReviewPriority](frontend/src/learning/examples/ReviewPriority.java) and
+[EnumDemo](frontend/src/learning/examples/EnumDemo.java). It distinguishes exact
+lookup from explicit normalization, rejects unsupported/blank/null input, and
+explains declared constant data, identity and ordinal limits.
+[Interfaces](frontend/src/learning/lessons/interfaces.js) displays
+[MessageFormatter](frontend/src/learning/examples/MessageFormatter.java),
+[PlainFormatter](frontend/src/learning/examples/PlainFormatter.java),
+[TaggedFormatter](frontend/src/learning/examples/TaggedFormatter.java) and
+[InterfaceDemo](frontend/src/learning/examples/InterfaceDemo.java).
+[OopExamplesTest](backend/src/test/java/com/lld/learning/OopExamplesTest.java)
+compiles these exact files with JDK 17, checks actual outputs and illustration
+fixtures, exercises both implementations' input contracts, and verifies compiler
+rejection of string-to-enum assignment, enum/interface construction, an incomplete
+implementation and an implementation-only call through the interface type.
+
+The illustrations display recorded facts, not a JavaScript parser, formatter or
+live JVM. Each lesson includes prediction feedback, a separate exercise/rubric,
+references to official Java documentation and links to verified Parking source.
+The generic field renderer also preserves the original object/reference lesson.
+Three delivered topics do not complete Phase 2 or the 69-topic curriculum.
+
 ## Supporting material that must not disappear between lessons
 
 - Atomicity/visibility/happens-before: cover in race conditions and primitives;
@@ -534,5 +559,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 68 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 66 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.

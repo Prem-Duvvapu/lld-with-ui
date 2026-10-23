@@ -1,0 +1,4 @@
+priority=HIGH
+weight=3
+same constant=true
+rejected=Unsupported priority: urgent

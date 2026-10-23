@@ -8,6 +8,8 @@ import Lesson from '../pages/Lesson';
 import { LESSON_STORAGE_KEY, useLessonProgress } from '../learning/useLessonProgress';
 import { loadLesson } from '../learning/lessonLoader';
 import content from '../learning/lessons/classes-and-objects';
+import enumLesson from '../learning/lessons/enums';
+import interfaceLesson from '../learning/lessons/interfaces';
 
 vi.mock('../learning/lessonLoader', () => ({ loadLesson: vi.fn() }));
 
@@ -25,15 +27,18 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   localStorage.clear();
   sessionStorage.clear();
-  loadLesson.mockReset().mockResolvedValue(content);
+  loadLesson.mockReset().mockImplementation(id => Promise.resolve({
+    'classes-and-objects': content, enums: enumLesson, interfaces: interfaceLesson,
+  }[id]));
 });
 
 describe('Published curriculum learning journey', () => {
   it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
     renderLearning();
-    expect(screen.getByText('One complete lesson is available now.')).toBeInTheDocument();
+    expect(screen.getByText('3 complete lessons are available now.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Classes and Objects.*Available/ })).toHaveAttribute('href', '/learn/classes-and-objects');
-    expect(screen.queryByRole('link', { name: 'Enums' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Enums.*Available/ })).toHaveAttribute('href', '/learn/enums');
+    expect(screen.getByRole('link', { name: /Interfaces.*Available/ })).toHaveAttribute('href', '/learn/interfaces');
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search lessons' }), { target: { value: 'SOLID' } });
     expect(screen.getByText('SOLID Principles with Pictures')).toBeVisible();
     expect(screen.getByText('SOLID Principles with Code')).toBeVisible();
@@ -69,6 +74,60 @@ describe('Published curriculum learning journey', () => {
     expect(screen.getByRole('button', { name: 'Mark lesson not reviewed' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('shows enum parsing and rejection without reusing StudyCard fields', async () => {
+    renderLearning('/learn/enums');
+    await screen.findByRole('heading', { name: 'Enums', level: 1 });
+    expect(screen.getByRole('link', { name: 'Review Classes and Objects' })).toHaveAttribute('href', '/learn/classes-and-objects');
+    expect(screen.getByText('LOW, MEDIUM, HIGH')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '2. Normalize one input' }));
+    expect(screen.getByText('" high "')).toBeInTheDocument();
+    expect(screen.getByText('true')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '3. Reject an unknown name' }));
+    expect(screen.getByText('Unsupported priority: urgent')).toBeInTheDocument();
+    expect(screen.queryByText('reviewCount')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'valueOf rejects it; parse returns the existing HIGH constant' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText(/Our boundary policy trims and normalizes/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('shows interface dispatch and the shared validation contract for both implementations', async () => {
+    renderLearning('/learn/interfaces');
+    await screen.findByRole('heading', { name: 'Interfaces', level: 1 });
+    expect(screen.getByText('Hello', { exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '2. Substitute a tagged implementation' }));
+    expect(screen.getByText('[LLD] Hello', { exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '3. Check the shared contract' }));
+    expect(screen.getAllByText('IllegalArgumentException', { exact: true })).toHaveLength(2);
+    expect(screen.getAllByText('Text is required', { exact: true })).toHaveLength(2);
+    expect(screen.getByRole('region', { name: 'TaggedFormatter.java, scrollable code' })).toHaveAttribute('tabindex', '0');
+    fireEvent.click(screen.getByRole('radio', { name: '[LLD] Hello, through TaggedFormatter.format' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check prediction' }));
+    expect(screen.getByText(/same interface call reaches the tagged implementation/)).toBeInTheDocument();
+  });
+
+  it('navigates between published lessons with fresh interaction state and separate saved notes', async () => {
+    await openLesson();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Class notes' } });
+    fireEvent.click(screen.getByRole('button', { name: '3. Add an alias and review again' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'first: 2, second: 0; two objects' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Next: Enums →' }));
+    expect(await screen.findByRole('heading', { name: 'Enums', level: 1 })).toHaveFocus();
+    expect(screen.getByRole('button', { name: '1. Inspect the constants' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+    expect(screen.getAllByRole('radio').every(radio => !radio.checked)).toBe(true);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Enum notes' } });
+    fireEvent.click(screen.getByRole('link', { name: 'Next: Interfaces →' }));
+    await screen.findByRole('heading', { name: 'Interfaces', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+    fireEvent.click(screen.getByRole('link', { name: '← Enums' }));
+    await screen.findByRole('heading', { name: 'Enums', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Enum notes');
+    fireEvent.click(screen.getByRole('link', { name: '← Classes and Objects' }));
+    await screen.findByRole('heading', { name: 'Classes and Objects', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Class notes');
+  });
+
   it('persists notes, bookmark, resume and review independently from module progress', async () => {
     localStorage.setItem('lld-progress-v1', JSON.stringify({ parking: 123 }));
     await openLesson();
@@ -76,7 +135,7 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
-    expect(screen.getByText(/1 of 1 published lessons marked reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 3 published lessons marked reviewed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
     expect(screen.getByText('1 topics match. 1 available to open.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('link', { name: 'Resume learning →' }));
@@ -87,7 +146,7 @@ describe('Published curriculum learning journey', () => {
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe('classes-and-objects');
   });
 
-  it.each(['/learn/enums', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
+  it.each(['/learn/encapsulation', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
     renderLearning(path);
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Mark lesson/ })).not.toBeInTheDocument();
@@ -122,11 +181,11 @@ describe('Published curriculum learning journey', () => {
   });
 
   it('bounds and validates stored lesson data and ignores unpublished completion marks', async () => {
-    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'enums', lessons: { enums: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'encapsulation', lessons: { encapsulation: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
     await openLesson();
     expect(screen.getByRole('textbox', { name: 'Your explanation' }).value).toHaveLength(2000);
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
-    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.enums).toBeUndefined();
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.encapsulation).toBeUndefined();
   });
 
   it('keeps a usable session when storage is malformed or blocked', async () => {
