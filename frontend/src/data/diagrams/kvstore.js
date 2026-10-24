@@ -8,13 +8,18 @@ export default {
     {
       name: 'KvStoreService',
       stereotype: 'service',
-      fields: ['- repository: KvStoreRepository'],
+      fields: ['- repository: KvStoreRepository', '- simulation: KvStoreSimulation'],
       methods: [
         '+ set(key, value, ttlSeconds): KvEntry',
         '+ get(key): KvEntry',
         '+ delete(key): void',
         '+ cas(key, expectedVersion, newValue): KvEntry',
       ],
+    },
+    {
+      name: 'KvStoreSimulation',
+      fields: ['- repository: KvStoreRepository // isolated', '- operation: ReentrantLock', '- eventLock: Object', '- events: List<SimEvent>', '- lastRace: Map'],
+      methods: ['~ reset/set/get/replay/ttl/race: snapshot', '~ snapshot(): Map // detached records, counts and last race', '~ events(): List<SimEvent> // detached', '- stopAndJoin(executor): void // before releasing operation gate'],
     },
     {
       name: 'KvStoreRepository',
@@ -91,6 +96,8 @@ export default {
   ],
   relationships: [
     { from: 'KvStoreService', to: 'KvStoreRepository', label: 'reads/writes' },
+    { from: 'KvStoreService', to: 'KvStoreSimulation', label: 'delegates sandbox operations' },
+    { from: 'KvStoreSimulation', to: 'KvStoreRepository', label: 'owns isolated instance; real concurrent CAS workers' },
     { from: 'KvStoreRepository', to: 'KvEntry', label: 'stores' },
     { from: 'KvStoreRepository', to: 'WriteAheadLog', label: 'appends every successful write to' },
     { from: 'KvStoreRepository', to: 'GetOperation', label: 'delegates get() to' },

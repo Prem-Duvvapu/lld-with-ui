@@ -51,8 +51,7 @@ public class KvStoreController {
 
     @PostMapping("/sim/reset")
     public Map<String, Object> simReset() {
-        service.initSimState();
-        return service.getSimSnapshots();
+        return service.simReset();
     }
 
     @PutMapping("/sim/{key}")
