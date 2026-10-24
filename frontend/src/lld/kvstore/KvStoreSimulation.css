@@ -1,0 +1,33 @@
+.kv-simulation { min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.kv-sim-card { min-width: 0; margin-bottom: 20px; padding: 20px; border: 1px solid var(--border-primary); border-radius: 12px; background: var(--bg-secondary); }
+.kv-sim-card h2, .kv-sim-card h3 { margin: 0 0 12px; }
+.kv-sim-card h2 { font-size: 1.25rem; }
+.kv-sim-card h3 { font-size: 1.1rem; }
+.kv-sim-card p { line-height: 1.65; color: var(--text-secondary); }
+.kv-sim-settings { min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 16px; padding: 12px; border: 1px solid var(--border-primary); border-radius: 8px; }
+.kv-sim-settings label { min-width: 0; display: grid; gap: 8px; font-weight: 600; }
+.kv-sim-settings input, .kv-sim-settings select, .kv-sim-pagination button { box-sizing: border-box; min-width: 0; width: 100%; min-height: 44px; padding: 10px 12px; font: inherit; color: var(--text-primary); background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; }
+.kv-sim-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); gap: 12px; list-style-position: inside; margin: 0 0 20px; padding: 0; }
+.kv-sim-steps li { min-width: 0; padding: 12px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-secondary); }
+.kv-sim-steps strong { line-height: 1.5; }
+.kv-sim-steps span { display: block; margin-top: 6px; color: var(--text-secondary); }
+.kv-sim-steps [aria-current='step'] { border-color: var(--accent); }
+.kv-sim-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 12px; }
+.kv-sim-stats div { min-width: 0; padding: 12px; background: var(--bg-primary); border-radius: 8px; }
+.kv-sim-stats dt { color: var(--text-secondary); }
+.kv-sim-stats dd { margin: 8px 0 0; font-size: 1.25rem; font-weight: 700; }
+.kv-sim-table { max-width: 100%; overflow-x: auto; border: 1px solid var(--border-primary); border-radius: 8px; }
+.kv-sim-table table { min-width: 680px; width: 100%; table-layout: fixed; border-collapse: collapse; }
+.kv-sim-table caption { padding: 12px; text-align: left; color: var(--text-secondary); }
+.kv-sim-table th, .kv-sim-table td { padding: 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--border-primary); overflow-wrap: anywhere; }
+.kv-sim-table code { white-space: pre-wrap; }
+.kv-sim-pagination { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+.kv-sim-pagination button { width: auto; cursor: pointer; }
+.kv-simulation button:disabled { cursor: not-allowed; }
+.kv-simulation :is(input, select, button, [tabindex='0']):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
+.kv-sim-log { list-style: none; margin: 0; padding: 0; }
+.kv-sim-log li { margin-top: 10px; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 8px; }
+.kv-sim-log code, .kv-sim-log p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.kv-sim-log span { color: var(--text-secondary); font-size: .85rem; }
+.kv-sim-log p { margin-bottom: 0; }
+@media (max-width: 480px) { .kv-sim-card { padding: 16px; } .kv-sim-settings { padding: 10px; } }

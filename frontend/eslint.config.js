@@ -59,7 +59,7 @@ export default [
   },
 
   {
-    files: ['src/components/DiagramViewer.jsx', 'src/lld/logging-framework/LoggingFrameworkPage.jsx', 'src/lld/parking/ParkingLotPage.jsx', 'src/learning/LessonContent.jsx'],
+    files: ['src/components/DiagramViewer.jsx', 'src/lld/logging-framework/LoggingFrameworkPage.jsx', 'src/lld/parking/ParkingLotPage.jsx', 'src/learning/LessonContent.jsx', 'src/lld/kvstore/KvStoreSimulation.jsx'],
     rules: {
       'jsx-a11y/no-noninteractive-tabindex': ['error', { roles: ['region'] }],
     },

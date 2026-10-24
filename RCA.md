@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-111](#rca-111-kv-sandbox-operations-could-interleave-and-responses-exposed-live-events) | 2026-10-23 | KV / Sandbox Lifecycle | Reset split mutations from event commit, returned events leaked mutable history, and interrupted coordinators could leave workers running | Resolved; final module browser review in progress |
 | [RCA-110](#rca-110-kv-request-coercion-crashed-on-missing-values-and-silently-overflowed-ttls) | 2026-10-23 | Backend / KV Request Validation | Missing/null fields threw NPEs, structured values were stringified, TTL overflow disabled expiry, and race sizes were unbounded | Resolved; sandbox snapshot/lifecycle audit remains open |
 | [RCA-109](#rca-109-kv-read-failures-were-reported-as-missing-keys-and-writes-could-overlap) | 2026-10-23 | Frontend / KV Live Workspace | Every failed GET became a false 404; unguarded mutations and stale responses could mislead users | Resolved in live workspace; full module audit remains open |
 | [RCA-108](#rca-108-the-spa-rewrite-returned-html-for-vercels-analytics-script) | 2026-10-23 | Deployment / Vercel Routing | The SPA fallback captured reserved platform and asset paths; the live analytics script returned HTML and threw a syntax error | Resolved; deployed routing verified |
@@ -49,6 +50,72 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-111: KV Sandbox Operations Could Interleave and Responses Exposed Live Events
+
+### 1. Overview & Severity
+
+High for sandbox correctness and teaching fidelity. Reset, replay and experiment
+operations lacked a shared lifecycle gate. Responses exposed the mutable event list,
+events and detail maps. The UI also counted expired retained mappings as live entries.
+
+### 2. Symptoms & Error Logs
+
+Three pre-fix regressions failed: mutating a returned event rewrote stored history,
+a two-event captured snapshot grew to three after a later operation, and the final
+snapshot read lost the completed race result. Evidence is in
+`/home/prem/validation/lld-kv-sim/red.log`. Source inspection also found pool shutdown
+only on the successful coordinator path, and unexpected worker failures discarded
+inside unobserved Futures.
+
+### 3. Root Cause
+
+Only reset synchronized on the service monitor; other sandbox methods never acquired
+that monitor. Repository locks protect map/log coherence, not the larger operation's
+event commit or the TTL/race experiment. CopyOnWriteArrayList protects iteration but
+does not detach a returned list or its mutable elements. CountDownLatch completion
+did not propagate worker exceptions, and interruption bypassed executor shutdown.
+
+### 4. Diagnostic Commands
+
+```bash
+cd backend
+mvn '-Dtest=KvStoreSimulationLifecycleTest' test
+mvn '-Dtest=KvStoreServiceTest,KvStoreRequestValidationTest,KvStoreControllerIntegrationTest,DomainExceptionContractTest' test
+```
+
+Latch-controlled tests pause a mutation before its event commit, hold all actual
+CAS workers concurrently, and hold interrupted workers in cleanup. Observer/reset
+Futures must remain pending until release. No application server is started.
+
+### 5. Step-by-Step Resolution
+
+1. Move sandbox state into a separate plain Java coordinator. One fair operation
+   gate protects mutations, reset, replay, experiments and snapshot/event reads.
+   Reset returns its snapshot under that same gate, without a second controller read.
+2. Keep CAS workers outside the coordinator gate. Each still calls the real
+   repository CAS concurrently. A separate event monitor orders IDs and event append.
+3. Observe Future failures. Always shut down and join the finite worker pool before
+   releasing the operation gate. Record interrupted/failed runs without a success
+   summary; unexpected failures carry typed HTTP 409 and explicit reset guidance.
+4. Copy event models and scalar detail maps on response; persist a detached last
+   race summary for final review. Reset clears that summary. Captured responses
+   remain independent of later appends and reset.
+5. Report server capture time, retained/readable counts, expired keys and event
+   count. TTL checks still use the real server clock; expired mappings are retained
+   and are never mislabeled as currently readable by browser time arithmetic.
+6. Pass 14 new lifecycle cases and 87 combined focused Java cases, retaining typed
+   request rejection, actual 1/8/32-worker races and independent live-store state.
+
+### 6. Preventative Measures
+
+Test operation boundaries as well as per-key atomicity. Prove workers reach CAS
+concurrently so lifecycle protection cannot accidentally remove the teaching race.
+Do not equate cancellation with termination or release reset while workers can still
+write. Treat returned collection elements/details as part of snapshot ownership.
+Future event detail types beyond the current scalar counters need corresponding
+copying rules. Browser progress must represent acknowledged steps, not fabricated
+JVM scheduling, and must stop after failure or tab departure.
 
 ## RCA-110: KV Request Coercion Crashed on Missing Values and Silently Overflowed TTLs
 

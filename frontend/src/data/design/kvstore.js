@@ -10,9 +10,15 @@ export default {
     'Command Pattern applied to in-memory replay, not undo/redo: successful writes append commands to the WriteAheadLog, whose recorded order reconstructs state. Process restart loses both the map and this in-memory log.',
     'Template Method for the two read-only query paths (a throwing GET and a non-throwing peek used by the sim snapshot) — deliberately NOT used for CAS, whose expiry-and-version check must happen atomically inside one ConcurrentHashMap#compute call, not as a separate template-driven pre-read.',
     'The centerpiece: version validation, log append and replacement share one per-key atomic ConcurrentHashMap#compute operation. Contending updates may block. A shared lifecycle gate lets independent keys proceed; replay, reset and coherent snapshots take its exclusive side.',
-    'Isolated Concurrency Simulation: an isolated /api/kvstore/sim/* sandbox (a second KvStoreRepository instance) with an in-memory WAL replay demo, a real TTL expiry wait, and a live multi-worker CAS race.',
+    'Isolated Concurrency Simulation: KvStoreSimulation owns a second repository and a fair operation gate across reset, replay, complete experiments and snapshot reads. CAS workers do not acquire that gate; they race concurrently inside the repository. Worker pools stop before the next operation can begin, and event responses are detached.',
   ],
   entities: [
+    {
+      name: 'KvStoreSimulation',
+      description: 'Owns sandbox state, an operation gate and a separate event monitor. A coordinator retains the operation gate while CAS workers run; workers acquire only repository coordination and the event monitor, never the coordinator gate. Snapshot counts/readability come from one server capture time, and the last completed race survives final review.',
+      fields: [],
+      methods: [],
+    },
     {
       name: 'KvStoreRepository',
       description: 'Owns the map, command log and lifecycle lock. SET, CAS and DELETE append inside compute before publishing the mapping. Replay, reset and snapshots exclude key operations using the exclusive lifecycle gate.',
@@ -80,6 +86,7 @@ export default {
   ],
   summary: 'A toy Redis-shaped store with per-key atomic compare-and-swap: version validation and replacement occur in one ConcurrentHashMap#compute operation, whose internal coordination may block contending updates. Logged commands demonstrate in-memory replay, not persistence across a process restart. KvReadTemplate governs throwing GET and non-throwing peek; it stays separate from the atomic write-path check. Repository writes replace values, but the KvEntry model remains mutable.',
   highlights: [
+    'Lifecycle tests hold a mutation before its event commit, reach CAS with all workers concurrently, and interrupt a coordinator while workers drain. Reset and reads wait for complete operation boundaries. Returned event models, scalar detail maps and race summaries cannot rewrite stored history; expired mappings are distinguished from readable entries.',
     'The CAS race is tested directly: 10 threads contend with the same expectedVersion across 300 rounds, asserting one winner and one version bump. This establishes the tested atomicity invariant, not a lock-free progress guarantee.',
     'A second, harder concurrency test proves CAS composes correctly across successive "waves": 5 sequential waves of 6 racing threads each, asserting the version climbs by exactly 1 per wave across 200 rounds — proving the winner of one wave genuinely becomes the new baseline every loser in the NEXT wave must beat, not just that any single race in isolation works.',
     'Latch-controlled tests pause SET, CAS and DELETE at append and race subsequent writes, replay, reset and snapshot reads. They verify command order, detached responses, original TTL, failure recovery and independent-key concurrency. Neither map nor log survives a process restart.',

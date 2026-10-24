@@ -37,7 +37,7 @@ class KvStoreRequestValidationTest {
         service = new KvStoreService(repository);
         service.set("key", "seed", null);
         service.simSet("key", "sandbox seed", null);
-        before = json.valueToTree(service.getSimSnapshots());
+        before = snapshotState();
         http = MockMvcBuilders.standaloneSetup(new KvStoreController(service))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(json)).build();
@@ -211,6 +211,12 @@ class KvStoreRequestValidationTest {
         assertEquals("seed", service.get("key").getValue());
         assertEquals(1, service.get("key").getVersion());
         assertEquals(1, repository.snapshot().commands().size());
-        assertEquals(before, json.valueToTree(service.getSimSnapshots()), "a rejected request cannot seed keys, append commands or log events");
+        assertEquals(before, snapshotState(), "a rejected request cannot seed keys, append commands or log events");
+    }
+
+    private JsonNode snapshotState() {
+        var snapshot = (com.fasterxml.jackson.databind.node.ObjectNode) json.valueToTree(service.getSimSnapshots());
+        snapshot.remove("snapshotAtEpoch"); // the capture time can advance without changing any store state
+        return snapshot;
     }
 }

@@ -25,40 +25,40 @@ export function cas(key, expectedVersion, newValue, options = {}) {
 }
 
 // Simulation endpoints
-export function simReset() {
-  return apiFetch('/kvstore/sim/reset', { method: 'POST' })
+export function simReset(options = {}) {
+  return apiFetch('/kvstore/sim/reset', { ...options, method: 'POST' })
 }
 
-export function simSet(key, value, ttlSeconds) {
+export function simSet(key, value, ttlSeconds, options = {}) {
   return apiFetch(`/kvstore/sim/${encodeURIComponent(key)}`, {
-    method: 'PUT',
+    ...options, method: 'PUT',
     body: JSON.stringify({ value, ttlSeconds }),
   })
 }
 
-export function simGet(key) {
-  return apiFetch(`/kvstore/sim/${encodeURIComponent(key)}`)
+export function simGet(key, options = {}) {
+  return apiFetch(`/kvstore/sim/${encodeURIComponent(key)}`, options)
 }
 
-export function simReplay() {
-  return apiFetch('/kvstore/sim/replay', { method: 'POST' })
+export function simReplay(options = {}) {
+  return apiFetch('/kvstore/sim/replay', { ...options, method: 'POST' })
 }
 
-export function simTtlDemo() {
-  return apiFetch('/kvstore/sim/ttl-demo', { method: 'POST' })
+export function simTtlDemo(options = {}) {
+  return apiFetch('/kvstore/sim/ttl-demo', { ...options, method: 'POST' })
 }
 
-export function simCasRace(workerCount = 8) {
+export function simCasRace(workerCount = 8, options = {}) {
   return apiFetch('/kvstore/sim/cas-race', {
-    method: 'POST',
+    ...options, method: 'POST',
     body: JSON.stringify({ workerCount }),
   })
 }
 
-export function simGetEvents() {
-  return apiFetch('/kvstore/sim/events')
+export function simGetEvents(options = {}) {
+  return apiFetch('/kvstore/sim/events', options)
 }
 
-export function simGetSnapshot() {
-  return apiFetch('/kvstore/sim/snapshot')
+export function simGetSnapshot(options = {}) {
+  return apiFetch('/kvstore/sim/snapshot', options)
 }
