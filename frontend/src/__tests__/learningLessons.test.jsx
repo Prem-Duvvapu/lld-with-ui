@@ -286,7 +286,7 @@ describe('Published curriculum learning journey', () => {
     await openLesson();
     expect(screen.getByRole('textbox', { name: 'Your explanation' }).value).toHaveLength(2000);
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
-    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.aggregation).toBeUndefined();
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.aggregation).toBeUndefined());
   });
 
   it('keeps a usable session when storage is malformed or blocked', async () => {
