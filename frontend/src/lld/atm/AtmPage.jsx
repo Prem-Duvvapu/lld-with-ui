@@ -1,14 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import LldPage from '../../components/LldPage';
 import {
-  insertCard,
-  authenticate,
-  getBalance,
-  withdraw,
-  deposit,
-  ejectCard,
-  getTransactions,
-  getDispenserStatus,
   simReset,
   simInsertCard,
   simAuthenticate,
@@ -16,6 +8,8 @@ import {
   simEject,
 } from './api';
 import './AtmPage.css';
+import AtmLiveTerminal from './AtmLiveTerminal';
+import { useAtmLiveWorkspace } from './useAtmLiveWorkspace';
 
 const DISPENSE_MODES = [
   { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Greedy)' },
@@ -34,290 +28,6 @@ function StateStrip({ state }) {
         </div>
       ))}
       {state === 'CARD_BLOCKED' && <div className="atm-state-node blocked active">CARD BLOCKED</div>}
-    </div>
-  );
-}
-
-/* ============================= TAB 1: LIVE TERMINAL ============================= */
-
-function AppTab() {
-  const [sessionState, setSessionState] = useState('IDLE');
-  const [cardNumber, setCardNumber] = useState('1111222233334444');
-  const [pinInput, setPinInput] = useState('');
-  const [activeAccount, setActiveAccount] = useState(null);
-  const [currentBalance, setCurrentBalance] = useState(null);
-  const [amountInput, setAmountInput] = useState('500');
-  const [mode, setMode] = useState('MINIMIZE_NOTES');
-  const [transactions, setTransactions] = useState([]);
-  const [dispenser, setDispenser] = useState({ totalCash: 0, inventory: {} });
-  const [receipt, setReceipt] = useState(null);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
-  const [dispensingAnimation, setDispensingAnimation] = useState(false);
-
-  useEffect(() => { fetchDispenser(); }, []);
-
-  const fetchDispenser = async () => {
-    try {
-      const data = await getDispenserStatus();
-      if (data) setDispenser(data);
-    } catch (err) { console.error(err); }
-  };
-
-  const handleInsertCard = async () => {
-    setErrorMsg(''); setSuccessMsg('');
-    try {
-      const res = await insertCard(cardNumber);
-      setSessionState(res.state || 'CARD_INSERTED');
-      setSuccessMsg(`Card ${cardNumber} inserted. Please enter 4-digit PIN.`);
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to insert card');
-      if (err.message && err.message.includes('BLOCKED')) setSessionState('CARD_BLOCKED');
-    }
-  };
-
-  const handleKeypadPress = (val) => {
-    if (val === 'CLEAR') setPinInput('');
-    else if (val === 'ENTER') handleAuthenticatePIN();
-    else if (pinInput.length < 4) setPinInput((prev) => prev + val);
-  };
-
-  const handleAuthenticatePIN = async () => {
-    setErrorMsg(''); setSuccessMsg('');
-    try {
-      const acc = await authenticate(cardNumber, pinInput);
-      setActiveAccount(acc);
-      setCurrentBalance(acc.balance);
-      setSessionState('AUTHENTICATED');
-      setSuccessMsg(`Welcome, ${acc.holderName}! PIN Verified.`);
-      fetchTransactions(acc.accountNumber);
-      fetchDispenser();
-    } catch (err) {
-      setErrorMsg(err.message || 'Authentication Failed');
-      setPinInput('');
-      if (err.message && err.message.includes('BLOCKED')) setSessionState('CARD_BLOCKED');
-    }
-  };
-
-  const handleWithdraw = async () => {
-    if (!activeAccount) return;
-    setErrorMsg(''); setSuccessMsg('');
-    setSessionState('TRANSACTION_IN_PROGRESS');
-    setDispensingAnimation(true);
-    try {
-      const txn = await withdraw(activeAccount.accountNumber, amountInput, mode);
-      setDispensingAnimation(false);
-      setSessionState('AUTHENTICATED');
-      setReceipt(txn);
-      setSuccessMsg(`Successfully withdrew ₹${amountInput}! Cash dispensed via ${mode === 'MINIMIZE_NOTES' ? 'fewest-notes' : 'note-conserving'} strategy.`);
-      handleCheckBalance();
-      fetchTransactions(activeAccount.accountNumber);
-      fetchDispenser();
-    } catch (err) {
-      setDispensingAnimation(false);
-      setSessionState('AUTHENTICATED');
-      setErrorMsg(err.message || 'Withdrawal Failed');
-    }
-  };
-
-  const handleDeposit = async () => {
-    if (!activeAccount) return;
-    setErrorMsg(''); setSuccessMsg('');
-    try {
-      await deposit(activeAccount.accountNumber, amountInput);
-      setSuccessMsg(`Successfully deposited ₹${amountInput}!`);
-      handleCheckBalance();
-      fetchTransactions(activeAccount.accountNumber);
-      fetchDispenser();
-    } catch (err) {
-      setErrorMsg(err.message || 'Deposit Failed');
-    }
-  };
-
-  const handleCheckBalance = async () => {
-    if (!activeAccount) return;
-    try {
-      const data = await getBalance(activeAccount.accountNumber);
-      setCurrentBalance(data.balance);
-    } catch (err) { console.error(err); }
-  };
-
-  const handleEjectCard = async () => {
-    try {
-      await ejectCard();
-      setSessionState('IDLE');
-      setActiveAccount(null);
-      setPinInput('');
-      setCurrentBalance(null);
-      setReceipt(null);
-      setSuccessMsg('Card ejected. Thank you for banking with us!');
-    } catch (err) { console.error(err); }
-  };
-
-  const fetchTransactions = async (accNum) => {
-    try {
-      const list = await getTransactions(accNum);
-      setTransactions(list || []);
-    } catch (err) { console.error(err); }
-  };
-
-  return (
-    <div className="atm-terminal-layout">
-      <div className="atm-cabinet">
-        <div className="atm-screen">
-          <div className="screen-header">
-            <span className="bank-logo">🏦 APEX BANK ATM</span>
-            <span className={`status-pill ${sessionState.toLowerCase()}`}>State: {sessionState}</span>
-          </div>
-
-          {errorMsg && <div className="screen-alert error">{errorMsg}</div>}
-          {successMsg && <div className="screen-alert success">{successMsg}</div>}
-
-          {sessionState === 'IDLE' && (
-            <div className="screen-body idle">
-              <h2>Please Select Card to Begin</h2>
-              <p>Choose a demo card from the hardware panel on the right.</p>
-            </div>
-          )}
-
-          {sessionState === 'CARD_INSERTED' && (
-            <div className="screen-body pin-entry">
-              <h3>Enter 4-Digit PIN</h3>
-              <div className="pin-dots">
-                {[0, 1, 2, 3].map((idx) => (
-                  <span key={idx} className={`dot ${pinInput.length > idx ? 'filled' : ''}`}>●</span>
-                ))}
-              </div>
-              <p className="hint">Use Keypad Below (Demo PINs: John=1234, Jane=4321, Alice=0000)</p>
-            </div>
-          )}
-
-          {(sessionState === 'AUTHENTICATED' || sessionState === 'TRANSACTION_IN_PROGRESS') && activeAccount && (
-            <div className="screen-body menu">
-              <div className="account-hud">
-                <span>Account: <strong>{activeAccount.accountNumber}</strong></span>
-                <span>Balance: <strong className="green">₹{currentBalance !== null ? currentBalance.toFixed(2) : '...'}</strong></span>
-              </div>
-
-              <div className="atm-amount-selector">
-                <label>Amount (₹):</label>
-                <input type="number" step="100" value={amountInput} onChange={(e) => setAmountInput(e.target.value)} />
-                <div className="quick-buttons">
-                  {[100, 500, 2000, 5000].map((amt) => (
-                    <button key={amt} onClick={() => setAmountInput(amt)}>+₹{amt}</button>
-                  ))}
-                </div>
-                <label className="mode-label">Dispense Strategy:</label>
-                <select className="mode-select" value={mode} onChange={(e) => setMode(e.target.value)}>
-                  {DISPENSE_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-              </div>
-
-              <div className="screen-actions">
-                <button className="btn-action withdraw" onClick={handleWithdraw} disabled={sessionState !== 'AUTHENTICATED'}>💵 Withdraw Cash</button>
-                <button className="btn-action deposit" onClick={handleDeposit} disabled={sessionState !== 'AUTHENTICATED'}>📥 Deposit Cash</button>
-                <button className="btn-action balance" onClick={handleCheckBalance}>🔄 Refresh Balance</button>
-                <button className="btn-action eject" onClick={handleEjectCard}>⏏️ Eject Card</button>
-              </div>
-            </div>
-          )}
-
-          {sessionState === 'CARD_BLOCKED' && (
-            <div className="screen-body blocked">
-              <h2 className="red">🚫 CARD BLOCKED</h2>
-              <p>3 Failed PIN attempts detected. Card retained for security.</p>
-              <button className="btn-eject-reset" onClick={handleEjectCard}>Reset Terminal</button>
-            </div>
-          )}
-        </div>
-
-        <div className="atm-hardware-panel">
-          <div className="card-slot-area">
-            <span className="slot-label">💳 CARD SLOT</span>
-            <div className={`card-slot ${sessionState !== 'IDLE' ? 'active' : ''}`}>
-              {sessionState !== 'IDLE' ? '💳 [CARD INSERTED]' : '[INSERT CARD]'}
-            </div>
-          </div>
-
-          <div className="keypad-grid">
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'CLEAR', '0', 'ENTER'].map((key) => (
-              <button key={key} className={`keypad-btn ${key === 'CLEAR' ? 'clear' : key === 'ENTER' ? 'enter' : ''}`}
-                onClick={() => handleKeypadPress(key)}>{key}</button>
-            ))}
-          </div>
-
-          <div className={`cash-dispenser-slot ${dispensingAnimation ? 'dispensing' : ''}`}>
-            <span>💵 CASH DISPENSER SLOT</span>
-            {dispensingAnimation && <div className="anim-notes">💸 DISPENSING NOTES...</div>}
-          </div>
-        </div>
-      </div>
-
-      <div className="atm-side-panel">
-        <div className="panel-card">
-          <h3>💳 Select Demo Card</h3>
-          <div className="card-selector">
-            <button className={cardNumber === '1111222233334444' ? 'selected' : ''} onClick={() => setCardNumber('1111222233334444')}>
-              John Doe (PIN: 1234) — ₹10,000
-            </button>
-            <button className={cardNumber === '5555666677778888' ? 'selected' : ''} onClick={() => setCardNumber('5555666677778888')}>
-              Jane Smith (PIN: 4321) — ₹25,000
-            </button>
-            <button className={cardNumber === '9999888877776666' ? 'selected' : ''} onClick={() => setCardNumber('9999888877776666')}>
-              Alice Johnson (PIN: 0000) — ₹1,200
-            </button>
-          </div>
-          <button className="btn-insert-main" onClick={handleInsertCard}>📥 Insert Selected Card</button>
-        </div>
-
-        <div className="panel-card">
-          <h3>🏦 ATM Note Inventory</h3>
-          <div className="total-cash-badge">Total Available: <strong>₹{(dispenser.totalCash || 0).toLocaleString('en-IN')}</strong></div>
-          <div className="inventory-grid">
-            {dispenser.inventory && Object.entries(dispenser.inventory).map(([denom, count]) => (
-              <div key={denom} className="denom-card">
-                <span className="denom-name">{denom}</span>
-                <span className="denom-count">{count} notes</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {receipt && (
-          <div className="panel-card receipt-card">
-            <h3>🧾 Transaction Receipt</h3>
-            <div className="receipt-details">
-              <p>Txn ID: {receipt.transactionId}</p>
-              <p>Account: {receipt.accountNumber}</p>
-              <p>Amount: ₹{receipt.amount.toLocaleString('en-IN')}</p>
-              <p>Status: <strong className="green">{receipt.status}</strong></p>
-              {receipt.dispensedNotes && (
-                <div className="receipt-notes">
-                  <p>Notes Dispensed:</p>
-                  {Object.entries(receipt.dispensedNotes).map(([k, v]) => (
-                    <span key={k} className="note-chip">{k}: {v}x</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {transactions.length > 0 && (
-          <div className="panel-card">
-            <h3>📜 Recent Transactions</h3>
-            <div className="txn-list">
-              {transactions.slice().reverse().slice(0, 8).map((t) => (
-                <div key={t.transactionId} className={`txn-row ${t.status === 'FAILED' ? 'failed' : ''}`}>
-                  <span>{t.type}</span>
-                  <span>₹{t.amount.toLocaleString('en-IN')}</span>
-                  <span className="txn-status">{t.status}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -558,11 +268,12 @@ function SimulationTab() {
 }
 
 export default function AtmPage() {
+  const workspace = useAtmLiveWorkspace();
   return (
     <LldPage module="atm" title="ATM System" icon="🏧" tabs={['app', 'simulation', 'diagram', 'sequence', 'design']}>
       {(activeTab) => (
-        <div className="atm-page">
-          {activeTab === 'app' && <AppTab />}
+        <div className={activeTab === 'app' ? 'atm-page atm-live-page' : 'atm-page'}>
+          {activeTab === 'app' && <AtmLiveTerminal workspace={workspace} />}
           {activeTab === 'simulation' && <SimulationTab />}
         </div>
       )}

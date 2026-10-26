@@ -374,3 +374,54 @@
   .atm-terminal-layout { grid-template-columns: 1fr; }
   .atm-sim-grid { grid-template-columns: 1fr; }
 }
+
+/* Live terminal only: keep controls readable and contained without changing the sandbox. */
+.atm-live-terminal { grid-template-columns: minmax(0, 600px) minmax(0, 1fr); }
+.atm-live-terminal :is(.atm-cabinet, .atm-screen, .atm-side-panel, .panel-card) { min-width: 0; }
+.atm-live-terminal .atm-cabinet { background: var(--bg-tertiary); border-color: var(--border-primary); box-shadow: var(--shadow-lg); }
+.atm-live-terminal .atm-screen { background: var(--bg-card); border-color: var(--border-primary); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+.atm-live-terminal .screen-header { flex-wrap: wrap; gap: 8px; border-color: var(--border-primary); }
+.atm-live-terminal .bank-logo { color: var(--text-primary); font-size: 1rem; margin: 0; }
+.atm-live-terminal .status-pill { color: var(--text-primary); background: var(--bg-tertiary); overflow-wrap: anywhere; }
+.atm-live-terminal .status-pill.authenticated { color: var(--success); background: var(--success-bg); }
+.atm-live-terminal .status-pill.card_blocked { color: var(--danger); background: var(--danger-bg); }
+.atm-live-terminal .screen-alert.error { color: var(--danger); background: var(--danger-bg); border-color: var(--danger); }
+.atm-live-terminal .screen-alert.success { color: var(--success); background: var(--success-bg); border-color: var(--success); }
+.atm-live-terminal :is(.screen-body.idle, .hint, .slot-label, .mode-label, .atm-amount-selector label) { color: var(--text-secondary); }
+.atm-live-terminal .account-hud { background: var(--bg-tertiary); flex-wrap: wrap; gap: 8px; }
+.atm-live-terminal .green { color: var(--success); }
+.atm-live-terminal .red { color: var(--danger); }
+.atm-live-terminal :is(.atm-amount-selector input, .mode-select, .pin-entry input) { width: 100%; max-width: 100%; min-height: 44px; padding: 8px; background: var(--bg-input); border: 1px solid var(--border-primary); border-radius: 6px; color: var(--text-primary); }
+.atm-live-terminal .pin-dots .dot { color: var(--text-muted); }
+.atm-live-terminal .pin-dots .dot.filled { color: var(--accent); }
+.atm-live-terminal .quick-buttons { flex-wrap: wrap; }
+.atm-live-terminal .quick-buttons button { background: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-primary); flex-basis: 72px; }
+.atm-live-terminal button { min-height: 44px; min-width: 44px; white-space: normal; overflow-wrap: anywhere; }
+.atm-live-terminal button:disabled, .atm-live-terminal button[aria-disabled="true"] { cursor: default; opacity: var(--disabled-opacity); }
+.atm-live-terminal .btn-action.withdraw, .atm-live-terminal .keypad-btn.enter { background: var(--success-solid); color: var(--on-status-solid); }
+.atm-live-terminal .btn-action.deposit, .atm-live-terminal .btn-insert-main { background: var(--accent-solid); color: var(--on-accent-solid); }
+.atm-live-terminal .btn-action.balance { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-primary); }
+.atm-live-terminal .btn-action.eject, .atm-live-terminal .keypad-btn.clear { background: var(--danger-solid); color: var(--on-status-solid); }
+.atm-live-terminal .atm-live-eject { margin-top: 16px; }
+.atm-live-terminal .keypad-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.atm-live-terminal .keypad-btn { padding: 10px 6px; background: var(--bg-secondary); color: var(--text-primary); border-color: var(--border-primary); font-size: 1rem; }
+.atm-live-terminal :is(.card-slot, .cash-dispenser-slot) { background: var(--bg-input); color: var(--text-muted); border-color: var(--border-primary); }
+.atm-live-terminal .card-slot.active { color: var(--accent); border-color: var(--accent); background: var(--bg-secondary); }
+.atm-live-terminal .cash-dispenser-slot.dispensing { color: var(--success); border-color: var(--success); animation: none; }
+.atm-live-terminal .card-selector button.selected { border-color: var(--accent); background: var(--bg-tertiary); }
+.atm-live-terminal :is(.panel-card, .screen-body, .screen-alert, .account-hud) { overflow-wrap: anywhere; }
+.atm-live-terminal .inventory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.atm-live-terminal .denom-card { flex-wrap: wrap; gap: 4px; min-width: 0; }
+.atm-live-terminal .txn-row { grid-template-columns: minmax(0, 1fr) auto; }
+.atm-live-terminal .txn-row.failed { border-color: var(--danger); }
+.atm-live-terminal .atm-txn-reason { grid-column: 1 / -1; color: var(--text-secondary); }
+.atm-live-terminal .txn-status { grid-column: 1 / -1; }
+.atm-live-terminal :is(button, input, select, [tabindex]):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 900px) {
+  .atm-live-terminal { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .atm-live-page { padding: 8px; }
+  .atm-live-terminal .atm-cabinet, .atm-live-terminal .atm-screen { padding: 12px; }
+  .atm-live-terminal .screen-actions { grid-template-columns: minmax(0, 1fr); }
+}
