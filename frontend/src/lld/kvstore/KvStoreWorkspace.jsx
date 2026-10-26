@@ -1,11 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { formatKvExpiry } from './formatKvExpiry';
 import './KvStoreWorkspace.css';
-
-function expiryText(epoch) {
-  if (epoch == null) return 'No expiry recorded';
-  const date = new Date(epoch);
-  return Number.isFinite(date.getTime()) ? date.toISOString() : String(epoch);
-}
 
 export default function KvStoreWorkspace({ activeTab, model }) {
   const { activate } = model;
@@ -88,7 +83,7 @@ export default function KvStoreWorkspace({ activeTab, model }) {
     {model.missing != null && <p className="kv-missing" role="status">The server reported {JSON.stringify(model.missing)} not found (404). The previous confirmed record, if any, is retained below.</p>}
     {model.record && <section className="kv-card kv-record" aria-label="Last confirmed record">
       <h3>Last confirmed record</h3><p>From the last successful {model.record.source} response. Other writes or expiry may have changed it since.</p>
-      <dl><dt>Key</dt><dd><code>{JSON.stringify(model.record.key)}</code></dd><dt>Value</dt><dd><code>{JSON.stringify(model.record.entry.value)}</code></dd><dt>Version</dt><dd>{model.record.entry.version}</dd><dt>Server expiry (UTC)</dt><dd>{expiryText(model.record.entry.expiresAtEpoch)}</dd></dl>
+      <dl><dt>Key</dt><dd><code>{JSON.stringify(model.record.key)}</code></dd><dt>Value</dt><dd><code>{JSON.stringify(model.record.entry.value)}</code></dd><dt>Version</dt><dd>{model.record.entry.version}</dd><dt>Server expiry (UTC)</dt><dd>{formatKvExpiry(model.record.entry.expiresAtEpoch, 'No expiry recorded')}</dd></dl>
       {activeTab === 'store' && <button type="button" className="kv-secondary" aria-label={`Delete confirmed key ${model.record.key}`} disabled={writesBlocked} onClick={() => model.setConfirmation(model.record.key)}>Delete this key</button>}
     </section>}
     {activeTab === 'store' && model.recent.length > 0 && <section className="kv-card kv-recent" aria-label="Recent successful SET responses">

@@ -26,6 +26,21 @@ beforeEach(() => {
 });
 
 describe('KV live workspace', () => {
+  it.each([10_000_000_000_000_000, 8_700_000_000_000_000])('keeps an acknowledged write when only its expiry exceeds browser display limits (%s)', async expiry => {
+    api.set.mockResolvedValueOnce({ value: 'acknowledged', version: 1, expiresAtEpoch: expiry });
+    open();
+    fireEvent.change(screen.getByLabelText('TTL seconds (optional)'), { target: { value: expiry > Number.MAX_SAFE_INTEGER ? '10000000000000' : '8700000000000' } });
+    fireEvent.change(screen.getByLabelText('Value to SET'), { target: { value: 'acknowledged' } });
+    fireEvent.click(screen.getByRole('button', { name: 'SET', exact: true }));
+    const record = await screen.findByRole('region', { name: 'Last confirmed record' });
+    expect(record).toHaveTextContent('acknowledged');
+    expect(record).toHaveTextContent(/outside this browser|outside supported date/);
+    expect(screen.queryByText(/outcome of SET.*unknown/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'SET', exact: true })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete confirmed key welcome' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    await waitFor(() => expect(api.del).toHaveBeenCalledTimes(1));
+  });
   it('retains a successful read and never turns a typed 503 into a missing-key result', async () => {
     open();
     fireEvent.click(screen.getByRole('button', { name: 'GET', exact: true }));

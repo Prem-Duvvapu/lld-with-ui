@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import SimulationControls from '../../components/SimulationControls';
 import { useSimulationPlayback } from '../../hooks/useSimulationPlayback';
 import * as api from './api';
+import { formatKvExpiry as utc } from './formatKvExpiry';
 import './KvStoreSimulation.css';
 
 const STEPS = [
@@ -21,7 +22,7 @@ function checkedSnapshot(snapshot) {
     throw new Error('The server did not return a usable sandbox snapshot. Reset before continuing.');
   }
   const validEntries = Object.values(snapshot.entries).every(entry => entry && typeof entry.value === 'string'
-    && count(entry.version) && entry.version > 0 && (entry.expiresAtEpoch == null || Number.isSafeInteger(entry.expiresAtEpoch)));
+    && count(entry.version) && entry.version > 0 && (entry.expiresAtEpoch == null || Number.isInteger(entry.expiresAtEpoch)));
   const validEvents = snapshot.events.every(event => event && count(event.id)
     && ['timestamp', 'actor', 'type', 'description'].every(field => typeof event[field] === 'string'));
   const validCounts = ['storedEntryCount', 'readableEntryCount', 'eventCount', 'snapshotAtEpoch'].every(field => snapshot[field] == null || count(snapshot[field]));
@@ -31,12 +32,6 @@ function checkedSnapshot(snapshot) {
     throw new Error('The sandbox response contains records this view cannot display reliably. Reset before continuing.');
   }
   return snapshot;
-}
-
-function utc(epoch) {
-  if (epoch == null) return 'No expiry';
-  const date = new Date(epoch);
-  return Number.isFinite(date.getTime()) ? date.toISOString() : String(epoch);
 }
 
 export default function KvStoreSimulation({ configuration, onConfigurationChange }) {

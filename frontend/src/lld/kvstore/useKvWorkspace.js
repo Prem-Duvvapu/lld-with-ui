@@ -4,7 +4,7 @@ import * as api from './api';
 
 function checkedEntry(entry) {
   if (!entry || typeof entry.value !== 'string' || !Number.isSafeInteger(entry.version) || entry.version < 1
-      || (entry.expiresAtEpoch != null && !Number.isSafeInteger(entry.expiresAtEpoch))) {
+      || (entry.expiresAtEpoch != null && !Number.isInteger(entry.expiresAtEpoch))) {
     throw new Error('The server returned a record this view cannot display reliably. Try reading it again.');
   }
   return entry;
