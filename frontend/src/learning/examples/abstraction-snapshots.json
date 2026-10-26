@@ -1,0 +1,64 @@
+[
+  {
+    "title": "Choose a useful caller contract",
+    "explanation": "The demo supplies two concrete objects with a limit of 8. Both references have the declared type TopicLabel. The caller show asks only for render; it does not read the stored limit or choose a shortening algorithm.",
+    "items": [
+      { "label": "ellipsis", "typeLabel": "EllipsisTopicLabel", "fields": [
+        { "name": "declared type", "value": "TopicLabel" },
+        { "name": "stored maxChars", "value": 8 }
+      ] },
+      { "label": "clipped", "typeLabel": "ClippedTopicLabel", "fields": [
+        { "name": "declared type", "value": "TopicLabel" },
+        { "name": "stored maxChars", "value": 8 }
+      ] }
+    ]
+  },
+  {
+    "title": "Vary the hidden shortening step",
+    "explanation": "For the same padded input, the inherited render method strips whitespace, checks length and invokes the concrete object's shorten method. Both results fit the limit, with different tradeoffs for indicating omitted text.",
+    "items": [
+      { "label": "ellipsis call", "typeLabel": "EllipsisTopicLabel", "fields": [
+        { "name": "input", "value": " Encapsulation " },
+        { "name": "render result", "value": "Encap..." },
+        { "name": "result length", "value": 8 },
+        { "name": "caller result", "value": "Study: Encap..." }
+      ] },
+      { "label": "clipped call", "typeLabel": "ClippedTopicLabel", "fields": [
+        { "name": "input", "value": " Encapsulation " },
+        { "name": "render result", "value": "Encapsul" },
+        { "name": "result length", "value": 8 },
+        { "name": "caller result", "value": "Study: Encapsul" }
+      ] }
+    ]
+  },
+  {
+    "title": "Reuse the concrete common behavior",
+    "explanation": "A short topic fits after stripping. render returns it without calling shorten. An abstract class can supply a fully implemented method and private instance state even though it cannot be directly instantiated.",
+    "items": [
+      { "label": "ellipsis short call", "typeLabel": "EllipsisTopicLabel", "fields": [
+        { "name": "input", "value": " OOP " },
+        { "name": "render result", "value": "OOP" },
+        { "name": "caller result", "value": "Study: OOP" }
+      ] },
+      { "label": "clipped short call", "typeLabel": "ClippedTopicLabel", "fields": [
+        { "name": "input", "value": " OOP " },
+        { "name": "render result", "value": "OOP" },
+        { "name": "caller result", "value": "Study: OOP" }
+      ] }
+    ]
+  },
+  {
+    "title": "Check the shared boundary",
+    "explanation": "Blank input is rejected by render. A limit of 3 is rejected by the abstract base constructor during concrete subclass construction, so that new expression returns no label object.",
+    "items": [
+      { "label": "blank render", "typeLabel": "IllegalArgumentException", "fields": [
+        { "name": "input", "value": "   " },
+        { "name": "message", "value": "Topic is required" }
+      ] },
+      { "label": "invalid construction", "typeLabel": "IllegalArgumentException", "fields": [
+        { "name": "requested maxChars", "value": 3 },
+        { "name": "message", "value": "Limit must be at least 4" }
+      ] }
+    ]
+  }
+]

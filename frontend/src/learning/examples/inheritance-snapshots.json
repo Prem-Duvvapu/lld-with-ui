@@ -1,0 +1,55 @@
+[
+  {
+    "title": "Initialize the video",
+    "explanation": "For the video's construction alone, super(title, trace) records the validated base title before the video constructor records its duration. Both constructors initialize one video object. These events are inspected after construction returns.",
+    "items": [
+      { "label": "video", "typeLabel": "InheritanceVideo object", "fields": [
+        { "name": "title", "value": "Inheritance" },
+        { "name": "minutes", "value": 12 }
+      ] },
+      { "label": "construction trace", "typeLabel": "recorded events", "fields": [
+        { "name": "first", "value": "resource initialized: Inheritance" },
+        { "name": "second", "value": "video initialized: 12 min" }
+      ] }
+    ]
+  },
+  {
+    "title": "Use inherited behavior",
+    "explanation": "Assigning video to resource copies its reference. The runtime object remains an InheritanceVideo; getTitle is inherited from InheritanceResource. The private title state is initialized and read by base-class code.",
+    "items": [{ "label": "shared video", "typeLabel": "InheritanceVideo object", "references": ["video", "resource"], "fields": [
+      { "name": "resource declared type", "value": "InheritanceResource" },
+      { "name": "runtime class", "value": "InheritanceVideo" },
+      { "name": "getTitle declared by", "value": "InheritanceResource" },
+      { "name": "getTitle result", "value": "Inheritance" },
+      { "name": "resource == video", "value": true }
+    ] }]
+  },
+  {
+    "title": "Dispatch the same instance call",
+    "explanation": "present accepts InheritanceResource in both calls. A plain resource uses the base describe implementation. The video uses its override, which explicitly reuses super.describe before adding its duration.",
+    "items": [
+      { "label": "present(plain)", "typeLabel": "method call", "fields": [
+        { "name": "parameter type", "value": "InheritanceResource" },
+        { "name": "runtime class", "value": "InheritanceResource" },
+        { "name": "describe declared by", "value": "InheritanceResource" },
+        { "name": "result", "value": "Resource: Objects" }
+      ] },
+      { "label": "present(resource)", "typeLabel": "method call", "fields": [
+        { "name": "parameter type", "value": "InheritanceResource" },
+        { "name": "runtime class", "value": "InheritanceVideo" },
+        { "name": "describe declared by", "value": "InheritanceVideo" },
+        { "name": "result", "value": "Resource: Inheritance (video, 12 min)" }
+      ] }
+    ]
+  },
+  {
+    "title": "Compose a playlist",
+    "explanation": "The playlist stores a resource reference and delegates describeNext to that object. It does not extend InheritanceResource. The same video can still be referenced elsewhere; this has-a example makes no exclusive-ownership or lifetime guarantee.",
+    "items": [{ "label": "playlist", "typeLabel": "InheritancePlaylist object", "fields": [
+      { "name": "direct superclass", "value": "Object" },
+      { "name": "next field type", "value": "InheritanceResource" },
+      { "name": "is a resource", "value": false },
+      { "name": "describeNext result", "value": "Next: Resource: Inheritance (video, 12 min)" }
+    ] }]
+  }
+]

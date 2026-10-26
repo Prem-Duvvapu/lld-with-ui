@@ -1,0 +1,57 @@
+[
+  {
+    "title": "Keep the object and reference types separate",
+    "explanation": "hinted, base and role refer to one HintedPracticeQuestion object. Assigning it to an interface or superclass reference changes neither the object nor its runtime class. The separate plain question is an OpenPracticeQuestion.",
+    "items": [
+      { "label": "hinted question", "typeLabel": "HintedPracticeQuestion", "references": ["hinted", "base", "role"], "fields": [
+        { "name": "hinted declared type", "value": "HintedPracticeQuestion" },
+        { "name": "base declared type", "value": "OpenPracticeQuestion" },
+        { "name": "role declared type", "value": "PracticeQuestion" },
+        { "name": "same object", "value": true }
+      ] },
+      { "label": "plain question", "typeLabel": "OpenPracticeQuestion", "fields": [
+        { "name": "ask result", "value": "Explain Objects" }
+      ] }
+    ]
+  },
+  {
+    "title": "Dispatch the overridden instance method",
+    "explanation": "present receives a PracticeQuestion, while base.ask is called through OpenPracticeQuestion. Both reach the same object's HintedPracticeQuestion.ask override. Its explicit super.ask call reuses the base validation and wording before appending the hint.",
+    "items": [
+      { "label": "interface call", "typeLabel": "PracticeQuestion", "fields": [
+        { "name": "topic", "value": " Objects " },
+        { "name": "runtime class", "value": "HintedPracticeQuestion" },
+        { "name": "result", "value": "Explain Objects (hint: name one object)" }
+      ] },
+      { "label": "superclass call", "typeLabel": "OpenPracticeQuestion", "fields": [
+        { "name": "topic", "value": " Objects " },
+        { "name": "runtime class", "value": "HintedPracticeQuestion" },
+        { "name": "result", "value": "Explain Objects (hint: name one object)" }
+      ] }
+    ]
+  },
+  {
+    "title": "Select an overload before runtime dispatch",
+    "explanation": "select(base) chooses the OpenPracticeQuestion parameter signature at compile time; select(hinted) chooses HintedPracticeQuestion. Inside either selected body, question.ask still invokes the hinted object's override. Runtime dispatch does not redo overload selection.",
+    "items": [
+      { "label": "select(base)", "typeLabel": "OpenPracticeQuestion argument", "fields": [
+        { "name": "result", "value": "open overload: Explain Objects (hint: name one object)" }
+      ] },
+      { "label": "select(hinted)", "typeLabel": "HintedPracticeQuestion argument", "fields": [
+        { "name": "result", "value": "hinted overload: Explain Objects (hint: name one object)" }
+      ] }
+    ]
+  },
+  {
+    "title": "Contrast fields and static methods",
+    "explanation": "For this same object, baseMembers resolves badge and category using its OpenPracticeQuestion parameter type. childMembers uses HintedPracticeQuestion. Fields and static methods are hidden, not overridden. The instance-qualified static calls are deliberate counterexamples; prefer class-qualified calls in application code.",
+    "items": [
+      { "label": "baseMembers(base)", "typeLabel": "OpenPracticeQuestion reference", "fields": [
+        { "name": "field / static method", "value": "open/open" }
+      ] },
+      { "label": "childMembers(hinted)", "typeLabel": "HintedPracticeQuestion reference", "fields": [
+        { "name": "field / static method", "value": "hinted/hinted" }
+      ] }
+    ]
+  }
+]

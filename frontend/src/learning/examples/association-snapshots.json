@@ -1,0 +1,57 @@
+[
+  {
+    "title": "Before assignment",
+    "explanation": "The class relationship is AssociationLearner [0..*] --tutor--> [0..1] AssociationTutor. Read the tutor end as zero or one tutor per learner, and the learner end as zero or more learners per tutor. These two learner objects currently have no tutor link; multiplicity describes allowed links, not the current count.",
+    "items": [
+      { "label": "ada", "typeLabel": "AssociationLearner", "fields": [
+        { "name": "name", "value": "Ada" }, { "name": "subject", "value": "Java" }, { "name": "assignment", "value": "Ada -> unassigned" }
+      ] },
+      { "label": "ben", "typeLabel": "AssociationLearner", "fields": [
+        { "name": "name", "value": "Ben" }, { "name": "subject", "value": "Java" }, { "name": "assignment", "value": "Ben -> unassigned" }
+      ] }
+    ]
+  },
+  {
+    "title": "Share a tutor",
+    "explanation": "Each learner stores the same Mira reference in its own tutor field. Navigability runs from learner to tutor. The tutor has neither a learner field nor a reverse directory; sharing does not create that reverse API.",
+    "items": [
+      { "label": "ada", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ada -> Mira (Java)" }] },
+      { "label": "ben", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ben -> Mira (Java)" }] },
+      { "label": "shared tutor", "typeLabel": "AssociationTutor", "references": ["mira", "ada.tutor", "ben.tutor"], "fields": [
+        { "name": "name", "value": "Mira" }, { "name": "subject", "value": "Java" }, { "name": "ada.tutor == ben.tutor", "value": true }
+      ] }
+    ]
+  },
+  {
+    "title": "Replace one link",
+    "explanation": "saved retains the earlier tutor reference. Reassigning Ada to Noor changes only Ada's tutor field. Ben and saved still refer to Mira. The assignment does not copy, rename or delete either tutor.",
+    "items": [
+      { "label": "ada", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ada -> Noor (Java)" }] },
+      { "label": "ben", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ben -> Mira (Java)" }] },
+      { "label": "saved", "typeLabel": "AssociationTutor reference", "references": ["saved", "mira", "ben.tutor"], "fields": [
+        { "name": "description", "value": "Mira (Java)" }, { "name": "saved == ben.tutor", "value": true }, { "name": "ada.tutor == ben.tutor", "value": false }
+      ] }
+    ]
+  },
+  {
+    "title": "Reject an incompatible link",
+    "explanation": "Sol teaches SQL while Ada studies Java. The subject check rejects this assignment before writing the tutor field, leaving Ada linked to Noor. Java's reference type alone could not enforce this domain rule.",
+    "items": [
+      { "label": "request", "typeLabel": "assignment validation", "fields": [
+        { "name": "candidate", "value": "Sol (SQL)" }, { "name": "outcome", "value": "IllegalArgumentException" }, { "name": "message", "value": "Tutor subject must match Java" }
+      ] },
+      { "label": "ada", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ada -> Noor (Java)" }] },
+      { "label": "ben", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ben -> Mira (Java)" }] }
+    ]
+  },
+  {
+    "title": "Clear links, keep using tutors",
+    "explanation": "clearTutor sets each learner's field to null. The demo then calls both tutors through its separate references. This verifies continued use after unlinking, not garbage-collection timing, exclusive ownership or a UML composition lifecycle.",
+    "items": [
+      { "label": "ada", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ada -> unassigned" }] },
+      { "label": "ben", "typeLabel": "AssociationLearner", "fields": [{ "name": "assignment", "value": "Ben -> unassigned" }] },
+      { "label": "mira", "typeLabel": "AssociationTutor", "fields": [{ "name": "description", "value": "Mira (Java)" }] },
+      { "label": "noor", "typeLabel": "AssociationTutor", "fields": [{ "name": "description", "value": "Noor (Java)" }] }
+    ]
+  }
+]

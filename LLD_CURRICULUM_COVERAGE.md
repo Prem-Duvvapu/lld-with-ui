@@ -2,8 +2,8 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are six published lessons
-and 63 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. There are ten published lessons
+and 59 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
 ## Reading the matrix
@@ -40,9 +40,9 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 | `enums` — Enums | Model a closed set of valid values and separate enum values from arbitrary request strings. | `classes-and-objects` | [E25](#e25): compiled ReviewPriority, normalization/rejection snapshots and compiler checks; [E02](#e02): real enum/factory boundaries. Practice `/parking-lot`. | Add a declared priority with explicit data; test normalized, unknown, blank and null input; explain why user-created labels need a different model. | Delivered: `/learn/enums`, Java-verified illustration/output, prediction, exercise/rubric and verified module/source links. |
 | `interfaces` — Interfaces | Explain a behavioral contract and substitute implementations through its declared type. | `classes-and-objects` | [E25](#e25): compiled MessageFormatter implementations, dispatch/contract fixtures and compiler checks; [E02](#e02): production pricing-policy call. Practice `/parking-lot`. | Add BracketFormatter without changing the caller, reuse invalid-input tests and explain the cost of unrelated interface methods. | Delivered: `/learn/interfaces`, Java-verified dispatch/contract illustration and output, prediction, exercise/rubric and verified module/source links. |
 | `encapsulation` — Encapsulation | Protect valid state through operations rather than exposing every field for mutation. | `classes-and-objects`, `access-modifiers` | [E26](#e26): LeakyShelf/ReadingShelf mutation boundary, rejected operations and detached snapshots; [E04](#e04): actual mutable ingredient-map copies. Practice `/coffee-machine`. | Add guarded removal, preserve the invariant and an earlier snapshot, then distinguish structural from element immutability. | Delivered: `/learn/encapsulation`, canonical Java counterexample and guarded design, verified snapshots/output, prediction, exercise/rubric and source links. |
-| `abstraction` — Abstraction | Separate the operation a caller needs from a concrete pricing algorithm's implementation. | `encapsulation`, `interfaces` | [E02](#e02): PricingStrategy contract and policies; this is a reusable seam, not proof every module is optimally abstracted. | Replace a concrete-policy dependency with the smallest sufficient contract and justify what stays private. | G: abstraction versus encapsulation comparison, visual and compile-tested refactoring. |
-| `inheritance` — Inheritance | Explain subtype construction and shared state without assuming inheritance supplies an execution algorithm. | `classes-and-objects`, `access-modifiers` | [E03](#e03): abstract Transaction and deposit/withdrawal records. Practice `/atm`. | Trace super-constructor initialization and identify what the subclasses add; explain why there is no Transaction.execute. | G: subtype lesson, composition alternative and substitutability exercise. |
-| `polymorphism` — Polymorphism | Predict runtime implementation dispatch through a common interface. | `interfaces`, `inheritance` | [E02](#e02): calculatePrice implementations selected through the factory; [E04](#e04): CoffeeComponent wrappers. | Predict which getPrice/calculatePrice body executes without branching on the concrete type in the caller. | G: runtime-dispatch visual, contrasted examples and tested prediction exercise. |
+| `abstraction` — Abstraction | Choose a caller contract and distinguish interface promises from shared abstract-class implementation. | `encapsulation`, `interfaces` | [E27](#e27): TopicLabel, its bounded abstract base and two concrete shortening styles; [E04](#e04): actual CoffeeComponent/CoffeeDecorator contract and hook. Practice `/coffee-machine`. | Implement a tail label, preserve input/output promises and show why final does not prove every hook result correct. | Delivered: `/learn/abstraction`, canonical Java, verified snapshots/output, compiler and semantic counterexamples, prediction, exercise/rubric and source links. |
+| `inheritance` — Inheritance | Explain subtype initialization, inherited state access and instance overriding while distinguishing an is-a promise from object collaboration. | `classes-and-objects`, `access-modifiers`, `constructors` | [E27](#e27): resource/video construction, inherited API, dispatch and a separate playlist; [E04](#e04): actual CoffeeDecorator/ExtraShotDecorator superclass and wrapped reference. Practice `/coffee-machine`. | Add an article subtype without changing the caller, trace base initialization and explain a compiling override that violates the model contract. | Delivered: `/learn/inheritance`, canonical Java, constructor/dispatch fixtures, negative compiler cases, composition comparison, prediction and exercise/rubric. |
+| `polymorphism` — Polymorphism | Separate declared API, compile-time overload choice and runtime instance-method dispatch. | `interfaces`, `inheritance` | [E28](#e28): aliases, overload/override selection and hidden members; [E02](#e02): actual repository pricing call through PricingStrategy. Practice `/parking-lot`. | Replace an accidental ask(Object) overload with a contract-preserving ask(String) override and predict calls without downcasts. | Delivered: `/learn/polymorphism`, canonical Java, identity/dispatch/output fixtures, negative compiler/runtime cases, prediction and exercise/rubric. |
 | `constructors` — Constructors and Initialization (proposed) | Distinguish allocation, valid initialization, constructor chaining and later mutation. | `classes-and-objects` | [E26](#e26): LearningSession/FocusedSession this/super trace and invalid-construction checks; [E03](#e03): real transaction constructor chain. Practice `/atm`. | Add a convenience default without duplicating validation; explain the base side effect retained after derived-constructor failure and test later updates. | Delivered: `/learn/constructors`, Java-verified trace/output, compiler-negative cases, prediction, exercise/rubric and actual ATM record links; proposed-addition label retained. |
 | `access-modifiers` — Access Modifiers (proposed) | Choose public/private/protected/package visibility by the intended collaboration boundary. | `classes-and-objects` | [E26](#e26): compiler-checked caller matrix across two packages, protected receiver restriction and package-private top-level type; [E10](#e10): actual protected read hooks. Practice `/kvstore`. | Compile same-package and external callers; distinguish child-typed from base-typed protected receivers inside the subclass. | Delivered: `/learn/access-modifiers`, compiled matrix and successful demo, prediction, exercise/rubric and verified source links; proposed-addition label retained. |
 | `overloading-and-overriding` — Method Overloading vs Overriding (proposed) | Distinguish signature-based overload selection from runtime overriding. | `polymorphism`, `constructors` | [E03](#e03): two withdraw signatures; [E04](#e04): getPrice overrides on CoffeeComponent implementations. | Predict the selected overload and then the invoked override for two differently typed references. | G: paired compile-tested examples, diagram and misconception checks. |
@@ -52,7 +52,7 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
-| `association` — Association | Explain a domain link without implying ownership or shared lifecycle. | `classes-and-objects` | [E02](#e02), [E13](#e13): Ticket.spotId refers to a repository-managed ParkingSpot. | Trace an ID-based relationship and explain why the ticket does not construct or own the parking spot. | G: multiplicity/identity visual and association modeling exercise. |
+| `association` — Association | Explain concrete object links, direction and multiplicity without inferring ownership from a reference or ID. | `classes-and-objects` | [E29](#e29): learner/tutor references and actual Ride-to-Driver link plus independent IDs; [E02](#e02): Ticket.spotId is an ID-based reference to a repository spot. Practice `/uber`. | Add an identity-checked tutor switch, preserve links after invalid requests and distinguish navigation from reverse-directory/ownership rules. | Delivered: `/learn/association`, canonical Java, verified reference/state/output fixtures, multiplicity explanation, prediction and exercise/rubric. |
 | `aggregation` — Aggregation | Describe a non-owning whole/part relationship whose members are independently managed. | `association` | [E05](#e05): groups reference existing User objects resolved from the user repository. Practice `/splitwise`. | Put one existing user in two groups and explain why creating a group does not create a new user. | G: shared-membership example, ownership discussion and contrast with composition. |
 | `composition` — Composition | Explain part construction/ownership while distinguishing it from Java aliasing and garbage collection. | `association` | [E06](#e06): Game constructs its Board and keeps a final reference; a getter still exposes an alias. Practice `/tictactoe`. | Model a game-owned board, then explain what final does not guarantee about mutation or part lifetime. | G: ownership visual and explicit counterexample; Java has no automatic UML-style deletion enforcement. |
 | `dependency` — Dependency | Distinguish temporary parameter use from a stored association and depend on the smallest useful contract. | `interfaces`, `association` | [E02](#e02): a pricing operation receives a Ticket; [E13](#e13): completion receives PricingStrategy. | Identify which collaborators are retained fields and which are used only during an operation. | G: dependency versus association comparison and minimal-interface exercise. |
@@ -552,6 +552,71 @@ rejections and state invariants. The frontend only selects recorded facts.
 The canonical manifest owns reading durations and an explicit publication sequence
 that places published prerequisites before their dependents. Catalog grouping
 remains a topic taxonomy; it does not force that sequence or lock learners out.
+
+<a id="e27"></a>
+### E27 — Abstraction and inheritance through verified contracts
+
+[Abstraction](frontend/src/learning/lessons/abstraction.js) displays canonical
+[TopicLabel](frontend/src/learning/examples/TopicLabel.java),
+[BoundedTopicLabel](frontend/src/learning/examples/BoundedTopicLabel.java),
+[EllipsisTopicLabel](frontend/src/learning/examples/EllipsisTopicLabel.java),
+[ClippedTopicLabel](frontend/src/learning/examples/ClippedTopicLabel.java) and the
+[demo](frontend/src/learning/examples/AbstractionDemo.java).
+[AbstractionExampleTest](backend/src/test/java/com/lld/learning/AbstractionExampleTest.java)
+checks the caller contract, boundaries, abstract hooks, compiler rejections,
+semantic violations that still compile, output and every recorded state. UTF-16
+character limits are explicitly distinguished from grapheme/pixel layout.
+
+[Inheritance](frontend/src/learning/lessons/inheritance.js) displays the canonical
+[resource](frontend/src/learning/examples/inheritance/InheritanceResource.java),
+[video](frontend/src/learning/examples/inheritance/InheritanceVideo.java),
+[playlist](frontend/src/learning/examples/inheritance/InheritancePlaylist.java) and
+[demo](frontend/src/learning/examples/inheritance/InheritanceDemo.java).
+[InheritanceLessonExampleTest](backend/src/test/java/com/lld/learning/InheritanceLessonExampleTest.java)
+checks superclass initialization, inherited accessors, overriding/dispatch,
+rejected construction, legal and illegal compiler examples, output and snapshots.
+The playlist's ordinary has-a reference is not presented as UML exclusive ownership;
+inheritance is not presented as automatic behavioral substitutability.
+
+Both lesson links trace actual CoffeeComponent/CoffeeDecorator implementations.
+The examples do not reproduce recipe calculations or certify the module's runtime
+concurrency. The frontend selects recorded Java facts; it does not execute Java.
+
+<a id="e28"></a>
+### E28 — Polymorphic calls and separate selection rules
+
+[Polymorphism](frontend/src/learning/lessons/polymorphism.js) uses canonical
+[PracticeQuestion](frontend/src/learning/examples/PracticeQuestion.java),
+[OpenPracticeQuestion](frontend/src/learning/examples/OpenPracticeQuestion.java),
+[HintedPracticeQuestion](frontend/src/learning/examples/HintedPracticeQuestion.java)
+and its [demo](frontend/src/learning/examples/PolymorphismDemo.java).
+[PolymorphismExampleTest](backend/src/test/java/com/lld/learning/PolymorphismExampleTest.java)
+checks shared behavior through aliases, overload choice followed by instance
+dispatch, hidden fields/static methods, invalid casts and compiler rejections.
+Actual output and every recorded snapshot are tied to those displayed files.
+The Parking link traces the factory's policy object into the repository's
+`PricingStrategy.calculatePrice` call; selection and ticket locking remain
+separate mechanisms rather than properties supplied by polymorphism itself.
+
+<a id="e29"></a>
+### E29 — Association without invented ownership
+
+[Association](frontend/src/learning/lessons/association.js) uses canonical
+[learner](frontend/src/learning/examples/association/AssociationLearner.java),
+[tutor](frontend/src/learning/examples/association/AssociationTutor.java) and
+[demo](frontend/src/learning/examples/association/AssociationDemo.java).
+[AssociationExampleTest](backend/src/test/java/com/lld/learning/AssociationExampleTest.java)
+checks actual reference identity, independent reassignment, rejection preserving
+the old link, optional assignment, subject validation, absent reverse navigation,
+output and recorded states. Tutor immutability is specific to this example, not a
+claim that returning an associated mutable object is always safe.
+[Ride](backend/src/main/java/com/lld/uber/model/Ride.java) holds both a driver ID and
+a Driver reference; [DriverAssignmentService](backend/src/main/java/com/lld/uber/service/DriverAssignmentService.java)
+sets that link and releases the existing driver for reuse.
+[UberConcurrencyTest](backend/src/test/java/com/lld/uber/UberConcurrencyTest.java)
+separately covers active assignment rules. The tutor model allows sharing; Uber
+restricts active assignment. Neither Java references nor clearing a field imply
+UML whole/part ownership or garbage-collection timing.
 
 ## Supporting material that must not disappear between lessons
 

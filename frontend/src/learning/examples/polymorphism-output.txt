@@ -1,0 +1,8 @@
+plain: Explain Objects
+interface: Explain Objects (hint: name one object)
+superclass: Explain Objects (hint: name one object)
+open overload: Explain Objects (hint: name one object)
+hinted overload: Explain Objects (hint: name one object)
+same object: true
+base members: open/open
+child members: hinted/hinted

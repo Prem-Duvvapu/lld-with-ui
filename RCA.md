@@ -163,6 +163,8 @@ The 737-case review run reported 736 passes and one failure in
 Evidence is retained in `/home/prem/validation/lld-kv-sim/review-vitest.log`.
 A later 739-case run passed 738 cases but observed Next disabled immediately after
 error clearance in `kvSimulation.test.jsx`; the reset response was still pending.
+A subsequent 756-case CI run observed an unpublished completion mark in raw
+storage before the lesson visit effect had persisted normalized progress.
 
 ### 3. Root Cause
 
@@ -171,6 +173,8 @@ error clearance in `kvSimulation.test.jsx`; the reset response was still pending
 after the DOM query raced that effect under load. The same assertion pattern was
 used at three heading transitions. Simulation reset clears the prior error before
 awaiting its response, so disappearance of the alert is also an intermediate state.
+Likewise, rendering normalized lesson state precedes the visit effect's storage
+commit; a rendered textbox does not prove raw storage has been rewritten.
 
 ### 4. Diagnostic Commands
 
@@ -190,6 +194,9 @@ npx vitest run --maxWorkers=1
    behavior, route logic and test assertions; no arbitrary sleeps were introduced.
 4. Wait for Next to become enabled after reset acknowledgement, rather than using
    earlier error clearance as proof of completion. Retain the error and busy guards.
+5. Wait for the unchanged raw-storage cleanup expectation in the unpublished-mark
+   test. Keep progress normalization and application behavior unchanged; verify the
+   focused journey and full frontend suites again before merging.
 
 ### 6. Preventative Measures
 

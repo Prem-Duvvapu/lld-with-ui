@@ -13,6 +13,10 @@ import interfaceLesson from '../learning/lessons/interfaces';
 import constructorLesson from '../learning/lessons/constructors';
 import accessLesson from '../learning/lessons/access-modifiers';
 import encapsulationLesson from '../learning/lessons/encapsulation';
+import abstractionLesson from '../learning/lessons/abstraction';
+import inheritanceLesson from '../learning/lessons/inheritance';
+import polymorphismLesson from '../learning/lessons/polymorphism';
+import associationLesson from '../learning/lessons/association';
 
 vi.mock('../learning/lessonLoader', () => ({ loadLesson: vi.fn() }));
 
@@ -33,13 +37,15 @@ beforeEach(() => {
   loadLesson.mockReset().mockImplementation(id => Promise.resolve({
     'classes-and-objects': content, enums: enumLesson, interfaces: interfaceLesson,
     constructors: constructorLesson, 'access-modifiers': accessLesson, encapsulation: encapsulationLesson,
+    abstraction: abstractionLesson, inheritance: inheritanceLesson,
+    polymorphism: polymorphismLesson, association: associationLesson,
   }[id]));
 });
 
 describe('Published curriculum learning journey', () => {
   it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
     renderLearning();
-    expect(screen.getByText('6 complete lessons are available now.')).toBeInTheDocument();
+    expect(screen.getByText('10 complete lessons are available now.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Classes and Objects.*Available/ })).toHaveAttribute('href', '/learn/classes-and-objects');
     expect(screen.getByRole('link', { name: /Enums.*Available/ })).toHaveAttribute('href', '/learn/enums');
     expect(screen.getByRole('link', { name: /Interfaces.*Available/ })).toHaveAttribute('href', '/learn/interfaces');
@@ -188,7 +194,7 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Next: Encapsulation →' }));
     await screen.findByRole('heading', { name: 'Encapsulation', level: 1 });
     expect(screen.getByRole('link', { name: 'Review Access Modifiers' })).toHaveAttribute('href', '/learn/access-modifiers');
-    expect(screen.getByText('Next planned concept: Abstraction. It is not published yet.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Next: Abstraction →' })).toHaveAttribute('href', '/learn/abstraction');
     fireEvent.click(screen.getByRole('link', { name: '← Interfaces' }));
     await screen.findByRole('heading', { name: 'Interfaces', level: 1 });
     fireEvent.click(screen.getByRole('link', { name: '← Enums' }));
@@ -204,6 +210,25 @@ describe('Published curriculum learning journey', () => {
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Class notes');
   });
 
+  it('continues through the four new lessons with separate notes, correct prerequisites and an honest remaining roadmap', async () => {
+    renderLearning('/learn/encapsulation');
+    await screen.findByRole('heading', { name: 'Encapsulation', level: 1 });
+    for (const [title, prerequisite] of [['Abstraction', 'Interfaces'], ['Inheritance', 'Constructors and Initialization'], ['Polymorphism', 'Inheritance'], ['Association', 'Classes and Objects']]) {
+      fireEvent.click(screen.getByRole('link', { name: `Next: ${title} →` }));
+      await waitFor(() => expect(screen.getByRole('heading', { name: title, level: 1 })).toHaveFocus());
+      expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+      expect(screen.getByRole('link', { name: `Review ${prerequisite}` })).toBeInTheDocument();
+      fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: `${title} notes` } });
+      fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
+    }
+    expect(screen.getByText('Next planned concept: Aggregation. It is not published yet.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: '← Polymorphism' }));
+    await screen.findByRole('heading', { name: 'Polymorphism', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Polymorphism notes');
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('persists notes, bookmark, resume and review independently from module progress', async () => {
     localStorage.setItem('lld-progress-v1', JSON.stringify({ parking: 123 }));
     await openLesson();
@@ -211,7 +236,7 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
-    expect(screen.getByText(/1 of 6 published lessons marked reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 10 published lessons marked reviewed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
     expect(screen.getByText('1 topics match. 1 available to open.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('link', { name: 'Resume learning →' }));
@@ -222,7 +247,7 @@ describe('Published curriculum learning journey', () => {
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe('classes-and-objects');
   });
 
-  it.each(['/learn/abstraction', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
+  it.each(['/learn/aggregation', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
     renderLearning(path);
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Mark lesson/ })).not.toBeInTheDocument();
@@ -257,11 +282,11 @@ describe('Published curriculum learning journey', () => {
   });
 
   it('bounds and validates stored lesson data and ignores unpublished completion marks', async () => {
-    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'abstraction', lessons: { abstraction: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'aggregation', lessons: { aggregation: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
     await openLesson();
     expect(screen.getByRole('textbox', { name: 'Your explanation' }).value).toHaveLength(2000);
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
-    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.abstraction).toBeUndefined();
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.aggregation).toBeUndefined());
   });
 
   it('keeps a usable session when storage is malformed or blocked', async () => {

@@ -65,7 +65,8 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   assertions now wait for final focus/reset outcomes without changing timeouts.
 - Latest build: entry 312211 bytes; largest non-entry JavaScript chunk 57287 bytes.
 - The curriculum catalog and Classes and Objects, Constructors, Access Modifiers,
-  Enums, Interfaces and Encapsulation lessons are implemented; the remaining 63
+  Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism and
+  Association lessons are implemented; the remaining 59
   topics are visibly planned. Phase 2 remains open.
   See the curriculum workstream below.
 - Phase 0 now has a complete 69-topic outcome/prerequisite/evidence/exercise/gap
@@ -383,7 +384,11 @@ canonical Java/compiler/fixture checks, per-topic durations and a guided sequenc
 that visits published prerequisites first. Both new supplemental topics retain
 their proposed-addition labels. Nine OOP/relationship concepts and the final
 Phase 2 assessment/diagrams remain open.
-The canonical manifest inventories 69 topics; six are published and 63 are planned.
+The third batch adds Abstraction, Inheritance, Polymorphism and Association, with
+78 additional Java semantic/compiler/fixture cases and per-lesson UI checks.
+The guided sequence and isolated notes/bookmarks are covered by a cross-lesson
+navigation test. Five OOP/relationship topics and the Phase 2 assessment remain open.
+The canonical manifest inventories 69 topics; ten are published and 59 are planned.
 Phases 2–7 and the two introductory guides remain open. This is separate from the existing-module UI/UX matrix; do not
 infer overall completion from either one lesson or the historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22

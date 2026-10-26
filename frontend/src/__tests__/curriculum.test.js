@@ -30,13 +30,14 @@ describe('Curriculum inventory and publication contract', () => {
   it('publishes content only when a matching lazy-loaded file exists', async () => {
     const files = Object.keys(import.meta.glob('../learning/lessons/*.js'));
     expect(files.sort()).toEqual(PUBLISHED_LESSONS.map(entry => `../learning/lessons/${entry.id}.js`).sort());
-    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation']);
+    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation', 'abstraction', 'inheritance', 'polymorphism', 'association']);
     expect(lesson.id).toBe(PUBLISHED_LESSONS[0].id);
     expect(lesson.quiz.options.filter(option => option.correct)).toHaveLength(1);
     expect((await loadLesson('classes-and-objects')).id).toBe('classes-and-objects');
     expect((await loadLesson('enums')).id).toBe('enums');
     expect((await loadLesson('interfaces')).id).toBe('interfaces');
-    await expect(loadLesson('abstraction')).rejects.toThrow('no published content');
+    for (const id of ['abstraction', 'inheritance', 'polymorphism', 'association']) expect((await loadLesson(id)).id).toBe(id);
+    await expect(loadLesson('aggregation')).rejects.toThrow('no published content');
   });
 
   it('uses the actual Java files and pins output and visual data to the Java contract tests', () => {

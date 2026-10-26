@@ -1,0 +1,8 @@
+resource initialized: Objects
+resource initialized: Inheritance
+video initialized: 12 min
+inherited title: Inheritance
+plain: Resource: Objects
+video: Resource: Inheritance (video, 12 min)
+same object: true
+Next: Resource: Inheritance (video, 12 min)
