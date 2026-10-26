@@ -1,0 +1,8 @@
+before: Ada -> unassigned; Ben -> unassigned
+shared: Ada -> Mira (Java); Ben -> Mira (Java)
+reassigned: Ada -> Noor (Java); Ben -> Mira (Java)
+saved tutor is Ben's: true
+rejected: Tutor subject must match Java
+after rejection: Ada -> Noor (Java)
+cleared: Ada -> unassigned; Ben -> unassigned
+tutors still usable: Mira (Java); Noor (Java)
