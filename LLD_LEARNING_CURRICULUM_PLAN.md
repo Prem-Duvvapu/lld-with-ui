@@ -1,8 +1,8 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-23. Status: coverage audit and six lessons
+Saved: 2026-10-17. Updated: 2026-10-26. Status: coverage audit and ten lessons
 implemented (Classes and Objects, Constructors, Access Modifiers, Enums, Interfaces,
-Encapsulation); the remaining 63 topic
+Encapsulation, Abstraction, Inheritance, Polymorphism, Association); the remaining 59 topic
 deliveries and final integration are open. Phase 2 remains in progress.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
@@ -181,7 +181,7 @@ for the remaining topics is still open; an audited gap is not a published lesson
 - [x] **Phase 1 — Reference lesson:** deliver Classes and Objects end-to-end,
   including the shared renderer, accessible visuals, tested code, exercise,
   navigation, and progress. Review this vertical slice before scaling content.
-- [ ] **Phase 2 — OOP and relationships:** six of fifteen concepts delivered;
+- [ ] **Phase 2 — OOP and relationships:** ten of fifteen concepts delivered;
   complete the remaining concepts with
   foundational class diagrams and a domain-model assessment.
 - [ ] **Phase 3 — UML and principles:** complete all five diagram types and all

@@ -31,18 +31,20 @@ chunks must receive their own resource response, never `index.html` (RCA-108).
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and six published lessons:
+has a searchable curriculum catalog and ten published lessons:
 **Classes and Objects** (`/learn/classes-and-objects`), **Enums** (`/learn/enums`),
 **Interfaces** (`/learn/interfaces`), **Constructors and Initialization**
 (`/learn/constructors`), **Access Modifiers** (`/learn/access-modifiers`), and
-**Encapsulation** (`/learn/encapsulation`). The guided sequence puts published
+**Encapsulation** (`/learn/encapsulation`), **Abstraction** (`/learn/abstraction`),
+**Inheritance** (`/learn/inheritance`), **Polymorphism** (`/learn/polymorphism`),
+and **Association** (`/learn/association`). The guided sequence puts published
 prerequisites before dependents. Reading times come from the curriculum manifest.
-The other 63 topics are
+The other 59 topics are
 explicitly planned, not empty published lessons; five proposed additions remain labelled.
 
 Each lesson connects a motivating problem, inspectable Java-verified illustrations,
 the actual Java source, a prediction question with explanations, a modeling
-exercise and self-check rubric, and a verified Parking Lot example. Java source lives
+exercise and self-check rubric, and verified links to relevant module implementations. Java source lives
 in `frontend/src/learning/examples/` so a frontend-only deployment can build without
 reaching outside its project root. The backend test suite compiles those exact files
 with Java 17 and checks their output and illustration snapshots. The Enums and

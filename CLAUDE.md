@@ -119,7 +119,8 @@ the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 
 `/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
 manifest in `src/learning/curriculum.js`. Classes and Objects, Constructors, Access
-Modifiers, Enums, Interfaces and Encapsulation are published; 63 topics remain planned. Planned
+Modifiers, Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism
+and Association are published; 59 topics remain planned. Planned
 topics must not be presented as delivered content. Lesson data stays separate from
 module design data. Its displayed `.java` files live under `src/learning/examples/`
 and are compiled by `ClassesAndObjectsExampleTest`, `OopExamplesTest` and
