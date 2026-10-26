@@ -6,12 +6,25 @@ import DiagramViewer from './DiagramViewer';
 
 const EMPTY = [];
 
-const COLORS = ['#2563eb', '#dc2626', '#0284c7', '#16a34a', '#7c3aed', '#db2777', '#059669', '#d97706', '#4f46e5', '#9333ea'];
+// Identity colors belong to borders/markers; filled headers need darker hues for white text.
+const COLORS = [
+  { identity: '#2563eb', header: '#1d4ed8' },
+  { identity: '#dc2626', header: '#b91c1c' },
+  { identity: '#0284c7', header: '#0369a1' },
+  { identity: '#16a34a', header: '#15803d' },
+  { identity: '#7c3aed', header: '#6d28d9' },
+  { identity: '#db2777', header: '#be185d' },
+  { identity: '#059669', header: '#047857' },
+  { identity: '#d97706', header: '#b45309' },
+  { identity: '#4f46e5', header: '#4338ca' },
+  { identity: '#9333ea', header: '#7e22ce' },
+];
 
 export default function ClassDiagram({ module, customData }) {
   const { status, data } = useModuleData(classDiagrams, module, customData, 'classDiagrams');
 
   const containerRef = useRef(null);
+  const titleRef = useRef(null);
   const markerId = useId();
   const [hoveredClass, setHoveredClass] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
@@ -135,23 +148,31 @@ export default function ClassDiagram({ module, customData }) {
     }
   };
 
+  const clearSelection = () => {
+    const selectedCard = [...(containerRef.current?.querySelectorAll('[data-class]') || [])]
+      .find(card => card.dataset.class === selectedClass);
+    setSelectedClass(null);
+    // Clear removes its own button; keep keyboard focus in the diagram's stable content.
+    (selectedCard || titleRef.current)?.focus();
+  };
+
   return (
     <div className="class-diagram-section">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h3 className="cd-title" style={{ margin: 0 }}>{title}</h3>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ minWidth: 0 }}>
+          <h3 ref={titleRef} tabIndex={-1} className="cd-title" style={{ margin: 0 }}>{title}</h3>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
             <span><strong style={{ color: 'var(--accent)' }}>───▶</strong> Association</span>
             <span><strong style={{ color: 'var(--accent)' }}>- - ▶</strong> Extends / Implements</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="cd-toolbar-actions">
           {selectedClass && (
             <button
-              onClick={() => setSelectedClass(null)}
+              onClick={clearSelection}
               style={{
-                padding: '4px 12px', borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                padding: '8px 12px', minHeight: 44, borderRadius: 12, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                 border: '1px solid var(--accent)', background: 'var(--bg-tertiary)', color: 'var(--accent)'
               }}
             >
@@ -204,16 +225,16 @@ export default function ClassDiagram({ module, customData }) {
       {viewMode === 'list' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, marginTop: 16 }}>
           {relationships.map((rel, idx) => (
-            <div key={idx} style={{
+            <div key={idx} className="cd-relationship-card" style={{
               padding: 14, borderRadius: 8, border: '1px solid var(--border-primary)',
               background: 'var(--bg-card)', color: 'var(--text-primary)', fontSize: 13
             }}>
-              <div style={{ fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: classColors[rel.from] || 'var(--accent)' }}>{rel.from}</span>
+              <div style={{ fontWeight: 700, marginBottom: 6, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                <span className="cd-relationship-class" style={{ borderLeftColor: classColors[rel.from]?.identity || 'var(--accent)' }}>{rel.from}</span>
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 12, background: 'var(--bg-tertiary)', border: '1px solid var(--border-secondary)', color: 'var(--text-secondary)' }}>
                   {rel.dashed ? 'extends / implements' : 'associates'}
                 </span>
-                <span style={{ color: classColors[rel.to] || 'var(--accent)' }}>{rel.to}</span>
+                <span className="cd-relationship-class" style={{ borderLeftColor: classColors[rel.to]?.identity || 'var(--accent)' }}>{rel.to}</span>
               </div>
               <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700 }}>
                 Relationship: "{rel.label || 'uses'}"
@@ -299,10 +320,10 @@ export default function ClassDiagram({ module, customData }) {
                   aria-pressed={isSelected}
                   className={`cd-class-box ${highlighted ? 'highlighted' : 'dimmed'}`}
                   style={{
-                    borderTopColor: classColors[cls.name],
+                    borderTopColor: classColors[cls.name].identity,
                     opacity: highlighted ? 1 : 0.18,
                     boxShadow: (isSelected || isHovered)
-                      ? `0 0 18px ${classColors[cls.name] || 'var(--accent)'}`
+                      ? `0 0 18px ${classColors[cls.name].identity}`
                       : 'var(--shadow-md)',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
@@ -313,7 +334,7 @@ export default function ClassDiagram({ module, customData }) {
                     if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleClassClick(cls.name); }
                   }}
                 >
-                  <div className="cd-class-header" style={{ background: classColors[cls.name] }}>
+                  <div className="cd-class-header" style={{ background: classColors[cls.name].header }}>
                     {cls.stereotype && <span className="cd-stereotype">&lt;&lt;{cls.stereotype}&gt;&gt;</span>}
                     <span className="cd-class-name">{cls.name}</span>
                   </div>
@@ -340,11 +361,15 @@ export default function ClassDiagram({ module, customData }) {
 
 const cdStyles = `
 .class-diagram-section { margin: 32px 0; padding: 24px; background: var(--bg-primary); border-radius: 12px; border: 1px solid var(--border-primary); overflow: hidden; }
-.cd-title { font-size: 17px; color: var(--info); font-weight: 800; letter-spacing: 0.5px; }
+.cd-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; max-width: 100%; }
+.cd-toolbar-actions > button { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.cd-relationship-class { color: var(--text-primary); border-left: 4px solid; padding-left: 6px; overflow-wrap: anywhere; min-width: 0; }
+.class-diagram-section :is(.cd-title, .cd-toolbar-actions > button):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.cd-title { overflow-wrap: anywhere; font-size: 17px; color: var(--info); font-weight: 800; letter-spacing: 0.5px; }
 .cd-class-box { width: 235px; margin: 10px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-primary); border-top: 5px solid; background: var(--bg-card); box-shadow: var(--shadow-md); cursor: pointer; user-select: none; }
 .cd-class-box.highlighted { box-shadow: 0 0 14px var(--focus-ring, rgba(37,99,235,0.4)); }
-.cd-class-header { padding: 10px 12px; color: #ffffff; text-align: center; font-weight: 800; font-size: 14px; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
-.cd-stereotype { display: block; font-size: 10px; font-weight: 400; font-style: italic; opacity: 0.95; letter-spacing: 0.5px; }
+.cd-class-header { padding: 10px 12px; color: #ffffff; text-align: center; font-weight: 800; font-size: 14px; }
+.cd-stereotype { display: block; font-size: 10px; font-weight: 400; font-style: italic; letter-spacing: 0.5px; }
 .cd-class-section { padding: 10px 12px; border-top: 1px solid var(--border-primary); font-size: 11px; color: var(--text-primary); }
 .cd-field { font-family: var(--code-font); padding: 3px 0; color: var(--code-field); font-size: 11px; font-weight: 600; }
 .cd-method { font-family: var(--code-font); padding: 3px 0; color: var(--code-method); font-size: 11px; font-weight: 600; }
