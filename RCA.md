@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-115](#rca-115-atm-live-state-was-lost-and-operations-could-overlap) | 2026-10-26 | ATM / Live Workspace | Tab-local session state, unguarded mutations and stale reads lost confirmed state and obscured failures | Frontend resolved; backend validation and hosted integration follow-up remain |
 | [RCA-114](#rca-114-large-valid-expiry-timestamps-were-misreported-as-unknown-writes) | 2026-10-26 | KV / Response Presentation | A valid Java expiry outside browser numeric/date limits rejected the entire acknowledged record and could block further live operations | Resolved |
 | [RCA-113](#rca-113-async-tests-observed-intermediate-states-before-the-required-outcome) | 2026-10-26 | Frontend / Async Test Reliability | Heading insertion preceded focus and error clearance preceded reset acknowledgement; immediate assertions intermittently observed intermediate states | Resolved |
 | [RCA-112](#rca-112-class-diagram-colors-and-selection-toolbar-reduced-readability-and-keyboard-usability) | 2026-10-26 | Shared Class Diagrams / Accessibility | Identifier colors were reused behind white text; selected-class controls clipped, lacked a consistent touch height and lost keyboard focus on Clear | Resolved |
@@ -53,6 +54,41 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-115: ATM Live State Was Lost and Operations Could Overlap
+
+**Overview & Severity** — Medium. The live terminal could lose its displayed session
+on tab departure, repeat monetary requests, or replace newer data with an old read.
+
+**Symptoms & Error Logs** — The original implementation failed ten initial behavioral
+checks: an inventory outage appeared as zero cash, pending actions could repeat,
+read/eject failures were silent, and tab return discarded the session. PIN, amount
+and strategy controls lacked associated form labels. Evidence is retained outside
+the repository in `/home/prem/validation/lld-atm-live/`.
+
+**Root Cause** — The child tab owned state while Java's terminal outlived it.
+Async handlers lacked a synchronous operation guard and request lifetime identity;
+live API wrappers dropped cancellation options. Failed reads only logged errors.
+
+**Diagnostic Commands** — Inspect `AtmController`, `AtmService`, initializer and
+typed exceptions; run `npx vitest run src/__tests__/atmLiveWorkspace.test.jsx
+src/__tests__/atmLiveApi.test.js` from `frontend`. The agent also ran shared API,
+accessibility and status suites (43 focused cases), scoped lint and production build.
+`node /home/prem/validation/lld-atm-live/browser-probe.cjs` checks eight built-browser
+contexts using contract-shaped fixtures, not Java execution or a deployed backend.
+
+**Step-by-Step Resolution** — Retain confirmed state in a hook owned by `AtmPage`;
+activate requests only while the live child is present. Guard mutations before
+React rerenders, invalidate pre-mutation reads, forward abort signals and discard
+stale results. Preserve drafts, receipts and good snapshots with explicit retries.
+Associate form labels, focus results and errors, and contain the live layout in
+both themes. Interrupted writes remain uncertain and are never automatically replayed.
+
+**Preventative Measures** — Keep behavioral and transport regression tests; repeat
+keyboard, theme and narrow-screen checks when controls change. Browser abort does
+not roll back Java. No live session-read endpoint or idempotency key exists. Source
+inspection also found missing positive/finite deposit validation in Java; that
+separate backend follow-up remains pending and is outside this frontend fix.
 
 ## RCA-114: Large Valid Expiry Timestamps Were Misreported as Unknown Writes
 

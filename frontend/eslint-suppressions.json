@@ -44,14 +44,6 @@
       "count": 3
     }
   },
-  "src/lld/atm/AtmPage.jsx": {
-    "jsx-a11y/label-has-associated-control": {
-      "count": 2
-    },
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
   "src/lld/auction/AuctionPage.jsx": {
     "jsx-a11y/label-has-associated-control": {
       "count": 10
