@@ -104,7 +104,7 @@ const prerequisites = {
   interfaces: ['classes-and-objects'],
   encapsulation: ['classes-and-objects', 'access-modifiers'],
   abstraction: ['encapsulation', 'interfaces'],
-  inheritance: ['classes-and-objects', 'access-modifiers'],
+  inheritance: ['classes-and-objects', 'access-modifiers', 'constructors'],
   polymorphism: ['interfaces', 'inheritance'],
   constructors: ['classes-and-objects'],
   'access-modifiers': ['classes-and-objects'],
@@ -177,6 +177,10 @@ const publications = [
   ['enums', '15–20 minutes'],
   ['interfaces', '15–20 minutes'],
   ['encapsulation', '20–25 minutes'],
+  ['abstraction', '20–25 minutes'],
+  ['inheritance', '20–25 minutes'],
+  ['polymorphism', '20–25 minutes'],
+  ['association', '15–20 minutes'],
 ];
 const published = new Map(publications);
 
