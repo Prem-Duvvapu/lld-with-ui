@@ -73,7 +73,7 @@ describe('KV shared simulation', () => {
     expect(api.simSet).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: 'Reset sandbox' }));
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
-    expect(screen.getByRole('button', { name: 'Next step' })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Next step' })).toBeEnabled());
   });
 
   it('aborts pending requests on a built-in tab, preserves settings, and starts a fresh walkthrough on return', async () => {

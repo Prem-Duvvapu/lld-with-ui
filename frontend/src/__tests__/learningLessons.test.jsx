@@ -58,7 +58,7 @@ describe('Published curriculum learning journey', () => {
 
   it('focuses the lesson heading, explains the illustration, and shows independent Java object state', async () => {
     await openLesson();
-    expect(screen.getByRole('heading', { name: 'Classes and Objects', level: 1 })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Classes and Objects', level: 1 })).toHaveFocus());
     const third = screen.getByRole('button', { name: '3. Add an alias and review again' });
     fireEvent.click(third);
     expect(third).toHaveAttribute('aria-pressed', 'true');
@@ -170,14 +170,14 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: '3. Add an alias and review again' }));
     fireEvent.click(screen.getByRole('radio', { name: 'first: 2, second: 0; two objects' }));
     fireEvent.click(screen.getByRole('link', { name: 'Next: Constructors and Initialization →' }));
-    expect(await screen.findByRole('heading', { name: 'Constructors and Initialization', level: 1 })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Constructors and Initialization', level: 1 })).toHaveFocus());
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
     fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Constructor notes' } });
     fireEvent.click(screen.getByRole('link', { name: 'Next: Access Modifiers →' }));
     await screen.findByRole('heading', { name: 'Access Modifiers', level: 1 });
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
     fireEvent.click(screen.getByRole('link', { name: 'Next: Enums →' }));
-    expect(await screen.findByRole('heading', { name: 'Enums', level: 1 })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Enums', level: 1 })).toHaveFocus());
     expect(screen.getByRole('button', { name: '1. Inspect the constants' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
     expect(screen.getAllByRole('radio').every(radio => !radio.checked)).toBe(true);

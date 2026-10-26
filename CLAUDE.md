@@ -16,7 +16,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # latest validated: 2453 tests, 290 classes
+mvn test                                  # latest validated: 2467 tests, 291 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 726 tests, 42 files
+npx vitest run                            # latest validated: 739 tests, 44 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -97,7 +97,11 @@ scope only while a live tab is visible. Preserve last good reads; only a typed
 `KeyNotFoundException`/404 is a miss. Prevent duplicate writes synchronously, ignore
 late results and keep unknown outcomes explicit. A fresh read plus a user decision
 permits another write; it does not prove cancellation or rollback of the old one
-(RCA-109). The KV simulation and final whole-module review remain open.
+(RCA-109). The KV simulation subsequently shipped in #174: a separate Java sandbox
+coordinator owns operation/event boundaries, joins real workers before reset and
+returns detached snapshots (RCA-111). Browser playback uses seven acknowledged
+steps, not fabricated thread scheduling. See `COMPLETION_HANDOFF.md` for final
+review evidence and the separate hosted-deployment verification limit.
 
 KV HTTP value fields are actual strings, numeric fields are whole JSON integers,
 and omitted/null TTL means no expiry. Keep checked TTL multiplication and expiry
