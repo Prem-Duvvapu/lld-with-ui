@@ -42,8 +42,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2453 tests
-cd frontend && npx vitest run  # latest validated: 726 tests
+cd backend  && mvn test        # latest validated: 2467 tests
+cd frontend && npx vitest run  # latest validated: 739 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -1852,8 +1852,8 @@ Package `com.lld.kvstore`.
   replay/reset/snapshot take its exclusive side. Responses are detached, the mutable
   WAL is private, and simulation entry/WAL/count fields use one repository snapshot.
   `KvStoreReplayConcurrencyTest` pauses appends/replay to check lifecycle exclusion,
-  write order, failure recovery and independent-key concurrency. Complete sandbox
-  operation/event serialization and final UI review remain separate open work.
+  write order, failure recovery and independent-key concurrency. The separate
+  sandbox coordinator subsequently adds whole-operation/event serialization (#174).
 - **Template Method for the read path only**: `KvReadTemplate` governs both a throwing
   `GetOperation` and a non-throwing `PeekOperation` (used by the sim snapshot). Deliberately
   *not* extended to CAS: CAS's expiry-and-version check must happen atomically inside the same
@@ -1872,6 +1872,15 @@ Package `com.lld.kvstore`.
   `VersionConflictException` (409 — the request was well-formed, it just lost a race),
   `InvalidKvRequestException` (400 — malformed field types, blank keys, null values,
   nonpositive versions/TTLs, overflow or out-of-range experiment sizes; RCA-110).
+- `KvSimulationException` (409) reports an incomplete experiment with explicit reset
+  guidance. `KvStoreSimulation` is a plain Java coordinator, not another Spring bean.
+  Its fair operation gate covers reset, replay, complete experiments and reads;
+  workers do not acquire it, so actual repository CAS still runs concurrently.
+  Pools terminate before releasing the operation gate. Event models/scalar detail
+  maps and the persisted last-race summary are detached (RCA-111).
+- Reset returns its snapshot atomically. Snapshots report server capture time,
+  retained/readable counts and expired keys; retained expired mappings are not
+  presented as readable values. Browser cancellation is not server rollback.
 - Live/sandbox SET accept actual string values (including empty strings) and optional
   whole JSON integer TTL seconds. Omitted/null TTL means no expiry; zero/negative,
   strings, fractions and overflow are rejected. Seconds conversion and the actual
@@ -1880,15 +1889,17 @@ Package `com.lld.kvstore`.
   Service entry points validate independently of controller binding. CAS experiments
   default to eight workers and accept only 1–32, checked before seed/log/pool creation.
 - Isolated `/api/kvstore/sim/*` engine: a second `KvStoreRepository` instance, seeded empty.
-- Tests (8 files): `KvStoreServiceTest`, `KvStoreConcurrencyTest` (the load-bearing suite
+- Tests (9 files): `KvStoreServiceTest`, `KvStoreConcurrencyTest` (the load-bearing suite
   above), `CommandTest`, `KvReadTemplateTest`, `KvStoreRepositoryTest`,
   `KvStoreReplayConcurrencyTest`, `KvStoreControllerIntegrationTest` (real-service
   MockMvc live status/version contracts, sandbox replay/reset and JSON shape),
   `KvStoreRequestValidationTest` (58 actual HTTP/domain cases, unchanged state on
-  rejection, null/omitted TTL, expiry overflow, and real 1/8/32-worker races).
+  rejection, null/omitted TTL, expiry overflow, and real 1/8/32-worker races),
+  `KvStoreSimulationLifecycleTest` (14 operation-boundary, worker-cleanup,
+  detached-snapshot and TTL-readability cases).
 
 ### Frontend
-- 6 tabs: Store, CAS, Interactive 2D Simulation, Class Diagram, Sequence Diagram, Design
+- 6 tabs: Store, CAS, Concurrency Simulation, Class Diagram, Sequence Diagram, Design
   Details — built on the shared `LldPage` shell from the start.
 - Live Store/CAS drafts and confirmed responses are owned above that shell, so built-in
   design tabs do not discard them. The mounted live view attaches an abortable scope;
@@ -1902,11 +1913,20 @@ Package `com.lld.kvstore`.
 - Labeled forms preserve rejected drafts and accept empty string values. DELETE
   requires confirmation, with safe cancellation and stable focus. Recent SET responses
   are bounded to ten per-key snapshots and displayed after forms/confirmed data; they
-  are not a live inventory or an eviction policy. Full simulation/lifecycle review
-  and final module sign-off remain open; request validation is covered by RCA-110.
-- Simulation tab: 6-step guided demo — reset, a clean SET/GET, in-memory WAL replay, a
-  real 1-second TTL expiry wait, a live 8-worker CAS race, and a final review of the WAL and
-  event log.
+  are not a live inventory or an eviction policy. Request validation is covered by
+  RCA-110; the browser-review evidence and limits are in `COMPLETION_HANDOFF.md`.
+- Simulation tab uses `SimulationControls` / `useSimulationPlayback` for seven
+  acknowledged backend steps: reset, SET, GET, in-memory replay, actual TTL check,
+  selected-worker CAS race and final snapshot read. Settings persist above the
+  shared shell, while leaving the simulation cancels waiting and discards playback
+  progress. Failed mutations require explicit reset; no automatic retry.
+- Counts/outcomes/readability come from Java. Mappings use 25-row pages; commands
+  and events show at most the latest 50 while preserving totals. A display cap does
+  not compact the server's in-memory WAL or schedule JVM workers.
+- A valid expiry outside JavaScript's precise integer or Date range does not reject
+  the acknowledged value/version. The shared formatter explains display limits
+  without printing a rounded timestamp as exact; server expiry semantics stay in
+  Java (RCA-114).
 
 ## Coupon / Promotion Engine Module
 Brand-new module (portfolio position #58, ROADMAP.md Tier 3, next after Key-Value Store).

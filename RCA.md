@@ -8,7 +8,10 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
-| [RCA-111](#rca-111-kv-sandbox-operations-could-interleave-and-responses-exposed-live-events) | 2026-10-23 | KV / Sandbox Lifecycle | Reset split mutations from event commit, returned events leaked mutable history, and interrupted coordinators could leave workers running | Resolved; final module browser review in progress |
+| [RCA-114](#rca-114-large-valid-expiry-timestamps-were-misreported-as-unknown-writes) | 2026-10-26 | KV / Response Presentation | A valid Java expiry outside browser numeric/date limits rejected the entire acknowledged record and could block further live operations | Resolved |
+| [RCA-113](#rca-113-async-tests-observed-intermediate-states-before-the-required-outcome) | 2026-10-26 | Frontend / Async Test Reliability | Heading insertion preceded focus and error clearance preceded reset acknowledgement; immediate assertions intermittently observed intermediate states | Resolved |
+| [RCA-112](#rca-112-class-diagram-colors-and-selection-toolbar-reduced-readability-and-keyboard-usability) | 2026-10-26 | Shared Class Diagrams / Accessibility | Identifier colors were reused behind white text; selected-class controls clipped, lacked a consistent touch height and lost keyboard focus on Clear | Resolved |
+| [RCA-111](#rca-111-kv-sandbox-operations-could-interleave-and-responses-exposed-live-events) | 2026-10-23 | KV / Sandbox Lifecycle | Reset split mutations from event commit, returned events leaked mutable history, and interrupted coordinators could leave workers running | Resolved; local module browser review complete |
 | [RCA-110](#rca-110-kv-request-coercion-crashed-on-missing-values-and-silently-overflowed-ttls) | 2026-10-23 | Backend / KV Request Validation | Missing/null fields threw NPEs, structured values were stringified, TTL overflow disabled expiry, and race sizes were unbounded | Resolved; sandbox snapshot/lifecycle audit remains open |
 | [RCA-109](#rca-109-kv-read-failures-were-reported-as-missing-keys-and-writes-could-overlap) | 2026-10-23 | Frontend / KV Live Workspace | Every failed GET became a false 404; unguarded mutations and stale responses could mislead users | Resolved in live workspace; full module audit remains open |
 | [RCA-108](#rca-108-the-spa-rewrite-returned-html-for-vercels-analytics-script) | 2026-10-23 | Deployment / Vercel Routing | The SPA fallback captured reserved platform and asset paths; the live analytics script returned HTML and threw a syntax error | Resolved; deployed routing verified |
@@ -50,6 +53,172 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-114: Large Valid Expiry Timestamps Were Misreported as Unknown Writes
+
+### 1. Overview & Severity
+
+Medium. Java's valid timestamp range exceeds both JavaScript's precise integer
+range and Date's supported range. Metadata display limits must not turn a valid
+write acknowledgement into an unknown outcome or make the value inaccessible.
+
+### 2. Symptoms & Error Logs
+
+A TTL of 10,000,000,000,000 seconds passes the UI's whole-number validation and
+Java's checked arithmetic. Its successful response has an expiry beyond the
+browser's precise numeric range. Two pre-fix cases failed: the unsafe integer
+blocked the acknowledged record and further writes; a safe integer outside Date's
+range appeared as an unlabeled number. Red/green evidence is retained in
+`/home/prem/validation/lld-kv-sim/expiry-red.log` and `expiry-green.log`.
+
+### 3. Root Cause
+
+The whole-record validator treated expiry precision as a prerequisite for displaying
+value/version. Its exception flowed into mutation failure handling despite a valid
+acknowledgement. The date formatter's fallback also printed epoch milliseconds
+under a UTC-date label without explaining the unsupported display range.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/kvWorkspace.test.jsx src/__tests__/kvSimulation.test.jsx --maxWorkers=1
+node /home/prem/validation/lld-kv-sim/browser-review.cjs
+```
+
+The browser verifier sends the large-TTL SET and confirmed DELETE through the real
+Java controller/service in MockMvc. It uses no deployed mutations or listening server.
+
+### 5. Step-by-Step Resolution
+
+1. Accept a finite integral expiry as valid metadata independently of whether the
+   browser can render its exact number/date. Keep value/version schema validation.
+2. Share a presentation formatter between live and sandbox views. For unsafe JSON
+   integers, say that the precise timestamp cannot be represented; never print a
+   rounded number as exact. For safe integers outside Date range, show the exact
+   epoch milliseconds with their unit and explain the date limit.
+3. Preserve the confirmed value, version and normal write/delete controls after
+   acknowledgement. Do not change Java's expiry policy or infer readability locally.
+4. Pass both added range cases and all 25 focused live/simulation checks, including
+   confirmed deletion after the acknowledged write.
+
+### 6. Preventative Measures
+
+Separate optional metadata presentation from mutation outcome. Exercise both numeric
+precision and date-format limits at the API/browser boundary, not only TTL overflow
+inside Java. Never replace an explicit acknowledgement with a warning about network
+uncertainty solely because a timestamp cannot be formatted.
+
+## RCA-113: Async Tests Observed Intermediate States Before the Required Outcome
+
+### 1. Overview & Severity
+
+Medium for regression reliability. The full frontend suite intermittently rejected
+correct lazy-navigation behavior because it observed heading insertion before
+React's effect assigned focus. A later run exposed the same postcondition mistake
+in simulation recovery: clearing an error did not mean reset had been acknowledged.
+No application behavior was changed.
+
+### 2. Symptoms & Error Logs
+
+The 737-case review run reported 736 passes and one failure in
+`learningLessons.test.jsx`: Constructors and Initialization was present, but
+`expect(element).toHaveFocus()` observed BODY. The new class-diagram checks passed.
+Evidence is retained in `/home/prem/validation/lld-kv-sim/review-vitest.log`.
+A later 739-case run passed 738 cases but observed Next disabled immediately after
+error clearance in `kvSimulation.test.jsx`; the reset response was still pending.
+
+### 3. Root Cause
+
+`findByRole` waits for a heading to exist. `LessonContent` assigns focus in
+`useEffect`, which is a separate observable condition. An immediate focus assertion
+after the DOM query raced that effect under load. The same assertion pattern was
+used at three heading transitions. Simulation reset clears the prior error before
+awaiting its response, so disappearance of the alert is also an intermediate state.
+
+### 4. Diagnostic Commands
+
+```bash
+cd frontend
+npx vitest run src/__tests__/learningLessons.test.jsx --maxWorkers=1
+npx vitest run src/__tests__/kvSimulation.test.jsx --maxWorkers=1
+npx vitest run --maxWorkers=1
+```
+
+### 5. Step-by-Step Resolution
+
+1. Inspect the failing BODY/heading assertion and the existing focus effect.
+2. Use Testing Library `waitFor` around the unchanged focused-heading expectation
+   at the three transitions. Missing focus still fails the test.
+3. Pass all 18 focused learning-journey checks. Keep existing timeouts, browser
+   behavior, route logic and test assertions; no arbitrary sleeps were introduced.
+4. Wait for Next to become enabled after reset acknowledgement, rather than using
+   earlier error clearance as proof of completion. Retain the error and busy guards.
+
+### 6. Preventative Measures
+
+Wait for the actual user-visible postcondition of asynchronous navigation, rather
+than assuming DOM insertion means all effects have run. Preserve focus assertions
+and their default timeout instead of removing them or treating reruns as the fix.
+Browser keyboard/navigation checks independently verify the runtime behavior.
+
+## RCA-112: Class Diagram Colors and Selection Toolbar Reduced Readability and Keyboard Usability
+
+### 1. Overview & Severity
+
+Medium for the shared class-diagram renderer, discovered during the final KV
+browser review. Four header colors failed text contrast, selected-class actions
+clipped on narrow screens, and Clear could leave keyboard focus on BODY.
+
+### 2. Symptoms & Error Logs
+
+The production-build probe recorded 40 failed measurements over light/dark and
+320/390/768/1280px: 32 header-color cases, four clipped-toolbar cases and four
+undersized Clear targets. The lowest measured header ratio was 3.18:1. The
+independent fix verification also reproduced focus loss when Clear removed itself.
+Evidence: `/home/prem/validation/lld-kv-sim/diagram-probe-red.json` (red) and
+`/home/prem/validation/lld-diagram-accessibility/browser-results.json` (green).
+
+### 3. Root Cause
+
+One palette served both class identity markers and text-bearing fills, despite
+different contrast requirements. Relationships used those same hues as text on
+theme surfaces. A non-wrapping action row grew when selection inserted Clear, and
+that button used small padding without a minimum height or focus restoration.
+
+### 4. Diagnostic Commands
+
+```bash
+node /home/prem/validation/lld-kv-sim/diagram-probe.cjs
+cd frontend
+npx vitest run src/__tests__/classDiagramAccessibility.test.jsx src/__tests__/diagramViewer.test.jsx
+npm run build
+```
+
+Browser probes intercept static assets and start no application server. The
+separate KV workflow review passes requests through actual Java MockMvc; neither
+method claims hosted HTTP end-to-end verification.
+
+### 5. Step-by-Step Resolution
+
+1. Preserve class identifier colors on non-text markers/borders and introduce
+   darker matching header fills for white text. Remove stereotype opacity so
+   small text uses the same readable pair.
+2. Use theme text colors for relationship names, retaining class identity in a
+   colored border. Wrap relationship labels, the legend and toolbar actions.
+3. Give Clear a 44px minimum height and constrain controls to the available width.
+   Return focus to the selected graph card, or the named heading in list mode.
+4. Pass 22 focused checks and an independent eight-context browser review: minimum
+   header ratio 5.02:1, no clipped toolbar, and Enter/Space/list/fullscreen focus
+   restoration. Parent integration repeats the complete KV workflow and probe.
+
+### 6. Preventative Measures
+
+Verify text/fill pairs independently of identity colors. Test selection states,
+not only the initial empty toolbar, and include both graph and relationship views.
+Any control that removes itself needs an intentional stable focus destination.
+Keep the transcript, graph semantics and class colors; accessibility changes must
+not discard the information or require every learner to use the same view.
 
 ## RCA-111: KV Sandbox Operations Could Interleave and Responses Exposed Live Events
 
