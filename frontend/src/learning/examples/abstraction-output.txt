@@ -1,0 +1,6 @@
+Study: Encap...
+Study: Encapsul
+Study: OOP
+Study: OOP
+blank: Topic is required
+limit: Limit must be at least 4
