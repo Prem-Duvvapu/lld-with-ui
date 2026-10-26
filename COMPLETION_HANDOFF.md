@@ -6,6 +6,13 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- ATM live-workspace improvements retain confirmed session state across tabs,
+  guard mutations, invalidate stale reads and offer explicit recovery, labeled
+  forms and responsive layout (RCA-115). Agent validation passed 43 focused cases
+  and eight browser contexts using contract-shaped fixtures. This is a scoped
+  frontend improvement, not a complete ATM module sign-off. Java deposit validation,
+  backend session/idempotency support and hosted integration remain follow-ups.
+
 - All 60 modules exist, with Java backends, routes, and design data.
 - Homepage discovery, navigation memory, mobile tabs, and shared diagram zoom,
   fit-width, fullscreen, and keyboard controls have shipped.
