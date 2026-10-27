@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { findLesson } from '../learning/curriculum';
 import { loadLesson } from '../learning/lessonLoader';
 import LessonContent from '../learning/LessonContent';
 import '../learning/Learning.css';
+import { catalogReturn } from '../learning/catalogNavigation';
 
 export default function Lesson() {
+  const location = useLocation();
   const { lessonId } = useParams();
   const metadata = findLesson(lessonId);
   const fallbackHeading = useRef(null);
@@ -53,7 +55,7 @@ export default function Lesson() {
 
   return (
     <main className="learn-page">
-      <nav aria-label="Learning navigation" className="learn-breadcrumb"><Link to="/learn">← All lessons</Link><Link to="/">Module library</Link></nav>
+      <nav aria-label="Learning navigation" className="learn-breadcrumb"><Link {...catalogReturn(location.state)}>← All lessons</Link><Link to="/">Module library</Link></nav>
       {body}
     </main>
   );

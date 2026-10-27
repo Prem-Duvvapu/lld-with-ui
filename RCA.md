@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-122](#rca-122-catalog-bookmarks-could-overwrite-newer-lesson-notes) | 2026-10-27 | Learning / Saved Progress | Metadata writes used stale hook state and could overwrite notes saved by another tab before its storage event arrived | Resolved with latest-read merge and failed-write session retention |
 | [RCA-119](#rca-119-a-kv-lifecycle-test-confused-task-completion-with-thread-death) | 2026-10-27 | KV / Concurrency Test Reliability | Captured worker threads were checked for physical termination before waiting for their final executor bookkeeping to return | Resolved without changing runtime behavior |
 | [RCA-117](#rca-117-a-wsl-instance-restart-terminated-validation-and-agent-handles) | 2026-10-27 | Environment / Validation Recovery | WSL shutdown/restart removed live validation processes and agent handles while preserving worktree files | Recovered; validation rerun from preserved sources |
 | [RCA-116](#rca-116-atm-requests-could-corrupt-balances-or-debit-more-than-the-dispensed-notes) | 2026-10-27 | ATM / Request and Amount Validation | Nonpositive/non-finite deposits, truncated withdrawals and malformed request fields could mutate money or fail outside the domain contract | Resolved for live/sandbox request validation |
@@ -8472,3 +8473,39 @@ mvn -Dtest=FooBarServiceTest,FooBarPrinterTest test
 least the affected module's tests before leaving a source edit pending. Review the actual diff for
 comment delimiters inside identifiers or expressions; formatting and lint checks alone cannot
 validate code that does not parse.
+
+
+## RCA-122: Catalog bookmarks could overwrite newer lesson notes
+
+### 1. Overview & Severity
+Medium: adding catalog bookmark actions exposed an existing stale metadata-write
+window in `useLessonProgress.updateLesson`.
+
+### 2. Symptoms & Error Logs
+A hook initialized before another tab saved notes could later bookmark the same
+lesson using its old snapshot, silently replacing the newer notes. There is no
+exception: the write is valid JSON. A separate quota failure can leave in-session
+notes newer than storage, so blindly rereading storage is insufficient.
+
+### 3. Root Cause
+`visit` already reread storage before updating resume metadata, but `updateLesson`
+merged against only its hook ref. Cross-tab storage notifications are asynchronous.
+
+### 4. Diagnostic Commands
+`cd frontend && npx vitest run src/__tests__/learnCatalog.test.jsx src/__tests__/learningLessons.test.jsx`
+The regression saves new notes after hook initialization, then bookmarks without
+first dispatching a storage event. Another test fails storage writes and checks
+that a subsequent metadata action preserves the in-session notes.
+
+### 5. Step-by-Step Resolution
+1. Read and normalize latest storage before merging lesson metadata.
+2. Apply only the requested fields, preserving other lessons, notes and resume.
+3. Track failed writes and retain the newer session snapshot until a write succeeds.
+   Ignore remote storage notifications during that unsaved state so they cannot
+   discard the draft or clear its warning.
+4. Preserve explicit storage notices and existing schema/key boundaries.
+
+### 6. Preventative Measures
+Keep metadata actions covered by concurrent-tab and quota-failure regressions.
+This is not cross-tab transaction isolation: simultaneous writers remain subject
+to localStorage's last-write behavior. No cross-device synchronization is claimed.

@@ -45,18 +45,21 @@ beforeEach(() => {
 describe('Published curriculum learning journey', () => {
   it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
     renderLearning();
-    expect(screen.getByText('10 complete lessons are available now.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Classes and Objects.*Available/ })).toHaveAttribute('href', '/learn/classes-and-objects');
-    expect(screen.getByRole('link', { name: /Enums.*Available/ })).toHaveAttribute('href', '/learn/enums');
-    expect(screen.getByRole('link', { name: /Interfaces.*Available/ })).toHaveAttribute('href', '/learn/interfaces');
-    const constructors = screen.getByRole('link', { name: /Constructors and Initialization.*Available/ });
+    expect(screen.getByRole('button', { name: 'Available lessons (10)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('link', { name: 'Classes and Objects', exact: true })).toHaveAttribute('href', '/learn/classes-and-objects');
+    expect(screen.getByRole('link', { name: 'Enums', exact: true })).toHaveAttribute('href', '/learn/enums');
+    expect(screen.getByRole('link', { name: 'Interfaces', exact: true })).toHaveAttribute('href', '/learn/interfaces');
+    const constructors = screen.getByRole('article', { name: 'Constructors and Initialization' });
+    expect(within(constructors).getByRole('link', { name: 'Constructors and Initialization', exact: true })).toHaveAttribute('href', '/learn/constructors');
     expect(within(constructors).getByText('Proposed addition')).toBeVisible();
     expect(constructors).toHaveTextContent('20–25 minutes');
-    expect(screen.getByRole('link', { name: /Access Modifiers.*Available/ })).toHaveTextContent('Proposed addition');
+    expect(screen.getByRole('article', { name: 'Access Modifiers' })).toHaveTextContent('Proposed addition');
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search lessons' }), { target: { value: 'SOLID' } });
+    expect(screen.getByRole('status')).toHaveTextContent('0 available lessons');
+    fireEvent.click(screen.getByRole('button', { name: 'View matching roadmap topics' }));
     expect(screen.getByText('SOLID Principles with Pictures')).toBeVisible();
     expect(screen.getByText('SOLID Principles with Code')).toBeVisible();
-    expect(screen.getByText('2 topics match. 0 available to open.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('0 available lessons · 2 planned topics');
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no-match' } });
     fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
     expect(screen.getByRole('searchbox')).toHaveValue('');
@@ -236,10 +239,10 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
-    expect(screen.getByText(/1 of 10 published lessons marked reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 10 available lessons marked reviewed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
-    expect(screen.getByText('1 topics match. 1 available to open.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('link', { name: 'Resume learning →' }));
+    expect(screen.getByRole('status')).toHaveTextContent('1 available lessons');
+    fireEvent.click(screen.getByRole('link', { name: 'Continue learning →' }));
     await screen.findByRole('textbox', { name: 'Your explanation' });
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Each session has independent progress; the alias shares the first.');
     expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute('aria-pressed', 'true');
