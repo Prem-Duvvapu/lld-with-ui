@@ -309,6 +309,31 @@ describe('Learning catalog continuity', () => {
     expect(window.scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ top: 0 }));
   });
 
+  it.each([
+    ['last unreviewed', 'oop-overview', 'dependency', true, 'breadcrumb'],
+    ['last unreviewed', 'oop-overview', 'dependency', true, 'browser Back'],
+    ['more unreviewed', 'how-to-learn-lld', 'enums', false, 'breadcrumb'],
+    ['more unreviewed', 'how-to-learn-lld', 'enums', false, 'browser Back'],
+  ])('keeps focus on the visited suggestion when it becomes Continue: %s / %s / %s / %s / %s', async (_case, id, lastId, reviewedOthers, returnMethod) => {
+    const content = id === 'oop-overview'
+      ? await import('../learning/lessons/oop-overview')
+      : await import('../learning/lessons/how-to-learn-lld');
+    loadLesson.mockResolvedValue(content.default);
+    saveProgress(Object.fromEntries(PUBLISHED_LESSONS.filter(lesson => lesson.id !== id)
+      .map(lesson => [lesson.id, { reviewed: reviewedOthers, notes: `Retain ${lesson.id}` }])), lastId);
+    const router = renderCatalog();
+    const title = PUBLISHED_LESSONS.find(lesson => lesson.id === id).title;
+    fireEvent.click(within(screen.getByRole('complementary', { name: 'Continue learning' }))
+      .getByRole('link', { name: title, exact: true }));
+    await screen.findByRole('heading', { name: title, level: 1 });
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe(id));
+    if (returnMethod === 'breadcrumb') fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
+    else await act(() => router.navigate(-1));
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Continue learning →' })).toHaveFocus());
+    expect(screen.getByRole('link', { name: 'Continue learning →' })).toHaveAttribute('href', `/learn/${id}`);
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons[lastId].notes).toBe(`Retain ${lastId}`);
+  });
+
   it('restores the latest departure after a breadcrumb return followed by browser Back', async () => {
     const scroll = vi.spyOn(window, 'scrollY', 'get').mockReturnValue(120);
     const router = renderCatalog();
