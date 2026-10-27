@@ -5,46 +5,56 @@
 export default {
   title: 'ATM System — Design Details',
   requirements: [
-    'State Machine Session Lifecycle: one class per ATMState (IdleSessionState → CardInsertedSessionState → AuthenticatedSessionState → TransactionInProgressSessionState → DispensingSessionState → SessionEndedSessionState / CardBlockedSessionState), each declaring its own legal-next-states set, enforced by AtmService#transitionTo — the single place currentState is ever assigned.',
-    'Fine-Grained Per-Account Concurrency: Fair ReentrantLock per Account preventing account overselling under simultaneous multi-thread withdrawal races.',
-    'Hardware Cash Dispenser Locking: CashDispenser owns a dedicated ReentrantLock for note calculation and inventory updates.',
-    'Denomination-Based Cash Dispensing: Strategy + Factory — DenominationDispenseStrategyFactory resolves MINIMIZE_NOTES (GreedyDenominationDispenseStrategy) or CONSERVE_LARGE_NOTES (ConserveLargeNotesDispenseStrategy) via an EnumMap, the same shape as inventory.strategy.ReorderStrategyFactory.',
-    'Compensating Transaction & Atomicity: Automatically credit account balance back if cash dispenser hardware fails due to denomination mismatch after debiting.',
-    'Card Security & PIN Lockout: Track failed PIN attempts and automatically block card (CARD_BLOCKED) after 3 consecutive failures.',
-    'Isolated Concurrency Simulation: an isolated /api/atm/sim/* sandbox (separate BankingRepository + CashDispenser) driving the real state machine and dispense strategies, so the demo can never touch live accounts.'
+    'Live session lifecycle: insertCard, authenticate and ejectCard use transitionTo under sessionLock. It resolves a singleton SessionState and checks allowedNext. Withdraw/deposit instead use setState to write TRANSACTION_IN_PROGRESS, DISPENSING and AUTHENTICATED directly; the transition table does not enforce those internal updates.',
+    'Per-account money movement: getBalance, withdraw and deposit acquire Account.getLock before checking the current session and matching account. Withdraw re-reads balance inside that lock, then acquires the dispenser lock through dispenseCash. The account lock does not serialize concurrent insertion/ejection, which use sessionLock.',
+    'Cash inventory: CashDispenser holds one fair ReentrantLock across the total-cash check, note calculation and deduction. Its inventory getter returns a copy; total and inventory are separately locked reads, not one combined snapshot.',
+    'Dispense Strategy + Factory: an EnumMap selects largest-first MINIMIZE_NOTES or smallest-first CONSERVE_LARGE_NOTES. Both are single-pass heuristics without backtracking, so a failure does not prove that no exact note combination exists.',
+    'Withdrawal compensation: after debiting, the live service credits the amount back specifically when dispenseCash throws InsufficientCashException and records a FAILED transaction. This in-memory compensation is not a database transaction, crash recovery or a guarantee that every unexpected failure is rolled back.',
+    'PIN attempts: the service compares the active card’s stored plaintext PIN, increments its counter on a wrong PIN and calls blockCard at three failures. Card.incrementFailedAttempts only increments; it does not block by itself. Successful PIN verification resets attempts.',
+    'Request amounts: the controller accepts finite JSON numbers, not numeric strings. The service requires finite positive amounts; withdrawals must also be exact multiples of ₹100 within the int dispenser range before conversion. Deposits may be fractional ledger amounts and reject a non-finite resulting balance. HTTP withdrawal mode defaults to MINIMIZE_NOTES when omitted/null; other values must match one of the two enum names.',
+    'REST deposits are ledger credits: the controller passes null for notes, so a successful deposit does not replenish the cassette or verify a physical note total. The service method can add a supplied note map, but has no validation that its counts/value match the credited amount.',
+    'Sandbox isolation: /api/atm/sim/* uses its own BankingRepository, CashDispenser, accounts and cards, sharing strategy implementations with live dispensing. Mutations are synchronized on the AtmService instance and assign simState directly; this is not a parallel withdrawal race or enforcement through the live SessionStates gate.',
+    'Domain errors use AtmException → DomainException and the shared ErrorResponse (error, code, status, timestamp). Invalid requests/session states and insufficient balance are 400; a well-formed incorrect PIN is 401; blocked card is 403; missing account/card is 404; insufficient cash is 409. Sandbox workflow rejections often return 200 with events instead of throwing these errors.'
   ],
   entities: [
     {
       name: 'AtmService',
-      description: 'Spring @Service facade managing session state machine, PIN verification, withdrawal, deposit, and simulation engine.',
+      description: 'Spring @Service coordinating one live terminal and a separate sandbox. Session lifecycle checks, account money movement and simulation mutation use different locking boundaries.',
       fields: [
         {
           name: 'bankingRepository',
           type: 'BankingRepository',
-          description: 'ConcurrentHashMap-backed store for accounts and cards, shared by the live session flow and the isolated sim sandbox'
+          description: 'Injected live account/card store. The sandbox uses a different repository instance, simBankingRepository.'
         },
         {
           name: 'cashDispenser',
           type: 'CashDispenser',
-          description: 'Physical cash dispenser hardware tracking note inventory'
+          description: 'Injected live in-memory note cassette; no physical device driver is implemented.'
         },
         {
           name: 'currentState',
           type: 'ATMState',
-          description: 'Active session state in state machine lifecycle'
+          description: 'Volatile live phase, written by guarded transitionTo and direct internal setState; it is not an atomic snapshot of the session fields.'
         },
         {
           name: 'activeCard',
           type: 'Card',
-          description: 'Card currently inserted in terminal slot'
+          description: 'Live card selected by insertion; authenticate compares this object’s PIN.'
         },
         {
           name: 'activeAccount',
           type: 'Account',
-          description: 'Authenticated customer bank account'
-        }
+          description: 'Account selected on card insertion, before PIN verification; money operations additionally check the session phase and account number.'
+        },
+        { name: 'sessionLock', type: 'ReentrantLock', description: 'Fair lock used by insertion/authentication/ejection, not held across withdrawal or deposit money movement.' },
+        { name: 'simBankingRepository', type: 'BankingRepository', description: 'Separate sandbox account/card store; never the injected live repository.' },
+        { name: 'simCashDispenser', type: 'CashDispenser', description: 'Separate sandbox cassette using the shared strategy factory.' },
+        { name: 'simState', type: 'ATMState', description: 'Sandbox phase directly assigned by synchronized mutation methods; no SessionStates table check.' }
       ],
       methods: [
+        { name: 'transitionTo(target)', returns: 'void', description: 'Private lifecycle transition: takes sessionLock and checks SessionStates.of(currentState).canTransitionTo(target).' },
+        { name: 'setState(target)', returns: 'void', description: 'Private direct phase assignment used by admitted money operations; no table check or sessionLock acquisition.' },
+        { name: 'getSimSnapshots()', returns: 'Map<String, Object>', description: 'Unsynchronized aggregate read: repository lists copy membership but retain account/card objects; active references and events are shared. Inventory is copied separately, so concurrent requests can observe mixed state.' },
         {
           name: 'insertCard(cardNumber)',
           returns: 'Map<String, Object>',
@@ -53,28 +63,28 @@ export default {
         {
           name: 'authenticate(cardNumber, pin)',
           returns: 'Account',
-          description: 'Verifies PIN, tracks failed attempts (locks at 3), and transitions to AUTHENTICATED'
+          description: 'Checks the active card’s PIN under sessionLock, tracks failures and uses transitionTo for authentication/blocking. If a card is already active, the supplied cardNumber is not checked against it.'
         },
         {
-          name: 'withdraw(accNum, amount)',
+          name: 'withdraw(accNum, amount, mode)',
           returns: 'WithdrawalTransaction',
-          description: 'Debits account under lock, dispenses notes, handles compensating refund if notes missing'
+          description: 'Validates the amount/mode, holds the account lock across session/account checks, balance check, debit, dispense and recording; compensates InsufficientCashException only.'
         },
         {
           name: 'deposit(accNum, amount, notes)',
           returns: 'DepositTransaction',
-          description: 'Accepts currency notes, adds to dispenser inventory, and credits account balance'
+          description: 'Credits a validated positive amount under the account lock; optionally adds supplied notes. The REST controller supplies null, so HTTP deposits leave note inventory unchanged.'
         },
         {
           name: 'ejectCard()',
           returns: 'Map<String, Object>',
-          description: 'Ejects active card and resets state to IDLE'
+          description: 'Under sessionLock, transitions through SESSION_ENDED to IDLE and clears active references. It does not wait for an account’s in-flight money operation.'
         }
       ]
     },
     {
       name: 'CashDispenser',
-      description: 'Hardware cash dispenser tracking note inventory with fair ReentrantLock and denomination strategy.',
+      description: 'In-memory note inventory protected by a fair ReentrantLock, with note selection delegated to a strategy. This models dispensing; it does not acknowledge real hardware delivery.',
       fields: [
         {
           name: 'noteInventory',
@@ -84,12 +94,12 @@ export default {
         {
           name: 'dispenserLock',
           type: 'ReentrantLock',
-          description: 'Fair lock synchronizing physical note dispensing'
+          description: 'Fair lock serializing inventory methods, including calculate-and-deduct across denominations.'
         },
         {
           name: 'strategyFactory',
           type: 'DenominationDispenseStrategyFactory',
-          description: 'Resolves the DispenseMode to a concrete DenominationDispenseStrategy fresh on every dispenseCash(amount, mode) call — not a strategy pre-resolved and held on the field'
+          description: 'Selects an existing registered strategy for each dispenseCash(amount, mode) call; strategies are not newly constructed per withdrawal.'
         },
         {
           name: 'defaultMode',
@@ -99,37 +109,37 @@ export default {
       ],
       methods: [
         {
-          name: 'dispenseCash(amount)',
+          name: 'dispenseCash(amount, mode)',
           returns: 'Map<NoteDenomination, Integer>',
-          description: 'Calculates notes, verifies inventory availability, and deducts counts atomically'
+          description: 'Checks total, runs the selected heuristic and deducts its completed note map under one lock. InsufficientCashException before deduction leaves inventory unchanged.'
         },
         {
           name: 'addNotes(denom, count)',
           returns: 'void',
-          description: 'Restocks note hopper'
+          description: 'Merges a count under the dispenser lock; this method does not validate positive counts or an amount-to-notes match.'
         },
         {
           name: 'getTotalCashAvailable()',
           returns: 'int',
-          description: 'Calculates total INR cash value in dispenser'
+          description: 'Reads the int-valued inventory total under the dispenser lock; separate calls need not observe the same inventory version.'
         }
       ]
     },
     {
       name: 'DenominationDispenseStrategy (Interface)',
-      description: 'Strategy interface computing optimal note counts per denomination for requested amounts.',
+      description: 'Strategy interface for selecting a note mix from inventory. The two implementations use opposite greedy orders; the interface does not establish optimality or completeness.',
       fields: [],
       methods: [
         {
           name: 'calculateNotes(amount, availableInventory)',
           returns: 'Map<NoteDenomination, Integer>',
-          description: 'Computes greedy note breakdown or throws exception if amount cannot be satisfied'
+          description: 'Returns the heuristic’s complete note mix or throws InsufficientCashException if its remaining amount is nonzero; it does not search all combinations.'
         }
       ]
     },
     {
       name: 'Account',
-      description: 'Account entity with balance and per-account ReentrantLock for fine-grained thread safety.',
+      description: 'Mutable account with a fair lock supplied to callers. getBalance/setBalance do not acquire it themselves; AtmService takes it around live money operations.',
       fields: [
         {
           name: 'id',
@@ -154,35 +164,35 @@ export default {
         {
           name: 'accountLock',
           type: 'ReentrantLock',
-          description: 'Fair mutex preventing race conditions on concurrent balance mutations'
+          description: 'Fair per-account mutex used by cooperating service callers, not an automatic lock inside accessors.'
         }
       ],
       methods: [
         {
-          name: 'debit(amount)',
-          returns: 'boolean',
-          description: 'Deducts funds if balance >= amount'
+          name: 'getLock()',
+          returns: 'ReentrantLock',
+          description: 'Exposes the lock for callers to acquire around a complete balance workflow.'
         },
         {
-          name: 'credit(amount)',
+          name: 'setBalance(balance)',
           returns: 'void',
-          description: 'Adds funds to account'
+          description: 'Plain assignment with no internal locking or validation; debit/credit arithmetic lives in AtmService.'
         }
       ]
     },
     {
       name: 'Card',
-      description: 'Card model tracking card number, PIN, failed attempt counter, and block status.',
+      description: 'Demo card with a plaintext PIN, atomic attempt counter and volatile block flag. AtmService owns PIN comparison and the three-attempt blocking decision.',
       fields: [
         {
           name: 'cardNumber',
           type: 'String',
-          description: '16-digit debit card number'
+          description: 'Card identifier; seeded live cards use 16 digits, while sandbox identifiers are CARD-SIM-1/2.'
         },
         {
           name: 'pin',
           type: 'String',
-          description: 'Hashed/plain 4-digit PIN'
+          description: 'Plaintext PIN exposed by a generated getter; request validation requires four ASCII digits. No PIN hashing is implemented.'
         },
         {
           name: 'accountNumber',
@@ -204,7 +214,12 @@ export default {
         {
           name: 'incrementFailedAttempts()',
           returns: 'int',
-          description: 'Increments counter and blocks card if attempts >= 3'
+          description: 'Atomically increments the counter and returns its value; the service must separately call blockCard.'
+        },
+        {
+          name: 'blockCard()',
+          returns: 'void',
+          description: 'Sets the block flag; called separately after the service observes three failed PIN attempts.'
         },
         {
           name: 'resetFailedAttempts()',
@@ -235,7 +250,7 @@ export default {
         {
           name: 'status',
           type: 'String',
-          description: 'SUCCESS by default; AtmService marks rejected transactions FAILED'
+          description: 'SUCCESS by default; live withdrawal records balance/cash failures as FAILED. Validation/session rejections do not all produce a transaction record.'
         },
         {
           name: 'timestampEpoch',
@@ -256,12 +271,12 @@ export default {
     {
       name: 'State Pattern',
       used: true,
-      explanation: 'One SessionState implementation per ATMState, each declaring its own Set<ATMState> allowedNext(); AtmService#transitionTo is the single enforcement point, throwing InvalidSessionStateException for anything not in that set.'
+      explanation: 'One singleton SessionState implementation per ATMState declares allowedNext. Live insert/authenticate/eject consult it through transitionTo and reject illegal table transitions. Money operations bypass the table via setState, and sandbox methods assign simState directly. This is partial lifecycle enforcement, not a universal gate for every state write.'
     },
     {
       name: 'Strategy + Factory Pattern',
       used: true,
-      explanation: 'DenominationDispenseStrategyFactory resolves DispenseMode to GreedyDenominationDispenseStrategy or ConserveLargeNotesDispenseStrategy via an EnumMap; CashDispenser never branches on the mode itself.'
+      explanation: 'An EnumMap registers the two Spring-managed strategies once. CashDispenser requests a strategy by mode and invokes calculateNotes through the interface; it does not branch on policy or construct a strategy on each dispense.'
     },
     {
       name: 'Template Method Pattern',
@@ -271,27 +286,27 @@ export default {
     {
       name: 'Singleton Pattern',
       used: true,
-      explanation: 'AtmService and CashDispenser managed as Spring singletons.'
+      explanation: 'AtmService and the injected CashDispenser have Spring singleton scope per application context. Separately, SessionStates holds explicit singleton instances with private constructors. The service also constructs a distinct sandbox CashDispenser, so the class does not have a global single-instance restriction.'
     }
   ],
   principles: [
     {
       name: 'Single Responsibility Principle (SRP)',
-      description: 'BankingRepository stores accounts and cards; CashDispenser manages note inventory; AtmService coordinates session lifecycle.'
+      description: 'BankingRepository handles lookups/storage, CashDispenser protects note inventory, and AtmService coordinates workflows. The service also contains sandbox orchestration; the repository does not enforce session or ownership rules.'
     },
     {
       name: 'Open/Closed Principle (OCP)',
-      description: 'New note dispense strategies (e.g. DynamicDenominationBalanceStrategy) can be implemented without modifying CashDispenser.'
+      description: 'A new note-selection implementation can leave CashDispenser unchanged, but introducing a selectable mode requires updating DispenseMode and the factory registration (and the controller’s advertised mode contract).'
     },
     {
       name: 'Dependency Inversion Principle (DIP)',
-      description: 'CashDispenser depends on DenominationDispenseStrategy interface.'
+      description: 'CashDispenser receives a concrete strategy factory, then invokes the selected DenominationDispenseStrategy interface. Note calculation is polymorphic; factory construction still names the concrete implementations.'
     }
   ],
   oopConcepts: [
     {
       name: 'Encapsulation',
-      description: 'Account lock synchronization and card PIN verification logic are strictly encapsulated inside entity methods.'
+      description: 'Private fields constrain access, but Account exposes a plain setBalance and its lock, while Card exposes a PIN getter. The service, rather than the entities alone, enforces the normal locking and authentication workflow.'
     },
     {
       name: 'Polymorphism',
@@ -299,8 +314,16 @@ export default {
     },
     {
       name: 'Abstraction',
-      description: 'REST API exposes clean endpoints for card insertion, PIN auth, withdrawals, deposits, and simulation snapshots.'
+      description: 'REST endpoints delegate session and money operations to the service. Response maps are views of current demo state, not durable transaction boundaries or consistently detached session snapshots.'
     }
+  ],
+  tradeoffs: [
+    'Session/account coordination remains incomplete: sessionLock does not protect the account-locked admission check or setState. Ejection can clear the session while an admitted withdrawal continues, and the withdrawal can later overwrite IDLE with AUTHENTICATED. Do not infer an atomic session lifecycle from the volatile phase or the account lock.',
+    'Sandbox workflow checks are weaker than live ones: simAuthenticate can select a card without insertion, simInsertCard can replace an active selection, and simWithdraw checks only the phase, not whether its accountNumber matches simActiveAccount. These are implementation gaps, not guarantees of session authorization.',
+    'Snapshot getters do not acquire the sandbox mutation monitor. Repository lists copy membership only and retain mutable Account/Card objects; active references and the event list are returned directly. A separately locked cash total and inventory may describe different moments. CopyOnWriteArrayList protects list iteration, not an atomic snapshot of all state.',
+    'Sandbox telemetry is an in-memory event list, not a durable audit log or concurrency proof. Mutations log selected outcomes; validation/lookup exceptions may add no event. Reset clears events but does not reset simEventIdGen. Events use local time-of-day strings, and the list has no size bound between resets.',
+    'This is a teaching banking model: card getters expose plaintext PINs in sandbox card responses, live transaction-history reads have no session check, and money uses double rather than an exact monetary type. There is no production authentication, durable ledger, physical delivery acknowledgement or general recovery protocol.',
+    'Greedy rejection can be a false negative: for ₹600, one ₹500 plus three ₹200 notes and no ₹100 notes makes largest-first fail although three ₹200 notes suffice. Smallest-first can fail ₹500 with one each of ₹100/₹200/₹500 although the ₹500 note suffices. The policies do not retry an alternative mix.'
   ],
   extensibility: [
     {
@@ -310,7 +333,7 @@ export default {
     },
     {
       area: 'Multi-Currency Dispenser',
-      description: 'Extend NoteDenomination to support USD, EUR, and GBP currency notes with exchange rate conversion.',
+      description: 'Would require currency-aware accounts/amounts, cassette inventory and strategies, request contracts and conversion rules; adding denomination enum constants alone is insufficient. No multi-currency behavior exists today.',
       difficulty: 'Medium'
     }
   ]
