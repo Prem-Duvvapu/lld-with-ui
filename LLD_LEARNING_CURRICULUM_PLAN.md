@@ -369,3 +369,16 @@ output, snapshots, negative compiler cases and supported module mappings.
 The capstone assessment/rubric is delivered, with review remaining a personal
 self-check. Phase 2 retains its foundational class-diagram and final review gate;
 publication alone does not establish that the visual curriculum is complete.
+
+Capstone integration validation passes 2744 backend tests in 303 suites and 849
+frontend tests across 58 files, plus package/lint/build and chunk budgets. The
+four completed-visit regressions verify that a Next suggestion promoted to Continue
+retains focus on the same lesson (RCA-124). Browser artifacts use frozen production
+builds under `/home/prem/validation/lld-oop-capstone/`; release results are recorded
+with the capstone PR.
+
+The capstone frozen-build matrix passes 136 browser checks across both themes and
+320/390/768/1280px: recorded fields, source/output fidelity, keyboard code panning,
+actual-visit hero promotion, inline/prerequisite return context, notes/bookmarks,
+review denominators, failed content import and explicit reload. These scoped
+checks do not claim all existing module workflows or the later class-model UI.

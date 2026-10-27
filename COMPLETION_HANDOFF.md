@@ -6,10 +6,24 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- Connected OOP capstone: seventeen published lessons and 52 planned topics.
+  The synthesis follows all fifteen individual concept lessons, links each review,
+  and supplies five Java-verified object states, prediction feedback and an
+  independent domain-model exercise/rubric. The Learning guides category now
+  includes both orientation and advanced synthesis. Completed visits preserve
+  catalog focus when a Next suggestion becomes Continue (RCA-124); four actual-
+  visit regressions fail before and pass after the correction.
+  Current full checks pass 2744 backend tests (303 suites), 849 frontend tests
+  (58 files), Maven package, lint (14 existing warnings), production build and both
+  chunk budgets. The frozen-build browser matrix passes 136 checks across eight
+  theme/viewport contexts. Browser/release evidence is recorded with this batch's PR and
+  `/home/prem/validation/lld-oop-capstone/`. Foundational rendered class diagrams
+  and final Phase 2 assessment/visual review remain open.
+
 - Foundation curriculum integration: sixteen published lessons (How to Learn LLD
   and fifteen individual OOP/relationship concepts), 53 planned topics. Six added
   lessons contribute 104 Java compiler/behavior/fixture cases and 25 dedicated
-  content/UI cases. Current full validation passes 2726 backend tests and 838
+  content/UI cases. Validation for that batch passed 2726 backend tests and 838
   frontend tests across 57 files, Maven package, lint (14 existing warnings), Vite
   build and budgets (313174-byte entry / 57287-byte largest non-entry).
   Evidence is under `/home/prem/validation/lld-six-lessons/`; final browser/release
