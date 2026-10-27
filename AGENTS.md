@@ -43,7 +43,7 @@ Before opening the PR, run the suites locally so CI is a confirmation, not a dis
 
 ```bash
 cd backend  && mvn test        # latest validated: 2622 tests
-cd frontend && npx vitest run  # latest validated: 778 tests
+cd frontend && npx vitest run  # latest validated: 801 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 

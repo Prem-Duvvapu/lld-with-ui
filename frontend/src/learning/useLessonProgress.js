@@ -32,20 +32,25 @@ export function useLessonProgress() {
   const [progress, setProgress] = useState(initial.progress);
   const [notice, setNotice] = useState(initial.notice);
   const current = useRef(initial.progress);
+  const unsaved = useRef(false);
 
   const commit = useCallback(next => {
     current.current = next;
     setProgress(next);
     try {
       localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify(next));
+      unsaved.current = false;
       setNotice('');
     } catch {
+      unsaved.current = true;
       setNotice('Browser storage is unavailable. Changes are not saved. Keep this page open and copy any notes you want to keep before leaving.');
     }
   }, []);
 
   useEffect(() => {
     const sync = event => {
+      // A remote notification must not discard a draft whose write failed.
+      if (unsaved.current) return;
       if (event.key !== LESSON_STORAGE_KEY && event.key !== null) return;
       const saved = read();
       current.current = saved.progress;
@@ -58,14 +63,15 @@ export function useLessonProgress() {
 
   const updateLesson = useCallback((id, changes) => {
     if (!publishedIds.has(id)) return;
-    const previous = current.current;
+    const latest = read();
+    const previous = latest.notice || unsaved.current ? current.current : latest.progress;
     commit(normalize({ ...previous, lessons: { ...previous.lessons, [id]: { ...previous.lessons[id], ...changes } } }));
   }, [commit]);
 
   const visit = useCallback(id => {
     if (!publishedIds.has(id)) return;
     const latest = read();
-    const previous = latest.notice ? current.current : latest.progress;
+    const previous = latest.notice || unsaved.current ? current.current : latest.progress;
     commit({ ...previous, lastLessonId: id });
   }, [commit]);
 

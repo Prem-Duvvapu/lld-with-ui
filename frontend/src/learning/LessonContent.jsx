@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { GITHUB_REPO_URL } from '../data/moduleSourceLinks';
 import { CURRICULUM_GROUPS, LESSONS, PUBLISHED_LESSONS } from './curriculum';
 import { useLessonProgress } from './useLessonProgress';
+import { catalogReturn } from './catalogNavigation';
 
 function CodeBlock({ title, children }) {
   return (
@@ -14,6 +15,7 @@ function CodeBlock({ title, children }) {
 }
 
 export default function LessonContent({ lesson, metadata }) {
+  const location = useLocation();
   const heading = useRef(null);
   const [snapshotIndex, setSnapshotIndex] = useState(0);
   const [answer, setAnswer] = useState('');
@@ -51,7 +53,7 @@ export default function LessonContent({ lesson, metadata }) {
           {metadata.prerequisites.map(id => {
             const prerequisite = LESSONS.find(entry => entry.id === id);
             return prerequisite.status === 'published'
-              ? <Link key={id} to={`/learn/${id}`}>Review {prerequisite.title}</Link>
+              ? <Link key={id} state={location.state} to={`/learn/${id}`}>Review {prerequisite.title}</Link>
               : <span className="learn-muted" key={id}>{prerequisite.title} (planned)</span>;
           })}
         </nav>}
@@ -145,8 +147,8 @@ export default function LessonContent({ lesson, metadata }) {
         </button>
         <p role="status">{saved.reviewed ? 'Marked reviewed. This records your own review, not mastery or a test score.' : 'Mark reviewed when you have explained the example in your own words.'}</p>
         <nav aria-label="Lesson sequence" className="learn-actions">
-          {previous && <Link to={`/learn/${previous.id}`}>← {previous.title}</Link>}
-          {next ? <Link to={`/learn/${next.id}`}>Next: {next.title} →</Link> : <Link to="/learn">Back to lessons and roadmap →</Link>}
+          {previous && <Link state={location.state} to={`/learn/${previous.id}`}>← {previous.title}</Link>}
+          {next ? <Link state={location.state} to={`/learn/${next.id}`}>Next: {next.title} →</Link> : <Link {...catalogReturn(location.state)}>Back to lessons and roadmap →</Link>}
           <Link to="/learning-path">Continue with system practice →</Link>
         </nav>
         {!next && nextPlanned && <p className="learn-muted">Next planned concept: {nextPlanned.title}. It is not published yet.</p>}

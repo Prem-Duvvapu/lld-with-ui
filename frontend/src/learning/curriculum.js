@@ -184,6 +184,20 @@ const publications = [
 ];
 const published = new Map(publications);
 
+// Catalog outcomes remain metadata: browsing never imports lesson content.
+const outcomes = {
+  'classes-and-objects': 'Trace separate object state and see when two references share one object.',
+  constructors: 'Follow initialization order and build objects with valid starting state.',
+  'access-modifiers': 'Choose visibility boundaries and understand cross-package protected access.',
+  enums: 'Model a fixed set of choices and reject invalid input at the boundary.',
+  interfaces: 'Swap implementations while keeping a shared behavior contract.',
+  encapsulation: 'Protect invariants and distinguish a safe snapshot from leaked mutable state.',
+  abstraction: 'Expose useful behavior while hiding implementation choices.',
+  inheritance: 'Trace superclass construction and separate inherited behavior from field hiding.',
+  polymorphism: 'Predict which implementation runs through a shared reference type.',
+  association: 'Model links between independent objects and follow shared references.',
+};
+
 export const LESSONS = groups.flatMap(([group, , entries]) => entries.map(([id, title, proposed = false]) => ({
   id,
   title,
@@ -191,6 +205,7 @@ export const LESSONS = groups.flatMap(([group, , entries]) => entries.map(([id, 
   proposed,
   status: published.has(id) ? 'published' : 'planned',
   duration: published.get(id),
+  outcome: outcomes[id],
   prerequisites: prerequisites[id],
 })));
 

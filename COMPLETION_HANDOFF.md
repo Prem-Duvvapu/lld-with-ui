@@ -6,6 +6,19 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+
+- Learning catalog redesign: compact Start/Continue, separate available/roadmap
+  views, outcome search, section/review/bookmark filters, sorting, card bookmarks
+  and URL/back-navigation continuity. The catalog remains independent of backend
+  availability and lesson chunks remain lazy. Browser checks cover 76 scenario
+  views, both themes, 320–1440px, keyboard entry/return, saved notes, all-reviewed,
+  blocked storage and 200% CSS zoom. Catalog actions preserve newer stored notes
+  and unsaved drafts (RCA-122). See `LEARN_PAGE_UX_PLAN.md` for evidence and limits.
+  Current validation: 2622 backend and 801 frontend tests pass, plus package,
+  lint (14 existing warnings), build and chunk budgets.
+  CI and deployed review are pending; full curriculum/module completion remains
+  separately tracked.
+
 - ATM request-validation batch: 2622 backend cases and 778 frontend cases pass;
   Maven package, lint (14 existing warnings), Vite build and chunk budgets pass.
   Browser verification covers 56 views and 248 actual Java MockMvc requests in
