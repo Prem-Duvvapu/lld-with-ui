@@ -1,0 +1,59 @@
+[
+  {
+    "title": "Construct independent plans",
+    "explanation": "focus and alias identify one StudyPlan. weekend is a different plan with its own membership and capacity. The separately created catalog topic is not yet selected.",
+    "items": [
+      { "label": "focus", "typeLabel": "StudyPlan", "references": ["focus", "alias"], "fields": [
+        { "name": "name", "value": "Focus" }, { "name": "capacity", "value": 2 }, { "name": "state", "value": "OPEN" }, { "name": "size", "value": 0 }
+      ] },
+      { "label": "weekend", "typeLabel": "StudyPlan", "references": ["weekend"], "fields": [
+        { "name": "name", "value": "Weekend" }, { "name": "capacity", "value": 1 }, { "name": "state", "value": "OPEN" }, { "name": "size", "value": 0 }
+      ] },
+      { "label": "topic", "typeLabel": "Topic", "references": ["topic"], "fields": [{ "name": "title", "value": "Objects" }] }
+    ]
+  },
+  {
+    "title": "Share a topic, own separate entries",
+    "explanation": "StudyPlan [1] ◆—entries— [0..*] Entry, constrained by each plan's positive capacity. Each Entry has exactly one Topic; a Topic may be selected by zero or more entries across plans. first and second are different entries pointing to the same catalog topic. The diamond is justified by restricted construction, fixed owner identity, no attach API and explicit retirement, not by a field alone.",
+    "items": [
+      { "label": "first", "typeLabel": "StudyPlan.Entry", "references": ["first", "saved.get(0)", "focus.entries().get(0)"], "fields": [
+        { "name": "retired", "value": false }, { "name": "first == second", "value": false }
+      ] },
+      { "label": "second", "typeLabel": "StudyPlan.Entry", "references": ["second", "weekend.entries().get(0)"], "fields": [{ "name": "retired", "value": false }] },
+      { "label": "topic", "typeLabel": "Topic", "references": ["topic", "first.topic()", "second.topic()"], "fields": [
+        { "name": "title", "value": "Objects" }, { "name": "first.topic() == second.topic()", "value": true }
+      ] }
+    ]
+  },
+  {
+    "title": "Use one prompt contract",
+    "explanation": "style is declared PromptStyle and holds a HintedPrompt. Entry.prompt calls format(String); runtime dispatch reaches the override, which delegates validation to super. The policy is used for this call and is not retained in Entry. earlier is the returned String value.",
+    "items": [
+      { "label": "style", "typeLabel": "HintedPrompt", "references": ["style"], "fields": [{ "name": "runtime class", "value": "HintedPrompt" }] },
+      { "label": "call", "typeLabel": "recorded Java result", "fields": [{ "name": "earlier", "value": "Review: Objects (give an example)" }] }
+    ]
+  },
+  {
+    "title": "Reject duplicate identity",
+    "explanation": "A second focus.add(topic) fails before changing membership. Duplicate means the same Topic object in this plan, not an equal title. Capacity, identity and rejection are enforced by methods, not by a relationship symbol.",
+    "items": [
+      { "label": "call", "typeLabel": "recorded Java rejection", "fields": [
+        { "name": "exception", "value": "IllegalArgumentException" }, { "name": "message", "value": "Topic already selected" }
+      ] },
+      { "label": "focus", "typeLabel": "StudyPlan", "references": ["focus", "alias"], "fields": [{ "name": "size", "value": 1 }, { "name": "state", "value": "OPEN" }] },
+      { "label": "first", "typeLabel": "StudyPlan.Entry", "references": ["first", "saved.get(0)", "focus.entries().get(0)"], "fields": [{ "name": "retired", "value": false }] }
+    ]
+  },
+  {
+    "title": "Archive one whole, keep the catalog",
+    "explanation": "After topic.rename(\"References\") and alias.archive(), Focus has no current entries. saved retains its historical membership and the actual retired entry; its prompt call fails. Weekend's distinct entry still uses the shared Topic. Archiving implements domain retirement, not garbage collection, and cannot revoke the earlier returned text.",
+    "items": [
+      { "label": "focus", "typeLabel": "StudyPlan", "references": ["focus", "alias"], "fields": [{ "name": "state", "value": "ARCHIVED" }, { "name": "size", "value": 0 }] },
+      { "label": "first", "typeLabel": "StudyPlan.Entry", "references": ["first", "saved.get(0)"], "fields": [{ "name": "retired", "value": true }, { "name": "saved size", "value": 1 }] },
+      { "label": "call", "typeLabel": "recorded Java rejection", "fields": [{ "name": "exception", "value": "IllegalStateException" }, { "name": "message", "value": "Entry is retired" }] },
+      { "label": "weekend", "typeLabel": "StudyPlan", "references": ["weekend"], "fields": [{ "name": "state", "value": "OPEN" }, { "name": "size", "value": 1 }, { "name": "prompt", "value": "Review: References (give an example)" }] },
+      { "label": "topic", "typeLabel": "Topic", "references": ["topic", "first.topic()", "second.topic()"], "fields": [{ "name": "title", "value": "References" }] },
+      { "label": "earlier", "typeLabel": "String", "fields": [{ "name": "text", "value": "Review: Objects (give an example)" }] }
+    ]
+  }
+]

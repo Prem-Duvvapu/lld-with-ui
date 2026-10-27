@@ -1,0 +1,12 @@
+default capacity = 2
+alias == focus = true
+same entry = false
+same topic = true
+first prompt = Review: Objects (give an example)
+duplicate = Topic already selected
+focus size after rejection = 1
+focus = ARCHIVED, size = 0
+saved size = 1, retired = true
+saved prompt = Entry is retired
+weekend prompt = Review: References (give an example)
+earlier text = Review: Objects (give an example)

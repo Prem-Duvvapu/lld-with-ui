@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
 | [RCA-123](#rca-123-browser-validation-read-assets-while-vite-replaced-the-build-directory) | 2026-10-27 | Validation / Production Assets | Rebuilding Vite during a browser matrix deleted files still being served by its route handler | Resolved by serving an isolated build snapshot |
 | [RCA-122](#rca-122-catalog-bookmarks-could-overwrite-newer-lesson-notes) | 2026-10-27 | Learning / Saved Progress | Metadata writes used stale hook state and could overwrite notes saved by another tab before its storage event arrived | Resolved with latest-read merge and failed-write session retention |
 | [RCA-119](#rca-119-a-kv-lifecycle-test-confused-task-completion-with-thread-death) | 2026-10-27 | KV / Concurrency Test Reliability | Captured worker threads were checked for physical termination before waiting for their final executor bookkeeping to return | Resolved without changing runtime behavior |
@@ -8550,3 +8551,42 @@ Never rebuild or replace that directory while a confirmed browser handle is live
 Record build provenance and per-context results so a partial run is distinguishable
 from a full pass. Local intercepted assets still do not prove deployed MIME types
 or hosted backend availability; verify those separately after release.
+
+
+## RCA-124: A visited Next suggestion lost its catalog focus target
+
+### 1. Overview & Severity
+Medium accessibility/navigation defect. Opening a suggested lesson updates resume
+metadata, changing the catalog hero before the learner returns.
+
+### 2. Symptoms & Error Logs
+The capstone browser pass timed out expecting `catalog-next` focus after a real
+visit. With sixteen reviewed lessons and only the capstone unreviewed, recording
+that visit removes the old suggestion and creates a Continue action for it. With
+more unreviewed topics, the same `catalog-next` ID instead names a different lesson.
+Four new regressions fail before the fix: both states through breadcrumb and Back.
+
+### 3. Root Cause
+Restoration matched a DOM ID without checking the lesson it represented. Existing
+hero tests left the content promise pending, so no visit was recorded and the
+promotion from Next to Continue never occurred.
+
+### 4. Diagnostic Commands
+`cd frontend && npx vitest run src/__tests__/learnCatalog.test.jsx -t 'keeps focus on the visited suggestion'`
+The tests resolve actual lesson content, wait for persisted resume metadata, then
+navigate back. Red/green logs and the browser reproduction are in
+`/home/prem/validation/lld-oop-capstone/`.
+
+### 5. Step-by-Step Resolution
+1. Retain the originating lesson ID along with its transient control/scroll data.
+2. When restoring a hero action, check its href against that lesson.
+3. Search the primary/next hero roles for the same lesson after resume changes.
+4. Preserve normal card restoration and the existing fallback when no matching
+   action remains. Saved notes/review data are not rewritten by restoration.
+5. Verify breadcrumb and browser Back after completed visits as well as visits
+   abandoned while a content request is still pending.
+
+### 6. Preventative Measures
+Navigation tests must resolve the action's state-changing effects. A stable control
+ID is not stable semantic identity when its destination changes. Keep both the
+last-unreviewed and additional-unreviewed cases in the regression suite.

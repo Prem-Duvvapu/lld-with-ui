@@ -52,12 +52,19 @@ export default function Learn() {
 
   useEffect(() => {
     // Run after the shared shell's route scroll reset. Browser Back and the
-    // lesson breadcrumb both restore the originating card, without storage.
+    // lesson breadcrumb both restore the originating action, without storage.
     const frame = requestAnimationFrame(() => {
       const position = catalogPosition(location.key) || catalogPosition(location.state?.learnCatalog?.key);
-      const card = position && document.getElementById(position.focusId || `lesson-${position.lessonId}`);
-      if (card) {
-        card.focus({ preventScroll: true });
+      let target = position && document.getElementById(position.focusId || `lesson-${position.lessonId}`);
+      if (position && ['catalog-primary', 'catalog-next'].includes(position.focusId)) {
+        // Recording a visit promotes Next to Continue. Restore the same lesson,
+        // even when the old control disappears or suggests a different topic.
+        target = [position.focusId, 'catalog-primary', 'catalog-next']
+          .map(id => document.getElementById(id))
+          .find(link => link?.getAttribute('href') === `/learn/${position.lessonId}`);
+      }
+      if (target) {
+        target.focus({ preventScroll: true });
         window.scrollTo({ top: position.scrollY, behavior: 'instant' });
       } else heading.current?.focus({ preventScroll: true });
     });
