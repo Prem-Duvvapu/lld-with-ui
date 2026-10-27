@@ -12,10 +12,9 @@ import lesson from '../learning/lessons/static-and-instance';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const readExample = filename => fs.readFileSync(path.resolve(directory, '../learning/examples', filename), 'utf8');
-// Test the assigned lesson directly; the parent owns publication and route integration.
 function openLesson() {
   return render(<MemoryRouter><LessonContent lesson={lesson}
-    metadata={{ ...findLesson(lesson.id), duration: '25–30 minutes' }} /></MemoryRouter>);
+    metadata={findLesson(lesson.id)} /></MemoryRouter>);
 }
 beforeEach(() => localStorage.clear());
 

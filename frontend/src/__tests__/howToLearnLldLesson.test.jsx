@@ -15,10 +15,9 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const examples = path.resolve(testDirectory, '../learning/examples');
 const readExample = filename => fs.readFileSync(path.join(examples, filename), 'utf8');
 
-// Parent owns publication and duration; use the current renderer with the real manifest entry.
 function openLesson() {
   render(<MemoryRouter initialEntries={['/learn/how-to-learn-lld']}>
-    <LessonContent lesson={lesson} metadata={{ ...findLesson(lesson.id), duration: '25–30 minutes' }} />
+    <LessonContent lesson={lesson} metadata={findLesson(lesson.id)} />
   </MemoryRouter>);
 }
 

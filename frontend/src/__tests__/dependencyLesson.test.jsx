@@ -15,10 +15,9 @@ const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const examples = path.resolve(testDirectory, '../learning/examples');
 const readExample = filename => fs.readFileSync(path.join(examples, filename), 'utf8');
 
-// Publication, canonical duration and shared integration remain with the parent.
 function openLesson() {
   render(<MemoryRouter initialEntries={['/learn/dependency']}>
-    <LessonContent lesson={lesson} metadata={{ ...findLesson('dependency'), status: 'published', duration: '25–30 minutes' }} />
+    <LessonContent lesson={lesson} metadata={findLesson(lesson.id)} />
   </MemoryRouter>);
 }
 

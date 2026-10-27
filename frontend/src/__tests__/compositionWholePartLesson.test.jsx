@@ -10,13 +10,13 @@ import { findLesson } from '../learning/curriculum';
 
 function openLesson() {
   render(<MemoryRouter initialEntries={['/learn/composition']}>
-    <LessonContent lesson={lesson} metadata={{ ...findLesson('composition'), status: 'published', duration: '30–35 minutes' }} />
+    <LessonContent lesson={lesson} metadata={findLesson(lesson.id)} />
   </MemoryRouter>);
 }
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
 
 describe('Composition whole/part lesson', () => {
-  it('loads canonical sources and runnable package paths before parent manifest publication', async () => {
+  it('loads canonical sources and runnable package paths', async () => {
     expect(await loadLesson('composition')).toBe(lesson);
     openLesson();
     expect(screen.getByRole('heading', { name: 'Composition', level: 1 })).toHaveFocus();

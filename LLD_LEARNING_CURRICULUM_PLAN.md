@@ -1,9 +1,10 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-26. Status: coverage audit and ten lessons
-implemented (Classes and Objects, Constructors, Access Modifiers, Enums, Interfaces,
-Encapsulation, Abstraction, Inheritance, Polymorphism, Association); the remaining 59 topic
-deliveries and final integration are open. Phase 2 remains in progress.
+Saved: 2026-10-17. Updated: 2026-10-27. Status: coverage audit and sixteen lessons
+implemented: the How to Learn LLD guide and all fifteen individual OOP/relationship
+concepts. The remaining 53 topic deliveries and final integration are open.
+Phase 2 remains in progress: its linked overview/capstone, foundational class
+diagrams and domain-model assessment still need delivery and verification.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -24,7 +25,7 @@ In particular, a generic Factory label does not prove Factory Method or Abstract
 Factory is implemented.
 
 Proposed navigation:
-- Learn LLD: `/learn` and `/learn/:lessonId` (implemented for the published reference lesson).
+- Learn LLD: `/learn` and `/learn/:lessonId` (implemented for the published lessons).
 - Practice Systems: existing module library and `/learning-path`.
 - Interview Preparation: `/interview-prep`.
 - My Learning: resume, bookmarks, revision, and lesson progress within the learning experience.
@@ -181,9 +182,9 @@ for the remaining topics is still open; an audited gap is not a published lesson
 - [x] **Phase 1 — Reference lesson:** deliver Classes and Objects end-to-end,
   including the shared renderer, accessible visuals, tested code, exercise,
   navigation, and progress. Review this vertical slice before scaling content.
-- [ ] **Phase 2 — OOP and relationships:** ten of fifteen concepts delivered;
-  complete the remaining concepts with
-  foundational class diagrams and a domain-model assessment.
+- [ ] **Phase 2 — OOP and relationships:** all fifteen individual concepts delivered;
+  complete the connected overview/capstone, foundational class diagrams and
+  domain-model assessment. Individual publication does not close this phase.
 - [ ] **Phase 3 — UML and principles:** complete all five diagram types and all
   requested principles, with connected SOLID picture/code examples.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
@@ -314,3 +315,36 @@ the Java/compiler evidence and do not close module-wide UX or live backend revie
 - [Java 17 language specification: Classes](https://docs.oracle.com/javase/specs/jls/se17/html/jls-8.html)
 - [Java 17 concurrency APIs](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/package-summary.html)
 - [OMG UML 2.5.1 specification](https://www.omg.org/spec/UML/2.5.1)
+
+
+## Six-lesson integration — 2026-10-27
+
+The How to Learn LLD guide is first in the recommended sequence and introduces
+requirements, responsibilities, invariants and observable tests before optional
+Java. Overloading/overriding, static/instance members, aggregation, composition
+and dependency complete the remaining five individual OOP topics. All use
+canonical Java 17 files, recorded output/snapshots, explained predictions,
+exercises/rubrics and verified links to real module call paths.
+
+The manifest has sixteen published lessons and 53 planned topics. Published
+prerequisites precede dependents; proposed-addition labels remain visible after
+publication. The redesigned catalog takes reading estimates, outcomes and
+publication state from this metadata without importing lesson content.
+
+The relationship lessons distinguish domain ownership/deletion policies from
+Java reachability; a mutable collection or a private/final field is not by itself
+proof of composition. Dependency injection and interface use are not presented
+as automatic proof of DIP. The counters lesson distinguishes base-constructor
+completion from successful most-derived construction and does not claim static
+state is persistent, a singleton or inherently thread-safe.
+
+Phase 2 remains open for the connected overview/capstone, foundational class
+visuals and its model-assessment gate. UML, principles, patterns, concurrency,
+interview delivery and the separate 60-module UX work retain their own gates.
+
+Local integration validation passes 2726 backend tests in 302 suites and 838
+frontend tests across 57 files, plus Maven package, lint (14 existing warnings),
+production build and both chunk budgets. Artifacts are recorded under
+`/home/prem/validation/lld-six-lessons/`. Browser and actual deployed release
+evidence belong to this batch's PR; Java fixture checks alone do not establish
+visual fidelity or hosted backend availability.

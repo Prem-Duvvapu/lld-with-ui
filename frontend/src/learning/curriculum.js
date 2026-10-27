@@ -192,6 +192,13 @@ const published = new Map(publications);
 
 // Catalog outcomes remain metadata: browsing never imports lesson content.
 const outcomes = {
+  'how-to-learn-lld': 'Turn requirements into responsibilities, invariants, and testable object interactions.',
+  'overloading-and-overriding': 'Separate compile-time overload selection from runtime instance dispatch.',
+  'static-and-instance': 'Trace class initialization and distinguish shared class state from per-object state.',
+  aggregation: 'Follow shared part identity while keeping membership and object lifetime separate.',
+  composition: 'Enforce one owner and a deliberate part lifecycle through the public API.',
+  dependency: 'Recognize temporary behavior reliance and compare it with a retained collaborator.',
+
   'classes-and-objects': 'Trace separate object state and see when two references share one object.',
   constructors: 'Follow initialization order and build objects with valid starting state.',
   'access-modifiers': 'Choose visibility boundaries and understand cross-package protected access.',

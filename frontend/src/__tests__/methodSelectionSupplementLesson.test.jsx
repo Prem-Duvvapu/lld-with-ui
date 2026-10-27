@@ -12,10 +12,9 @@ import lesson from '../learning/lessons/overloading-and-overriding';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
 const readExample = filename => fs.readFileSync(path.resolve(directory, '../learning/examples', filename), 'utf8');
-// Publication, catalog counts and route integration belong to the parent worktree.
 function openLesson() {
   return render(<MemoryRouter><LessonContent lesson={lesson}
-    metadata={{ ...findLesson(lesson.id), duration: '30–35 minutes' }} /></MemoryRouter>);
+    metadata={findLesson(lesson.id)} /></MemoryRouter>);
 }
 beforeEach(() => localStorage.clear());
 

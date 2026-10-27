@@ -6,6 +6,16 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- Foundation curriculum integration: sixteen published lessons (How to Learn LLD
+  and fifteen individual OOP/relationship concepts), 53 planned topics. Six added
+  lessons contribute 104 Java compiler/behavior/fixture cases and 25 dedicated
+  content/UI cases. Current full validation passes 2726 backend tests and 838
+  frontend tests across 57 files, Maven package, lint (14 existing warnings), Vite
+  build and budgets (313174-byte entry / 57287-byte largest non-entry).
+  Evidence is under `/home/prem/validation/lld-six-lessons/`; final browser/release
+  results are recorded with the curriculum PR. Phase 2 overview/capstone,
+  class-diagram and model-assessment gates remain open.
+
 
 - Learning catalog redesign: compact Start/Continue, separate available/roadmap
   views, outcome search, section/review/bookmark filters, sorting, card bookmarks
@@ -94,11 +104,13 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   lint has zero errors and 14 existing warnings; Maven package and Vite build pass.
   Four shared-diagram cases and two expiry-display cases were added; existing async
   assertions now wait for final focus/reset outcomes without changing timeouts.
-- Latest build: entry 312211 bytes; largest non-entry JavaScript chunk 57287 bytes.
-- The curriculum catalog and Classes and Objects, Constructors, Access Modifiers,
-  Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism and
-  Association lessons are implemented; the remaining 59
-  topics are visibly planned. Phase 2 remains open.
+- Latest build: entry 313174 bytes; largest non-entry JavaScript chunk 57287 bytes.
+- The curriculum catalog has sixteen published lessons: the How to Learn LLD
+  guide and all fifteen individual OOP/relationship concepts. The remaining 53
+  topics are visibly planned. The overview/capstone, foundational class diagrams
+  and domain-model assessment still keep Phase 2 open. The six-lesson batch uses
+  canonical Java and checked snapshots/output; the new catalog retains its
+  published-only default, metadata search and prerequisite-aware sequence.
   See the curriculum workstream below.
 - Phase 0 now has a complete 69-topic outcome/prerequisite/evidence/exercise/gap
   matrix and a cycle-checked canonical graph. This is an authoring audit, not 69
@@ -413,23 +425,26 @@ both formatter implementations against one input contract.
 The second Phase 2 batch (#171) adds Constructors, Access Modifiers and Encapsulation,
 canonical Java/compiler/fixture checks, per-topic durations and a guided sequence
 that visits published prerequisites first. Both new supplemental topics retain
-their proposed-addition labels. Nine OOP/relationship concepts and the final
-Phase 2 assessment/diagrams remain open.
+their proposed-addition labels. That batch left the Phase 2 assessment/diagram
+gate open.
 The third batch adds Abstraction, Inheritance, Polymorphism and Association, with
 78 additional Java semantic/compiler/fixture cases and per-lesson UI checks.
 The guided sequence and isolated notes/bookmarks are covered by a cross-lesson
-navigation test. Five OOP/relationship topics and the Phase 2 assessment remain open.
-The canonical manifest inventories 69 topics; ten are published and 59 are planned.
-Phases 2–7 and the two introductory guides remain open. This is separate from the existing-module UI/UX matrix; do not
-infer overall completion from either one lesson or the historical 60-module roadmap.
+navigation test. That brought publication to ten lessons. The fourth batch adds
+How to Learn LLD, Method Overloading vs Overriding, Static vs Instance Members,
+Aggregation, Composition and Dependency. The manifest now inventories sixteen
+published lessons and 53 planned topics. All fifteen individual OOP concepts
+are delivered; Phase 2 still needs its connected overview/capstone, foundational
+class diagrams and domain-model assessment. Phases 3–7 remain open. This is
+separate from the existing-module UI/UX matrix and historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22
 patterns, and Interpreter is now an explicit proposed addition to complete the
 23-pattern catalog (5 creational, 7 structural, 11 behavioral). Prerequisites are
 guidance, not enrollment locks. Remaining lesson implementation and the final
 60-module sign-off are pending. KV map/log ordering is now fixed with deterministic
 append/lifecycle regressions (RCA-106), separate from the original teaching-copy
-correction. Complete sandbox operation/event serialization and final KV UX review
-remain open.
+correction. KV sandbox serialization/playback and its local module review shipped
+in #174/#175. Hosted network/backend verification remains a separate release gate.
 
 ## Prompt to give the next agent
 

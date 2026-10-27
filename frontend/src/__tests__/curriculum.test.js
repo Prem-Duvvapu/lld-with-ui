@@ -62,11 +62,12 @@ describe('Curriculum inventory and publication contract', () => {
     for (const snapshot of content.visual.snapshots) {
       expect(snapshot.items.length).toBeGreaterThan(0);
       expect(new Set(snapshot.items.map(item => item.label)).size).toBe(snapshot.items.length);
+      // JSON null records an absent holder; it is a scalar, not a nested view.
       for (const item of snapshot.items) {
         expect(item.typeLabel || content.visual.typeLabel).toBeTruthy();
         expect(item.fields.length).toBeGreaterThan(0);
         expect(new Set(item.fields.map(field => field.name)).size).toBe(item.fields.length);
-        expect(item.fields.every(field => ['string', 'number', 'boolean'].includes(typeof field.value))).toBe(true);
+        expect(item.fields.every(field => field.value === null || ['string', 'number', 'boolean'].includes(typeof field.value))).toBe(true);
       }
     }
     for (const source of content.module.sources) expect(fs.existsSync(new URL(`../../../${source}`, import.meta.url))).toBe(true);
@@ -75,6 +76,8 @@ describe('Curriculum inventory and publication contract', () => {
   it('orders published prerequisites before dependents and keeps duration in the manifest', async () => {
     expect(PUBLISHED_LESSONS).toHaveLength(LESSONS.filter(entry => entry.status === 'published').length);
     for (const [index, entry] of PUBLISHED_LESSONS.entries()) {
+      expect(entry.outcome).toEqual(expect.any(String));
+      expect(entry.outcome.length).toBeGreaterThan(20);
       expect(entry.duration).toMatch(/^\d+–\d+ minutes$/);
       expect((await loadLesson(entry.id)).duration).toBeUndefined();
       for (const prerequisite of entry.prerequisites) {

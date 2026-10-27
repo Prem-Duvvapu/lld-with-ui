@@ -10,13 +10,13 @@ import { findLesson } from '../learning/curriculum';
 
 function openLesson() {
   render(<MemoryRouter initialEntries={['/learn/aggregation']}>
-    <LessonContent lesson={lesson} metadata={{ ...findLesson('aggregation'), status: 'published', duration: '25–30 minutes' }} />
+    <LessonContent lesson={lesson} metadata={findLesson(lesson.id)} />
   </MemoryRouter>);
 }
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
 
 describe('Aggregation whole/part lesson', () => {
-  it('loads canonical sources and runnable package paths before parent manifest publication', async () => {
+  it('loads canonical sources and runnable package paths', async () => {
     expect(await loadLesson('aggregation')).toBe(lesson);
     openLesson();
     expect(screen.getByRole('heading', { name: 'Aggregation', level: 1 })).toHaveFocus();

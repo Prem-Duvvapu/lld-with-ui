@@ -16,7 +16,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # latest validated: 2622 tests, 296 classes
+mvn test                                  # latest validated: 2726 tests, 302 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 801 tests, 50 files
+npx vitest run                            # latest validated: 838 tests, 57 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -118,14 +118,19 @@ manifest; an audit row is not a published lesson. The coverage test also guards
 the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 
 `/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
-manifest in `src/learning/curriculum.js`. Classes and Objects, Constructors, Access
-Modifiers, Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism
-and Association are published; 59 topics remain planned. Planned
+manifest in `src/learning/curriculum.js`. Sixteen lessons are published: How to
+Learn LLD plus all fifteen OOP/relationship concepts (including the four proposed
+supplemental fundamentals). The remaining 53 topics are planned. Phase 2 still
+needs its connected overview/capstone, foundational class diagrams and domain-model
+assessment. Planned
 topics must not be presented as delivered content. Lesson data stays separate from
 module design data. Its displayed `.java` files live under `src/learning/examples/`
 and are compiled by `ClassesAndObjectsExampleTest`, `OopExamplesTest` and
 `StateBoundariesExampleTest`, including output
-and visual-state contracts. Frontend deployment does not need backend source files.
+and visual-state contracts. The six new lessons add `HowToLearnLldExampleTest`,
+`MethodSelectionLessonExampleTest`, `StaticMembersLessonExampleTest`,
+`AggregationLessonExampleTest`, `CompositionLessonExampleTest` and
+`DependencyExampleTest`. Frontend deployment does not need backend source files.
 
 `useLessonProgress` owns the separate `lld-lessons-v1` key. Resume writes must read
 the current storage before merging, and notes are bounded at 2000 characters. Do not

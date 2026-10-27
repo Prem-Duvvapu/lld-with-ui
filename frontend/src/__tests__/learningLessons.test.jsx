@@ -76,7 +76,7 @@ describe('Published curriculum learning journey', () => {
 
   it('starts with the learning guide and keeps its notes separate when entering Java fundamentals', async () => {
     renderLearning();
-    const start = screen.getByRole('link', { name: 'Start with How to Learn LLD →' });
+    const start = screen.getByRole('link', { name: 'Start learning →' });
     expect(start).toHaveAttribute('href', '/learn/how-to-learn-lld');
     fireEvent.click(start);
     await waitFor(() => expect(screen.getByRole('heading', { name: 'How to Learn LLD', level: 1 })).toHaveFocus());
