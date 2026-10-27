@@ -1,0 +1,182 @@
+[
+  {
+    "title": "Start with one available seat",
+    "explanation": "Requirement: a new seat has no reservation. The Java value null means no holder; false means the answer to isReserved is no. S1 is a seat identifier, not a memory address.",
+    "items": [
+      {
+        "label": "seat",
+        "typeLabel": "StudySeat",
+        "fields": [
+          {
+            "name": "seatId",
+            "value": "S1"
+          },
+          {
+            "name": "reserved",
+            "value": false
+          },
+          {
+            "name": "reservedBy",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Accept a valid reservation",
+    "explanation": "Interaction: the demo calls seat.reserve(\"Ada\"). StudySeat checks the request and stores Ada. Its responsibility is to protect its own reservation; the demo only asks and reports.",
+    "items": [
+      {
+        "label": "seat",
+        "typeLabel": "StudySeat",
+        "fields": [
+          {
+            "name": "seatId",
+            "value": "S1"
+          },
+          {
+            "name": "reserved",
+            "value": true
+          },
+          {
+            "name": "reservedBy",
+            "value": "Ada"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reject a second reservation",
+    "explanation": "Ben tries to reserve the same occupied seat. The method throws before assigning the field. Ada remains the holder. This rejected scenario tests the rule that an existing reservation cannot be overwritten.",
+    "items": [
+      {
+        "label": "seat",
+        "typeLabel": "StudySeat",
+        "fields": [
+          {
+            "name": "seatId",
+            "value": "S1"
+          },
+          {
+            "name": "reserved",
+            "value": true
+          },
+          {
+            "name": "reservedBy",
+            "value": "Ada"
+          }
+        ]
+      },
+      {
+        "label": "rejected request",
+        "typeLabel": "Java exception",
+        "fields": [
+          {
+            "name": "request",
+            "value": "reserve Ben"
+          },
+          {
+            "name": "outcome",
+            "value": "IllegalStateException"
+          },
+          {
+            "name": "message",
+            "value": "Seat is already reserved"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reject cancellation by another learner",
+    "explanation": "Ben tries to cancel Ada’s reservation. The identifier comparison rejects it and preserves Ada. These strings are trusted inputs in a local example, not authenticated user identities.",
+    "items": [
+      {
+        "label": "seat",
+        "typeLabel": "StudySeat",
+        "fields": [
+          {
+            "name": "seatId",
+            "value": "S1"
+          },
+          {
+            "name": "reserved",
+            "value": true
+          },
+          {
+            "name": "reservedBy",
+            "value": "Ada"
+          }
+        ]
+      },
+      {
+        "label": "rejected request",
+        "typeLabel": "Java exception",
+        "fields": [
+          {
+            "name": "request",
+            "value": "cancel Ben"
+          },
+          {
+            "name": "outcome",
+            "value": "IllegalStateException"
+          },
+          {
+            "name": "message",
+            "value": "Only the reserving learner may cancel"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Release the seat explicitly",
+    "explanation": "Ada cancels successfully. The holder becomes null and isReserved becomes false. The seat object and its identifier still exist; cancelling a reservation does not delete the seat.",
+    "items": [
+      {
+        "label": "seat",
+        "typeLabel": "StudySeat",
+        "fields": [
+          {
+            "name": "seatId",
+            "value": "S1"
+          },
+          {
+            "name": "reserved",
+            "value": false
+          },
+          {
+            "name": "reservedBy",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reuse the seat and review the scope",
+    "explanation": "Ben can now reserve S1. Review the whole trace: valid changes happen, rejected changes preserve the old state, and release permits reuse. This is a single-threaded object demonstration, not proof of safe simultaneous bookings.",
+    "items": [
+      {
+        "label": "seat",
+        "typeLabel": "StudySeat",
+        "fields": [
+          {
+            "name": "seatId",
+            "value": "S1"
+          },
+          {
+            "name": "reserved",
+            "value": true
+          },
+          {
+            "name": "reservedBy",
+            "value": "Ben"
+          }
+        ]
+      }
+    ]
+  }
+]

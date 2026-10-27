@@ -1,0 +1,8 @@
+initial: S1, reserved=false, holder=null
+after Ada reserves: S1, reserved=true, holder=Ada
+reserve Ben rejected: Seat is already reserved
+after rejected reservation: S1, reserved=true, holder=Ada
+cancel Ben rejected: Only the reserving learner may cancel
+after rejected cancellation: S1, reserved=true, holder=Ada
+after Ada cancels: S1, reserved=false, holder=null
+after Ben reserves: S1, reserved=true, holder=Ben
