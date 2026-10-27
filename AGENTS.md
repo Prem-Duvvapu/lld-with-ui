@@ -42,8 +42,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2467 tests
-cd frontend && npx vitest run  # latest validated: 739 tests
+cd backend  && mvn test        # latest validated: 2622 tests
+cd frontend && npx vitest run  # latest validated: 778 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -2108,8 +2108,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2334 tests, 285 classes
-cd frontend && npx vitest run # 693 tests, 40 files
+cd backend && mvn test        # 2622 tests, 296 classes
+cd frontend && npx vitest run # 778 tests, 50 files
 ```
 
 ### Cross-cutting suites — keep these green

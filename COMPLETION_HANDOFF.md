@@ -6,6 +6,13 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- ATM request-validation batch: 2622 backend cases and 778 frontend cases pass;
+  Maven package, lint (14 existing warnings), Vite build and chunk budgets pass.
+  Browser verification covers 56 views and 248 actual Java MockMvc requests in
+  eight theme/viewport contexts. A lifecycle-test failure found during the full
+  run was corrected by awaiting captured thread termination while retaining
+  reset-blocking assertions; the complete backend rerun passes (RCA-119).
+
 - ATM live-workspace improvements retain confirmed session state across tabs,
   guard mutations, invalidate stale reads and offer explicit recovery, labeled
   forms and responsive layout (RCA-115). Agent validation passed 43 focused cases
@@ -30,7 +37,7 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest merged validation (#174): 2467 backend tests (291 suites) and 733 frontend tests (43 files).
+- Sandbox batch validation (#174): 2467 backend tests (291 suites) and 733 frontend tests (43 files).
   The sandbox lifecycle batch adds 14 Java cases and seven frontend cases, with
   real concurrent CAS workers, coordinator interruption/cleanup, detached event
   models/details, atomic reset responses and actual final-snapshot playback.
@@ -68,7 +75,7 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   keyboard code scrolling, persistence, and links to actual system practice.
   Parking's preceding batch passed 72 views across the same theme/viewport matrix.
   These are scoped checks, not a completed whole-project audit.
-- Current browser-review validation: 2467 backend tests and 739 frontend tests;
+- KV browser-review validation (#175): 2467 backend tests and 739 frontend tests;
   lint has zero errors and 14 existing warnings; Maven package and Vite build pass.
   Four shared-diagram cases and two expiry-display cases were added; existing async
   assertions now wait for final focus/reset outcomes without changing timeouts.
