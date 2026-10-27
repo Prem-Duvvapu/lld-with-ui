@@ -149,6 +149,7 @@ public class AtmService {
     }
 
     public Map<String, Object> insertCard(String cardNumber) {
+        requireIdentifier(cardNumber, "cardNumber");
         sessionLock.lock();
         try {
             if (currentState != ATMState.IDLE && currentState != ATMState.SESSION_ENDED) {
@@ -177,6 +178,8 @@ public class AtmService {
     }
 
     public Account authenticate(String cardNumber, String pin) {
+        requireIdentifier(cardNumber, "cardNumber");
+        requirePin(pin);
         sessionLock.lock();
         try {
             // Guard state transition
@@ -224,12 +227,9 @@ public class AtmService {
     }
 
     public WithdrawalTransaction withdraw(String accountNumber, double amount, DispenseMode mode) {
+        requireIdentifier(accountNumber, "accountNumber");
+        int intAmount = withdrawalAmount(amount, mode);
         Account acc = bankingRepository.getAccount(accountNumber);
-        int intAmount = (int) amount;
-
-        if (intAmount <= 0 || intAmount % 100 != 0) {
-            throw new InsufficientCashException("Withdrawal amount must be a positive multiple of ₹100");
-        }
 
         // Acquire fine-grained per-account lock first, dispenser lock second — fixed global
         // ordering shared by every caller, so the two locks never deadlock against each other.
@@ -302,6 +302,8 @@ public class AtmService {
     }
 
     public DepositTransaction deposit(String accountNumber, double amount, Map<NoteDenomination, Integer> notes) {
+        requireIdentifier(accountNumber, "accountNumber");
+        requirePositiveAmount(amount);
         Account acc = bankingRepository.getAccount(accountNumber);
 
         // Same fix as withdraw() (see its comment and RCA-029): the session check and initial state
@@ -309,8 +311,12 @@ public class AtmService {
         acc.getLock().lock();
         try {
             requireAuthenticatedSessionFor(accountNumber);
+            double updatedBalance = acc.getBalance() + amount;
+            if (!Double.isFinite(updatedBalance)) {
+                throw new InvalidAtmRequestException("Deposit would exceed the account balance range");
+            }
             setState(ATMState.TRANSACTION_IN_PROGRESS);
-            acc.setBalance(acc.getBalance() + amount);
+            acc.setBalance(updatedBalance);
 
             // Add notes to dispenser inventory if provided
             if (notes != null) {
@@ -385,6 +391,7 @@ public class AtmService {
     }
 
     public synchronized Map<String, Object> simInsertCard(String cardNumber) {
+        requireIdentifier(cardNumber, "cardNumber");
         Card card = simBankingRepository.getCard(cardNumber);
         if (card.isBlocked()) {
             simState = ATMState.CARD_BLOCKED;
@@ -399,6 +406,8 @@ public class AtmService {
     }
 
     public synchronized Map<String, Object> simAuthenticate(String cardNumber, String pin) {
+        requireIdentifier(cardNumber, "cardNumber");
+        requirePin(pin);
         Card card = simBankingRepository.getCard(cardNumber);
         if (card.isBlocked()) {
             simState = ATMState.CARD_BLOCKED;
@@ -428,13 +437,14 @@ public class AtmService {
     }
 
     public synchronized Map<String, Object> simWithdraw(String accountNumber, double amount, DispenseMode mode) {
+        requireIdentifier(accountNumber, "accountNumber");
+        int intAmount = withdrawalAmount(amount, mode);
         if (simState != ATMState.AUTHENTICATED && simState != ATMState.TRANSACTION_IN_PROGRESS) {
             logSimEvent("WITHDRAW_REJECTED", accountNumber, "Session is in state " + simState + " — authenticate before withdrawing.", null);
             return getSimSnapshots();
         }
 
         Account acc = simBankingRepository.getAccount(accountNumber);
-        int intAmount = (int) amount;
         simState = ATMState.TRANSACTION_IN_PROGRESS;
 
         acc.getLock().lock();
@@ -494,5 +504,34 @@ public class AtmService {
         String ts = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"));
         SimEvent event = new SimEvent(simEventIdGen.getAndIncrement(), ts, type, actor, desc, data);
         simEventLog.add(event);
+    }
+
+    private static void requireIdentifier(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new InvalidAtmRequestException("'" + name + "' must be a nonblank string");
+        }
+    }
+
+    private static void requirePin(String pin) {
+        if (pin == null || !pin.matches("[0-9]{4}")) {
+            throw new InvalidAtmRequestException("'pin' must contain exactly four digits");
+        }
+    }
+
+    private static void requirePositiveAmount(double amount) {
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new InvalidAtmRequestException("'amount' must be finite and greater than zero");
+        }
+    }
+
+    private static int withdrawalAmount(double amount, DispenseMode mode) {
+        requirePositiveAmount(amount);
+        if (amount > Integer.MAX_VALUE || amount % 100 != 0) {
+            throw new InvalidAtmRequestException("Withdrawal amount must be a whole multiple of ₹100 within the dispenser range");
+        }
+        if (mode == null) {
+            throw new InvalidAtmRequestException("A dispense mode is required");
+        }
+        return (int) amount;
     }
 }
