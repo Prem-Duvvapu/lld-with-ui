@@ -298,6 +298,9 @@ describe('Published curriculum learning journey', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Mark lesson/ })).not.toBeInTheDocument();
     expect(loadLesson).not.toHaveBeenCalled();
+    if (path === '/learn/dry') {
+      expect(screen.getByRole('link', { name: 'Start with How to Learn LLD →' })).toHaveAttribute('href', '/learn/how-to-learn-lld');
+    }
   });
 
   it('recovers from a lesson chunk failure without altering saved notes', async () => {

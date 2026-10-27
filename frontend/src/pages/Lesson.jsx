@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useLocation } from 'react-router-dom';
-import { findLesson } from '../learning/curriculum';
+import { findLesson, PUBLISHED_LESSONS } from '../learning/curriculum';
 import { loadLesson } from '../learning/lessonLoader';
 import LessonContent from '../learning/LessonContent';
 import '../learning/Learning.css';
@@ -10,6 +10,7 @@ export default function Lesson() {
   const location = useLocation();
   const { lessonId } = useParams();
   const metadata = findLesson(lessonId);
+  const firstLesson = PUBLISHED_LESSONS[0];
   const fallbackHeading = useRef(null);
   const [result, setResult] = useState(null);
 
@@ -39,7 +40,7 @@ export default function Lesson() {
     body = <section className="learn-callout">
       <h1 ref={fallbackHeading} tabIndex={-1}>{metadata.title}</h1>
       <p>This topic is planned, not published. There is no completed lesson at this address yet.</p>
-      <Link to="/learn/classes-and-objects">Start with Classes and Objects →</Link>
+      {firstLesson && <Link state={location.state} to={`/learn/${firstLesson.id}`}>Start with {firstLesson.title} →</Link>}
     </section>;
   } else if (current?.error) {
     body = <section className="learn-callout" role="alert">
