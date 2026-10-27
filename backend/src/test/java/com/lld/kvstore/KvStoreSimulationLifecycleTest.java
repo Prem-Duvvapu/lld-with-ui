@@ -168,7 +168,13 @@ class KvStoreSimulationLifecycleTest {
             assertTrue(coordinator.isAlive(), "keep the gate while interrupted workers drain");
             drain.countDown(); coordinator.join(3000);
             assertFalse(coordinator.isAlive()); assertInstanceOf(InterruptedException.class, outcome.get());
-            assertTrue(workers.stream().noneMatch(Thread::isAlive));
+            // Executor termination covers tasks; its final worker can still be unwinding
+            // processWorkerExit when the coordinator returns. Join the captured threads
+            // before asserting their stronger physical-termination postcondition.
+            for (Thread worker : workers) {
+                worker.join(3000);
+                assertFalse(worker.isAlive(), "a cancelled CAS worker must exit");
+            }
             assertEquals(1, events(reset.get(3, TimeUnit.SECONDS)).size());
         } finally { drain.countDown(); workers.forEach(Thread::interrupt); coordinator.interrupt(); coordinator.join(3000); pool.shutdownNow(); }
     }
