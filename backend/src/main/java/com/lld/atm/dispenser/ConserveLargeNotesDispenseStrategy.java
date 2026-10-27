@@ -15,7 +15,7 @@ import java.util.Map;
  *
  * <p>Still has to land on the exact requested amount using only what is in {@code
  * availableInventory} — a request it cannot fulfil exactly throws {@link InsufficientCashException}
- * just like the greedy strategy, it just tries a different note mix first.
+ * like the minimum-note strategy; both use the exact planner with different objectives.
  */
 @Component
 public class ConserveLargeNotesDispenseStrategy implements DenominationDispenseStrategy {
