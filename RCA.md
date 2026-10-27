@@ -8,6 +8,9 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-119](#rca-119-a-kv-lifecycle-test-confused-task-completion-with-thread-death) | 2026-10-27 | KV / Concurrency Test Reliability | Captured worker threads were checked for physical termination before waiting for their final executor bookkeeping to return | Resolved without changing runtime behavior |
+| [RCA-117](#rca-117-a-wsl-instance-restart-terminated-validation-and-agent-handles) | 2026-10-27 | Environment / Validation Recovery | WSL shutdown/restart removed live validation processes and agent handles while preserving worktree files | Recovered; validation rerun from preserved sources |
+| [RCA-116](#rca-116-atm-requests-could-corrupt-balances-or-debit-more-than-the-dispensed-notes) | 2026-10-27 | ATM / Request and Amount Validation | Nonpositive/non-finite deposits, truncated withdrawals and malformed request fields could mutate money or fail outside the domain contract | Resolved for live/sandbox request validation |
 | [RCA-115](#rca-115-atm-live-state-was-lost-and-operations-could-overlap) | 2026-10-26 | ATM / Live Workspace | Tab-local session state, unguarded mutations and stale reads lost confirmed state and obscured failures | Frontend resolved; backend validation and hosted integration follow-up remain |
 | [RCA-114](#rca-114-large-valid-expiry-timestamps-were-misreported-as-unknown-writes) | 2026-10-26 | KV / Response Presentation | A valid Java expiry outside browser numeric/date limits rejected the entire acknowledged record and could block further live operations | Resolved |
 | [RCA-113](#rca-113-async-tests-observed-intermediate-states-before-the-required-outcome) | 2026-10-26 | Frontend / Async Test Reliability | Heading insertion preceded focus and error clearance preceded reset acknowledgement; immediate assertions intermittently observed intermediate states | Resolved |
@@ -54,6 +57,150 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-119: A KV Lifecycle Test Confused Task Completion with Thread Death
+
+### 1. Overview & Severity
+
+Medium for verification reliability. The full 2622-case backend run failed one
+existing KV lifecycle assertion despite completed worker tasks and a correctly
+blocked reset. ATM request regressions passed.
+
+### 2. Symptoms & Error Logs
+
+`interruptedCoordinatorJoinsWorkersBeforeResetCanBegin` failed at the immediate
+`workers.stream().noneMatch(Thread::isAlive)` check. Earlier latch, interruption,
+reset-blocking and coordinator-completion assertions passed. Evidence:
+`/home/prem/validation/lld-atm-validation/backend-full.log`.
+
+### 3. Root Cause
+
+The coordinator waits for executor task termination. The test then asserted the
+stronger condition that captured physical threads were already dead, without
+joining them. OpenJDK 17 `processWorkerExit` calls `tryTerminate` before returning
+from the worker, leaving a small observation window. The
+[ExecutorService contract](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/ExecutorService.html#isTerminated())
+covers completed tasks; the
+[OpenJDK implementation](https://github.com/openjdk/jdk17u/blob/master/src/java.base/share/classes/java/util/concurrent/ThreadPoolExecutor.java)
+explains why that is not an immediate `Thread.isAlive` guarantee.
+
+### 4. Diagnostic Commands
+
+Inspect the failing source line, `KvStoreSimulation.stopAndJoin` and the JDK worker
+exit path. Run `mvn -Dtest=KvStoreSimulationLifecycleTest test`. The original run
+and JDK source excerpt are retained in `/home/prem/validation/lld-atm-validation/`.
+
+### 5. Step-by-Step Resolution
+
+Join each captured worker with the existing 3000 ms completion bound, then assert
+it is no longer alive. Preserve the earlier latch-driven proof that reset cannot
+proceed while CAS tasks drain, coordinator interruption, final event check and all
+cleanup. All 14 focused lifecycle cases pass. No production code, test timeout,
+skip or race-safety expectation changed.
+
+### 6. Preventative Measures
+
+Wait for the exact lifecycle being asserted. Executor task completion and physical
+thread termination are separate observations; use task latches for mutation safety
+and `Thread.join` when checking thread death. A rerun alone does not resolve an
+unsynchronized assertion.
+
+## RCA-117: A WSL Instance Restart Terminated Validation and Agent Handles
+
+### 1. Overview & Severity
+
+Medium for verification reliability. A WSL instance restart interrupted validation;
+incomplete logs could not be treated as passing evidence. Source edits survived.
+
+### 2. Symptoms & Error Logs
+
+The pending tool call was aborted. Later `write_stdin` returned `Unknown process id`
+for the prior Maven/frontend handles, and agent lookups returned not found. Process
+inspection found none of the earlier Java/Node jobs. Kernel logs recorded
+`systemctl poweroff did not terminate the instance in 10000 ms, calling reboot(RB_POWER_OFF)`.
+Evidence: `/home/prem/validation/lld-atm-validation/wsl-restart.log`.
+
+### 3. Root Cause
+
+The WSL instance lifecycle ended the process/agent runtime independently of Git
+worktree storage. The initiator of shutdown is not established by the logs; neither
+an application defect nor an out-of-memory cause has been demonstrated.
+
+### 4. Diagnostic Commands
+
+Use `ps -eo pid,ppid,etime,args`, re-poll the original `write_stdin` handles, inspect
+`git status --short` in each isolated worktree, and read `dmesg --level=err,warn`.
+Inspect test summaries rather than assuming that a present log/report is complete.
+
+### 5. Step-by-Step Resolution
+
+1. Confirm the original processes and handles are missing before restarting work.
+2. Preserve all existing source files, staged changes and worktree branches.
+3. Restore bounded lesson review tasks from those files; avoid repeating authorship.
+4. Resume ATM validation with bounded JVM heaps and fewer concurrent compilation
+   jobs. The resumed focused run completes with 104 passes; interrupted logs remain
+   distinct from successful evidence. Restart the incomplete frontend verification.
+
+### 6. Preventative Measures
+
+Checkpoint changes and evidence in isolated worktrees. Poll confirmed live jobs
+instead of spawning duplicate compilers after observation timeouts. Bound heavy
+compilation concurrency on a shared host. A runtime restart requires renewed proof,
+not a pass inferred from previous intent or a partially written report.
+
+## RCA-116: ATM Requests Could Corrupt Balances or Debit More Than the Dispensed Notes
+
+### 1. Overview & Severity
+
+High for the demo's money/state consistency. Invalid deposits could reduce or poison
+balances. Withdrawal validation ran after narrowing a double to int, allowing a
+different account debit from the physical notes dispensed.
+
+### 2. Symptoms & Error Logs
+
+The new 77-case real-service/MockMvc suite originally reported 62 assertion failures,
+14 errors and one pass. A ₹500.25 withdrawal could debit ₹500.25 while dispensing
+₹500; negative/non-finite deposits were accepted. Missing/null request fields could
+throw NPE, and typed string maps could coerce numeric credentials into strings.
+A null service-level dispense mode could fail after the debit and leave DISPENSING.
+Logs: `/home/prem/validation/lld-atm-validation/red-behavior.log`.
+
+### 3. Root Cause
+
+Controllers called `toString`/`parseDouble` on unvalidated values. The service cast
+withdrawals before checking divisibility and lacked positive/finite deposit and
+resulting-balance checks. Invalid mode selection was deferred until cash dispensing.
+Simulation reused the same permissive narrowing without the live amount check.
+
+### 4. Diagnostic Commands
+
+Inspect `AtmController`, `AtmService`, `CashDispenser` and the strategy factory. Run
+`mvn -Dtest=AtmRequestValidationTest test` from `backend`. Recheck the fix with
+`mvn -Dtest=AtmRequestValidationTest,AtmServiceTest,AtmConcurrencyTest,DomainExceptionContractTest test`.
+No application server is required: requests execute through real MockMvc controllers,
+the global advice, service, repositories and dispenser strategies.
+
+### 5. Step-by-Step Resolution
+
+1. Require actual JSON numbers and nonblank string fields; preserve omitted/null
+   HTTP mode as the existing MINIMIZE_NOTES default. Reject unknown/mistyped modes.
+2. Add `InvalidAtmRequestException` under `AtmException` with `@ResponseStatus(400)`;
+   keep the shared `ErrorResponse` contract.
+3. Validate finite positive amounts and exact ₹100 withdrawal divisibility/range
+   before narrowing, debiting, changing session state or appending simulation events.
+4. Validate PIN shape before insertion or consuming failed attempts. Check finite
+   resulting deposit balance under the account lock before mutation.
+5. Pass all 104 focused cases, including the 77 new regressions and existing ATM,
+   concurrent withdrawal and domain-exception checks. Assert rejected requests leave
+   balances, inventory, transaction history, session and sandbox snapshots unchanged.
+
+### 6. Preventative Measures
+
+Retain HTTP and direct-service boundary tests, including fractional/out-of-range
+withdrawals, non-finite amounts, overflow and invalid modes. Keep valid fractional
+deposits, both strategies and live/sandbox isolation covered. Validate the original
+amount before narrowing. Full session/snapshot/simulation UX review remains separate;
+this fix does not establish overall ATM module completion.
 
 ## RCA-115: ATM Live State Was Lost and Operations Could Overlap
 

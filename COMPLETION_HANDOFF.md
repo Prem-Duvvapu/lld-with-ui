@@ -6,12 +6,28 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- ATM request-validation batch: 2622 backend cases and 778 frontend cases pass;
+  Maven package, lint (14 existing warnings), Vite build and chunk budgets pass.
+  Browser verification covers 56 views and 248 actual Java MockMvc requests in
+  eight theme/viewport contexts. A lifecycle-test failure found during the full
+  run was corrected by awaiting captured thread termination while retaining
+  reset-blocking assertions; the complete backend rerun passes (RCA-119).
+
 - ATM live-workspace improvements retain confirmed session state across tabs,
   guard mutations, invalidate stale reads and offer explicit recovery, labeled
   forms and responsive layout (RCA-115). Agent validation passed 43 focused cases
   and eight browser contexts using contract-shaped fixtures. This is a scoped
-  frontend improvement, not a complete ATM module sign-off. Java deposit validation,
-  backend session/idempotency support and hosted integration remain follow-ups.
+  frontend improvement, not a complete ATM module sign-off. Request/amount validation
+  now rejects malformed fields, nonpositive/non-finite deposits, overflow and truncated
+  withdrawals before mutation (RCA-116); 77 new Java/HTTP regressions cover that scope.
+  Session/snapshot lifecycle review, backend session/idempotency support and hosted
+  integration remain follow-ups.
+
+- Analytics is installed in the React/Vite root via `@vercel/analytics/react`;
+  page URLs redact query strings/fragments. On 2026-10-27 the production tracking
+  script returned plain-text 404 rather than JavaScript. Dashboard enablement and
+  a deployment afterward are still required to verify actual visitor collection;
+  no authenticated Vercel dashboard connection is available in this session.
 
 - All 60 modules exist, with Java backends, routes, and design data.
 - Homepage discovery, navigation memory, mobile tabs, and shared diagram zoom,
@@ -21,7 +37,7 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   tictactoe, traffic-signal, uber, zomato, logging-framework.
 - Nine modules use shared recorded playback: blocking-queue, bloom-filter,
   concurrent-hashmap, fizz-buzz, foo-bar, h2o, merge-sort, ttl-cache, zero-even-odd.
-- Latest merged validation (#174): 2467 backend tests (291 suites) and 733 frontend tests (43 files).
+- Sandbox batch validation (#174): 2467 backend tests (291 suites) and 733 frontend tests (43 files).
   The sandbox lifecycle batch adds 14 Java cases and seven frontend cases, with
   real concurrent CAS workers, coordinator interruption/cleanup, detached event
   models/details, atomic reset responses and actual final-snapshot playback.
@@ -59,7 +75,7 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   keyboard code scrolling, persistence, and links to actual system practice.
   Parking's preceding batch passed 72 views across the same theme/viewport matrix.
   These are scoped checks, not a completed whole-project audit.
-- Current browser-review validation: 2467 backend tests and 739 frontend tests;
+- KV browser-review validation (#175): 2467 backend tests and 739 frontend tests;
   lint has zero errors and 14 existing warnings; Maven package and Vite build pass.
   Four shared-diagram cases and two expiry-display cases were added; existing async
   assertions now wait for final focus/reset outcomes without changing timeouts.
@@ -198,7 +214,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
 | airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
-| atm | Not adopted | Learning-source audit 2026-10-23; live/simulation review remains open | Fictional Transaction.execute/Template Method claim fixed; pattern-card mobile overflow fixed | Existing live terminal/stepper still needs review | Batch 10 learning-data correction; shared grid fix | `curriculumCoverage.test.js`; existing Java suites unchanged and green | 24 intercepted learning-tab views (3 tabs × 4 widths × both themes), not live-operation/simulation verification | #155; coverage-audit branch |
+| atm | Not adopted | Live frontend and request validation reviewed 2026-10-27; whole-module sign-off remains open | Session/snapshot lifecycle and simulation review remain; hosted integration is unverified | Retained confirmed live session/drafts/receipt; guarded requests and explicit recovery; strict Java amount/request validation | #177 live workspace; RCA-115/116; earlier teaching/grid fixes | 77 new real-service/HTTP boundary cases; existing ATM/concurrency/domain tests; 22 live workspace/API cases | 56 live views with 248 actual Java MockMvc browser requests across light/dark ×320/390/768/1280; prior 8 fixture contexts and 24 learning views; not hosted HTTP E2E | #155, #167, #177; request-validation branch |
 | auction | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | blocking-queue | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
