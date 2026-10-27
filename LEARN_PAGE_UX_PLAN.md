@@ -2,7 +2,7 @@
 
 Prepared: 2026-10-27  
 Page: https://lld-with-ui.vercel.app/learn  
-Status: implemented locally; final CI and deployed verification pending.
+Status: implemented, merged and deployed; production review passed (PR #179).
 
 ## Goal
 
@@ -271,3 +271,19 @@ requires its separate Vercel dashboard/deployment check.
 Local checks passed: 2622 backend tests, 801 frontend tests across 51 files, Maven
 package, lint (zero errors; 14 existing warnings), production build and chunk
 budgets (entry 313174 bytes; largest non-entry 57287 bytes).
+
+
+## Release verification
+
+[PR #179](https://github.com/Prem-Duvvapu/lld-with-ui/pull/179) merged as
+`a756c95` after all seven checks passed. Vercel production deployment
+`7368743327` reported success. The public `/learn` page passed four additional
+real-network browser contexts (light/dark × 390/1440px), including catalog cards,
+filtered lesson entry, breadcrumb return/focus, no page overflow or application
+exceptions, and HTTP 200 with correct JavaScript/CSS MIME types for requested
+assets. Evidence: `deployed.json`, `deployed.log` and screenshots in the validation
+directory above. No response interception was used in this deployed pass.
+
+This closes implementation and deployed verification for this landing-page
+redesign. It does not close the separate curriculum, module audits, analytics
+collection or hosted backend integration work.
