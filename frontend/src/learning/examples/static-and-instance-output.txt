@@ -1,0 +1,9 @@
+constant: 25
+created before new: 0
+before new trace: class initializer
+created after new: 2
+initial completions: 0/0
+later completions: 2/0
+base view: study / focus: Methods
+child view: focus / focus: Methods
+final trace: class initializer -> instance initializer -> constructor #1 -> instance initializer -> constructor #2
