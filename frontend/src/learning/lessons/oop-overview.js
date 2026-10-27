@@ -1,5 +1,5 @@
 import { createElement, Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import topicSource from '../examples/oopoverview/Topic.java?raw';
 import contractSource from '../examples/oopoverview/PromptStyle.java?raw';
 import plainSource from '../examples/oopoverview/PlainPrompt.java?raw';
@@ -9,13 +9,19 @@ import demoSource from '../examples/oopoverview/OopOverviewDemo.java?raw';
 import output from '../examples/oop-overview-output.txt?raw';
 import snapshots from '../examples/oop-overview-snapshots.json';
 
+// Carry the catalog origin through inline reviews just like prerequisite links.
+function ReviewLink({ id, title }) {
+  const { state } = useLocation();
+  return createElement(Link, { to: `/learn/${id}`, state }, `Revisit ${title}`);
+}
+
 // React nodes let the existing paragraph renderer offer real curriculum links.
 // These are reviews, not a second publication/prerequisite manifest.
 function review(id, title, text, proposed = false) {
   return {
     title: `${title}${proposed ? ' (proposed addition)' : ''}`,
     text: createElement(Fragment, null, text, ' ',
-      createElement(Link, { to: `/learn/${id}` }, `Revisit ${title}`)),
+      createElement(ReviewLink, { id, title })),
   };
 }
 

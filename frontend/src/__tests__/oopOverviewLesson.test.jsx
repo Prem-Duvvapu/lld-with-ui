@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import LessonContent from '../learning/LessonContent';
 import lesson from '../learning/lessons/oop-overview';
 import { loadLesson } from '../learning/lessonLoader';
@@ -42,6 +42,21 @@ describe('OOP overview capstone', () => {
     expect(within(understand).getAllByRole('heading', { name: /\(proposed addition\)/ })).toHaveLength(4);
     expect(screen.getByText(lesson.outcome)).toBeVisible();
     expect(screen.getByText(lesson.summary)).toHaveTextContent(/capstone after the fifteen concept lessons/i);
+  });
+
+  it('preserves the catalog origin through inline concept review links', () => {
+    const origin = { learnCatalog: { search: '?section=oop&bookmarked=1', key: 'origin', lessonId: 'oop-overview' } };
+    function Destination() {
+      return <output aria-label="Navigation state">{JSON.stringify(useLocation().state)}</output>;
+    }
+    render(<MemoryRouter initialEntries={[{ pathname: '/learn/oop-overview', state: origin }]}>
+      <Routes>
+        <Route path="/learn/oop-overview" element={<LessonContent lesson={lesson} metadata={findLesson('oop-overview')} />} />
+        <Route path="/learn/classes-and-objects" element={<Destination />} />
+      </Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('link', { name: 'Revisit Classes and Objects', exact: true }));
+    expect(JSON.parse(screen.getByLabelText('Navigation state').textContent)).toEqual(origin);
   });
 
   it('displays exact canonical Java sources and self-contained JDK 17 save/run paths', () => {
