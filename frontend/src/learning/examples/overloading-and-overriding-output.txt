@@ -1,0 +1,11 @@
+same receiver: true
+String argument: hint String: Objects (name an object)
+Object argument: base Object: [ Objects ]
+base sees builder: base Object: [ Objects ]
+child sees builder: hint builder: Objects
+phase(3): long
+phase(Integer): Integer
+phase(): int... length=0
+base copy runtime: HintPrinter
+child copy runtime: HintPrinter
+fresh copy: true

@@ -1,0 +1,132 @@
+[
+  {
+    "title": "Keep one runtime receiver",
+    "explanation": "Two variables refer to one HintPrinter. The base variable exposes PromptPrinter\u2019s API; assignment does not change the object.",
+    "items": [
+      {
+        "label": "receiver",
+        "typeLabel": "HintPrinter",
+        "fields": [
+          {
+            "name": "same object",
+            "value": true
+          },
+          {
+            "name": "runtime class",
+            "value": "HintPrinter"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Choose a signature, then dispatch",
+    "explanation": "A String argument selects print(String), whose runtime override runs. An Object variable holding the same String selects print(Object); that signature has no child override.",
+    "items": [
+      {
+        "label": "String argument",
+        "typeLabel": "print(String)",
+        "fields": [
+          {
+            "name": "result",
+            "value": "hint String: Objects (name an object)"
+          }
+        ]
+      },
+      {
+        "label": "Object argument",
+        "typeLabel": "print(Object)",
+        "fields": [
+          {
+            "name": "result",
+            "value": "base Object: [ Objects ]"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Search the declared receiver API",
+    "explanation": "PromptPrinter has no print(StringBuilder) overload. Only the child-typed call can select it. Both calls still use the same receiver and builder.",
+    "items": [
+      {
+        "label": "base.print(builder)",
+        "typeLabel": "PromptPrinter API",
+        "fields": [
+          {
+            "name": "result",
+            "value": "base Object: [ Objects ]"
+          }
+        ]
+      },
+      {
+        "label": "child.print(builder)",
+        "typeLabel": "HintPrinter API",
+        "fields": [
+          {
+            "name": "result",
+            "value": "hint builder: Objects"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Stop at the first applicable phase",
+    "explanation": "For int 3, widening to long is available before boxing. An Integer expression already matches Integer without unboxing. With zero arguments, only the variable-arity invocation applies.",
+    "items": [
+      {
+        "label": "numeric overloads",
+        "typeLabel": "MethodSelectionDemo",
+        "fields": [
+          {
+            "name": "phase(3)",
+            "value": "long"
+          },
+          {
+            "name": "phase(Integer.valueOf(3))",
+            "value": "Integer"
+          },
+          {
+            "name": "phase()",
+            "value": "int... length=0"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Refine the return contract",
+    "explanation": "copy() overrides one signature, with a covariant HintPrinter return and no checked throws clause. Through base, the caller still sees PromptPrinter and must handle or declare IOException.",
+    "items": [
+      {
+        "label": "base.copy() result",
+        "typeLabel": "HintPrinter",
+        "fields": [
+          {
+            "name": "runtime class",
+            "value": "HintPrinter"
+          },
+          {
+            "name": "fresh object",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "child.copy() result",
+        "typeLabel": "HintPrinter",
+        "fields": [
+          {
+            "name": "runtime class",
+            "value": "HintPrinter"
+          },
+          {
+            "name": "fresh object",
+            "value": true
+          }
+        ]
+      }
+    ]
+  }
+]
