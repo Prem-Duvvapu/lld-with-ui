@@ -105,13 +105,11 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   Four shared-diagram cases and two expiry-display cases were added; existing async
   assertions now wait for final focus/reset outcomes without changing timeouts.
 - Latest build: entry 313174 bytes; largest non-entry JavaScript chunk 57287 bytes.
-- The curriculum catalog has sixteen published lessons: the How to Learn LLD
-  guide and all fifteen individual OOP/relationship concepts. The remaining 53
-  topics are visibly planned. The overview/capstone, foundational class diagrams
-  and domain-model assessment still keep Phase 2 open. The six-lesson batch uses
-  canonical Java and checked snapshots/output; the new catalog retains its
-  published-only default, metadata search and prerequisite-aware sequence.
-  See the curriculum workstream below.
+- The curriculum catalog has seventeen published lessons: How to Learn LLD,
+  fifteen individual OOP/relationship concepts and the connected capstone.
+  The remaining 52 topics are visibly planned. The capstone includes a model
+  assessment/rubric and fifteen linked reviews. Foundational rendered class
+  diagrams and final assessment/visual review still keep Phase 2 open.
 - Phase 0 now has a complete 69-topic outcome/prerequisite/evidence/exercise/gap
   matrix and a cycle-checked canonical graph. This is an authoring audit, not 69
   delivered lessons. Unsupported module mappings remain explicit gaps.
@@ -432,10 +430,11 @@ The third batch adds Abstraction, Inheritance, Polymorphism and Association, wit
 The guided sequence and isolated notes/bookmarks are covered by a cross-lesson
 navigation test. That brought publication to ten lessons. The fourth batch adds
 How to Learn LLD, Method Overloading vs Overriding, Static vs Instance Members,
-Aggregation, Composition and Dependency. The manifest now inventories sixteen
-published lessons and 53 planned topics. All fifteen individual OOP concepts
-are delivered; Phase 2 still needs its connected overview/capstone, foundational
-class diagrams and domain-model assessment. Phases 3–7 remain open. This is
+Aggregation, Composition and Dependency. That batch brought the manifest to sixteen
+published lessons and 53 planned topics. The next batch adds the connected
+capstone, bringing the current total to seventeen published and 52 planned. All fifteen individual OOP concepts
+are delivered; Phase 2 still needs foundational rendered class diagrams and final
+assessment/visual review; the capstone now supplies its model exercise/rubric. Phases 3–7 remain open. This is
 separate from the existing-module UI/UX matrix and historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22
 patterns, and Interpreter is now an explicit proposed addition to complete the

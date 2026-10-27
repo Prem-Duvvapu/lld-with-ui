@@ -31,18 +31,20 @@ chunks must receive their own resource response, never `index.html` (RCA-108).
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and sixteen published lessons: the
+has a searchable curriculum catalog and seventeen published lessons: the
 **How to Learn LLD** guide, **Classes and Objects**, **Constructors and
 Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
 **Encapsulation**, **Abstraction**, **Inheritance**, **Polymorphism**,
 **Method Overloading vs Overriding**, **Static vs Instance Members**,
-**Association**, **Aggregation**, **Composition** and **Dependency**.
+**Association**, **Aggregation**, **Composition**, **Dependency**, and the
+**15 Must-Know OOP Concepts** capstone.
 The guided sequence puts published prerequisites before dependents. The catalog
 supports available/roadmap views, outcome search, section/review/bookmark filters,
 sorting, direct bookmarks and return navigation. Reading times and outcomes come
-from the curriculum manifest. The other 53 topics remain explicitly planned;
-five proposed additions retain their labels. The connected OOP overview/capstone
-and remaining Phase 2 assessment/diagram work are still open.
+from the curriculum manifest. The other 52 topics remain explicitly planned;
+five proposed additions retain their labels. The capstone follows all fifteen
+individual concepts with linked reviews and an independent modeling exercise.
+Foundational class diagrams and final Phase 2 review remain open.
 
 Each lesson connects a motivating problem, inspectable Java-verified illustrations,
 the actual Java source, a prediction question with explanations, a modeling

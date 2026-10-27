@@ -2,8 +2,8 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are sixteen published lessons
-and 53 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. There are seventeen published lessons
+and 52 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
 ## Reading the matrix
@@ -25,12 +25,12 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 - Four supplemental OOP concepts and Interpreter are explicitly proposed additions.
   Concurrency 101 is a section overview; Introduction to Concurrency is its lesson.
 
-## Start here
+## Learning guides
 
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
 | `how-to-learn-lld` — How to Learn LLD | Distinguish LLD from DSA/HLD and turn a bounded requirement into responsibilities, interactions, invariants and evidence. | None | [E33](#e33): StudySeat accepted/rejected workflows and actual Parking allocation responsibilities. Practice `/parking-lot`. | Scope a locker reservation, trace accepted/rejected operations and explain how a new global constraint changes responsibilities. | Delivered: `/learn/how-to-learn-lld`, canonical Java, verified snapshots/output and compiler boundaries, three learning paths, readiness checks, prediction and exercise/rubric. |
-| `oop-overview` — 15 Must-Know OOP Concepts | Locate all fifteen canonical concepts and explain how fundamentals connect to relationships. | None | [E01](#e01), [E02](#e02), [E03](#e03), [E05](#e05), [E06](#e06): published concept lessons to connect in a dedicated overview. | Classify a small model's fields, behavior, identity, ownership and collaborations; defend each classification. | G: overview lesson linking the fifteen concepts without duplicating their content. |
+| `oop-overview` — 15 Must-Know OOP Concepts | Defend a coherent object model using all fifteen concepts, trace its contracts and relationships, and assess a changed requirement. | `classes-and-objects`, `constructors`, `access-modifiers`, `enums`, `interfaces`, `encapsulation`, `abstraction`, `inheritance`, `polymorphism`, `overloading-and-overriding`, `static-and-instance`, `association`, `aggregation`, `composition`, `dependency` | [E34](#e34): StudyPlan, owned entries, shared mutable Topic and per-call PromptStyle; verified real Parking policy dispatch. Practice `/parking-lot`. | Add independent per-plan review progress; justify ownership, invariants, multiplicities, rejected-operation state and one alternative design. | Delivered: `/learn/oop-overview`, fifteen linked reviews, canonical Java with five verified snapshots/output, prediction and independent modeling exercise/rubric; foundational rendered class diagrams and final Phase 2 verification remain open. |
 
 ## OOP fundamentals
 
@@ -687,6 +687,23 @@ reproduces parking's gates, pricing or locks. The guide explains LLD/DSA/HLD wor
 boundaries, beginner/revision/interview paths and readiness self-checks. It is the
 first published lesson; personal review marks remain separate from mastery.
 
+<a id="e34"></a>
+### E34 — An integrated fifteen-concept model assessment
+
+[StudyPlan](frontend/src/learning/examples/oopoverview/StudyPlan.java) owns its
+Entry lifecycle and capacity/duplicate checks while selections refer to an
+independently mutable [Topic](frontend/src/learning/examples/oopoverview/Topic.java).
+[PromptStyle](frontend/src/learning/examples/oopoverview/PromptStyle.java),
+PlainPrompt and HintedPrompt provide a per-call contract and runtime override.
+[OopOverviewExampleTest](backend/src/test/java/com/lld/learning/OopOverviewExampleTest.java)
+compiles the exact sources and checks output, all five snapshots, identity,
+invalid/repeated operations, partial collection snapshots, policy-contract limits
+and negative compiler cases. A real factory/repository pricing trace demonstrates
+₹40 hourly versus ₹50 flat on fixed two-hour CAR tickets; it does not prove
+plan ownership, concurrent workflows or rollback. The exercise/rubric asks the
+learner to place per-plan review state, defend relationships and prove rejection
+preserves state. Review remains a self-check, not automatic model grading.
+
 ## Supporting material that must not disappear between lessons
 
 - Atomicity/visibility/happens-before: cover in race conditions and primitives;
@@ -727,5 +744,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 53 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 52 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.

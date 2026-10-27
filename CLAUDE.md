@@ -118,11 +118,12 @@ manifest; an audit row is not a published lesson. The coverage test also guards
 the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 
 `/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
-manifest in `src/learning/curriculum.js`. Sixteen lessons are published: How to
+manifest in `src/learning/curriculum.js`. Seventeen lessons are published: How to
 Learn LLD plus all fifteen OOP/relationship concepts (including the four proposed
-supplemental fundamentals). The remaining 53 topics are planned. Phase 2 still
-needs its connected overview/capstone, foundational class diagrams and domain-model
-assessment. Planned
+supplemental fundamentals), followed by their connected OOP capstone. The
+remaining 52 topics are planned. Phase 2 still needs foundational rendered class
+diagrams and final assessment/visual review. `OopOverviewExampleTest` compiles the
+capstone sources and verifies its five snapshots/output and compiler boundaries. Planned
 topics must not be presented as delivered content. Lesson data stays separate from
 module design data. Its displayed `.java` files live under `src/learning/examples/`
 and are compiled by `ClassesAndObjectsExampleTest`, `OopExamplesTest` and

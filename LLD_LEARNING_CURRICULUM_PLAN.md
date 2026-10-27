@@ -1,10 +1,10 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-27. Status: coverage audit and sixteen lessons
-implemented: the How to Learn LLD guide and all fifteen individual OOP/relationship
-concepts. The remaining 53 topic deliveries and final integration are open.
-Phase 2 remains in progress: its linked overview/capstone, foundational class
-diagrams and domain-model assessment still need delivery and verification.
+Saved: 2026-10-17. Updated: 2026-10-27. Status: coverage audit and seventeen
+lessons implemented: How to Learn LLD, all fifteen individual OOP/relationship
+concepts, and their connected overview/capstone with a domain-model exercise.
+The remaining 52 topic deliveries and final integration are open. Phase 2 still
+needs its foundational rendered class diagrams and final assessment/visual review.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -183,8 +183,9 @@ for the remaining topics is still open; an audited gap is not a published lesson
   including the shared renderer, accessible visuals, tested code, exercise,
   navigation, and progress. Review this vertical slice before scaling content.
 - [ ] **Phase 2 — OOP and relationships:** all fifteen individual concepts delivered;
-  complete the connected overview/capstone, foundational class diagrams and
-  domain-model assessment. Individual publication does not close this phase.
+  the connected overview/capstone and domain-model exercise/rubric are delivered.
+  Foundational rendered class diagrams and final assessment/visual verification
+  remain open. Individual publication does not close this phase.
 - [ ] **Phase 3 — UML and principles:** complete all five diagram types and all
   requested principles, with connected SOLID picture/code examples.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
@@ -348,3 +349,23 @@ production build and both chunk budgets. Artifacts are recorded under
 `/home/prem/validation/lld-six-lessons/`. Browser and actual deployed release
 evidence belong to this batch's PR; Java fixture checks alone do not establish
 visual fidelity or hosted backend availability.
+
+
+## Connected OOP capstone — 2026-10-27
+
+`/learn/oop-overview` is a synthesis lesson after all fifteen individual concepts.
+Its five recorded states follow separate plans, shared topics, owned entries,
+per-call prompt policies, rejected duplicates and retirement through an alias.
+The independent exercise adds per-entry review progress and asks the learner to
+explain invariants, relationship multiplicities and one alternative design.
+
+The manifest declares all fifteen recommended prerequisites and places the
+capstone last in the published sequence; the Learning guides group contains both
+the introductory workflow and this advanced review. Catalog outcomes stay in the
+manifest. Inline concept review links retain catalog navigation context.
+`OopOverviewExampleTest` compiles the six displayed Java files and verifies
+output, snapshots, negative compiler cases and supported module mappings.
+
+The capstone assessment/rubric is delivered, with review remaining a personal
+self-check. Phase 2 retains its foundational class-diagram and final review gate;
+publication alone does not establish that the visual curriculum is complete.

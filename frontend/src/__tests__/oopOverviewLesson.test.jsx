@@ -9,9 +9,8 @@ import { loadLesson } from '../learning/lessonLoader';
 import { findLesson } from '../learning/curriculum';
 
 function openLesson() {
-  // Parent owns publication/prerequisites; this exercises the real content loader and renderer.
   render(<MemoryRouter initialEntries={['/learn/oop-overview']}>
-    <LessonContent lesson={lesson} metadata={{ ...findLesson('oop-overview'), status: 'published', duration: '35–45 minutes' }} />
+    <LessonContent lesson={lesson} metadata={findLesson('oop-overview')} />
   </MemoryRouter>);
 }
 
@@ -40,7 +39,7 @@ describe('OOP overview capstone', () => {
         .toHaveAttribute('href', `/learn/${id}`);
     }
     expect(within(understand).getAllByRole('heading', { name: /\(proposed addition\)/ })).toHaveLength(4);
-    expect(screen.getByText(lesson.outcome)).toBeVisible();
+    expect(screen.getByText(lesson.objectives[0])).toBeVisible();
     expect(screen.getByText(lesson.summary)).toHaveTextContent(/capstone after the fifteen concept lessons/i);
   });
 

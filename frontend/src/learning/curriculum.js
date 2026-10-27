@@ -1,5 +1,5 @@
 const groups = [
-  ['getting-started', 'Start here', [
+  ['getting-started', 'Learning guides', [
     ['how-to-learn-lld', 'How to Learn LLD'],
     ['oop-overview', '15 Must-Know OOP Concepts'],
   ]],
@@ -98,7 +98,7 @@ const groups = [
 
 const prerequisites = {
   'how-to-learn-lld': [],
-  'oop-overview': [],
+  'oop-overview': ['classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation', 'abstraction', 'inheritance', 'polymorphism', 'overloading-and-overriding', 'static-and-instance', 'association', 'aggregation', 'composition', 'dependency'],
   'classes-and-objects': [],
   enums: ['classes-and-objects'],
   interfaces: ['classes-and-objects'],
@@ -187,11 +187,13 @@ const publications = [
   ['aggregation', '25–30 minutes'],
   ['composition', '30–35 minutes'],
   ['dependency', '25–30 minutes'],
+  ['oop-overview', '35–45 minutes'],
 ];
 const published = new Map(publications);
 
 // Catalog outcomes remain metadata: browsing never imports lesson content.
 const outcomes = {
+  'oop-overview': 'Defend a study-plan model using object identity, contracts, state, and ownership.',
   'how-to-learn-lld': 'Turn requirements into responsibilities, invariants, and testable object interactions.',
   'overloading-and-overriding': 'Separate compile-time overload selection from runtime instance dispatch.',
   'static-and-instance': 'Trace class initialization and distinguish shared class state from per-object state.',

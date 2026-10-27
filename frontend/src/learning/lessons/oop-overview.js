@@ -27,7 +27,6 @@ function review(id, title, text, proposed = false) {
 
 export default {
   id: 'oop-overview',
-  outcome: 'Defend a small object model by tracing identity, contracts, state, ownership and collaboration across all fifteen OOP concepts.',
   summary: 'A capstone after the fifteen concept lessons: choose responsibilities for a study plan, trace its Java objects, and defend the relationships and limits. Use the linked reviews when a decision needs more practice.',
   prerequisites: 'All fifteen OOP fundamentals and relationship topics reviewed below. This is a synthesis assessment, not an introductory shortcut or proof of mastery. The Java files are self-contained and require JDK 17 only.',
   objectives: [
