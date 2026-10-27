@@ -1,0 +1,322 @@
+[
+  {
+    "title": "Wholes before parts",
+    "explanation": "Document [1] ◆—pages— [0..*] Page puts the filled diamond at Document. This example allows zero pages per document and exactly one fixed owning document per page, including owner metadata on retired page objects.",
+    "items": [
+      {
+        "label": "draft",
+        "typeLabel": "Document",
+        "fields": [
+          {
+            "name": "name",
+            "value": "Draft"
+          },
+          {
+            "name": "count",
+            "value": 0
+          },
+          {
+            "name": "deleted",
+            "value": false
+          }
+        ]
+      },
+      {
+        "label": "archive",
+        "typeLabel": "Document",
+        "fields": [
+          {
+            "name": "name",
+            "value": "Archive"
+          },
+          {
+            "name": "count",
+            "value": 0
+          },
+          {
+            "name": "deleted",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Create owned pages",
+    "explanation": "createPage is this implementation’s only page-construction path. The private constructor prevents calls from outside the enclosing Document class. Draft creates intro and appendix; Archive creates its own page. saved contains aliases to Draft’s actual pages, not additional composite owners.",
+    "items": [
+      {
+        "label": "draft",
+        "typeLabel": "Document",
+        "fields": [
+          {
+            "name": "count",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "label": "intro",
+        "typeLabel": "Page",
+        "fields": [
+          {
+            "name": "owner",
+            "value": "Draft"
+          },
+          {
+            "name": "text",
+            "value": "Hello"
+          },
+          {
+            "name": "deleted",
+            "value": false
+          }
+        ]
+      },
+      {
+        "label": "appendix",
+        "typeLabel": "Page",
+        "fields": [
+          {
+            "name": "owner",
+            "value": "Draft"
+          },
+          {
+            "name": "text",
+            "value": "Notes"
+          },
+          {
+            "name": "deleted",
+            "value": false
+          }
+        ]
+      },
+      {
+        "label": "archived",
+        "typeLabel": "Page",
+        "fields": [
+          {
+            "name": "owner",
+            "value": "Archive"
+          },
+          {
+            "name": "text",
+            "value": "Record"
+          },
+          {
+            "name": "deleted",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reject another owner",
+    "explanation": "Archive cannot revise Draft’s intro. requireOwnedActive checks owner identity before mutation. There is no public attach or owner setter, so this API cannot make intro a part of two documents.",
+    "items": [
+      {
+        "label": "request",
+        "typeLabel": "foreign revision",
+        "fields": [
+          {
+            "name": "outcome",
+            "value": "IllegalArgumentException"
+          },
+          {
+            "name": "message",
+            "value": "Page belongs to another document"
+          }
+        ]
+      },
+      {
+        "label": "intro",
+        "typeLabel": "Page",
+        "fields": [
+          {
+            "name": "owner",
+            "value": "Draft"
+          },
+          {
+            "name": "text",
+            "value": "Hello"
+          }
+        ]
+      },
+      {
+        "label": "archived",
+        "typeLabel": "Page",
+        "fields": [
+          {
+            "name": "text",
+            "value": "Record"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Revise through the owner",
+    "explanation": "Draft changes intro to Hello Java. saved.get(0) observes that same page. Composition restricts ownership; it does not forbid outside observers holding references to the part.",
+    "items": [
+      {
+        "label": "intro",
+        "typeLabel": "Page",
+        "fields": [
+          {
+            "name": "text",
+            "value": "Hello Java"
+          }
+        ]
+      },
+      {
+        "label": "saved intro",
+        "typeLabel": "Page reference",
+        "fields": [
+          {
+            "name": "samePage",
+            "value": true
+          },
+          {
+            "name": "text",
+            "value": "Hello Java"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Remove and retire a page",
+    "explanation": "Our domain chooses removal-as-deletion: appendix is retired and its content cleared before its membership is removed. read now throws through an existing reference. UML also permits other models to detach parts before deleting a whole; that transfer policy is not implemented here.",
+    "items": [
+      {
+        "label": "draft",
+        "typeLabel": "Document",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "label": "appendix",
+        "typeLabel": "retired Page",
+        "fields": [
+          {
+            "name": "owner",
+            "value": "Draft"
+          },
+          {
+            "name": "deleted",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "read result",
+        "typeLabel": "rejected content access",
+        "fields": [
+          {
+            "name": "outcome",
+            "value": "IllegalStateException"
+          },
+          {
+            "name": "message",
+            "value": "Page is deleted"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Delete the whole, retire its pages",
+    "explanation": "Deleting Draft retires its remaining page and clears current memberships. saved still has two Java references, but reading its intro fails. Metadata remains inspectable and Archive is unaffected. Domain deletion does not mean the JVM erased an object or ran garbage collection.",
+    "items": [
+      {
+        "label": "draft",
+        "typeLabel": "Document",
+        "fields": [
+          {
+            "name": "count",
+            "value": 0
+          },
+          {
+            "name": "deleted",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "intro",
+        "typeLabel": "retired Page",
+        "fields": [
+          {
+            "name": "owner",
+            "value": "Draft"
+          },
+          {
+            "name": "deleted",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "appendix",
+        "typeLabel": "retired Page",
+        "fields": [
+          {
+            "name": "deleted",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "saved",
+        "typeLabel": "List<Page>",
+        "fields": [
+          {
+            "name": "count",
+            "value": 2
+          },
+          {
+            "name": "samePage",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "read result",
+        "typeLabel": "rejected content access",
+        "fields": [
+          {
+            "name": "outcome",
+            "value": "IllegalStateException"
+          },
+          {
+            "name": "message",
+            "value": "Page is deleted"
+          }
+        ]
+      },
+      {
+        "label": "archive",
+        "typeLabel": "Document",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          },
+          {
+            "name": "deleted",
+            "value": false
+          },
+          {
+            "name": "text",
+            "value": "Record"
+          }
+        ]
+      }
+    ]
+  }
+]

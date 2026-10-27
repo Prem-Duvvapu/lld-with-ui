@@ -1,0 +1,12 @@
+Before: 0/0
+Created: 2/1
+Intro owner: Draft
+Foreign edit: Page belongs to another document
+Owner edit: Hello Java
+Saved same intro: true
+Remaining draft pages: 1
+Removed page read: Page is deleted
+Draft deleted: true, intro deleted: true
+Saved list size: 2, same intro: true
+Saved page read: Page is deleted
+Archive still reads: Record
