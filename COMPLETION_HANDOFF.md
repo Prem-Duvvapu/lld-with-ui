@@ -16,8 +16,10 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   and unsaved drafts (RCA-122). See `LEARN_PAGE_UX_PLAN.md` for evidence and limits.
   Current validation: 2622 backend and 801 frontend tests pass, plus package,
   lint (14 existing warnings), build and chunk budgets.
-  CI and deployed review are pending; full curriculum/module completion remains
-  separately tracked.
+  PR #179 merged after all seven checks passed. Four real-network production
+  contexts passed (both themes at 390/1440px), including asset status/MIME types
+  and filtered lesson return/focus. Landing-page redesign is deployed; full
+  curriculum/module completion remains separately tracked.
 
 - ATM request-validation batch: 2622 backend cases and 778 frontend cases pass;
   Maven package, lint (14 existing warnings), Vite build and chunk budgets pass.
