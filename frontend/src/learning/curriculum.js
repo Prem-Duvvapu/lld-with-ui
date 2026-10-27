@@ -108,11 +108,11 @@ const prerequisites = {
   polymorphism: ['interfaces', 'inheritance'],
   constructors: ['classes-and-objects'],
   'access-modifiers': ['classes-and-objects'],
-  'overloading-and-overriding': ['polymorphism', 'constructors'],
-  'static-and-instance': ['classes-and-objects'],
+  'overloading-and-overriding': ['polymorphism', 'constructors', 'access-modifiers'],
+  'static-and-instance': ['classes-and-objects', 'constructors', 'polymorphism'],
   association: ['classes-and-objects'],
-  aggregation: ['association'],
-  composition: ['association'],
+  aggregation: ['association', 'constructors', 'encapsulation'],
+  composition: ['association', 'constructors', 'encapsulation', 'static-and-instance'],
   dependency: ['interfaces', 'association'],
   dry: ['encapsulation'],
   yagni: ['classes-and-objects'],
@@ -171,6 +171,7 @@ const prerequisites = {
 export const CURRICULUM_GROUPS = groups.map(([id, title]) => ({ id, title }));
 // Publication order also defines the guided sequence. Keep published prerequisites earlier.
 const publications = [
+  ['how-to-learn-lld', '25–30 minutes'],
   ['classes-and-objects', '15–20 minutes'],
   ['constructors', '20–25 minutes'],
   ['access-modifiers', '20–25 minutes'],
@@ -180,7 +181,12 @@ const publications = [
   ['abstraction', '20–25 minutes'],
   ['inheritance', '20–25 minutes'],
   ['polymorphism', '20–25 minutes'],
+  ['overloading-and-overriding', '30–35 minutes'],
+  ['static-and-instance', '25–30 minutes'],
   ['association', '15–20 minutes'],
+  ['aggregation', '25–30 minutes'],
+  ['composition', '30–35 minutes'],
+  ['dependency', '25–30 minutes'],
 ];
 const published = new Map(publications);
 
