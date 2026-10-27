@@ -6,8 +6,8 @@ package com.lld.atm.dispenser;
  * {@code ReorderStrategyFactory}.
  */
 public enum DispenseMode {
-    /** Fewest possible notes handed to the customer: largest denomination first. */
+    /** Fewest possible notes in an exact feasible plan; ties prefer larger denominations. */
     MINIMIZE_NOTES,
-    /** Preserve the high-value note reserve for future large withdrawals: smallest first. */
+    /** Minimize usage of ₹2000, then ₹500, then ₹200 notes among exact feasible plans. */
     CONSERVE_LARGE_NOTES
 }

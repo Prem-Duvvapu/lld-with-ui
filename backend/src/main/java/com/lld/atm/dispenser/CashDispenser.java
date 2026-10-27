@@ -53,11 +53,11 @@ public class CashDispenser {
         return dispenserLock;
     }
 
-    public int getTotalCashAvailable() {
+    public long getTotalCashAvailable() {
         dispenserLock.lock();
         try {
             return noteInventory.entrySet().stream()
-                    .mapToInt(e -> e.getKey().getValue() * e.getValue())
+                    .mapToLong(e -> (long) e.getKey().getValue() * e.getValue())
                     .sum();
         } finally {
             dispenserLock.unlock();
@@ -74,20 +74,32 @@ public class CashDispenser {
     }
 
     public void addNotes(NoteDenomination denomination, int count) {
+        validateNoteCount(denomination, count);
         dispenserLock.lock();
         try {
-            noteInventory.merge(denomination, count, Integer::sum);
+            int current = noteInventory.getOrDefault(denomination, 0);
+            if (count > Integer.MAX_VALUE - current) {
+                throw new IllegalArgumentException("Note count exceeds integer capacity");
+            }
+            noteInventory.put(denomination, current + count);
         } finally {
             dispenserLock.unlock();
         }
     }
 
     public void setNoteCount(NoteDenomination denomination, int count) {
+        validateNoteCount(denomination, count);
         dispenserLock.lock();
         try {
             noteInventory.put(denomination, count);
         } finally {
             dispenserLock.unlock();
+        }
+    }
+
+    private static void validateNoteCount(NoteDenomination denomination, int count) {
+        if (denomination == null || count < 0) {
+            throw new IllegalArgumentException("A denomination and non-negative note count are required");
         }
     }
 
