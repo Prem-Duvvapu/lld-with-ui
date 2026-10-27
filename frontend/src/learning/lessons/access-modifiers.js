@@ -1,3 +1,4 @@
+import classModel from '../class-models/access-modifiers';
 import modelSource from '../examples/visibility/VisibilityRecord.java?raw';
 import peerSource from '../examples/visibility/VisibilityPeer.java?raw';
 import childSource from '../examples/outside/VisibilityChild.java?raw';
@@ -6,6 +7,7 @@ import output from '../examples/access-modifiers-output.txt?raw';
 import snapshots from '../examples/access-modifiers-snapshots.json';
 
 export default {
+  classModel,
   id: 'access-modifiers',
   summary: 'Choose which collaborators may use a member, then check the boundary with real classes in two Java packages.',
   prerequisites: 'Classes and Objects. A package is a named group of types. This example introduces a subclass to inspect protected access; deeper inheritance behavior is a later topic.',

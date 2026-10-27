@@ -1,3 +1,4 @@
+import classModel from '../class-models/inheritance';
 import resourceSource from '../examples/inheritance/InheritanceResource.java?raw';
 import videoSource from '../examples/inheritance/InheritanceVideo.java?raw';
 import playlistSource from '../examples/inheritance/InheritancePlaylist.java?raw';
@@ -6,6 +7,7 @@ import output from '../examples/inheritance-output.txt?raw';
 import snapshots from '../examples/inheritance-snapshots.json';
 
 export default {
+  classModel,
   id: 'inheritance',
   summary: 'Model a video as a learning resource, follow superclass initialization, and distinguish inherited methods from overrides. Compare that is-a relationship with a playlist that holds a resource.',
   prerequisites: 'Classes and Objects, Access Modifiers, and Constructors and Initialization. Know how new, private fields and a super(...) constructor call work.',

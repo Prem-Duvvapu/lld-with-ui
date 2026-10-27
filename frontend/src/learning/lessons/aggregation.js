@@ -1,3 +1,4 @@
+import classModel from '../class-models/aggregation';
 import trackSource from '../examples/aggregation/Track.java?raw';
 import playlistSource from '../examples/aggregation/Playlist.java?raw';
 import demoSource from '../examples/aggregation/AggregationDemo.java?raw';
@@ -5,6 +6,7 @@ import output from '../examples/aggregation-output.txt?raw';
 import snapshots from '../examples/aggregation-snapshots.json';
 
 export default {
+  classModel,
   id: 'aggregation',
   summary: 'Model a playlist as a whole assembled from independently managed catalog tracks. Trace sharing, a visible mutation, rejected duplication, unlinking and deletion without inventing a Java lifetime rule.',
   prerequisites: 'Association: links, navigation, multiplicity and reference identity. Familiarity with constructors, private fields and instance methods; List operations are explained below.',

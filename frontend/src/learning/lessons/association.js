@@ -1,3 +1,4 @@
+import classModel from '../class-models/association';
 import tutorSource from '../examples/association/AssociationTutor.java?raw';
 import learnerSource from '../examples/association/AssociationLearner.java?raw';
 import demoSource from '../examples/association/AssociationDemo.java?raw';
@@ -5,6 +6,7 @@ import output from '../examples/association-output.txt?raw';
 import snapshots from '../examples/association-snapshots.json';
 
 export default {
+  classModel,
   id: 'association',
   summary: 'Make an object relationship concrete with real references. Follow two learners sharing a tutor, one reassignment, a rejected assignment and deliberate unlinking.',
   prerequisites: 'Classes and Objects: constructing instances, reference variables and instance methods. Private fields and simple validation are explained in the example.',

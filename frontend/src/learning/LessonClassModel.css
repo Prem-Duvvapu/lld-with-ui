@@ -1,0 +1,25 @@
+.lesson-class-model { min-width: 0; max-width: 100%; margin-top: 40px; padding-top: 8px; color: var(--text-primary); overflow-wrap: anywhere; }
+.lesson-class-model *, .lesson-class-model *::before, .lesson-class-model *::after { box-sizing: border-box; }
+.lesson-class-model .diagram-viewer { max-width: 100%; }
+.lesson-class-model .diagram-viewer-actions { min-width: 0; }
+.lesson-class-model .diagram-viewer-actions button { min-width: 44px; min-height: 44px; }
+.lesson-class-model .diagram-viewer-details summary { min-height: 44px; }
+.lesson-class-model :is(button, summary, [tabindex]):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
+.lesson-class-model .diagram-viewer-hint { color: var(--text-primary); }
+.lesson-class-model .diagram-viewer-details { font-size: 1rem; }
+.lesson-class-model-canvas { padding: 16px; background: var(--bg-secondary); font-size: 14px; line-height: 1.6; }
+.lesson-class-model-types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.lesson-class-model-type { min-width: 0; background: var(--bg-card); border: 2px solid var(--text-primary); border-radius: 8px; overflow: hidden; }
+.lesson-class-model-type > header { padding: 12px; background: var(--bg-tertiary); }
+.lesson-class-model-type > div { padding: 12px; border-top: 1px solid var(--text-primary); }
+.lesson-class-model-type span { font-weight: 600; }
+.lesson-class-model .lesson-class-model-canvas :is(h3, h4, p) { margin: 0 0 8px; }
+.lesson-class-model .lesson-class-model-canvas h3 { font-size: 18px; }
+.lesson-class-model .lesson-class-model-canvas h4 { font-size: 14px; }
+.lesson-class-model .lesson-class-model-canvas ul { padding: 0; margin: 0; list-style: none; }
+.lesson-class-model .lesson-class-model-canvas li { margin: 6px 0; }
+.lesson-class-model-type code { white-space: pre-wrap; font-family: var(--code-font); }
+.lesson-class-model-type small { display: block; font-size: 12px; }
+.lesson-class-model-relationships, .lesson-class-model-constraints { margin-top: 16px; padding: 12px; background: var(--bg-card); border: 1px solid var(--text-primary); border-radius: 8px; }
+.lesson-class-model-relationships > div + div { border-top: 1px solid var(--text-primary); padding-top: 12px; margin-top: 12px; }
+@media (max-width: 480px) { .lesson-class-model .diagram-viewer-actions { gap: 6px; } .lesson-class-model .diagram-viewer-actions button { padding-inline: 10px; } }

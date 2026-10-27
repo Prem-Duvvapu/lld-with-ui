@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { GITHUB_REPO_URL } from '../data/moduleSourceLinks';
 import { CURRICULUM_GROUPS, LESSONS, PUBLISHED_LESSONS } from './curriculum';
 import { useLessonProgress } from './useLessonProgress';
 import { catalogReturn } from './catalogNavigation';
+
+const LessonClassModel = lazy(() => import('./LessonClassModel'));
 
 function CodeBlock({ title, children }) {
   return (
@@ -61,6 +63,7 @@ export default function LessonContent({ lesson, metadata }) {
       {notice && <p role="status" className="learn-callout">{notice}</p>}
       <nav aria-label="On this lesson" className="learn-section-links">
         <a href="#lesson-understand">Understand</a><a href="#lesson-visual">Visualize</a>
+        {lesson.classModel && <a href="#lesson-class-model">Class model</a>}
         <a href="#lesson-code">Read Java</a><a href="#lesson-exercise">Practise</a><a href="#lesson-review">Review</a>
       </nav>
       <section id="lesson-understand" aria-labelledby="understand-title">
@@ -92,6 +95,11 @@ export default function LessonContent({ lesson, metadata }) {
           <p>{lesson.visual.summary}{lesson.visual.showReferenceCount && ` · ${snapshot.items.flatMap(object => object.references || []).length} references shown`}</p>
         </figure>
       </section>
+      {lesson.classModel && <div id="lesson-class-model">
+        <Suspense fallback={<p role="status">Loading class model…</p>}>
+          <LessonClassModel model={lesson.classModel} />
+        </Suspense>
+      </div>}
       <section id="lesson-code" aria-labelledby="code-title">
         <h2 id="code-title">Read the Java, then predict</h2>
         <p>These are the actual source files compiled by the backend test suite, not a separately maintained code string. Save each file using its shown path, then run with JDK 17.</p>

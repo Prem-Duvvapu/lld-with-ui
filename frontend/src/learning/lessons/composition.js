@@ -1,9 +1,11 @@
+import classModel from '../class-models/composition';
 import documentSource from '../examples/composition/Document.java?raw';
 import demoSource from '../examples/composition/CompositionDemo.java?raw';
 import output from '../examples/composition-output.txt?raw';
 import snapshots from '../examples/composition-snapshots.json';
 
 export default {
+  classModel,
   id: 'composition',
   summary: 'Turn whole/part intent into an enforced ownership boundary. A document creates its own pages, rejects foreign edits and retires page content explicitly when pages or the document are deleted.',
   prerequisites: 'Association: links, multiplicities and reference identity. Private fields, constructors and validation; the explanation contrasts shared aggregation without requiring that lesson first.',

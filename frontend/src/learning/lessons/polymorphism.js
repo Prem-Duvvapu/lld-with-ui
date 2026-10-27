@@ -1,3 +1,4 @@
+import classModel from '../class-models/polymorphism';
 import contractSource from '../examples/PracticeQuestion.java?raw';
 import baseSource from '../examples/OpenPracticeQuestion.java?raw';
 import hintedSource from '../examples/HintedPracticeQuestion.java?raw';
@@ -6,6 +7,7 @@ import output from '../examples/polymorphism-output.txt?raw';
 import snapshots from '../examples/polymorphism-snapshots.json';
 
 export default {
+  classModel,
   id: 'polymorphism',
   summary: 'Use one question contract with different objects, then separate runtime dispatch of an override from compile-time selection of an overload.',
   prerequisites: 'Interfaces and Inheritance: implementing a contract, extending a class and using super. The example restates the relevant rules and needs no Java files from another lesson.',
