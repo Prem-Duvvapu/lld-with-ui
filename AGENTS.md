@@ -42,15 +42,15 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2622 tests
-cd frontend && npx vitest run  # latest validated: 801 tests
+cd backend  && mvn test        # latest validated: 2726 tests
+cd frontend && npx vitest run  # latest validated: 838 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
 ## Learning Curriculum
 - `/learn` and `/learn/:lessonId` are lazy routes. `frontend/src/learning/curriculum.js` is the canonical topic/publication manifest; only published lessons have content files. Planned topics are a labelled roadmap, not empty completed pages.
 - Content lives in `frontend/src/learning/lessons/`. Displayed Java comes from canonical `.java` files in `frontend/src/learning/examples/`, imported with `?raw`; do not duplicate it as a string. `ClassesAndObjectsExampleTest`, `OopExamplesTest` and `StateBoundariesExampleTest` compile those exact files with JDK 17 and check output/illustration fixtures and applicable negative compiler cases. The frontend build remains self-contained for Vercel/Docker.
-- Ten lessons are published: Classes and Objects, Constructors, Access Modifiers, Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism, Association. Their recorded illustrations use `snapshots[].items[]` with named scalar `fields`; optional reference labels belong to object/reference views. Keep Java semantics in canonical Java and verified fixtures, not frontend implementations. The other 59 topics remain planned; Phase 2 is incomplete. The four latest lessons are compiled and fixture-checked by `AbstractionExampleTest`, `InheritanceLessonExampleTest`, `PolymorphismExampleTest`, and `AssociationExampleTest`.
+- Sixteen lessons are published: How to Learn LLD plus Classes and Objects, Constructors, Access Modifiers, Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism, Overloading/Overriding, Static/Instance, Association, Aggregation, Composition and Dependency. Recorded illustrations use `snapshots[].items[]` with named scalar `fields` (JSON null may represent absence); reference labels belong to object/reference views. Keep semantics in canonical Java and verified fixtures. The other 53 topics remain planned; Phase 2 still needs its connected overview/capstone, foundational class diagrams and domain-model assessment. The six new lessons are compiled/fixture-checked by `HowToLearnLldExampleTest`, `MethodSelectionLessonExampleTest`, `StaticMembersLessonExampleTest`, `AggregationLessonExampleTest`, `CompositionLessonExampleTest` and `DependencyExampleTest`.
 - The curriculum manifest owns reading durations and publication order; `PUBLISHED_LESSONS` places published prerequisites before dependents while catalog grouping stays unchanged. Retain proposed-addition labels for published supplemental topics as well as planned ones. Canonical example filenames may include package directories; show matching save/run paths.
 - Preserve significant whitespace in recorded field values (`pre-wrap`) and readable labels/values on small screens; Java fixture checks alone do not prove visual fidelity (RCA-107).
 - `lld-lessons-v1` stores only lesson resume, bookmarks, review marks, and bounded notes. Keep it separate from module progress/import/export; reviewed is not mastery. Read the latest storage before writing resume metadata (RCA-101).
@@ -2108,8 +2108,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2622 tests, 296 classes
-cd frontend && npx vitest run # 778 tests, 50 files
+cd backend && mvn test        # 2726 tests, 302 classes
+cd frontend && npx vitest run # 838 tests, 57 files
 ```
 
 ### Cross-cutting suites — keep these green

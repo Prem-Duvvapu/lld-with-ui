@@ -1,0 +1,176 @@
+[
+  {
+    "title": "Use the class before any instance",
+    "explanation": "Reading the constant alone need not initialize StudyCounter. The subsequent createdCount() call initializes its class state before returning zero; no counter instance is needed.",
+    "items": [
+      {
+        "label": "class state before new",
+        "typeLabel": "StudyCounter",
+        "fields": [
+          {
+            "name": "DEFAULT_MINUTES",
+            "value": 25
+          },
+          {
+            "name": "created",
+            "value": 0
+          },
+          {
+            "name": "trace",
+            "value": "class initializer"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Construct two separate counters",
+    "explanation": "Each construction runs the base instance field initializer and constructor. Both objects contribute to the base class\u2019s created count, including the FocusCounter subclass object.",
+    "items": [
+      {
+        "label": "first counter",
+        "typeLabel": "StudyCounter",
+        "fields": [
+          {
+            "name": "id",
+            "value": 1
+          },
+          {
+            "name": "topic",
+            "value": "Objects"
+          },
+          {
+            "name": "completed",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "label": "second counter",
+        "typeLabel": "FocusCounter",
+        "fields": [
+          {
+            "name": "id",
+            "value": 2
+          },
+          {
+            "name": "topic",
+            "value": "Methods"
+          },
+          {
+            "name": "completed",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "label": "shared class state",
+        "typeLabel": "StudyCounter",
+        "fields": [
+          {
+            "name": "created",
+            "value": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Update one explicit receiver",
+    "explanation": "first.complete() and the static helper completeOne(first) both act on first. Neither increments second or the construction count.",
+    "items": [
+      {
+        "label": "first counter",
+        "typeLabel": "StudyCounter",
+        "fields": [
+          {
+            "name": "id",
+            "value": 1
+          },
+          {
+            "name": "topic",
+            "value": "Objects"
+          },
+          {
+            "name": "completed",
+            "value": 2
+          }
+        ]
+      },
+      {
+        "label": "second counter",
+        "typeLabel": "FocusCounter",
+        "fields": [
+          {
+            "name": "id",
+            "value": 2
+          },
+          {
+            "name": "topic",
+            "value": "Methods"
+          },
+          {
+            "name": "completed",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "label": "shared class state",
+        "typeLabel": "StudyCounter",
+        "fields": [
+          {
+            "name": "created",
+            "value": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Contrast hiding with overriding",
+    "explanation": "Both calls receive second. The static category method follows the parameter\u2019s declared class; the instance description method dispatches to FocusCounter in both calls.",
+    "items": [
+      {
+        "label": "throughBase(second)",
+        "typeLabel": "StudyCounter parameter",
+        "fields": [
+          {
+            "name": "result",
+            "value": "study / focus: Methods"
+          }
+        ]
+      },
+      {
+        "label": "throughChild(second)",
+        "typeLabel": "FocusCounter parameter",
+        "fields": [
+          {
+            "name": "result",
+            "value": "focus / focus: Methods"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Inspect the recorded initialization order",
+    "explanation": "In this simple hierarchy, class initialization ran once and base instance initialization ran before each base constructor body. Completion updates added no construction events.",
+    "items": [
+      {
+        "label": "initialization evidence",
+        "typeLabel": "StudyCounter",
+        "fields": [
+          {
+            "name": "created",
+            "value": 2
+          },
+          {
+            "name": "trace",
+            "value": "class initializer -> instance initializer -> constructor #1 -> instance initializer -> constructor #2"
+          }
+        ]
+      }
+    ]
+  }
+]

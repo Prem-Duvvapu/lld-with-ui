@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-123](#rca-123-browser-validation-read-assets-while-vite-replaced-the-build-directory) | 2026-10-27 | Validation / Production Assets | Rebuilding Vite during a browser matrix deleted files still being served by its route handler | Resolved by serving an isolated build snapshot |
 | [RCA-122](#rca-122-catalog-bookmarks-could-overwrite-newer-lesson-notes) | 2026-10-27 | Learning / Saved Progress | Metadata writes used stale hook state and could overwrite notes saved by another tab before its storage event arrived | Resolved with latest-read merge and failed-write session retention |
 | [RCA-119](#rca-119-a-kv-lifecycle-test-confused-task-completion-with-thread-death) | 2026-10-27 | KV / Concurrency Test Reliability | Captured worker threads were checked for physical termination before waiting for their final executor bookkeeping to return | Resolved without changing runtime behavior |
 | [RCA-117](#rca-117-a-wsl-instance-restart-terminated-validation-and-agent-handles) | 2026-10-27 | Environment / Validation Recovery | WSL shutdown/restart removed live validation processes and agent handles while preserving worktree files | Recovered; validation rerun from preserved sources |
@@ -8509,3 +8510,43 @@ that a subsequent metadata action preserves the in-session notes.
 Keep metadata actions covered by concurrent-tab and quota-failure regressions.
 This is not cross-tab transaction isolation: simultaneous writers remain subject
 to localStorage's last-write behavior. No cross-device synchronization is claimed.
+
+
+## RCA-123: Browser validation read assets while Vite replaced the build directory
+
+### 1. Overview & Severity
+Medium validation reliability issue; no deployed application defect. The local
+six-lesson matrix was reading `frontend/dist` while a necessary recovery-link
+change triggered another Vite build.
+
+### 2. Symptoms & Error Logs
+Seven contexts completed before the eighth was interrupted. The browser route
+handler failed with `ENOENT` opening `frontend/dist/index.html`. Vite had cleaned
+the output directory before writing the replacement index and hashed assets.
+A prior catalog validation run had exposed the same risk for a hashed lesson
+chunk; retaining a mutable build directory had not prevented recurrence.
+
+### 3. Root Cause
+The browser harness served the build tool's mutable output directory directly.
+A rebuild and validation were concurrent readers/writers of that directory.
+This is not evidence of a failed lesson import on the deployed application.
+
+### 4. Diagnostic Commands
+`tail /home/prem/validation/lld-six-lessons/browser.log` shows the context sequence
+and missing index stack. `tail .../build-final.log` shows the overlapping successful
+build. The serving callback's path identified the shared directory.
+
+### 5. Step-by-Step Resolution
+1. Wait for the replacement production build to complete successfully.
+2. Copy the whole output to `validation/lld-six-lessons/dist-final`.
+3. Serve only that immutable copy; continue reading canonical fixtures separately.
+4. Flush the browser result ledger after each completed context.
+5. Rerun the full matrix against the finished recovery-link implementation rather
+   than counting the interrupted matrix as a complete pass.
+
+### 6. Preventative Measures
+Browser validation must name a frozen build directory for the entire run.
+Never rebuild or replace that directory while a confirmed browser handle is live.
+Record build provenance and per-context results so a partial run is distinguishable
+from a full pass. Local intercepted assets still do not prove deployed MIME types
+or hosted backend availability; verify those separately after release.

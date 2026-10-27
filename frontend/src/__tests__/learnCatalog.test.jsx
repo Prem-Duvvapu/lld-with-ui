@@ -50,11 +50,11 @@ afterEach(cleanup);
 describe('Learning catalog discovery', () => {
   it('starts with published lessons in prerequisite order and a clearly named start action', () => {
     renderCatalog();
-    expect(screen.getByRole('button', { name: 'Available lessons (10)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Available lessons (16)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Full roadmap (69)' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('link', { name: 'Start learning →' })).toHaveAttribute('href', '/learn/classes-and-objects');
-    expect(screen.getByText(/0 of 10 available lessons marked reviewed/)).toBeVisible();
-    expectCount(10);
+    expect(screen.getByRole('link', { name: 'Start learning →' })).toHaveAttribute('href', '/learn/how-to-learn-lld');
+    expect(screen.getByText(/0 of 16 available lessons marked reviewed/)).toBeVisible();
+    expectCount(16);
     expect(cardTitles()).toEqual(PUBLISHED_LESSONS.map(lesson => lesson.title));
     for (const lesson of PUBLISHED_LESSONS) {
       const card = screen.getByRole('article', { name: lesson.title });
@@ -62,7 +62,7 @@ describe('Learning catalog discovery', () => {
       expect(within(card).getByText(lesson.duration, { exact: false })).toBeVisible();
       expect(within(card).getByRole('button', { name: `Bookmark ${lesson.title}` }).closest('a')).toBeNull();
     }
-    expect(screen.queryByRole('link', { name: 'Aggregation', exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'DRY Principle', exact: true })).not.toBeInTheDocument();
     expect(loadLesson).not.toHaveBeenCalled();
   });
 
@@ -91,13 +91,13 @@ describe('Learning catalog discovery', () => {
     expect(search).toHaveValue('');
     expect(screen.getByRole('combobox', { name: 'Review status' })).toHaveValue('all');
     expect(screen.getByRole('checkbox', { name: 'Bookmarked only' })).not.toBeChecked();
-    expectCount(10);
+    expectCount(16);
   });
 
   it('searches section metadata and lesson outcomes as well as titles', () => {
     renderCatalog();
     change('Search lessons', 'Class relationships');
-    expect(cardTitles()).toEqual(['Association']);
+    expect(cardTitles()).toEqual(['Association', 'Aggregation', 'Composition', 'Dependency']);
     const lesson = PUBLISHED_LESSONS.find(entry => entry.id === 'encapsulation');
     expect(lesson.outcome).toEqual(expect.any(String));
     expect(lesson.outcome.length).toBeGreaterThan(20);
@@ -138,12 +138,12 @@ describe('Learning catalog discovery', () => {
     clear.focus();
     fireEvent.click(clear);
     expect(screen.getByRole('searchbox', { name: 'Search lessons' })).toHaveFocus();
-    expectCount(10);
+    expectCount(16);
   });
 
   it('preserves a selected roadmap section on switching views and lets Clear recover the empty available view', () => {
     const router = renderCatalog('/learn?view=roadmap&section=principles');
-    fireEvent.click(screen.getByRole('button', { name: 'Available lessons (10)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Available lessons (16)' }));
     expect(screen.getByRole('combobox', { name: 'Section' })).toHaveValue('principles');
     expectCount(0);
     expect(screen.queryAllByRole('article')).toHaveLength(0);
@@ -151,7 +151,7 @@ describe('Learning catalog discovery', () => {
     expect(new URLSearchParams(router.state.location.search).has('view')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
     expect(screen.getByRole('combobox', { name: 'Section' })).toHaveValue('');
-    expectCount(10);
+    expectCount(16);
     expect(router.state.location.search).toBe('');
   });
 
@@ -160,10 +160,10 @@ describe('Learning catalog discovery', () => {
     const card = screen.getByRole('article', { name: 'Constructors and Initialization' });
     expect(within(card).getByText('Proposed addition')).toBeVisible();
     expect(within(card).getByText('Available', { exact: true })).toBeVisible();
-    change('Search lessons', 'Method Overloading vs Overriding');
-    expect(screen.getByText('Method Overloading vs Overriding', { exact: true })).toBeVisible();
+    change('Search lessons', 'Interpreter');
+    expect(screen.getByText('Interpreter', { exact: true })).toBeVisible();
     expect(screen.getByText('Proposed addition')).toBeVisible();
-    expect(screen.queryByRole('link', { name: 'Method Overloading vs Overriding', exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Interpreter', exact: true })).not.toBeInTheDocument();
     expect(loadLesson).not.toHaveBeenCalled();
   });
 });
@@ -183,7 +183,7 @@ describe('Learning catalog continuity', () => {
     expect(new URLSearchParams(router.state.location.search).get('q')).toBe('interfaces');
     fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
     expect(router.state.location.search).toBe('');
-    expectCount(10);
+    expectCount(16);
     await act(() => router.navigate(-1));
     await screen.findByRole('heading', { name: 'Before catalog' });
   });
@@ -274,7 +274,7 @@ describe('Learning catalog continuity', () => {
     const resume = screen.getByRole('link', { name: 'Continue learning →' });
     expect(resume).toHaveAttribute('href', '/learn/interfaces');
     expect(screen.getAllByText('Interfaces', { exact: true }).length).toBeGreaterThan(1);
-    expect(screen.getByText(/10 of 10 available lessons marked reviewed/)).toBeVisible();
+    expect(screen.getByText(/16 of 16 available lessons marked reviewed/)).toBeVisible();
     expect(screen.queryByRole('link', { name: /Next unreviewed/ })).not.toBeInTheDocument();
     expect(cardTitles()).toHaveLength(PUBLISHED_LESSONS.length);
     expect(screen.queryByText(/69 of 69|curriculum complete|mastered all/i)).not.toBeInTheDocument();
@@ -302,7 +302,7 @@ describe('Learning catalog continuity', () => {
     renderCatalog();
     const source = () => action === 'primary'
       ? screen.getByRole('link', { name: 'Start learning →' })
-      : within(screen.getByRole('complementary', { name: 'Continue learning' })).getByRole('link', { name: 'Classes and Objects', exact: true });
+      : within(screen.getByRole('complementary', { name: 'Continue learning' })).getByRole('link', { name: 'How to Learn LLD', exact: true });
     fireEvent.click(source());
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
     await waitFor(() => expect(source()).toHaveFocus());

@@ -31,16 +31,18 @@ chunks must receive their own resource response, never `index.html` (RCA-108).
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and ten published lessons:
-**Classes and Objects** (`/learn/classes-and-objects`), **Enums** (`/learn/enums`),
-**Interfaces** (`/learn/interfaces`), **Constructors and Initialization**
-(`/learn/constructors`), **Access Modifiers** (`/learn/access-modifiers`), and
-**Encapsulation** (`/learn/encapsulation`), **Abstraction** (`/learn/abstraction`),
-**Inheritance** (`/learn/inheritance`), **Polymorphism** (`/learn/polymorphism`),
-and **Association** (`/learn/association`). The guided sequence puts published
-prerequisites before dependents. Reading times come from the curriculum manifest.
-The other 59 topics are
-explicitly planned, not empty published lessons; five proposed additions remain labelled.
+has a searchable curriculum catalog and sixteen published lessons: the
+**How to Learn LLD** guide, **Classes and Objects**, **Constructors and
+Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
+**Encapsulation**, **Abstraction**, **Inheritance**, **Polymorphism**,
+**Method Overloading vs Overriding**, **Static vs Instance Members**,
+**Association**, **Aggregation**, **Composition** and **Dependency**.
+The guided sequence puts published prerequisites before dependents. The catalog
+supports available/roadmap views, outcome search, section/review/bookmark filters,
+sorting, direct bookmarks and return navigation. Reading times and outcomes come
+from the curriculum manifest. The other 53 topics remain explicitly planned;
+five proposed additions retain their labels. The connected OOP overview/capstone
+and remaining Phase 2 assessment/diagram work are still open.
 
 Each lesson connects a motivating problem, inspectable Java-verified illustrations,
 the actual Java source, a prediction question with explanations, a modeling

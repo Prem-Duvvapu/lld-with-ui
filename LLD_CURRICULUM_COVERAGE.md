@@ -2,8 +2,8 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are ten published lessons
-and 59 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. There are sixteen published lessons
+and 53 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
 ## Reading the matrix
@@ -29,8 +29,8 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
-| `how-to-learn-lld` — How to Learn LLD | Distinguish LLD from DSA/HLD and turn a bounded requirement into responsibilities and invariants. | None | [E24](#e24): existing module path and library are practice assets, not this guide; use Parking as the recurring system. | Scope an entry/exit workflow, list exclusions, and explain the next design step without naming a pattern. | G: readiness checks, beginner/revision/interview paths, worked reasoning and self-assessment. |
-| `oop-overview` — 15 Must-Know OOP Concepts | Locate all fifteen canonical concepts and explain how fundamentals connect to relationships. | None | [E01](#e01), [E02](#e02), [E03](#e03), [E05](#e05), [E06](#e06): verified examples to curate, not fifteen published lessons. | Classify a small model's fields, behavior, identity, ownership and collaborations; defend each classification. | G: overview lesson linking the fifteen concepts without duplicating their content. |
+| `how-to-learn-lld` — How to Learn LLD | Distinguish LLD from DSA/HLD and turn a bounded requirement into responsibilities, interactions, invariants and evidence. | None | [E33](#e33): StudySeat accepted/rejected workflows and actual Parking allocation responsibilities. Practice `/parking-lot`. | Scope a locker reservation, trace accepted/rejected operations and explain how a new global constraint changes responsibilities. | Delivered: `/learn/how-to-learn-lld`, canonical Java, verified snapshots/output and compiler boundaries, three learning paths, readiness checks, prediction and exercise/rubric. |
+| `oop-overview` — 15 Must-Know OOP Concepts | Locate all fifteen canonical concepts and explain how fundamentals connect to relationships. | None | [E01](#e01), [E02](#e02), [E03](#e03), [E05](#e05), [E06](#e06): published concept lessons to connect in a dedicated overview. | Classify a small model's fields, behavior, identity, ownership and collaborations; defend each classification. | G: overview lesson linking the fifteen concepts without duplicating their content. |
 
 ## OOP fundamentals
 
@@ -45,17 +45,17 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 | `polymorphism` — Polymorphism | Separate declared API, compile-time overload choice and runtime instance-method dispatch. | `interfaces`, `inheritance` | [E28](#e28): aliases, overload/override selection and hidden members; [E02](#e02): actual repository pricing call through PricingStrategy. Practice `/parking-lot`. | Replace an accidental ask(Object) overload with a contract-preserving ask(String) override and predict calls without downcasts. | Delivered: `/learn/polymorphism`, canonical Java, identity/dispatch/output fixtures, negative compiler/runtime cases, prediction and exercise/rubric. |
 | `constructors` — Constructors and Initialization (proposed) | Distinguish allocation, valid initialization, constructor chaining and later mutation. | `classes-and-objects` | [E26](#e26): LearningSession/FocusedSession this/super trace and invalid-construction checks; [E03](#e03): real transaction constructor chain. Practice `/atm`. | Add a convenience default without duplicating validation; explain the base side effect retained after derived-constructor failure and test later updates. | Delivered: `/learn/constructors`, Java-verified trace/output, compiler-negative cases, prediction, exercise/rubric and actual ATM record links; proposed-addition label retained. |
 | `access-modifiers` — Access Modifiers (proposed) | Choose public/private/protected/package visibility by the intended collaboration boundary. | `classes-and-objects` | [E26](#e26): compiler-checked caller matrix across two packages, protected receiver restriction and package-private top-level type; [E10](#e10): actual protected read hooks. Practice `/kvstore`. | Compile same-package and external callers; distinguish child-typed from base-typed protected receivers inside the subclass. | Delivered: `/learn/access-modifiers`, compiled matrix and successful demo, prediction, exercise/rubric and verified source links; proposed-addition label retained. |
-| `overloading-and-overriding` — Method Overloading vs Overriding (proposed) | Distinguish signature-based overload selection from runtime overriding. | `polymorphism`, `constructors` | [E03](#e03): two withdraw signatures; [E04](#e04): getPrice overrides on CoffeeComponent implementations. | Predict the selected overload and then the invoked override for two differently typed references. | G: paired compile-tested examples, diagram and misconception checks. |
-| `static-and-instance` — Static vs Instance Members (proposed) | Separate per-object state from class-associated members and shared constants. | `classes-and-objects` | [E01](#e01): independent instance counters; [E03](#e03): static final state instance and registry. | Explain why a static review counter changes the meaning of the two-card example; contrast it with a shared immutable constant. | G: class/instance visual, tested contrast and explicit thread-safety caveats. |
+| `overloading-and-overriding` — Method Overloading vs Overriding (proposed) | Distinguish compile-time overload selection from runtime overriding, covariant results and checked-exception/visibility constraints. | `polymorphism`, `constructors`, `access-modifiers` | [E31](#e31): canonical printer signatures and negative compiler cases; real ErrorResponse overloads and Parking pricing dispatch. Practice `/parking-lot`. | Add a useful overload and override, predict calls through declared types and preserve input contracts and fresh-copy identity. | Delivered: `/learn/overloading-and-overriding`, Java-verified states/output, prediction and exercise/rubric; proposed-addition label retained. |
+| `static-and-instance` — Static vs Instance Members (proposed) | Separate per-object state, class-associated state, initialization and static hiding from runtime instance dispatch. | `classes-and-objects`, `constructors`, `polymorphism` | [E31](#e31): canonical counters, constant reads, initialization and compiler cases; actual Parking constants and repository instance fields. Practice `/parking-lot`. | Explain counter scope and partial constructor success, compare static/instance calls and reject thread-safety or persistence inferences. | Delivered: `/learn/static-and-instance`, verified Java class/instance states, output and compiler cases, prediction and exercise/rubric; proposed-addition label retained. |
 
 ## Class relationships
 
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
 | `association` — Association | Explain concrete object links, direction and multiplicity without inferring ownership from a reference or ID. | `classes-and-objects` | [E29](#e29): learner/tutor references and actual Ride-to-Driver link plus independent IDs; [E02](#e02): Ticket.spotId is an ID-based reference to a repository spot. Practice `/uber`. | Add an identity-checked tutor switch, preserve links after invalid requests and distinguish navigation from reverse-directory/ownership rules. | Delivered: `/learn/association`, canonical Java, verified reference/state/output fixtures, multiplicity explanation, prediction and exercise/rubric. |
-| `aggregation` — Aggregation | Describe a non-owning whole/part relationship whose members are independently managed. | `association` | [E05](#e05): groups reference existing User objects resolved from the user repository. Practice `/splitwise`. | Put one existing user in two groups and explain why creating a group does not create a new user. | G: shared-membership example, ownership discussion and contrast with composition. |
-| `composition` — Composition | Explain part construction/ownership while distinguishing it from Java aliasing and garbage collection. | `association` | [E06](#e06): Game constructs its Board and keeps a final reference; a getter still exposes an alias. Practice `/tictactoe`. | Model a game-owned board, then explain what final does not guarantee about mutation or part lifetime. | G: ownership visual and explicit counterexample; Java has no automatic UML-style deletion enforcement. |
-| `dependency` — Dependency | Distinguish temporary parameter use from a stored association and depend on the smallest useful contract. | `interfaces`, `association` | [E02](#e02): a pricing operation receives a Ticket; [E13](#e13): completion receives PricingStrategy. | Identify which collaborators are retained fields and which are used only during an operation. | G: dependency versus association comparison and minimal-interface exercise. |
+| `aggregation` — Aggregation | Explain domain-specific shared whole/part contracts without inventing a universal Java lifetime rule. | `association`, `constructors`, `encapsulation` | [E30](#e30): playlist membership, shared mutable tracks, shallow snapshots and explicit playlist-only deletion; actual Floor/spot-index aliases. Practice `/parking`. | Add membership operations while preserving shared identity; distinguish historical snapshots, live membership and independently managed parts. | Delivered: `/learn/aggregation`, canonical Java, verified snapshots/output and compiler boundaries, prediction and exercise/rubric. |
+| `composition` — Composition | Implement explicit exclusive ownership and domain retirement while distinguishing those guarantees from Java reachability. | `association`, `constructors`, `encapsulation`, `static-and-instance` | [E30](#e30): Document/Page owner checks and deletion contract; Tic Tac Toe demonstrates controlled construction but exposed mutable aliases. Practice `/tictactoe`. | Enforce owner validation, reject foreign pages and test retained references after removal/deletion; explain the deliberately stricter no-transfer API. | Delivered: `/learn/composition`, verified Java lifecycle states/output and compiler access boundaries, prediction and exercise/rubric; complete UML views remain later lessons. |
+| `dependency` — Dependency | Distinguish temporary use, retained association, injection and dependency inversion while keeping behavioral contracts explicit. | `interfaces`, `association` | [E32](#e32): QuoteService/QuoteSession policy use, API failures and real Parking completeExit strategy calls. Practice `/parking-lot`. | Supply and test a minimal policy, trace retained references and explain source versus behavioral changes and DI versus DIP. | Delivered: `/learn/dependency`, canonical Java, verified call/reference/output fixtures and compiler cases, prediction and exercise/rubric. |
 
 ## Design principles
 
@@ -618,6 +618,75 @@ separately covers active assignment rules. The tutor model allows sharing; Uber
 restricts active assignment. Neither Java references nor clearing a field imply
 UML whole/part ownership or garbage-collection timing.
 
+<a id="e30"></a>
+### E30 — Explicit whole/part contracts and their implementation limits
+
+The canonical [Playlist](frontend/src/learning/examples/aggregation/Playlist.java)
+and [Track](frontend/src/learning/examples/aggregation/Track.java) define shared
+membership, object identity, mutable parts and an explicit playlist-only deletion
+policy. [AggregationLessonExampleTest](backend/src/test/java/com/lld/learning/AggregationLessonExampleTest.java)
+checks the actual output, every recorded field, semantic workflows and compiler
+boundaries. Its Parking example proves Floor/index aliases and independent list
+maintenance, not that a physical spot may validly belong to several floors.
+
+[Document](frontend/src/learning/examples/composition/Document.java) creates its
+private-constructor Page parts, rejects foreign edits and retires content on
+removal/deletion, while metadata and outside Java references can remain.
+[CompositionLessonExampleTest](backend/src/test/java/com/lld/learning/CompositionLessonExampleTest.java)
+checks that explicit domain contract, snapshots/output and access restrictions.
+The no-transfer policy is deliberately stricter than UML's at-most-one-composite
+rule. The Tic Tac Toe connection checks controlled Board/Cell construction and
+exposed grid aliases; it does not claim that module enforces ownership or deletion.
+Neither lesson predicts garbage collection or supplies a complete UML curriculum.
+
+<a id="e31"></a>
+### E31 — Method selection, class state and initialization
+
+[PromptPrinter](frontend/src/learning/examples/methodselection/PromptPrinter.java)
+and [HintPrinter](frontend/src/learning/examples/methodselection/HintPrinter.java)
+separate overload applicability, runtime override selection, covariant fresh copies
+and declared checked exceptions. [MethodSelectionLessonExampleTest](backend/src/test/java/com/lld/learning/MethodSelectionLessonExampleTest.java)
+compiles successful/negative clients and checks actual output and recorded states.
+ErrorResponse's overloads and Parking's pricing interface dispatch are real source
+connections; neither is evidence of every feature in the teaching example.
+
+[StudyCounter](frontend/src/learning/examples/memberstate/StudyCounter.java) and
+[FocusCounter](frontend/src/learning/examples/memberstate/FocusCounter.java) contrast
+per-object counts, shared base-constructor counts, initialization and static hiding.
+[StaticMembersLessonExampleTest](backend/src/test/java/com/lld/learning/StaticMembersLessonExampleTest.java)
+uses fresh JVM/class-loader state and compiler cases. A completed base constructor
+still increments the count if a later subclass constructor fails. These deliberately
+single-threaded counters establish neither singleton identity nor thread safety.
+Actual Parking constants, repository instance fields and explicit locks are checked
+separately. Both supplemental lessons retain their proposed-addition labels.
+
+<a id="e32"></a>
+### E32 — Dependency, injection and behavioral boundaries
+
+[QuoteService](frontend/src/learning/examples/dependency/QuoteService.java) uses a
+per-call FeePolicy and a concrete local default without retaining either;
+[QuoteSession](frontend/src/learning/examples/dependency/QuoteSession.java) retains
+an injected policy reference. [DependencyExampleTest](backend/src/test/java/com/lld/learning/DependencyExampleTest.java)
+checks output, every recorded field, alias identity, policy calls, compiler cases,
+invalid contracts and integer-cent overflow. It also calls real Parking pricing
+strategies and verifies which ticket/time completeExit passes to a recording policy.
+An interface plus injection is not proof of full DIP, absent fields do not imply
+object destruction, and a lock or result check does not establish rollback.
+
+<a id="e33"></a>
+### E33 — A requirements-to-evidence learning workflow
+
+[StudySeat](frontend/src/learning/examples/howtolearn/StudySeat.java) and
+[StudySeatDemo](frontend/src/learning/examples/howtolearn/StudySeatDemo.java) turn
+sequential reservation/cancellation requirements into guarded operations and
+observable accepted/rejected traces. [HowToLearnLldExampleTest](backend/src/test/java/com/lld/learning/HowToLearnLldExampleTest.java)
+compiles those exact sources and verifies output, all recorded fields, compiler
+boundaries and unchanged state on rejection. The Parking practice trace checks a
+real one-CAR-spot allocation/rejection/release cycle without claiming the seat model
+reproduces parking's gates, pricing or locks. The guide explains LLD/DSA/HLD working
+boundaries, beginner/revision/interview paths and readiness self-checks. It is the
+first published lesson; personal review marks remain separate from mastery.
+
 ## Supporting material that must not disappear between lessons
 
 - Atomicity/visibility/happens-before: cover in race conditions and primitives;
@@ -658,5 +727,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 63 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 53 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.

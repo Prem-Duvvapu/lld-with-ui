@@ -1,0 +1,286 @@
+[
+  {
+    "title": "Independent catalog track",
+    "explanation": "Playlist [0..*] ◇—tracks— [0..*] Track: the hollow diamond is at the playlist whole. Our domain permits an empty playlist and the same catalog track in several playlists. Dawn is created independently before either membership exists.",
+    "items": [
+      {
+        "label": "focus",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "name",
+            "value": "Focus"
+          },
+          {
+            "name": "count",
+            "value": 0
+          },
+          {
+            "name": "deleted",
+            "value": false
+          }
+        ]
+      },
+      {
+        "label": "commute",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "name",
+            "value": "Commute"
+          },
+          {
+            "name": "count",
+            "value": 0
+          },
+          {
+            "name": "deleted",
+            "value": false
+          }
+        ]
+      },
+      {
+        "label": "dawn",
+        "typeLabel": "Track",
+        "fields": [
+          {
+            "name": "title",
+            "value": "Dawn"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Share one part",
+    "explanation": "Both playlists retain the very same Track. saved is a detached, unmodifiable membership list from Focus; copying the list does not copy its elements. The whole/part interpretation comes from the playlist domain contract.",
+    "items": [
+      {
+        "label": "focus",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "label": "commute",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "label": "identity",
+        "typeLabel": "Java reference comparison",
+        "fields": [
+          {
+            "name": "sameTrack",
+            "value": true
+          },
+          {
+            "name": "savedSameTrack",
+            "value": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Mutate the shared track",
+    "explanation": "rename changes the one Track object. Both current memberships and the saved list observe Sunrise. Shared aggregation does not imply immutability or isolation.",
+    "items": [
+      {
+        "label": "focus track",
+        "typeLabel": "Track",
+        "fields": [
+          {
+            "name": "title",
+            "value": "Sunrise"
+          }
+        ]
+      },
+      {
+        "label": "commute track",
+        "typeLabel": "Track",
+        "fields": [
+          {
+            "name": "title",
+            "value": "Sunrise"
+          }
+        ]
+      },
+      {
+        "label": "saved track",
+        "typeLabel": "Track",
+        "fields": [
+          {
+            "name": "title",
+            "value": "Sunrise"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reject duplicate membership",
+    "explanation": "This playlist disallows adding the exact same track twice. That policy belongs to add, not to the hollow diamond; a different playlist domain might permit repeated tracks.",
+    "items": [
+      {
+        "label": "request",
+        "typeLabel": "rejected addition",
+        "fields": [
+          {
+            "name": "outcome",
+            "value": "IllegalArgumentException"
+          },
+          {
+            "name": "message",
+            "value": "Track already in playlist"
+          }
+        ]
+      },
+      {
+        "label": "focus",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "label": "commute",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Remove one membership",
+    "explanation": "Removing the renamed Sunrise track from Focus leaves Commute linked to that same catalog track. saved still contains its earlier membership because the returned list was detached; its track remains shared.",
+    "items": [
+      {
+        "label": "remove result",
+        "typeLabel": "Java boolean",
+        "fields": [
+          {
+            "name": "removed",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "focus",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "label": "commute",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          },
+          {
+            "name": "title",
+            "value": "Sunrise"
+          }
+        ]
+      },
+      {
+        "label": "saved",
+        "typeLabel": "List<Track>",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          },
+          {
+            "name": "sameTrack",
+            "value": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Delete a whole, keep the part",
+    "explanation": "delete explicitly retires Focus and clears its memberships. The catalog track, Commute and saved remain usable. This is a domain lifecycle policy, not garbage-collection timing or a universal UML shared-aggregation deletion rule.",
+    "items": [
+      {
+        "label": "focus",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 0
+          },
+          {
+            "name": "deleted",
+            "value": true
+          }
+        ]
+      },
+      {
+        "label": "commute",
+        "typeLabel": "Playlist",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          },
+          {
+            "name": "deleted",
+            "value": false
+          },
+          {
+            "name": "title",
+            "value": "Sunrise"
+          }
+        ]
+      },
+      {
+        "label": "dawn",
+        "typeLabel": "Track",
+        "fields": [
+          {
+            "name": "title",
+            "value": "Sunrise"
+          }
+        ]
+      },
+      {
+        "label": "saved",
+        "typeLabel": "List<Track>",
+        "fields": [
+          {
+            "name": "count",
+            "value": 1
+          },
+          {
+            "name": "sameTrack",
+            "value": true
+          }
+        ]
+      }
+    ]
+  }
+]

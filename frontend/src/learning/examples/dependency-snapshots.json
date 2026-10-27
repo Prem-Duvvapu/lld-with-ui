@@ -1,0 +1,78 @@
+[
+  {
+    "title": "Use a parameter",
+    "explanation": "QuoteService ..> FeePolicy is a dependency from client to supplier. quote receives the caller's FlatFeePolicy object and calls feeCents. The service declares no fields; this method does not retain the policy. Cents are integers, so 1250 means 12.50 units of currency.",
+    "items": [
+      { "label": "flat quote", "typeLabel": "recorded Java call", "fields": [
+        { "name": "subtotalCents", "value": 1200 },
+        { "name": "runtime policy", "value": "FlatFeePolicy" },
+        { "name": "feeCents", "value": 50 },
+        { "name": "totalCents", "value": 1250 }
+      ] }
+    ]
+  },
+  {
+    "title": "Swap behavior through the interface",
+    "explanation": "The same quote method accepts FreeAbovePolicy. At or above 1000 cents the fee is zero; below it the fee is 50. The interface signature stays unchanged while totals change. A stable API still has a behavioral contract.",
+    "items": [
+      { "label": "threshold quote", "typeLabel": "recorded Java call", "fields": [
+        { "name": "subtotalCents", "value": 1200 },
+        { "name": "runtime policy", "value": "FreeAbovePolicy" },
+        { "name": "feeCents", "value": 0 },
+        { "name": "totalCents", "value": 1200 }
+      ] },
+      { "label": "boundary calls", "typeLabel": "recorded Java results", "fields": [
+        { "name": "quote at 999 cents", "value": 1049 },
+        { "name": "quote at 1000 cents", "value": 1000 }
+      ] }
+    ]
+  },
+  {
+    "title": "Construct a local collaborator",
+    "explanation": "quoteWithDefault constructs new FlatFeePolicy(50) into a local variable and calls quote. No field is needed for this concrete source dependency: compiling this method still requires FlatFeePolicy and its constructor. The local variable's scope does not specify the object's lifetime.",
+    "items": [
+      { "label": "default quote", "typeLabel": "recorded Java call", "fields": [
+        { "name": "subtotalCents", "value": 1200 },
+        { "name": "totalCents", "value": 1250 },
+        { "name": "declared service fields", "value": 0 }
+      ] }
+    ]
+  },
+  {
+    "title": "Store an injected collaborator",
+    "explanation": "new QuoteSession(flat) receives an existing policy through its constructor and stores it. QuoteSession --policy--> FeePolicy describes this retained association. Dependency and association describe different aspects of the design: the session also depends on the policy API. Constructor injection does not decide ownership.",
+    "items": [
+      { "label": "session", "typeLabel": "QuoteSession", "references": ["session"], "fields": [
+        { "name": "stored runtime policy", "value": "FlatFeePolicy" },
+        { "name": "session policy == saved", "value": true },
+        { "name": "local flat == saved", "value": true },
+        { "name": "totalCents", "value": 1250 }
+      ] }
+    ]
+  },
+  {
+    "title": "Rebind the caller variable",
+    "explanation": "After flat = threshold, the next parameter-based quote uses FreeAbovePolicy. The session still holds the original FlatFeePolicy reference, as does saved. Java passed a reference value to the constructor; it did not link the session field to the caller's variable.",
+    "items": [
+      { "label": "after rebinding", "typeLabel": "recorded Java references and calls", "fields": [
+        { "name": "local runtime policy", "value": "FreeAbovePolicy" },
+        { "name": "local quote totalCents", "value": 1200 },
+        { "name": "session quote totalCents", "value": 1250 },
+        { "name": "session policy == saved", "value": true },
+        { "name": "local flat == saved", "value": false }
+      ] }
+    ]
+  },
+  {
+    "title": "Reject a broken contract",
+    "explanation": "The lambda subtotal -> -1 is a Java-valid FeePolicy implementation, but breaks its documented nonnegative-result contract. QuoteService rejects it after calling it. The saved policy remains callable. These observations do not promise rollback of arbitrary collaborator side effects or garbage-collection timing.",
+    "items": [
+      { "label": "broken policy call", "typeLabel": "recorded Java exception and recovery", "fields": [
+        { "name": "outcome", "value": "IllegalArgumentException" },
+        { "name": "message", "value": "Policy returned a negative fee" },
+        { "name": "saved feeCents", "value": 50 },
+        { "name": "session quote totalCents", "value": 1250 }
+      ] }
+    ]
+  }
+]

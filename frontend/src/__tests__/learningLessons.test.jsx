@@ -17,6 +17,12 @@ import abstractionLesson from '../learning/lessons/abstraction';
 import inheritanceLesson from '../learning/lessons/inheritance';
 import polymorphismLesson from '../learning/lessons/polymorphism';
 import associationLesson from '../learning/lessons/association';
+import aggregationLesson from '../learning/lessons/aggregation';
+import compositionLesson from '../learning/lessons/composition';
+import dependencyLesson from '../learning/lessons/dependency';
+import overloadLesson from '../learning/lessons/overloading-and-overriding';
+import staticLesson from '../learning/lessons/static-and-instance';
+import guideLesson from '../learning/lessons/how-to-learn-lld';
 
 vi.mock('../learning/lessonLoader', () => ({ loadLesson: vi.fn() }));
 
@@ -39,13 +45,16 @@ beforeEach(() => {
     constructors: constructorLesson, 'access-modifiers': accessLesson, encapsulation: encapsulationLesson,
     abstraction: abstractionLesson, inheritance: inheritanceLesson,
     polymorphism: polymorphismLesson, association: associationLesson,
+    aggregation: aggregationLesson, composition: compositionLesson, dependency: dependencyLesson,
+    'overloading-and-overriding': overloadLesson, 'static-and-instance': staticLesson,
+    'how-to-learn-lld': guideLesson,
   }[id]));
 });
 
 describe('Published curriculum learning journey', () => {
   it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
     renderLearning();
-    expect(screen.getByRole('button', { name: 'Available lessons (10)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Available lessons (16)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('link', { name: 'Classes and Objects', exact: true })).toHaveAttribute('href', '/learn/classes-and-objects');
     expect(screen.getByRole('link', { name: 'Enums', exact: true })).toHaveAttribute('href', '/learn/enums');
     expect(screen.getByRole('link', { name: 'Interfaces', exact: true })).toHaveAttribute('href', '/learn/interfaces');
@@ -63,6 +72,21 @@ describe('Published curriculum learning journey', () => {
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no-match' } });
     fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
     expect(screen.getByRole('searchbox')).toHaveValue('');
+  });
+
+  it('starts with the learning guide and keeps its notes separate when entering Java fundamentals', async () => {
+    renderLearning();
+    const start = screen.getByRole('link', { name: 'Start learning →' });
+    expect(start).toHaveAttribute('href', '/learn/how-to-learn-lld');
+    fireEvent.click(start);
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'How to Learn LLD', level: 1 })).toHaveFocus());
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Clarify the scope before choosing classes.' } });
+    fireEvent.click(screen.getByRole('link', { name: 'Next: Classes and Objects →' }));
+    await screen.findByRole('heading', { name: 'Classes and Objects', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+    fireEvent.click(screen.getByRole('link', { name: '← How to Learn LLD' }));
+    await screen.findByRole('heading', { name: 'How to Learn LLD', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Clarify the scope before choosing classes.');
   });
 
   it('focuses the lesson heading, explains the illustration, and shows independent Java object state', async () => {
@@ -213,10 +237,10 @@ describe('Published curriculum learning journey', () => {
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Class notes');
   });
 
-  it('continues through the four new lessons with separate notes, correct prerequisites and an honest remaining roadmap', async () => {
+  it('continues through the remaining fundamentals with separate notes and correct prerequisites', async () => {
     renderLearning('/learn/encapsulation');
     await screen.findByRole('heading', { name: 'Encapsulation', level: 1 });
-    for (const [title, prerequisite] of [['Abstraction', 'Interfaces'], ['Inheritance', 'Constructors and Initialization'], ['Polymorphism', 'Inheritance'], ['Association', 'Classes and Objects']]) {
+    for (const [title, prerequisite] of [['Abstraction', 'Interfaces'], ['Inheritance', 'Constructors and Initialization'], ['Polymorphism', 'Inheritance'], ['Method Overloading vs Overriding', 'Access Modifiers'], ['Static vs Instance Members', 'Constructors and Initialization']]) {
       fireEvent.click(screen.getByRole('link', { name: `Next: ${title} →` }));
       await waitFor(() => expect(screen.getByRole('heading', { name: title, level: 1 })).toHaveFocus());
       expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
@@ -224,10 +248,29 @@ describe('Published curriculum learning journey', () => {
       fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: `${title} notes` } });
       fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     }
-    expect(screen.getByText('Next planned concept: Aggregation. It is not published yet.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('link', { name: '← Polymorphism' }));
-    await screen.findByRole('heading', { name: 'Polymorphism', level: 1 });
-    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Polymorphism notes');
+    expect(screen.getByRole('link', { name: 'Next: Association →' })).toHaveAttribute('href', '/learn/association');
+    fireEvent.click(screen.getByRole('link', { name: '← Method Overloading vs Overriding' }));
+    await screen.findByRole('heading', { name: 'Method Overloading vs Overriding', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Method Overloading vs Overriding notes');
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('connects all relationships with isolated notes and an honest next planned principle', async () => {
+    renderLearning('/learn/association');
+    await screen.findByRole('heading', { name: 'Association', level: 1 });
+    for (const [title, prerequisite] of [['Aggregation', 'Encapsulation'], ['Composition', 'Static vs Instance Members'], ['Dependency', 'Interfaces']]) {
+      fireEvent.click(screen.getByRole('link', { name: `Next: ${title} →` }));
+      await waitFor(() => expect(screen.getByRole('heading', { name: title, level: 1 })).toHaveFocus());
+      expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+      expect(screen.getByRole('link', { name: `Review ${prerequisite}` })).toBeInTheDocument();
+      fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: `${title} notes` } });
+      fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
+    }
+    expect(screen.getByText('Next planned concept: DRY Principle. It is not published yet.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: '← Composition' }));
+    await screen.findByRole('heading', { name: 'Composition', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Composition notes');
     expect(screen.getByRole('button', { name: 'Remove bookmark' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
   });
@@ -239,7 +282,7 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
-    expect(screen.getByText(/1 of 10 available lessons marked reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 16 available lessons marked reviewed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
     expect(screen.getByRole('status')).toHaveTextContent('1 available lessons');
     fireEvent.click(screen.getByRole('link', { name: 'Continue learning →' }));
@@ -250,11 +293,14 @@ describe('Published curriculum learning journey', () => {
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe('classes-and-objects');
   });
 
-  it.each(['/learn/aggregation', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
+  it.each(['/learn/dry', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
     renderLearning(path);
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Mark lesson/ })).not.toBeInTheDocument();
     expect(loadLesson).not.toHaveBeenCalled();
+    if (path === '/learn/dry') {
+      expect(screen.getByRole('link', { name: 'Start with How to Learn LLD →' })).toHaveAttribute('href', '/learn/how-to-learn-lld');
+    }
   });
 
   it('recovers from a lesson chunk failure without altering saved notes', async () => {
@@ -285,11 +331,11 @@ describe('Published curriculum learning journey', () => {
   });
 
   it('bounds and validates stored lesson data and ignores unpublished completion marks', async () => {
-    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'aggregation', lessons: { aggregation: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'dry', lessons: { dry: { reviewed: true }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
     await openLesson();
     expect(screen.getByRole('textbox', { name: 'Your explanation' }).value).toHaveLength(2000);
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.aggregation).toBeUndefined());
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.dry).toBeUndefined());
   });
 
   it('keeps a usable session when storage is malformed or blocked', async () => {

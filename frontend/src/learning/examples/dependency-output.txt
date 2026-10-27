@@ -1,0 +1,10 @@
+parameter / flat: 1250
+parameter / threshold: 1200
+threshold / below boundary: 1049
+local / default: 1250
+rebound local: 1200
+stored session: 1250
+session policy == saved: true
+local == saved: false
+rejected: Policy returned a negative fee
+saved policy still usable: 50

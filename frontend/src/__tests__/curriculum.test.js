@@ -30,14 +30,14 @@ describe('Curriculum inventory and publication contract', () => {
   it('publishes content only when a matching lazy-loaded file exists', async () => {
     const files = Object.keys(import.meta.glob('../learning/lessons/*.js'));
     expect(files.sort()).toEqual(PUBLISHED_LESSONS.map(entry => `../learning/lessons/${entry.id}.js`).sort());
-    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation', 'abstraction', 'inheritance', 'polymorphism', 'association']);
-    expect(lesson.id).toBe(PUBLISHED_LESSONS[0].id);
+    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['how-to-learn-lld', 'classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation', 'abstraction', 'inheritance', 'polymorphism', 'overloading-and-overriding', 'static-and-instance', 'association', 'aggregation', 'composition', 'dependency']);
+    expect((await loadLesson(PUBLISHED_LESSONS[0].id)).id).toBe('how-to-learn-lld');
     expect(lesson.quiz.options.filter(option => option.correct)).toHaveLength(1);
     expect((await loadLesson('classes-and-objects')).id).toBe('classes-and-objects');
     expect((await loadLesson('enums')).id).toBe('enums');
     expect((await loadLesson('interfaces')).id).toBe('interfaces');
-    for (const id of ['abstraction', 'inheritance', 'polymorphism', 'association']) expect((await loadLesson(id)).id).toBe(id);
-    await expect(loadLesson('aggregation')).rejects.toThrow('no published content');
+    for (const id of ['abstraction', 'inheritance', 'polymorphism', 'association', 'aggregation', 'composition', 'dependency', 'overloading-and-overriding', 'static-and-instance']) expect((await loadLesson(id)).id).toBe(id);
+    await expect(loadLesson('dry')).rejects.toThrow('no published content');
   });
 
   it('uses the actual Java files and pins output and visual data to the Java contract tests', () => {
@@ -51,7 +51,7 @@ describe('Curriculum inventory and publication contract', () => {
     expect(fs.readFileSync(new URL('../../../backend/src/test/java/com/lld/learning/ClassesAndObjectsExampleTest.java', import.meta.url), 'utf8')).toContain('illustrationSnapshotsMatchTheActualJavaStates');
   });
 
-  it.each(['classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation'])('keeps %s self-contained with canonical Java and readable illustration fields', async id => {
+  it.each(PUBLISHED_LESSONS.map(entry => entry.id))('keeps %s self-contained with canonical Java and readable illustration fields', async id => {
     const content = await loadLesson(id);
     expect(content.id).toBe(id);
     for (const block of content.code) {
@@ -62,11 +62,12 @@ describe('Curriculum inventory and publication contract', () => {
     for (const snapshot of content.visual.snapshots) {
       expect(snapshot.items.length).toBeGreaterThan(0);
       expect(new Set(snapshot.items.map(item => item.label)).size).toBe(snapshot.items.length);
+      // JSON null records an absent holder; it is a scalar, not a nested view.
       for (const item of snapshot.items) {
         expect(item.typeLabel || content.visual.typeLabel).toBeTruthy();
         expect(item.fields.length).toBeGreaterThan(0);
         expect(new Set(item.fields.map(field => field.name)).size).toBe(item.fields.length);
-        expect(item.fields.every(field => ['string', 'number', 'boolean'].includes(typeof field.value))).toBe(true);
+        expect(item.fields.every(field => field.value === null || ['string', 'number', 'boolean'].includes(typeof field.value))).toBe(true);
       }
     }
     for (const source of content.module.sources) expect(fs.existsSync(new URL(`../../../${source}`, import.meta.url))).toBe(true);
@@ -75,6 +76,8 @@ describe('Curriculum inventory and publication contract', () => {
   it('orders published prerequisites before dependents and keeps duration in the manifest', async () => {
     expect(PUBLISHED_LESSONS).toHaveLength(LESSONS.filter(entry => entry.status === 'published').length);
     for (const [index, entry] of PUBLISHED_LESSONS.entries()) {
+      expect(entry.outcome).toEqual(expect.any(String));
+      expect(entry.outcome.length).toBeGreaterThan(20);
       expect(entry.duration).toMatch(/^\d+–\d+ minutes$/);
       expect((await loadLesson(entry.id)).duration).toBeUndefined();
       for (const prerequisite of entry.prerequisites) {
