@@ -12,7 +12,7 @@ import AtmLiveTerminal from './AtmLiveTerminal';
 import { useAtmLiveWorkspace } from './useAtmLiveWorkspace';
 
 const DISPENSE_MODES = [
-  { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Greedy)' },
+  { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Exact)' },
   { value: 'CONSERVE_LARGE_NOTES', label: 'Conserve Large Notes' },
 ];
 

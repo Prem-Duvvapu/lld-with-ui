@@ -62,7 +62,7 @@ export default {
         '- defaultMode: DispenseMode'
       ],
       methods: [
-        '+ getTotalCashAvailable(): int',
+        '+ getTotalCashAvailable(): long',
         '+ getInventory(): Map  // copied under dispenserLock',
         '+ getLock(): ReentrantLock',
         '+ addNotes(denom, count): void',
@@ -99,7 +99,7 @@ export default {
         'implements DenominationDispenseStrategy'
       ],
       methods: [
-        '+ calculateNotes(amount, availableInventory): Map  // largest-first heuristic; no backtracking'
+        '+ calculateNotes(amount, availableInventory): Map  // legacy name; exact minimum notes, larger-note tie break'
       ]
     },
     {
@@ -108,7 +108,18 @@ export default {
         'implements DenominationDispenseStrategy'
       ],
       methods: [
-        '+ calculateNotes(amount, availableInventory): Map  // smallest-first heuristic; no backtracking'
+        '+ calculateNotes(amount, availableInventory): Map  // exact lexicographic conservation: ₹2000, then ₹500, then ₹200'
+      ]
+    },
+    {
+      name: 'ExactDenominationPlanner',
+      stereotype: 'package-private helper',
+      fields: ['- DENOMINATIONS: ₹2000 / ₹500 / ₹200 / ₹100', '- inventory, residues, best: int[4]', '- mode: DispenseMode'],
+      methods: [
+        '~ calculate(amount, available, mode): Map  // exact objective-optimal plan',
+        '- searchResidues(index, remaining): void  // at most 800 vectors',
+        '- considerBundles(needed): void  // four policy-ordered allocations per vector',
+        '- isBetter(candidate): boolean  // compare complete plans'
       ]
     },
     {
@@ -224,10 +235,12 @@ export default {
     }
   ],
   relationships: [
+    { from: 'GreedyDenominationDispenseStrategy', to: 'ExactDenominationPlanner', label: 'delegates MINIMIZE_NOTES' },
+    { from: 'ConserveLargeNotesDispenseStrategy', to: 'ExactDenominationPlanner', label: 'delegates CONSERVE_LARGE_NOTES' },
     {
       from: 'AtmService',
       to: 'CashDispenser',
-      label: 'controls hardware dispenser'
+      label: 'uses in-memory cassette'
     },
     {
       from: 'AtmService',

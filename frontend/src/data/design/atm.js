@@ -8,7 +8,7 @@ export default {
     'Live session lifecycle: insertCard, authenticate and ejectCard use transitionTo under sessionLock. It resolves a singleton SessionState and checks allowedNext. Withdraw/deposit instead use setState to write TRANSACTION_IN_PROGRESS, DISPENSING and AUTHENTICATED directly; the transition table does not enforce those internal updates.',
     'Per-account money movement: getBalance, withdraw and deposit acquire Account.getLock before checking the current session and matching account. Withdraw re-reads balance inside that lock, then acquires the dispenser lock through dispenseCash. The account lock does not serialize concurrent insertion/ejection, which use sessionLock.',
     'Cash inventory: CashDispenser holds one fair ReentrantLock across the total-cash check, note calculation and deduction. Its inventory getter returns a copy; total and inventory are separately locked reads, not one combined snapshot.',
-    'Dispense Strategy + Factory: an EnumMap selects largest-first MINIMIZE_NOTES or smallest-first CONSERVE_LARGE_NOTES. Both are single-pass heuristics without backtracking, so a failure does not prove that no exact note combination exists.',
+    'Dispense Strategy + Factory: an EnumMap selects two policies backed by ExactDenominationPlanner. MINIMIZE_NOTES finds the fewest notes, breaking ties by preferring more ₹2000, then ₹500, then ₹200 notes. CONSERVE_LARGE_NOTES lexicographically minimizes use of ₹2000, then ₹500, then ₹200 notes among exact feasible plans; it need not minimize the total note count.',
     'Withdrawal compensation: after debiting, the live service credits the amount back specifically when dispenseCash throws InsufficientCashException and records a FAILED transaction. This in-memory compensation is not a database transaction, crash recovery or a guarantee that every unexpected failure is rolled back.',
     'PIN attempts: the service compares the active card’s stored plaintext PIN, increments its counter on a wrong PIN and calls blockCard at three failures. Card.incrementFailedAttempts only increments; it does not block by itself. Successful PIN verification resets attempts.',
     'Request amounts: the controller accepts finite JSON numbers, not numeric strings. The service requires finite positive amounts; withdrawals must also be exact multiples of ₹100 within the int dispenser range before conversion. Deposits may be fractional ledger amounts and reject a non-finite resulting balance. HTTP withdrawal mode defaults to MINIMIZE_NOTES when omitted/null; other values must match one of the two enum names.',
@@ -111,29 +111,29 @@ export default {
         {
           name: 'dispenseCash(amount, mode)',
           returns: 'Map<NoteDenomination, Integer>',
-          description: 'Checks total, runs the selected heuristic and deducts its completed note map under one lock. InsufficientCashException before deduction leaves inventory unchanged.'
+          description: 'Checks the long-valued cash total, computes an exact policy-optimal plan and deducts the completed note map under one lock. InsufficientCashException before deduction leaves inventory unchanged.'
         },
         {
           name: 'addNotes(denom, count)',
           returns: 'void',
-          description: 'Merges a count under the dispenser lock; this method does not validate positive counts or an amount-to-notes match.'
+          description: 'Adds a non-negative count for a non-null denomination under the dispenser lock; rejects per-denomination int overflow. Zero is accepted. It does not validate an amount-to-notes match.'
         },
         {
           name: 'getTotalCashAvailable()',
-          returns: 'int',
-          description: 'Reads the int-valued inventory total under the dispenser lock; separate calls need not observe the same inventory version.'
+          returns: 'long',
+          description: 'Sums denomination value × int count with long arithmetic under the dispenser lock. The total can exceed Integer.MAX_VALUE; separate inventory/total reads need not observe the same version.'
         }
       ]
     },
     {
       name: 'DenominationDispenseStrategy (Interface)',
-      description: 'Strategy interface for selecting a note mix from inventory. The two implementations use opposite greedy orders; the interface does not establish optimality or completeness.',
+      description: 'Strategy interface for selecting a note mix from inventory. Both registered implementations delegate to the exact planner with different objectives; the legacy GreedyDenominationDispenseStrategy name no longer describes a single-pass greedy algorithm.',
       fields: [],
       methods: [
         {
           name: 'calculateNotes(amount, availableInventory)',
           returns: 'Map<NoteDenomination, Integer>',
-          description: 'Returns the heuristic’s complete note mix or throws InsufficientCashException if its remaining amount is nonzero; it does not search all combinations.'
+          description: 'Returns an exact policy-optimal note map without mutating the input. For valid positive int amounts divisible by ₹100 and valid non-negative inventories of the four supported denominations, InsufficientCashException means no exact combination exists.'
         }
       ]
     },
@@ -276,7 +276,7 @@ export default {
     {
       name: 'Strategy + Factory Pattern',
       used: true,
-      explanation: 'An EnumMap registers the two Spring-managed strategies once. CashDispenser requests a strategy by mode and invokes calculateNotes through the interface; it does not branch on policy or construct a strategy on each dispense.'
+      explanation: 'An EnumMap registers the two Spring-managed strategies once. CashDispenser invokes calculateNotes through the selected interface. Both strategies share ExactDenominationPlanner, which applies their different objectives to complete feasible plans; the legacy Greedy class name is retained for compatibility.'
     },
     {
       name: 'Template Method Pattern',
@@ -318,12 +318,13 @@ export default {
     }
   ],
   tradeoffs: [
+    'Regression examples: with one ₹500 and three ₹200 notes and no ₹100 notes, both modes now dispense ₹600 as three ₹200 notes. With one each of ₹100/₹200/₹500, CONSERVE_LARGE_NOTES dispenses ₹500 as one ₹500 note. Independent count-enumeration tests check feasibility and both objectives, including bundle boundaries; they do not prove session authorization or atomic snapshots.',
     'Session/account coordination remains incomplete: sessionLock does not protect the account-locked admission check or setState. Ejection can clear the session while an admitted withdrawal continues, and the withdrawal can later overwrite IDLE with AUTHENTICATED. Do not infer an atomic session lifecycle from the volatile phase or the account lock.',
     'Sandbox workflow checks are weaker than live ones: simAuthenticate can select a card without insertion, simInsertCard can replace an active selection, and simWithdraw checks only the phase, not whether its accountNumber matches simActiveAccount. These are implementation gaps, not guarantees of session authorization.',
     'Snapshot getters do not acquire the sandbox mutation monitor. Repository lists copy membership only and retain mutable Account/Card objects; active references and the event list are returned directly. A separately locked cash total and inventory may describe different moments. CopyOnWriteArrayList protects list iteration, not an atomic snapshot of all state.',
     'Sandbox telemetry is an in-memory event list, not a durable audit log or concurrency proof. Mutations log selected outcomes; validation/lookup exceptions may add no event. Reset clears events but does not reset simEventIdGen. Events use local time-of-day strings, and the list has no size bound between resets.',
     'This is a teaching banking model: card getters expose plaintext PINs in sandbox card responses, live transaction-history reads have no session check, and money uses double rather than an exact monetary type. There is no production authentication, durable ledger, physical delivery acknowledgement or general recovery protocol.',
-    'Greedy rejection can be a false negative: for ₹600, one ₹500 plus three ₹200 notes and no ₹100 notes makes largest-first fail although three ₹200 notes suffice. Smallest-first can fail ₹500 with one each of ₹100/₹200/₹500 although the ₹500 note suffices. The policies do not retry an alternative mix.'
+    'Exact planning is specialized to ₹2000/₹500/₹200/₹100. Each count decomposes into a residue plus ₹2000 bundles of 1/4/10/20 notes: at most 800 residue vectors and four bundle-allocation steps per vector, independent of amount/inventory magnitude, with fixed scratch space. Equal-value bundles are allocated in objective order and complete candidates compared. Adding a denomination requires revisiting this proof and the fixed planner list; no arbitrary-currency optimality is claimed.'
   ],
   extensibility: [
     {

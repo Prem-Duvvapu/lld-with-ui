@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 const MODES = [
-  { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Greedy)' },
+  { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Exact)' },
   { value: 'CONSERVE_LARGE_NOTES', label: 'Conserve Large Notes' },
 ];
 const CARDS = [

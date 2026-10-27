@@ -12,6 +12,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-123](#rca-123-browser-validation-read-assets-while-vite-replaced-the-build-directory) | 2026-10-27 | Validation / Production Assets | Rebuilding Vite during a browser matrix deleted files still being served by its route handler | Resolved by serving an isolated build snapshot |
 | [RCA-122](#rca-122-catalog-bookmarks-could-overwrite-newer-lesson-notes) | 2026-10-27 | Learning / Saved Progress | Metadata writes used stale hook state and could overwrite notes saved by another tab before its storage event arrived | Resolved with latest-read merge and failed-write session retention |
 | [RCA-120](#rca-120-atm-greedy-policies-rejected-feasible-withdrawals) | 2026-10-27 | ATM / Exact Dispensing | Greedy choices rejected feasible stock; int totals overflowed | Resolved for fixed denominations; broader ATM gaps open |
+| [RCA-118](#rca-118-atm-teaching-claims-exceeded-implemented-workflow-contracts) | 2026-10-27 | ATM / Teaching Audit | State, rollback and snapshot claims exceeded Java contracts; planner mapping drifted | Teaching corrected; runtime gaps open |
 | [RCA-119](#rca-119-a-kv-lifecycle-test-confused-task-completion-with-thread-death) | 2026-10-27 | KV / Concurrency Test Reliability | Captured worker threads were checked for physical termination before waiting for their final executor bookkeeping to return | Resolved without changing runtime behavior |
 | [RCA-117](#rca-117-a-wsl-instance-restart-terminated-validation-and-agent-handles) | 2026-10-27 | Environment / Validation Recovery | WSL shutdown/restart removed live validation processes and agent handles while preserving worktree files | Recovered; validation rerun from preserved sources |
 | [RCA-116](#rca-116-atm-requests-could-corrupt-balances-or-debit-more-than-the-dispensed-notes) | 2026-10-27 | ATM / Request and Amount Validation | Nonpositive/non-finite deposits, truncated withdrawals and malformed request fields could mutate money or fail outside the domain contract | Resolved for live/sandbox request validation |
@@ -126,6 +127,86 @@ in ₹100 steps with valid non-negative int stock. Revisit decomposition, bounds
 objectives and oracle tests before changing denominations. Preserve separate
 session/account coordination, sandbox authorization/snapshot and recovery issues
 as open; dispenser and scoped browser checks do not resolve them.
+
+## RCA-118: ATM Teaching Claims Exceeded Implemented Workflow Contracts
+
+### 1. Overview & Severity
+
+Medium for teaching accuracy. Design, diagram and sequence data overstated state
+transition enforcement, rollback, entity behavior and snapshot guarantees. The
+teaching audit is resolved in those data files; broader runtime gaps stay open.
+
+### 2. Symptoms & Error Logs
+
+Teaching described universal state gating and implied stronger transaction and
+snapshot semantics than Java implements. Source inspection found direct setState
+and simState writes, separate locks, shallow snapshots and no general rollback.
+The audit commit also documented the then-current greedy false negatives; after
+the exact-planner integration those statements and the int total became stale.
+There was no single runtime exception for this documentation drift. Scoped browser
+checks also found 345px horizontal overflow at 320px from the sequence description’s
+unbroken class-and-test-method identifier; screenshot and DOM evidence are retained
+in the integration validation directory.
+
+### 3. Root Cause
+
+Pattern names and intended architecture were treated as guarantees without
+following actual call paths, lock ownership, mutation order and return aliases.
+Teaching data can drift when an audited implementation subsequently changes.
+
+### 4. Diagnostic Commands
+
+Compare `AtmService`, `CashDispenser`, session state types, controller, models and
+`AtmConcurrencyTest` against `frontend/src/data/{design,diagrams,sequences}/atm.js`.
+Search `rg -n "greedy|Greedy|chain|Chain|heuristic|getTotalCashAvailable"` in ATM
+source/teaching/UI. Run design-data coverage and the full frontend suites. Logs
+and scoped browser evidence: `/home/prem/validation/lld-atm-exact-integrated/`.
+
+### 5. Step-by-Step Resolution
+
+1. Cherry-pick 67018a6e175156a6b1bb066f875e852588d851ba, changing only its
+   three ATM design/diagram/sequence files.
+2. Retain distinctions between guarded insert/auth/eject and direct money-phase
+   writes, account/cassette locks and sessionLock, specific InsufficientCash
+   compensation and general recovery, and separate sandbox/live behavior.
+3. Update affected dispensing requirements, method descriptions, strategy mapping,
+   planner node/edges, complexity limits, regression examples and long cash return.
+   Preserve the live race sequence fixture and distinguish its sufficient-stock
+   assumption from the separate exact-plan regressions.
+4. Replace only the stale Greedy mode labels in the live and simulation selectors
+   with Exact; retain the legacy Java class name and explain its mapping. No
+   Chain of Responsibility label exists in these scoped ATM views.
+5. Use a readable same-account test description in the sequence prose and keep the
+   exact method mapping in a source comment. This removes the 320px overflow
+   without changing shared diagram rendering or the live workspace.
+6. Full frontend: 838 tests across 57 files passed with one worker. Lint passed
+   (zero errors, 14 existing warnings), and final production build/chunk budgets
+   passed (entry 313,174 bytes; largest non-entry 57,287 bytes). A final targeted
+   data/workspace recheck passed 397 cases. The preceding supplemental run hit an
+   intermittent existing balance-retry focus assertion (input held focus instead
+   of Retry); preserve its failure log and treat that reliability gap as open.
+7. Scoped browser evidence: four contexts (light/dark × 320/1280), 32 checked
+   views plus four layout-follow-up observations and 92 actual Java MockMvc HTTP
+   requests over stdin. Both modes rendered the exact ₹600/₹500 plans. Updated
+   objectives, long signature, planner node, sequence and open limitations were
+   checked in the built UI. The teaching/app/sequence checks had no page overflow
+   or page errors; the simulation label was checked separately. Its existing
+   320px account/card panel overflow is 149px with both the new Exact label and
+   the legacy Greedy label, and remains open. Evidence: `browser-results.json`,
+   `browser.log`, screenshots, DOM overflow records and `frontend-*.log` in the
+   integration directory. Built assets were copied to a separate stable snapshot
+   before the final browser run. Browser route fulfillment does not verify hosted
+   MIME/cache/304 behavior, a deployed API, or physical delivery.
+
+### 6. Preventative Measures
+
+Map teaching claims to actual Java calls and tests; absence of a dangling edge or
+passing frontend shape tests does not prove concurrency semantics. Keep partial
+state enforcement, concurrent session changes, sandbox workflow authorization,
+shallow/mixed snapshots, PIN exposure, double-valued money, unbounded events and
+the simulation race walkthrough, mobile simulation layout and intermittent live
+focus-test reliability as open follow-ups. This audit does not publish
+the capstone, redesign the live workspace, or provide hosted/full ATM signoff.
 
 ## RCA-119: A KV Lifecycle Test Confused Task Completion with Thread Death
 
