@@ -2,13 +2,13 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are nineteen published lessons
-and 50 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. There are twenty published lessons
+and 49 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
-All nineteen published lessons also include source-curated class models with
+All twenty published lessons also include source-curated class models with
 selectable typed connectors and complete text alternatives. This foundational
-view does not publish the dedicated UML lessons below.
+view does not substitute for the dedicated UML lessons and their delivery gates.
 
 ## Reading the matrix
 
@@ -118,7 +118,7 @@ payment provider or asynchronous processing that the Java module does not implem
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
 | `class-diagram` — Class Diagram | Read viewpoint, compartments, visibility, six relationships, both endpoint counts and navigation, checking claims against Java. | `association`, `inheritance`, `interfaces`, `aggregation`, `composition`, `dependency` | [E35](#e35): canonical library types, shared shelves, required loan/book links and an optional owned receipt; [E02](#e02): source reconciliation for Parking pricing/Ticket. | Model workshop registrations and owned confirmations; justify multiplicity, lifecycle, omissions and a source-checked Parking edge. | Delivered: `/learn/class-diagram`, canonical Java/output and five verified snapshots, six selected relationship pairs with complete text alternatives, prediction and independent exercise/rubric. |
-| `use-case-diagram` — Use Case Diagram | Identify actors, goals and the system boundary without confusing them with internal classes. | `how-to-learn-lld` | [E22](#e22): Parking requirements are source material; no dedicated use-case learning view was mapped. | Draw attendant/driver goals around the ticket workflow and justify included/excluded external actors. | G: actual use-case visual, textual alternative and boundary critique. |
+| `use-case-diagram` — Use Case Diagram | Identify external roles, offered goals and subject scope; justify participation, include, extend and specialization using explicit requirements. | `how-to-learn-lld` | [E37](#e37): canonical lending portal scenarios and selected outcomes, dedicated role/ellipse/subject visual and companion class model; [E22](#e22): Parking source supports behaviors, while Driver/Attendant remain proposed roles. | Model a workshop registration subject, required eligibility, an optional accessibility extension, independent base, condition/extension point and justified coordinator role policy; verify accepted/rejected outcomes. | Delivered: `/learn/use-case-diagram`, four canonical Java files, eight output lines and six verified states, selectable UML visual/full text, scenario, prediction feedback, independent exercise/rubric and explicit mapping limits. |
 | `sequence-diagram` — Sequence Diagram | Trace ordered calls, returns, alternate failures and concurrency without inventing timing guarantees. | `dependency`, `class-diagram` | [E22](#e22): Parking's concurrent exit flow; [E13](#e13): completeExit lock and already-exited guard. | Annotate two competing exits and explain why the loser observes committed ticket state. | G: general sequence-notation lesson, alternate paths and an authoring exercise. |
 | `activity-diagram` — Activity Diagram | Model decisions and completion, using parallel branches only when the modeled workflow justifies them. | `how-to-learn-lld` | [E22](#e22), [E13](#e13): existing workflow/code can ground the diagram; no dedicated activity learning view was mapped. | Draw entry/scan/pay decisions and rejection paths without treating a lock-protected payment as parallel work. | G: activity visual, fork/join explanation with a labelled contrasting example and self-check. |
 | `state-machine-diagram` — State Machine Diagram | Model events, guards and legal transitions separately from the classes that implement them. | `enums` | [E13](#e13): Ticket exitTime/payment state and completeExit guard; [E22](#e22): existing sequence is not a statechart. | Draw active-to-exited behavior, a read-only scan self-transition and the guard against a second payment. | G: actual statechart and text equivalent; distinguish a conceptual projection from a new Java status enum. |
@@ -782,6 +782,48 @@ exercise transfers the reasoning to capped overdue fees and an unrelated borrowi
 limit. This source/assessment delivery does not assert actual-route visual review,
 deployment or completion of the other design-principle lessons.
 
+<a id="e37"></a>
+### E37 — Use-case subject, roles, offered behavior and justified relationships
+
+- [Dedicated lesson](frontend/src/learning/lessons/use-case-diagram.js),
+  [authored diagram](frontend/src/learning/diagrams/use-case-diagram.js),
+  [accessible use-case renderer](frontend/src/learning/diagrams/UseCaseDiagram.jsx),
+  and [companion class model](frontend/src/learning/class-models/use-case-diagram.js).
+- Canonical [Member](frontend/src/learning/examples/usecase/Member.java),
+  [Loan](frontend/src/learning/examples/usecase/Loan.java),
+  [LibraryPortal](frontend/src/learning/examples/usecase/LibraryPortal.java) and
+  [UseCaseDemo](frontend/src/learning/examples/usecase/UseCaseDemo.java).
+- [Java contracts](backend/src/test/java/com/lld/learning/UseCaseDiagramLessonExampleTest.java)
+  compile the exact displayed files with Java 17 and verify output, six recorded
+  states/trace strings, active-member and staff capability boundaries, required
+  eligibility, receipt absent/present, return duties, caller-trust limits and
+  non-mutation after rejected operations.
+- [Lesson integration](frontend/src/__tests__/useCaseDiagramLesson.test.jsx) and
+  [viewer interactions](frontend/src/__tests__/useCaseDiagram.test.jsx) cover the
+  primary visual, retained subject/nodes during line selection, complete normal-size
+  text, native fullscreen/focus, marker isolation and authored-model consistency.
+
+Member and Librarian are external roles, not the internal Member Java class.
+The library's explicit policy preserves member capabilities/restrictions for staff;
+Java represents roles with data rather than class inheritance. Required membership
+checking is included by borrowing and renewal. Requested receipt text extends an
+independently meaningful borrowing result at its named loan-confirmed extension
+point. Arrows do not impose chronological flow, and subject containment does not
+assert ownership. Conditions/extension points appear in the complete text view.
+The separate earlier Class Diagram example has different stated copy/receipt
+policies; the lesson explicitly reconciles those limits rather than claiming an
+identical implementation contract.
+
+The sequential, in-memory Java trusts caller identity/role data; it does not provide
+authentication, production authorization, thread safety, email or physical printing.
+Parking practice distinguishes observed entry/preview/payment behaviors from
+proposed Driver/Attendant roles. Gate records do not prove external hardware
+actors; recorded payments do not prove a payment-provider interaction; payment
+requires no previous scan. UML 2.5.1 clauses 18.1/18.2 and 9.2/9.9.7 are the
+primary notation/semantic references. The independent exercise uses workshop
+registration with explicit scope, success/rejection postconditions and a boundary
+critique. This delivery does not publish the other three dedicated UML lessons.
+
 ## Authoritative semantic references
 
 These references constrain future teaching; they are not evidence that its lesson
@@ -806,5 +848,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 50 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 49 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.
