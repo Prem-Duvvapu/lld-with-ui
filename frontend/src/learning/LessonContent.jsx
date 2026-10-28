@@ -4,7 +4,9 @@ import { GITHUB_REPO_URL } from '../data/moduleSourceLinks';
 import { CURRICULUM_GROUPS, LESSONS, PUBLISHED_LESSONS } from './curriculum';
 import { useLessonProgress } from './useLessonProgress';
 import { catalogReturn } from './catalogNavigation';
+import { lessonDiagramLabel } from './lessonDiagramKinds';
 
+const LessonDiagram = lazy(() => import('./LessonDiagram'));
 const LessonClassModel = lazy(() => import('./LessonClassModel'));
 
 function CodeBlock({ title, children }) {
@@ -62,7 +64,9 @@ export default function LessonContent({ lesson, metadata }) {
       </header>
       {notice && <p role="status" className="learn-callout">{notice}</p>}
       <nav aria-label="On this lesson" className="learn-section-links">
-        <a href="#lesson-understand">Understand</a><a href="#lesson-visual">Visualize</a>
+        <a href="#lesson-understand">Understand</a>
+        {lesson.diagram && <a href="#lesson-diagram">{lessonDiagramLabel(lesson.diagram.kind)}</a>}
+        <a href="#lesson-visual">Visualize</a>
         {lesson.classModel && <a href="#lesson-class-model">Class model</a>}
         <a href="#lesson-code">Read Java</a><a href="#lesson-exercise">Practise</a><a href="#lesson-review">Review</a>
       </nav>
@@ -73,6 +77,11 @@ export default function LessonContent({ lesson, metadata }) {
         <ul>{lesson.objectives.map(objective => <li key={objective}>{objective}</li>)}</ul>
         {lesson.explanation.map(section => <div key={section.title}><h3>{section.title}</h3><p>{section.text}</p></div>)}
       </section>
+      {lesson.diagram && <div id="lesson-diagram">
+        <Suspense fallback={<p role="status">Loading {lessonDiagramLabel(lesson.diagram.kind).toLowerCase()}…</p>}>
+          <LessonDiagram model={lesson.diagram} />
+        </Suspense>
+      </div>}
       <section id="lesson-visual" aria-labelledby="visual-title">
         <h2 id="visual-title">{lesson.visual.title}</h2>
         <p className="learn-muted">A recorded illustration verified against the Java example, not a live JVM or a memory-layout diagram. Choose a step to inspect its state.</p>

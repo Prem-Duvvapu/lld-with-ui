@@ -16,7 +16,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # latest validated: 2798 tests, 308 classes
+mvn test                                  # latest validated: 2821 tests, 309 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 941 tests, 66 files
+npx vitest run                            # latest validated: 952 tests, 67 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -118,13 +118,14 @@ manifest; an audit row is not a published lesson. The coverage test also guards
 the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 
 `/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
-manifest in `src/learning/curriculum.js`. Eighteen lessons are implemented: How to
+manifest in `src/learning/curriculum.js`. Twenty lessons are implemented: How to
 Learn LLD plus all fifteen OOP/relationship concepts (including the four proposed
-supplemental fundamentals), followed by their connected OOP capstone and the dedicated Class Diagram lesson. The
-remaining 51 topics are planned. All eighteen lessons have source-curated class
-models with selectable typed connectors and complete text alternatives; Phase 2
-content/assessment/local visual review is complete. The other four dedicated UML lessons and
-later integration/release gates remain open. `OopOverviewExampleTest` compiles the
+supplemental fundamentals), followed by their connected OOP capstone, the dedicated
+Class Diagram and Use Case Diagram lessons and DRY Principle. The remaining 49 topics are planned. All
+twenty lessons have source-curated class models with selectable typed connectors
+and complete text alternatives; Phase 2 content/assessment/local visual review is
+complete. The other three dedicated UML lessons and later integration/release gates
+remain open. `OopOverviewExampleTest` compiles the
 capstone sources and verifies its five snapshots/output and compiler boundaries. Planned
 topics must not be presented as delivered content. Lesson data stays separate from
 module design data. Its displayed `.java` files live under `src/learning/examples/`
@@ -133,7 +134,16 @@ and are compiled by `ClassesAndObjectsExampleTest`, `OopExamplesTest` and
 and visual-state contracts. The six new lessons add `HowToLearnLldExampleTest`,
 `MethodSelectionLessonExampleTest`, `StaticMembersLessonExampleTest`,
 `AggregationLessonExampleTest`, `CompositionLessonExampleTest` and
-`DependencyExampleTest`. Frontend deployment does not need backend source files.
+`DependencyExampleTest`. Use Case Diagram adds `UseCaseDiagramLessonExampleTest`
+for canonical `usecase/` Java, output and six scalar/trace states. Its optional lazy
+`lesson.diagram` actor/ellipse/subject view is separate from `classModel`; selection
+retains all nodes and complete text. Do not infer ownership, sequence, Java
+inheritance or authorization from the role/goal view. DRY adds `DryLessonExampleTest` for the exact `dry/` Java,
+output/five recorded steps, shared fee boundaries, rejected-write preservation and
+real Parking policy reuse with isolated state. Its prerequisite remains Encapsulation;
+sharing knowledge must not merge unrelated rules or mutable quote records. Actual-route
+visual/deployment checks for new lessons are separate release evidence. Frontend
+deployment does not need backend source files.
 
 `useLessonProgress` owns the separate `lld-lessons-v1` key. Resume writes must read
 the current storage before merging, and notes are bounded at 2000 characters. Do not

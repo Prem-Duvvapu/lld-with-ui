@@ -1,0 +1,7 @@
+original: preview=0, checkout=0
+partial change: preview=500, checkout=0
+shared rule: preview=500, checkout=500
+before sandbox quote: live=1, sandbox=0
+independent records: live A=500, sandbox A=0
+next delivery rule: fee at 6000=500
+separate reward rule: redeem at 6000=true

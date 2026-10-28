@@ -1,0 +1,152 @@
+[
+  {
+    "title": "One requirement copied twice",
+    "explanation": "At subtotal 5500 the original 5000-cent threshold gives free delivery in both copies; agreement today does not remove the future maintenance obligation.",
+    "items": [
+      {
+        "label": "original",
+        "typeLabel": "BeforeQuotes results",
+        "fields": [
+          {
+            "name": "subtotalCents",
+            "value": 5500
+          },
+          {
+            "name": "previewFeeCents",
+            "value": 0
+          },
+          {
+            "name": "checkoutFeeCents",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "A partial update drifts",
+    "explanation": "Only preview moved to 6000. Both methods compile, but the same 5500-cent order now has contradictory fees.",
+    "items": [
+      {
+        "label": "partial",
+        "typeLabel": "BeforeQuotes results",
+        "fields": [
+          {
+            "name": "subtotalCents",
+            "value": 5500
+          },
+          {
+            "name": "previewFeeCents",
+            "value": 500
+          },
+          {
+            "name": "checkoutFeeCents",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Both callers use the rule",
+    "explanation": "One DeliveryFeeRule(6000, 500) serves both methods. Checkout records A; preview only calculates.",
+    "items": [
+      {
+        "label": "live",
+        "typeLabel": "OrderQuotes results",
+        "fields": [
+          {
+            "name": "previewFeeCents",
+            "value": 500
+          },
+          {
+            "name": "checkoutFeeCents",
+            "value": 500
+          },
+          {
+            "name": "recordedCount",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "label": "sandbox",
+        "typeLabel": "OrderQuotes results",
+        "fields": [
+          {
+            "name": "recordedCount",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Shared rule, separate records",
+    "explanation": "Sandbox records its own A at the exact 6000 boundary. The live record at subtotal 5500 stays unchanged.",
+    "items": [
+      {
+        "label": "live",
+        "typeLabel": "OrderQuotes results",
+        "fields": [
+          {
+            "name": "recordedFeeCents",
+            "value": 500
+          },
+          {
+            "name": "recordedCount",
+            "value": 1
+          }
+        ]
+      },
+      {
+        "label": "sandbox",
+        "typeLabel": "OrderQuotes results",
+        "fields": [
+          {
+            "name": "recordedFeeCents",
+            "value": 0
+          },
+          {
+            "name": "recordedCount",
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Unrelated knowledge stays separate",
+    "explanation": "A new delivery rule raises its threshold to 7000 cents. Reward eligibility still starts at 6000 points; the earlier quote books also keep their original configuration.",
+    "items": [
+      {
+        "label": "next",
+        "typeLabel": "OrderQuotes results",
+        "fields": [
+          {
+            "name": "subtotalCents",
+            "value": 6000
+          },
+          {
+            "name": "previewFeeCents",
+            "value": 500
+          }
+        ]
+      },
+      {
+        "label": "rewards",
+        "typeLabel": "RewardRule result",
+        "fields": [
+          {
+            "name": "points",
+            "value": 6000
+          },
+          {
+            "name": "canRedeem",
+            "value": true
+          }
+        ]
+      }
+    ]
+  }
+]

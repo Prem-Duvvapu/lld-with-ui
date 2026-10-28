@@ -1,0 +1,20 @@
+.lesson-use-case { min-width: 0; max-width: 100%; margin-top: 40px; padding-top: 8px; color: var(--text-primary); overflow-wrap: anywhere; }
+.lesson-use-case *, .lesson-use-case *::before, .lesson-use-case *::after { box-sizing: border-box; }
+.lesson-use-case .diagram-viewer { max-width: 100%; }
+.lesson-use-case-selector { display: grid; gap: 8px; min-width: 0; font-weight: 600; }
+.lesson-use-case-selector select { width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid var(--border-primary); border-radius: 8px; font: inherit; background: var(--bg-card); color: var(--text-primary); }
+.lesson-use-case-selection { margin-block: 16px; padding: 12px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-card); }
+.lesson-use-case :is(button, select, summary, [tabindex]):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
+.lesson-use-case .diagram-viewer-actions button { min-width: 44px; min-height: 44px; }
+.lesson-use-case .diagram-viewer-details summary { min-height: 44px; }
+.lesson-use-case .diagram-viewer-details { font-size: 1rem; }
+.lesson-use-case .diagram-viewer-hint { color: var(--text-primary); }
+.lesson-use-case-canvas { display: block; max-width: none; color: var(--text-primary); background: var(--bg-secondary); font: inherit; font-size: 16px; }
+.lesson-use-case-canvas :is(path, circle, ellipse, rect, polyline) { stroke: currentColor; stroke-width: 2; }
+.lesson-use-case-canvas text { fill: currentColor; stroke: none; }
+.lesson-use-case-canvas .use-case-boundary { fill: none; }
+.lesson-use-case-canvas .use-case-boundary-title { font-weight: 700; }
+.lesson-use-case-canvas .use-case-actor circle { fill: var(--bg-secondary); }
+.lesson-use-case-canvas .use-case-goal ellipse { fill: var(--bg-card); }
+.lesson-use-case-canvas .use-case-edge-label rect { fill: var(--bg-secondary); stroke: none; }
+.lesson-use-case-canvas .use-case-edge-label text { font-size: 14px; }

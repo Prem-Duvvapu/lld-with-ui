@@ -1,0 +1,170 @@
+[
+  {
+    "title": "Borrow without a receipt",
+    "explanation": "The base goal succeeds after required eligibility behavior. No receipt request means the extension is absent.",
+    "items": [
+      {
+        "label": "Plain borrowing",
+        "typeLabel": "Borrowing",
+        "fields": [
+          {
+            "name": "member id",
+            "value": "M1"
+          },
+          {
+            "name": "active loan",
+            "value": true
+          },
+          {
+            "name": "due day",
+            "value": 14
+          },
+          {
+            "name": "receipt",
+            "value": null
+          },
+          {
+            "name": "trace",
+            "value": "eligibility accepted → loan confirmed"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Renew the member’s loan",
+    "explanation": "The same eligibility behavior is incorporated into renewal. The stored loan gains seven days once.",
+    "items": [
+      {
+        "label": "Renewed loan",
+        "typeLabel": "Loan",
+        "fields": [
+          {
+            "name": "member id",
+            "value": "M1"
+          },
+          {
+            "name": "due day",
+            "value": 21
+          },
+          {
+            "name": "renewed",
+            "value": true
+          },
+          {
+            "name": "trace",
+            "value": "eligibility accepted → loan renewed"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Librarian borrows with a receipt",
+    "explanation": "Staff retain member capabilities. The requested extension adds receipt text at loan confirmed.",
+    "items": [
+      {
+        "label": "Requested borrowing",
+        "typeLabel": "Borrowing",
+        "fields": [
+          {
+            "name": "member id",
+            "value": "L1"
+          },
+          {
+            "name": "librarian",
+            "value": true
+          },
+          {
+            "name": "active loan",
+            "value": true
+          },
+          {
+            "name": "receipt",
+            "value": "Receipt: L1 borrowed Java; due day 14"
+          },
+          {
+            "name": "trace",
+            "value": "eligibility accepted → loan confirmed → receipt issued"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reject an ordinary member return",
+    "explanation": "A Member participation line never grants the staff-only return duty. The rejected request changes no loan.",
+    "items": [
+      {
+        "label": "Rejected return",
+        "typeLabel": "Outcome",
+        "fields": [
+          {
+            "name": "rejection",
+            "value": "Librarian role required"
+          },
+          {
+            "name": "active loan",
+            "value": true
+          },
+          {
+            "name": "due day",
+            "value": 21
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Librarian records the return",
+    "explanation": "The librarian’s additional goal closes UML’s loan; the independent Java loan remains active.",
+    "items": [
+      {
+        "label": "Recorded return",
+        "typeLabel": "Outcome",
+        "fields": [
+          {
+            "name": "active loan",
+            "value": false
+          },
+          {
+            "name": "other loan active",
+            "value": true
+          },
+          {
+            "name": "trace",
+            "value": "return recorded"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reject inactive borrowing",
+    "explanation": "Required eligibility behavior rejects before a new loan or optional receipt can be created. The previous returned loan stays stored.",
+    "items": [
+      {
+        "label": "Rejected borrowing",
+        "typeLabel": "Outcome",
+        "fields": [
+          {
+            "name": "rejection",
+            "value": "Membership inactive"
+          },
+          {
+            "name": "returned loan still stored",
+            "value": true
+          },
+          {
+            "name": "active loan",
+            "value": false
+          },
+          {
+            "name": "other loan active",
+            "value": true
+          }
+        ]
+      }
+    ]
+  }
+]

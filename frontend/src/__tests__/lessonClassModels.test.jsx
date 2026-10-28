@@ -35,7 +35,7 @@ describe('Canonical lesson class models', () => {
     const { container } = render(<LessonClassModel model={model} />);
     expect(screen.getByRole('heading', { name: model.title, level: 2 })).toBeVisible();
     expect(container.querySelectorAll('.lesson-class-model-type')).toHaveLength(model.classes.length);
-    const explanationToggle = screen.getByText('Text explanation', { selector: 'summary' });
+    const explanationToggle = within(container.querySelector('.lesson-class-model')).getByText('Text explanation', { selector: 'summary' });
     const explanation = explanationToggle.parentElement;
     fireEvent.click(explanationToggle);
     explanation.open = true; // happy-dom does not implement summary's native activation.

@@ -37,21 +37,23 @@ Dashboard visitor totals were not inspected. See `COMPLETION_HANDOFF.md` for evi
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and eighteen published lessons: the
+has a searchable curriculum catalog and twenty published lessons: the
 **How to Learn LLD** guide, **Classes and Objects**, **Constructors and
 Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
 **Encapsulation**, **Abstraction**, **Inheritance**, **Polymorphism**,
 **Method Overloading vs Overriding**, **Static vs Instance Members**,
 **Association**, **Aggregation**, **Composition**, **Dependency**, and the
 **15 Must-Know OOP Concepts** capstone, followed by the dedicated
-[**Class Diagram** lesson](https://lld-with-ui.vercel.app/learn/class-diagram).
+[**Class Diagram** lesson](https://lld-with-ui.vercel.app/learn/class-diagram),
+[**Use Case Diagram** lesson](https://lld-with-ui.vercel.app/learn/use-case-diagram) and
+[**DRY Principle** lesson](https://lld-with-ui.vercel.app/learn/dry).
 The guided sequence puts published prerequisites before dependents. The catalog
 supports available/roadmap views, outcome search, section/review/bookmark filters,
 sorting, direct bookmarks and return navigation. Reading times and outcomes come
-from the curriculum manifest. The other 51 topics remain explicitly planned;
+from the curriculum manifest. The other 49 topics remain explicitly planned;
 five proposed additions retain their labels. The capstone follows all fifteen
 individual concepts with linked reviews and an independent modeling exercise.
-All eighteen lessons include source-curated class models, selectable typed
+All twenty lessons include source-curated class models, selectable typed
 relationships, zoom/fullscreen controls and readable text alternatives. Phase 2
 content and local visual review are complete; remaining UML/design-principle
 lessons and later curriculum phases are still open.
@@ -65,8 +67,15 @@ with Java 17 and checks their output and illustration snapshots. The Enums and
 Interfaces examples also have negative compiler checks and shared-contract tests.
 Constructor delegation, cross-package access (including protected receivers), and
 collection invariants/snapshots are checked by `StateBoundariesExampleTest`.
-No learner code is
-submitted or executed by the application.
+DRY follows duplicated delivery-fee knowledge through requirement drift, a
+behavior-preserving extraction and a shared rule, while keeping quote records and
+unrelated loyalty rules separate. `DryLessonExampleTest` verifies its five canonical
+Java files, output, five recorded steps, boundaries and real Parking policy reuse.
+Use Case Diagram adds a dedicated actor/ellipse/subject view, selectable
+participation/include/extend/generalization, full text explanations and native
+fullscreen controls. Its four canonical Java files verify six recorded outcomes;
+roles/goals remain separate from the companion implementation class model.
+No learner code is submitted or executed by the application.
 
 Bookmarks, notes (up to 2000 characters), a resume destination, and review marks use
 the separate `lld-lessons-v1` browser-storage key. They do not change module-reviewed
@@ -465,8 +474,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2308 tests across 280 classes
-cd frontend && npx vitest run  # 586 tests across 29 files
+cd backend  && mvn test        # 2821 tests across 309 classes
+cd frontend && npx vitest run  # 952 tests across 67 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one

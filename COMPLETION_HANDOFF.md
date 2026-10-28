@@ -6,6 +6,54 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- Combined DRY and Use Case Diagram release (2026-10-28): current publication
+  is **20 lessons / 49 planned topics**. The dedicated use-case view distinguishes
+  external actors/goals/subject scope from the Java companion class model. All
+  nodes remain when a relationship is selected; complete text includes conditions,
+  extension points and mapping limits. Zoom/fit/native fullscreen, keyboard focus,
+  and route-boundary recovery preserve the existing learning contract. Shared
+  marker definitions retain per-SVG unique IDs for both viewers. DRY adds shared
+  knowledge/change reasoning while preserving independent records. Canonical Java
+  supplies 35 new dedicated checks across the two lessons. E36/E37 and the manifest,
+  catalog/journey/coverage tests, README and guidance align with publication.
+  The guided sequence is Class Diagram → Use Case Diagram → DRY → planned YAGNI;
+  notes remain isolated, and proposed topic labels/prerequisites are retained.
+  Full local verification: 2833 backend tests (310 suites), 980 frontend tests
+  (69 files), Maven package exit 0, lint zero errors/14 existing warnings, build
+  and budgets (313620-byte entry / 54680-byte largest non-entry). Evidence:
+  `/home/prem/validation/lld-use-case-dry-release/`. Browser review uses frozen
+  artifacts with unavailable APIs; production resource checks are separate.
+  Frozen-build review passes 800 scenario views in eight light/dark ×
+  320/390/768/1280 contexts: all 20 models, primary use-case selection, Java/output,
+  recorded states, fullscreen/focus and class/use-case download failure/reload
+  without clearing notes. Four extra light/dark × 320/1440 contexts verify text
+  inside ellipses, minimum checked text contrast 13.86:1 and 200% CSS-zoom reflow
+  (not browser chrome zoom). No overflow/application exceptions were observed.
+  No application servers started. Phase 3, remaining curriculum and the separate
+  60-module review remain open; release/deployment evidence follows this entry.
+
+- Earlier DRY-only integration snapshot (2026-10-28, local branch): that curriculum
+  has nineteen published lessons / 50 planned topics. Five canonical Java files,
+  seven output lines and five recorded result steps demonstrate duplicated domain
+  knowledge, requirement drift, preserved behavior during extraction, a shared rule,
+  independent quote records and an unrelated loyalty counterexample. A complete
+  class-model text alternative, prediction and independent exercise/rubric are
+  included. E36 records source-backed Parking policy reuse and its limits.
+  Class Diagram now leads to DRY; final DRY names planned YAGNI. Catalog principles
+  filtering shows DRY, while the creational section retains the empty-view test.
+  Saved notes/bookmarks remain isolated through forward/return navigation; planned
+  route/storage rejection tests use YAGNI. The all-published model guard remains.
+  Full local checks pass: 2821 backend tests (309 suites), 952 frontend tests
+  (67 files, one worker), Maven package with clean exit, lint (zero errors,
+  14 existing warnings), build and both budgets (313607-byte entry / 54680-byte
+  largest non-entry). Logs: `/home/prem/validation/lld-dry-integration/`. No
+  application servers were started. Earlier release counts below are preserved.
+  Actual-route browser/deployment/resource checks and release are parent-owned;
+  this is not a full principles, Phase 3, curriculum or module-UX completion claim.
+
+The earlier entries retain the counts and evidence observed for their own release
+snapshots; the combined entry above records the current lesson publication totals.
+
 - Dedicated Class Diagram lesson: eighteen implemented lessons and51 planned
   topics. The new lesson covers structural viewpoint, six typed relationships,
   both-end multiplicities/navigation, source evidence and an independent modeling
@@ -190,8 +238,9 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   lint has zero errors and 14 existing warnings; Maven package and Vite build pass.
   Four shared-diagram cases and two expiry-display cases were added; existing async
   assertions now wait for final focus/reset outcomes without changing timeouts.
-- Latest build: entry 313174 bytes; largest non-entry JavaScript chunk 57287 bytes.
-- The curriculum catalog has seventeen published lessons: How to Learn LLD,
+- KV #175 build snapshot: entry 313174 bytes; largest non-entry JavaScript chunk 57287 bytes.
+- OOP capstone snapshot (superseded by the DRY status above): seventeen published
+  lessons: How to Learn LLD,
   fifteen individual OOP/relationship concepts and the connected capstone.
   The remaining 52 topics are visibly planned. The capstone includes a model
   assessment/rubric and fifteen linked reviews. Foundational rendered class

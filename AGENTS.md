@@ -42,15 +42,17 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2798 tests
-cd frontend && npx vitest run  # latest validated: 941 tests
+cd backend  && mvn test        # latest validated: 2833 tests
+cd frontend && npx vitest run  # latest validated: 980 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
 ## Learning Curriculum
 - `/learn` and `/learn/:lessonId` are lazy routes. `frontend/src/learning/curriculum.js` is the canonical topic/publication manifest; only published lessons have content files. Planned topics are a labelled roadmap, not empty completed pages.
 - Content lives in `frontend/src/learning/lessons/`. Displayed Java comes from canonical `.java` files in `frontend/src/learning/examples/`, imported with `?raw`; do not duplicate it as a string. `ClassesAndObjectsExampleTest`, `OopExamplesTest` and `StateBoundariesExampleTest` compile those exact files with JDK 17 and check output/illustration fixtures and applicable negative compiler cases. The frontend build remains self-contained for Vercel/Docker.
-- Eighteen lessons are implemented: How to Learn LLD plus Classes and Objects, Constructors, Access Modifiers, Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism, Overloading/Overriding, Static/Instance, Association, Aggregation, Composition, Dependency, the 15 Must-Know OOP Concepts capstone, and the dedicated Class Diagram lesson. Recorded illustrations use `snapshots[].items[]` with named scalar `fields` (JSON null may represent absence); reference labels belong to object/reference views. Keep semantics in canonical Java and verified fixtures. The other 51 topics remain planned. All eighteen lessons have source-curated class models in `learning/class-models/`, with selectable typed connectors and complete text alternatives; Phase 2 content/assessment/local visual review is complete. The other four dedicated UML lessons and later integration/release gates remain open. The capstone follows all fifteen individual concepts and its inline review links preserve catalog context. `OopOverviewExampleTest` verifies its canonical Java and five snapshots. The six new lessons are compiled/fixture-checked by `HowToLearnLldExampleTest`, `MethodSelectionLessonExampleTest`, `StaticMembersLessonExampleTest`, `AggregationLessonExampleTest`, `CompositionLessonExampleTest` and `DependencyExampleTest`.
+- Twenty lessons are implemented: How to Learn LLD plus Classes and Objects, Constructors, Access Modifiers, Enums, Interfaces, Encapsulation, Abstraction, Inheritance, Polymorphism, Overloading/Overriding, Static/Instance, Association, Aggregation, Composition, Dependency, the 15 Must-Know OOP Concepts capstone, the dedicated Class Diagram and Use Case Diagram lessons, and DRY Principle. Recorded illustrations use `snapshots[].items[]` with named scalar `fields` (JSON null may represent absence); reference labels belong to object/reference views. Keep semantics in canonical Java and verified fixtures. The other 49 topics remain planned. All twenty lessons have source-curated class models in `learning/class-models/`, with selectable typed connectors and complete text alternatives; Phase 2 content/assessment/local visual review is complete. The other three dedicated UML lessons and later integration/release gates remain open. The capstone follows all fifteen individual concepts and its inline review links preserve catalog context. `OopOverviewExampleTest` verifies its canonical Java and five snapshots. The six new lessons are compiled/fixture-checked by `HowToLearnLldExampleTest`, `MethodSelectionLessonExampleTest`, `StaticMembersLessonExampleTest`, `AggregationLessonExampleTest`, `CompositionLessonExampleTest` and `DependencyExampleTest`.
+- Use Case Diagram uses canonical `usecase/` Java and `UseCaseDiagramLessonExampleTest`. `lesson.diagram` is an optional lazy use-case visual with actors/ellipses/subject, separate from `classModel`. Preserve all nodes/boundary when selecting one relationship and retain the complete normal-size transcript. Include points to included behavior, extend to its independent base with a condition/base extension point, and generalization to the general role/case. Subject containment is not ownership; roles are not Java classes or authentication.
+- DRY uses canonical `dry/` sources and `DryLessonExampleTest`: duplicated domain knowledge, preserved behavior during extraction, requirement-change drift, a shared fee rule, separate quote records and an unrelated loyalty counterexample. Its only prerequisite remains Encapsulation. Browser illustration steps are recorded Java results, not JVM execution; actual-route visual/deployment review remains a separate gate.
 - Class Diagram uses canonical `classdiagram/` sources and `ClassDiagramLessonExampleTest`; distinguish standard UML notation from annotated Java, counts from navigation and domain retirement from JVM destruction. LessonClassModel requests viewer heading level 3 beneath h2; existing module h3 contexts retain the viewer h4 default (RCA-127).
 - The curriculum manifest owns reading durations and publication order; `PUBLISHED_LESSONS` places published prerequisites before dependents while catalog grouping stays unchanged. Retain proposed-addition labels for published supplemental topics as well as planned ones. Canonical example filenames may include package directories; show matching save/run paths.
 - Preserve significant whitespace in recorded field values (`pre-wrap`) and readable labels/values on small screens; Java fixture checks alone do not prove visual fidelity (RCA-107).
@@ -2057,8 +2059,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2798 tests, 308 classes
-cd frontend && npx vitest run # 941 tests, 66 files
+cd backend && mvn test        # 2821 tests, 309 classes
+cd frontend && npx vitest run # 952 tests, 67 files
 ```
 
 ### Cross-cutting suites — keep these green
