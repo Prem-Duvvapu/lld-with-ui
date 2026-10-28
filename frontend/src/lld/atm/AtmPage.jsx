@@ -124,7 +124,7 @@ function SimulationTab() {
   const simState = snapshot?.simState || 'IDLE';
 
   return (
-    <div>
+    <div className="atm-simulation">
       <div className="atm-step-indicator">
         {SIM_STEPS.map((s, i) => (
           <div key={s} className={`atm-step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />

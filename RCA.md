@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-125](#rca-125-atm-sandbox-resource-cards-expanded-the-mobile-page) | 2026-10-28 | ATM / Responsive Simulation | Intrinsic grid/flex minimums made account and cassette cards overflow by 149px at 320px | Resolved with scoped shrinkable tracks and wrapped rows |
 | [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
 | [RCA-123](#rca-123-browser-validation-read-assets-while-vite-replaced-the-build-directory) | 2026-10-27 | Validation / Production Assets | Rebuilding Vite during a browser matrix deleted files still being served by its route handler | Resolved by serving an isolated build snapshot |
 | [RCA-122](#rca-122-catalog-bookmarks-could-overwrite-newer-lesson-notes) | 2026-10-27 | Learning / Saved Progress | Metadata writes used stale hook state and could overwrite notes saved by another tab before its storage event arrived | Resolved with latest-read merge and failed-write session retention |
@@ -8737,3 +8738,42 @@ navigate back. Red/green logs and the browser reproduction are in
 Navigation tests must resolve the action's state-changing effects. A stable control
 ID is not stable semantic identity when its destination changes. Keep both the
 last-unreviewed and additional-unreviewed cases in the regression suite.
+
+
+## RCA-125: ATM sandbox resource cards expanded the mobile page
+
+### 1. Overview & Severity
+Medium usability defect. The simulation's account/card and cassette panels made
+the 320px page scroll horizontally, obscuring content on a phone.
+
+### 2. Symptoms & Error Logs
+The strict browser check failed with `149px overflow` at 320px. The resource panel
+measured about 429px wide inside the narrow layout. The earlier label-only check
+proved the same overflow with both Exact and legacy Greedy labels. Evidence is
+in `/home/prem/validation/lld-atm-release/before.log` and the preceding agent
+DOM/screenshot records under `lld-atm-exact-integrated`.
+
+### 3. Root Cause
+The parent grid and nested two-column inventory used intrinsic auto minimums.
+Unwrapped flex rows preserved their children's minimum content width. Stacking
+the outer grid alone did not let the panel shrink below the nested inventory.
+
+### 4. Diagnostic Commands
+`node /home/prem/validation/lld-atm-release/before.cjs` reproduces the failure
+using frozen built assets and actual Java MockMvc responses over stdin. DOM
+bounding boxes identify the resource panels and denomination rows as the source.
+
+### 5. Step-by-Step Resolution
+1. Scope sandbox styling under `atm-simulation` to keep the live terminal isolated.
+2. Use zero-minimum grid tracks at both resource and inventory levels.
+3. Allow account and denomination rows to wrap while retaining every value.
+4. Keep controls at least 44px high and bound their width to the container.
+5. Use theme status tokens for the affected state/blocked labels and readable HUD
+   label sizing. Verify both themes with the real Java-backed browser workflow.
+
+### 6. Preventative Measures
+Mobile layout checks must include seeded/loaded data, not only the empty sandbox.
+A responsive outer grid does not override descendants' intrinsic minimum widths.
+Use scoped shrinkable tracks and wrapped values, and keep overflow assertions
+strict rather than exempting a known failing simulation view. This layout change
+does not certify sandbox state/race fidelity or the full ATM workflow.
