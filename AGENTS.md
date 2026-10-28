@@ -42,7 +42,7 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2744 tests
+cd backend  && mvn test        # latest validated: 2770 tests
 cd frontend && npx vitest run  # latest validated: 883 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
@@ -392,73 +392,21 @@ service. Hardened to the reference bar without changing the dispatch model.
 
 ## ATM Module
 ### Backend
-- Learning data must not invent `Transaction.execute`: the abstract base shares record fields/initialization, while `AtmService` owns execution. ATM does not implement Template Method through that record; use `KvReadTemplate` for the verified example (RCA-103). Its static state-object instances are distinct from Spring bean scope.
-Raised from a partially-real module (real dispenser strategy and exceptions, but a bare `ATMState`
-enum with no transition enforcement, a monolithic `BankingService`, and only one test file) to the
-reference bar — same audit-and-harden shape as pubsub/parkinglot.
-- `AtmInitializer`: seeds sample accounts, card credentials (John Doe = 1234, Jane Smith = 4321,
-  Alice Johnson = 0000), and initial cash dispenser note inventory.
-- **State Pattern (hardened)**: `com.lld.atm.state` — one class per `ATMState`
-  (`IdleSessionState`, `CardInsertedSessionState`, `AuthenticatedSessionState`,
-  `TransactionInProgressSessionState`, `DispensingSessionState`, `SessionEndedSessionState`,
-  `CardBlockedSessionState`), each declaring a `Set<ATMState> allowedNext()` — the same
-  declared-set-of-legal-next-states shape as `taskmanagement.state.TaskState` (a session can fan
-  out, e.g. `AUTHENTICATED` may move to `TRANSACTION_IN_PROGRESS` or straight to `SESSION_ENDED`
-  on eject-without-transacting). `AtmService#transitionTo(ATMState)` is the single enforcement
-  point; every session-mutating method routes through it, and it throws
-  `InvalidSessionStateException` (409) for anything not in `allowedNext()`.
-- **Per-Account Lock (the concurrency centerpiece)**: a fair `ReentrantLock` per `Account`
-  (`accountLock`, `@Getter(AccessLevel.NONE)` + `@JsonIgnore getLock()` so it never leaks into
-  `equals`/`hashCode`/JSON responses — the same hand-rolled-lock-field precedent as
-  `library.model.Member`/`stockbroker.model.Account`), guarding withdraw/deposit end to end so two
-  concurrent withdrawals against the same account can never both succeed past the balance.
-  `AtmConcurrencyTest` proves it: 10 concurrent withdrawals on one account — exactly one succeeds,
-  no overdraw, and the transaction log records exactly one success entry; a separate cassette-level
-  test proves concurrent dispense requests never dispense more notes than the cassette holds.
-- **Strategy + Factory (Denomination Dispensing)**: `DenominationDispenseStrategy` —
-  `GreedyDenominationDispenseStrategy` (`MINIMIZE_NOTES` — fewest notes possible) and
-  `ConserveLargeNotesDispenseStrategy` (`CONSERVE_LARGE_NOTES` — prefers smaller denominations,
-  preserving the cassette's large-note supply for later withdrawals) — resolved by
-  `DenominationDispenseStrategyFactory` via an `EnumMap`, the same shape as
-  `inventory.strategy.ReorderStrategyFactory`. `CashDispenser` never branches on the mode itself.
-- **`BankingRepository` (new)**: replaces the old monolithic `BankingService` — a
-  `ConcurrentHashMap`-backed store for accounts/cards, the single source of truth both the live
-  session flow and the isolated sim sandbox read/write.
-- Exception hierarchy: `AtmException` (abstract) `extends com.lld.config.DomainException` with
-  `AccountNotFoundException`/`CardBlockedException` (404/403), `AuthenticationFailedException`
-  (401 — wired to a real 3-attempt PIN lockout that flips the card to `CardBlockedSessionState`),
-  `InsufficientBalanceException`/`InsufficientCashException` (409), `InvalidSessionStateException`
-  (409, the state machine's own rejection). Never maps to 5xx —
-  `DomainExceptionContractTest`/`GlobalExceptionHandlerTest` enforce it.
-- Isolated `/api/atm/sim/*` engine: a second `BankingRepository` + `CashDispenser` pair, rebuilt on
-  every `simReset()`, driving the same state machine and dispense strategies as the live terminal.
-- Tests (4 classes): `AtmServiceTest` (session lifecycle, PIN lockout, deposit/withdraw, sim
-  isolation), `AtmConcurrencyTest` (the load-bearing suite above), plus dispenser-strategy and
-  repository test classes. `BankingRepository` is exercised directly (not merged into the service
-  test) since it owns real independent behavior (id generation, card/account lookups) beyond a bare
-  id/save/get wrapper.
+- `AtmService` coordinates one live terminal and a separate sandbox repository/cassette pair. `AtmInitializer` seeds the live accounts/cards; sandbox reset reseeds Sim Alice (₹1000) and Sim Bob (₹5000).
+- State objects declare legal live lifecycle transitions through `transitionTo`, but admitted money operations use direct `setState`. Session insertion/authentication/ejection use `sessionLock`; account-locked money movement does not hold it. Concurrent ejection/card replacement and post-operation state overwrites remain open lifecycle gaps (RCA-118); the phase is not an atomic session snapshot.
+- Per-account `ReentrantLock` guards balances and the fair cassette lock guards whole-inventory check/plan/deduction. Lock order is account then cassette. `AtmConcurrencyTest` proves one success for its specifically seeded ten-caller fixture, not for every balance or the serialized sandbox.
+- Denomination Strategy + EnumMap Factory: `MINIMIZE_NOTES` minimizes total note count with a larger-note tie preference; `CONSERVE_LARGE_NOTES` lexicographically minimizes ₹2000, then ₹500, then ₹200 use. Both use `ExactDenominationPlanner`; `GreedyDenominationDispenseStrategy` is a legacy compatibility name, not the current algorithm.
+- The exact planner is specialized to ₹2000/₹500/₹200/₹100. It enumerates at most 800 residue vectors and allocates equal-value ₹2000 bundles in four policy-ordered steps per vector. An independent actual-count oracle checks 22,782 sampled/boundary cases. This is not an arbitrary-denomination guarantee (RCA-120).
+- `CashDispenser#getTotalCashAvailable` returns `long`. Counts are non-negative `int`; restock overflow is rejected before mutation. Planning and deduction share its lock. Live withdrawal compensates `InsufficientCashException`, not every unexpected failure or process crash.
+- Domain errors use `AtmException` → `DomainException` and shared `ErrorResponse`: invalid request/session/insufficient balance 400, wrong PIN 401, blocked card 403, missing account/card 404, insufficient cash 409.
+- Sandbox mutations are synchronized on the service and assign `simState` directly; they do not use the live state-object gate or exercise parallel account-lock competition. Snapshot detachment/atomic reset, final burst reads and sandbox session checks remain follow-ups. Do not claim whole-ATM sign-off.
+- ATM tests cover service/concurrency/repository, request/HTTP boundaries and both strategy objectives. `AtmExactPlanHttpTest` verifies the two stranded-remainder regressions through real MockMvc and checks long totals. `Transaction` is an abstract record hierarchy, not a Template Method executor; `AtmService` performs the workflow (RCA-103/118).
 
 ### Frontend
-- Rebuilt onto the shared `LldPage` shell with a live terminal (PIN entry, cash-slot animation,
-  note-breakdown badges) plus an 8-step interactive simulation tab against the isolated
-  `/api/atm/sim/*` sandbox with a live telemetry HUD, driving the real state machine, dispense
-  strategies and account-lock race instead of a client-only animation.
-- **Simulation step-advance chain, real bug found and fixed (RCA-057, filed as issue #89)**:
-  `SimulationTab` gates every control with strict `step === N` equality, but every action handler
-  (`doInsertCard`, `doAuthenticate`, `doWithdraw`, `doRace`) passed its own trigger step number as
-  the advance hint instead of the next one — `Math.max(N, N)` is a guaranteed no-op, so nothing
-  after "Reset Sandbox" could ever move the walkthrough forward (only `doReset`'s hint happened to
-  differ from its own gate, which is why reset alone appeared to work). Fixed all four hints, and
-  added a "Next: Insert Card →" button on the one step (viewing seeded accounts) that has no
-  backend action of its own to auto-advance off of. Currency figures across the live terminal
-  (receipt, transaction list, note-inventory total, sim cassette HUD) now format with
-  `toLocaleString('en-IN')`, matching account balances.
-- Class diagram (`data/diagrams/atm.js`) was missing this module's headline State pattern entirely
-  — no `SessionState` interface, no `SessionStates` resolver — and half the Strategy pattern (only
-  `GreedyDenominationDispenseStrategy`, no `ConserveLargeNotesDispenseStrategy`/factory/
-  `DispenseMode`). Rewritten against the real backend classes above, mirroring
-  `elevator.js`'s `ElevatorLifecycleState`/`ElevatorLifecycleStates` shape for the identical
-  state-pattern-via-`EnumMap` idiom.
+- Shared `LldPage`: live terminal, isolated eight-step sandbox, class diagram, sequence diagram and design details. Live workspace retains confirmed state/drafts, guards writes and offers explicit recovery; browser cancellation does not roll back server work.
+- Sandbox account/cassette grids use scoped zero-minimum tracks and wrapped values; controls are at least 44px high. The 149px mobile overflow is resolved at 320–1280px in both themes (RCA-125).
+- Sandbox burst labels/counts and final-response selection still need correction; ten parallel browser requests are serialized by the Java sandbox. Existing race claims must not be treated as concurrency evidence. RCA-057 records the earlier walkthrough advancement fix.
+- Design/class/sequence teaching data now maps actual methods, exact dispensing objectives, long totals and explicit session/compensation/snapshot limits. Live per-account race examples are separate from sandbox behavior.
 
 ## LinkedIn Module
 ### Backend
@@ -2108,7 +2056,7 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2744 tests, 303 classes
+cd backend && mvn test        # 2770 tests, 306 classes
 cd frontend && npx vitest run # 883 tests, 61 files
 ```
 
