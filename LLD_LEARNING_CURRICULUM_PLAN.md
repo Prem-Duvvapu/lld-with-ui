@@ -1,11 +1,13 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-28. Status: coverage audit and seventeen
+Saved: 2026-10-17. Updated: 2026-10-28. Status: coverage audit and eighteen
 lessons implemented: How to Learn LLD, all fifteen individual OOP/relationship
-concepts, and their connected overview/capstone with a domain-model exercise.
-All seventeen lessons now include foundational rendered class models. Phase 2
-content, assessment and local visual review are complete; the remaining 52 topic
-deliveries and final integration/release gates are open.
+concepts, their connected overview/capstone and the dedicated Class Diagram lesson.
+All eighteen lessons include source-curated class models. Phase 2 content,
+assessment and local visual review are complete. Phase 3 has begun with one of
+five UML lessons; the remaining 51 topic deliveries and final integration/release
+gates remain open. This implementation status is not a claim of deployment before
+the current lesson's release checks pass.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -185,12 +187,13 @@ for the remaining topics is still open; an audited gap is not a published lesson
   navigation, and progress. Review this vertical slice before scaling content.
 - [x] **Phase 2 — OOP and relationships:** all fifteen individual concepts, the
   connected overview/capstone and domain-model exercise/rubric are delivered.
-  All seventeen published lessons have source-curated rendered class models and
+  All published lessons have source-curated rendered class models and
   complete text alternatives. Combined local assessment/visual verification passes;
   production release evidence is recorded on the class-model PR. The dedicated
   UML lessons and whole-curriculum release remain separate gates.
-- [ ] **Phase 3 — UML and principles:** complete all five diagram types and all
-  requested principles, with connected SOLID picture/code examples.
+- [ ] **Phase 3 — UML and principles:** Class Diagram is implemented; Use Case,
+  Sequence, Activity and State Machine diagrams and all requested principles
+  remain. Complete connected SOLID picture/code examples as part of this phase.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
   comparisons, tradeoffs, verified code, and exercises.
 - [ ] **Phase 5 — Concurrency:** deliver foundations, primitives, challenges,
@@ -417,3 +420,40 @@ assets are frozen under `/home/prem/validation/lld-class-model-release/dist-v2/`
 actual deployment/resource evidence is recorded separately on the release PR.
 Application servers were not started. These checks cover the learning slice,
 not all module workflows, all assistive technologies or hosted backend uptime.
+
+
+## Dedicated Class Diagram lesson — 2026-10-28
+
+The eighteenth lesson extends the OOP foundation into structural notation and
+source reconciliation. Its small library example distinguishes shared shelf
+membership, a required loan/book link and an optional owned receipt. The selected
+views cover six relationship kinds with explicit both-end multiplicities,
+navigation and ownership policies. Five Java-verified recorded steps remain
+separate from the class view; the lesson explains omissions, inherited members,
+visibility, abstract/static conventions and the limits of generic/Java annotations.
+
+The independent workshop exercise/rubric requires a defended model and lifecycle
+constraints, rather than copied boxes. Parking practice checks actual pricing
+interface/method/Ticket declarations and distinguishes an identifier from a direct
+object reference. The canonical six Java files are verified by
+ClassDiagramLessonExampleTest, with20 compiler/behavior/output/snapshot cases.
+The OMG UML2.5.1 normative reference and JLS17 references are linked; further-reading
+copy now covers modeling specifications as well as Java documentation.
+
+Publication/order/coverage/navigation expectations are reconciled to18 published
+and51 planned topics. The capstone links onward to Class Diagram; its next planned
+concept is Use Case Diagram. Notes remain isolated through that sequence. A shared
+heading-context fix closes the h2-to-h4 skip in class models while retaining h4
+under module h3 titles (RCA-127). Full parent checks, eight-context browser review
+and deployment evidence belong to this release. This does not complete Phase 3,
+the entire curriculum, or the separate60-module UX review.
+
+Local integrated release checks pass2798 backend tests (308 suites),941 frontend
+tests (66 files), Maven package with clean exit, lint (14 existing warnings),
+production build and chunk budgets (313607-byte entry /54680-byte largest
+non-entry). The final frozen routed build passes544 browser views across both
+themes and320/390/768/1280px: all18 models, typed pairs, h3 viewer context, native
+fullscreen/focus, all five new recorded states, six canonical Java files/output,
+standards link and failed-model-chunk recovery retaining notes. Results and
+limits are retained under `/home/prem/validation/lld-class-diagram-release/`;
+actual deployment/resource review is recorded on the release PR.

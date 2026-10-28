@@ -1,0 +1,9 @@
+initial: books=0, receipt=null
+shared: same book=true
+preview: Book: UML
+receipt: Book: UML, same receipt=true
+owner matches=true
+after clear: first=0, second=1, loan keeps book=true
+closed=true, receipt active=false
+read rejected: Receipt is retired
+book remains: Book: UML

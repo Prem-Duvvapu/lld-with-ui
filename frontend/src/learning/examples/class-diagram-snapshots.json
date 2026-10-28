@@ -1,0 +1,162 @@
+[
+  {
+    "title": "Empty membership, optional receipt",
+    "explanation": "A new Shelf has no members. A new Loan already needs one Book, but has not issued a receipt.",
+    "items": [
+      {
+        "label": "first",
+        "typeLabel": "Shelf",
+        "fields": [
+          {
+            "name": "book count",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "label": "loan",
+        "typeLabel": "Loan",
+        "fields": [
+          {
+            "name": "book title",
+            "value": "UML"
+          },
+          {
+            "name": "closed",
+            "value": false
+          },
+          {
+            "name": "receipt present",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Shared membership",
+    "explanation": "Adding the same Book twice does not duplicate it within first. Both shelves and the loan refer to the same Book; preview adds no membership.",
+    "items": [
+      {
+        "label": "first and second",
+        "typeLabel": "Shelf comparison",
+        "fields": [
+          {
+            "name": "first book count",
+            "value": 1
+          },
+          {
+            "name": "second book count",
+            "value": 1
+          },
+          {
+            "name": "same book",
+            "value": true
+          },
+          {
+            "name": "preview",
+            "value": "Book: UML"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "One owned receipt",
+    "explanation": "Issuing twice returns the same Receipt. It belongs to this loan, is active and contains the book label.",
+    "items": [
+      {
+        "label": "saved",
+        "typeLabel": "Loan.Receipt",
+        "fields": [
+          {
+            "name": "same receipt on repeated issuance",
+            "value": true
+          },
+          {
+            "name": "owner matches",
+            "value": true
+          },
+          {
+            "name": "active",
+            "value": true
+          },
+          {
+            "name": "text",
+            "value": "Book: UML"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Clearing one shelf",
+    "explanation": "Removing membership from first leaves second and the loan linked to the book. Shelf membership carries no retirement policy.",
+    "items": [
+      {
+        "label": "after clear",
+        "typeLabel": "Membership comparison",
+        "fields": [
+          {
+            "name": "first book count",
+            "value": 0
+          },
+          {
+            "name": "second book count",
+            "value": 1
+          },
+          {
+            "name": "loan keeps book",
+            "value": true
+          },
+          {
+            "name": "book label",
+            "value": "Book: UML"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Domain retirement",
+    "explanation": "Closing the loan retires its receipt. The saved receipt remains reachable and its owner is unchanged, but read now fails. The book stays usable.",
+    "items": [
+      {
+        "label": "loan",
+        "typeLabel": "Loan",
+        "fields": [
+          {
+            "name": "closed",
+            "value": true
+          },
+          {
+            "name": "receipt still stored",
+            "value": true
+          },
+          {
+            "name": "book label",
+            "value": "Book: UML"
+          }
+        ]
+      },
+      {
+        "label": "saved",
+        "typeLabel": "Loan.Receipt",
+        "fields": [
+          {
+            "name": "active",
+            "value": false
+          },
+          {
+            "name": "owner matches",
+            "value": true
+          },
+          {
+            "name": "read rejection",
+            "value": "Receipt is retired"
+          }
+        ]
+      }
+    ]
+  }
+]

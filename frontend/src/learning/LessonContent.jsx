@@ -163,7 +163,7 @@ export default function LessonContent({ lesson, metadata }) {
       </section>
       <section aria-labelledby="references-title">
         <h2 id="references-title">Further reading</h2>
-        <p className="learn-muted">Official Java documentation. Tutorial pages may use Java 8-era examples; this lesson’s own example is checked with Java 17.</p>
+        <p className="learn-muted">Documentation and specifications. Java tutorial pages may use Java 8-era examples; this lesson’s own example is checked with Java 17.</p>
         <ul>{lesson.references.map(reference => <li key={reference.url}><a href={reference.url} target="_blank" rel="noopener noreferrer">{reference.title}</a></li>)}</ul>
       </section>
     </article>

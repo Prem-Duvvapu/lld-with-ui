@@ -2,11 +2,11 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are seventeen published lessons
-and 52 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. There are eighteen published lessons
+and 51 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
-All seventeen published lessons also include source-curated class models with
+All eighteen published lessons also include source-curated class models with
 selectable typed connectors and complete text alternatives. This foundational
 view does not publish the dedicated UML lessons below.
 
@@ -117,7 +117,7 @@ payment provider or asynchronous processing that the Java module does not implem
 
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
-| `class-diagram` — Class Diagram | Read responsibilities, visibility, relationships and multiplicity while checking members against Java. | `association`, `inheritance` | [E22](#e22): existing Parking class data/renderer; [E02](#e02), [E13](#e13): real classes and operations. | Reconcile one diagram edge and each displayed method with its source; explain what the diagram leaves out. | G: notation lesson, multiplicity/ownership examples and explained diagram exercise. |
+| `class-diagram` — Class Diagram | Read viewpoint, compartments, visibility, six relationships, both endpoint counts and navigation, checking claims against Java. | `association`, `inheritance`, `interfaces`, `aggregation`, `composition`, `dependency` | [E35](#e35): canonical library types, shared shelves, required loan/book links and an optional owned receipt; [E02](#e02): source reconciliation for Parking pricing/Ticket. | Model workshop registrations and owned confirmations; justify multiplicity, lifecycle, omissions and a source-checked Parking edge. | Delivered: `/learn/class-diagram`, canonical Java/output and five verified snapshots, six selected relationship pairs with complete text alternatives, prediction and independent exercise/rubric. |
 | `use-case-diagram` — Use Case Diagram | Identify actors, goals and the system boundary without confusing them with internal classes. | `how-to-learn-lld` | [E22](#e22): Parking requirements are source material; no dedicated use-case learning view was mapped. | Draw attendant/driver goals around the ticket workflow and justify included/excluded external actors. | G: actual use-case visual, textual alternative and boundary critique. |
 | `sequence-diagram` — Sequence Diagram | Trace ordered calls, returns, alternate failures and concurrency without inventing timing guarantees. | `dependency`, `class-diagram` | [E22](#e22): Parking's concurrent exit flow; [E13](#e13): completeExit lock and already-exited guard. | Annotate two competing exits and explain why the loser observes committed ticket state. | G: general sequence-notation lesson, alternate paths and an authoring exercise. |
 | `activity-diagram` — Activity Diagram | Model decisions and completion, using parallel branches only when the modeled workflow justifies them. | `how-to-learn-lld` | [E22](#e22), [E13](#e13): existing workflow/code can ground the diagram; no dedicated activity learning view was mapped. | Draw entry/scan/pay decisions and rejection paths without treating a lock-protected payment as parallel work. | G: activity visual, fork/join explanation with a labelled contrasting example and self-check. |
@@ -724,6 +724,26 @@ preserves state. Review remains a self-check, not automatic model grading.
   UML views, a justified refactoring, a pattern-free design choice, a concurrency
   invariant proof and an independent interview answer with a self-check rubric.
 
+<a id="e35"></a>
+### E35 — Dedicated class diagram notation and source reconciliation
+
+The six displayed files under `frontend/src/learning/examples/classdiagram/`
+model Resource/Book, Labelled, Shelf, Loan and Loan.Receipt. Inheritance and
+realization are declared by Java. Shelf membership permits a shared Book without
+owning its lifecycle; a Loan retains exactly one Book and may create one
+fixed-owner Receipt that is retired on close. The latter count includes a retained
+retired receipt. Constructor/mutation paths establish the stated counts and
+navigation, not a List declaration or one recorded snapshot. The model deliberately
+has no lending registry or exclusive-checkout policy.
+
+`ClassDiagramLessonExampleTest` compiles those exact sources with Java17, checks
+output and every scalar in five snapshots, seven negative compiler probes with
+positive controls, contract/lifecycle boundaries and the linked Parking declarations.
+The lesson distinguishes standard UML notation from the viewer's explicit Java
+modifier/generic annotations. Its exercise/rubric asks learners to defend a
+changed workshop domain rather than copy box shapes. This delivery does not
+publish Use Case, Sequence, Activity or State Machine lessons.
+
 ## Authoritative semantic references
 
 These references constrain future teaching; they are not evidence that its lesson
@@ -748,5 +768,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 52 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 51 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.

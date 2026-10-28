@@ -104,7 +104,7 @@ export default function LessonClassModel({ model }) {
     <div className="lesson-class-model-selection" aria-live="polite">
       {selected ? <Relationship relationship={selected} /> : <p>Showing all {model.classes.length} types. {model.relationships.length ? 'Choose a relationship to inspect its connector.' : model.noRelationships}</p>}
     </div>
-    <DiagramViewer title={model.title} width={720} legend={legend} transcript={transcript}>
+    <DiagramViewer title={model.title} headingLevel={3} width={720} legend={legend} transcript={transcript}>
       <div className="lesson-class-model-canvas" aria-hidden="true">
         {selected && <p>Selected relationship: {selected.kind}. From: {selected.from}. To: {selected.to}. Other types are omitted from this pair view.</p>}
         <div className={`lesson-class-model-types${selected ? ' lesson-class-model-pair' : ''}`}>

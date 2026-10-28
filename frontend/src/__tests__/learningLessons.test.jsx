@@ -24,6 +24,7 @@ import overloadLesson from '../learning/lessons/overloading-and-overriding';
 import staticLesson from '../learning/lessons/static-and-instance';
 import guideLesson from '../learning/lessons/how-to-learn-lld';
 import capstoneLesson from '../learning/lessons/oop-overview';
+import classDiagramLesson from '../learning/lessons/class-diagram';
 
 vi.mock('../learning/lessonLoader', () => ({ loadLesson: vi.fn() }));
 
@@ -48,14 +49,14 @@ beforeEach(() => {
     polymorphism: polymorphismLesson, association: associationLesson,
     aggregation: aggregationLesson, composition: compositionLesson, dependency: dependencyLesson,
     'overloading-and-overriding': overloadLesson, 'static-and-instance': staticLesson,
-    'how-to-learn-lld': guideLesson, 'oop-overview': capstoneLesson,
+    'how-to-learn-lld': guideLesson, 'oop-overview': capstoneLesson, 'class-diagram': classDiagramLesson,
   }[id]));
 });
 
 describe('Published curriculum learning journey', () => {
   it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
     renderLearning();
-    expect(screen.getByRole('button', { name: 'Available lessons (17)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Available lessons (18)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('link', { name: 'Classes and Objects', exact: true })).toHaveAttribute('href', '/learn/classes-and-objects');
     expect(screen.getByRole('link', { name: 'Enums', exact: true })).toHaveAttribute('href', '/learn/enums');
     expect(screen.getByRole('link', { name: 'Interfaces', exact: true })).toHaveAttribute('href', '/learn/interfaces');
@@ -273,7 +274,14 @@ describe('Published curriculum learning journey', () => {
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
     expect(within(screen.getByRole('navigation', { name: 'Prerequisite lessons' })).getAllByRole('link')).toHaveLength(15);
     fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Capstone notes' } });
-    expect(screen.getByText('Next planned concept: DRY Principle. It is not published yet.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Next: Class Diagram →' })).toHaveAttribute('href', '/learn/class-diagram');
+    fireEvent.click(screen.getByRole('link', { name: 'Next: Class Diagram →' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Class Diagram', level: 1 })).toHaveFocus());
+    expect(screen.getByText('Next planned concept: Use Case Diagram. It is not published yet.')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'Class Diagram notes' } });
+    fireEvent.click(screen.getByRole('link', { name: '← 15 Must-Know OOP Concepts' }));
+    await screen.findByRole('heading', { name: '15 Must-Know OOP Concepts', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Capstone notes');
     fireEvent.click(screen.getByRole('link', { name: '← Dependency' }));
     await screen.findByRole('heading', { name: 'Dependency', level: 1 });
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('Dependency notes');
@@ -291,7 +299,7 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
-    expect(screen.getByText(/1 of 17 available lessons marked reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 18 available lessons marked reviewed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
     expect(screen.getByRole('status')).toHaveTextContent('1 available lessons');
     fireEvent.click(screen.getByRole('link', { name: 'Continue learning →' }));
