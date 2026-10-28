@@ -6,6 +6,23 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- Dedicated Class Diagram lesson: eighteen implemented lessons and51 planned
+  topics. The new lesson covers structural viewpoint, six typed relationships,
+  both-end multiplicities/navigation, source evidence and an independent modeling
+  exercise/rubric. Six canonical Java files and five recorded states have20
+  dedicated compiler/behavior/output/fixture checks. Source-backed Parking practice
+  and OMG/JLS references state their limits. Class-model viewer headings now use
+  context-appropriate h3 below h2, preserving module h4 defaults (RCA-127).
+  Publication/coverage/search/review/navigation checks are reconciled, including
+  capstone→Class Diagram→planned Use Case and isolated notes on return. Full local
+  checks pass2798 backend tests (308 suites),941 frontend tests (66 files), package,
+  lint/build and budgets (313607 B entry /54680 B largest non-entry). The frozen
+  routed app passes544 browser views/eight contexts covering all18 models and
+  the new Java/output/states. Evidence: `/home/prem/validation/lld-class-diagram-release/`;
+  CI/deployment/resource evidence is recorded on this batch's PR. Phase3 and the
+  whole-project/module review remain open.
+
+
 - ATM sandbox state and request-burst recovery: reads now capture detached
   accounts/cards/events/details under the mutation monitor; reset and response
   capture are atomic. Authentication requires the inserted card, withdrawals
@@ -23,14 +40,6 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   verification/release artifacts are in `/home/prem/validation/lld-atm-sandbox-state/`
   and the release PR. Live session coordination, idempotency and whole-module
   hosted integration remain open.
-
-- Prepared next curriculum work (not yet published): Class Diagram lesson commit
-  `07c7003` on `feat/lesson-class-diagram` has20 dedicated Java cases,39 focused
-  frontend cases and four frozen browser contexts. Parent publication/coverage/
-  navigation reconciliation and full integration checks remain. Shared viewer
-  heading fix `37700e5` on `fix/diagram-viewer-heading` has77 scoped checks and
-  36 model/theme heading-order cases; it is also unmerged. Current publication
-  remains17 lessons/52 planned topics until that separate release is verified.
 
 
 - ATM exact dispensing and responsive sandbox: both policies now find feasible
@@ -471,7 +480,7 @@ deployed lesson delivery, not all curriculum or module behavior.
 
 Phase 0 is complete in `LLD_CURRICULUM_COVERAGE.md`: every canonical topic has a
 learning outcome, recommended prerequisites, source evidence or an explicit mapping
-gap, a concrete exercise and missing-delivery criteria. Twenty-four inspected
+gap, a concrete exercise and missing-delivery criteria. Inspected
 evidence groups record runtime call paths and tests as well as reuse limits. The
 manifest now contains the same cycle-checked topic-specific prerequisite graph.
 

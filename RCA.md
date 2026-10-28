@@ -9,6 +9,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
 | [RCA-128](#rca-128-live-atm-transition-focus-could-overwrite-a-newer-focus-choice) | 2026-10-28 | ATM / CI Validation | Deferred focus overwrote a newer control choice; form presence was not readiness | Pre-paint focus handoff plus strict readiness/focus regression |
+| [RCA-127](#rca-127-class-model-viewer-skipped-a-heading-level) | 2026-10-28 | Learning / Accessibility | A fixed viewer h4 followed a class-model h2 | Contextual native heading level; module h4 default retained |
 | [RCA-126](#rca-126-atm-sandbox-snapshots-and-request-burst-reported-stale-results) | 2026-10-28 | ATM / Sandbox State | Mutable unlocked snapshots and first-response selection hid final state; HTTP success was counted as approval | Coherent detached reads, selected-session checks and explicit UI recovery implemented |
 | [RCA-125](#rca-125-atm-sandbox-resource-cards-expanded-the-mobile-page) | 2026-10-28 | ATM / Responsive Simulation | Intrinsic grid/flex minimums made account and cassette cards overflow by 149px at 320px | Resolved with scoped shrinkable tracks and wrapped rows |
 | [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
@@ -8891,3 +8892,46 @@ cannot overwrite a later ready-control choice, and test intermediate disabled
 states separately. Use synchronous pre-paint effects only for the small visual
 focus step, not request orchestration or expensive work. Passing a rerun does not
 prove that an intermittent focus failure was fixed.
+
+
+## RCA-127: Class model viewer skipped a heading level
+
+### 1. Overview & Severity
+Medium accessibility defect. Each learning class-model section used h2 followed
+by the shared viewer's fixed h4, skipping h3 in the structural outline. This was
+reported as moderate heading-order by axe during the Class Diagram lesson review.
+
+### 2. Symptoms & Error Logs
+The prepared lesson's four browser contexts reported the viewer title at h4 after
+its h2 section title. The same component served all published learning models.
+The original review is retained under
+`/home/prem/validation/lld-class-diagram-sidecar/`; heading-specific verification
+belongs to `diagramViewerHeadings.test.jsx` and the viewer-heading sidecar.
+
+### 3. Root Cause
+DiagramViewer assumed its caller had an h3 title, as the module ClassDiagram and
+SequenceDiagram do. LessonClassModel has an h2 section title, so that fixed level
+was inappropriate when the shared viewer was reused there.
+
+### 4. Diagnostic Commands
+`rg -n 'DiagramViewer|<h3' frontend/src/components/ClassDiagram.jsx frontend/src/components/SequenceDiagram.jsx`
+confirms existing module contexts. `npx vitest run src/__tests__/diagramViewerHeadings.test.jsx`
+checks native heading levels, invalid-input fallback and fullscreen accessible names.
+The frozen browser sidecar covers36 model/theme cases, including the prepared
+lesson, with no heading-order violations inline or in native fullscreen.
+
+### 5. Step-by-Step Resolution
+1. Add a validated headingLevel input to DiagramViewer, retaining h4 by default
+   for existing module h3 contexts.
+2. Set headingLevel3 in LessonClassModel beneath its h2 section title.
+3. Keep the same native heading, ID/accessible-name relationship, appearance and
+   fullscreen/zoom/focus controls; do not hide meaningful titles to silence axe.
+4. Verify shared module defaults, class-model context, invalid-level fallback,
+   native modal, Escape and focus return. Broader release checks are recorded
+   on the Class Diagram lesson PR; sidecar tests alone are not full integration.
+
+### 6. Preventative Measures
+Shared components need explicit semantic context when callers have different
+heading hierarchies. Check rendered native headings and modal accessible names,
+not just screenshots or label text. A heading-order check is a scoped automated
+check, not a complete assistive-technology or whole-site accessibility audit.

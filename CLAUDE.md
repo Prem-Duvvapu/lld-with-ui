@@ -16,7 +16,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # latest validated: 2778 tests, 307 classes
+mvn test                                  # latest validated: 2798 tests, 308 classes
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 902 tests, 64 files
+npx vitest run                            # latest validated: 941 tests, 66 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -52,7 +52,7 @@ enforces — if the UI needs a decision, it calls an endpoint.
 ### Backend layout
 
 `backend/src/main/java/com/lld/{module}/` with `controller / service / model / repository /
-strategy / exception / config` sub-packages. `LldApplication` boots all 52 module packages at once
+strategy / exception / config` sub-packages. `LldApplication` boots all module packages at once
 (`concurrency` nests nine primitive sub-packages of its own: `blockingqueue`, `bloomfilter`,
 `concurrenthashmap`, `fizzbuzz`, `foobar`, `h2o`, `mergesort`, `ttlcache`, `zeroevenodd` — 51
 standalone modules + those 9 concurrency primitives = the 60 LLD problems the frontend exposes as
@@ -118,12 +118,12 @@ manifest; an audit row is not a published lesson. The coverage test also guards
 the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 
 `/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
-manifest in `src/learning/curriculum.js`. Seventeen lessons are published: How to
+manifest in `src/learning/curriculum.js`. Eighteen lessons are implemented: How to
 Learn LLD plus all fifteen OOP/relationship concepts (including the four proposed
-supplemental fundamentals), followed by their connected OOP capstone. The
-remaining 52 topics are planned. All seventeen lessons have source-curated class
+supplemental fundamentals), followed by their connected OOP capstone and the dedicated Class Diagram lesson. The
+remaining 51 topics are planned. All eighteen lessons have source-curated class
 models with selectable typed connectors and complete text alternatives; Phase 2
-content/assessment/local visual review is complete. Dedicated UML lessons and
+content/assessment/local visual review is complete. The other four dedicated UML lessons and
 later integration/release gates remain open. `OopOverviewExampleTest` compiles the
 capstone sources and verifies its five snapshots/output and compiler boundaries. Planned
 topics must not be presented as delivered content. Lesson data stays separate from
