@@ -24,7 +24,7 @@ mvn package                               # -> target/lld-all-0.0.1-SNAPSHOT.jar
 mvn -o -q compile                         # fast syntax check, no tests
 
 # Frontend (Node 20 / Vite, run from frontend/)
-npx vitest run                            # latest validated: 849 tests, 58 files
+npx vitest run                            # latest validated: 883 tests, 61 files
 npx vitest run src/__tests__/routing.test.js          # one file
 npx vitest run -t "<substring of test name>"           # one test by name
 npm run build                             # entry chunk must stay under 500 kB (CI gates this)
@@ -121,8 +121,10 @@ the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 manifest in `src/learning/curriculum.js`. Seventeen lessons are published: How to
 Learn LLD plus all fifteen OOP/relationship concepts (including the four proposed
 supplemental fundamentals), followed by their connected OOP capstone. The
-remaining 52 topics are planned. Phase 2 still needs foundational rendered class
-diagrams and final assessment/visual review. `OopOverviewExampleTest` compiles the
+remaining 52 topics are planned. All seventeen lessons have source-curated class
+models with selectable typed connectors and complete text alternatives; Phase 2
+content/assessment/local visual review is complete. Dedicated UML lessons and
+later integration/release gates remain open. `OopOverviewExampleTest` compiles the
 capstone sources and verifies its five snapshots/output and compiler boundaries. Planned
 topics must not be presented as delivered content. Lesson data stays separate from
 module design data. Its displayed `.java` files live under `src/learning/examples/`

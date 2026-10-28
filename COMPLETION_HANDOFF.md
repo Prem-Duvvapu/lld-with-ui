@@ -6,6 +6,20 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- Foundational class models: all seventeen published lessons have canonical-source
+  compartments, selected relationship connectors, explicit ownership/navigation
+  constraints and complete text alternatives. The capstone is integrated and the
+  all-published model guard prevents partial publication. Phase 2 content,
+  assessment and local visual review are complete; 52 topics and later curriculum
+  integration remain open. Full checks pass 2744 backend tests (303 suites), 883
+  frontend tests (61 files), package/lint/build and both chunk budgets
+  (313607-byte entry / 54680-byte largest non-entry). The frozen routed build
+  passes 424 browser views in eight theme/viewport contexts, including modal
+  marker IDs, keyboard exit/focus and failed-chunk recovery with notes retained.
+  Evidence: `/home/prem/validation/lld-class-model-release/`; deployment evidence
+  is recorded on this batch's PR. This does not certify all module workflows.
+
+
 - Connected OOP capstone: seventeen published lessons and 52 planned topics.
   The synthesis follows all fifteen individual concept lessons, links each review,
   and supplies five Java-verified object states, prediction feedback and an
@@ -13,12 +27,12 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   includes both orientation and advanced synthesis. Completed visits preserve
   catalog focus when a Next suggestion becomes Continue (RCA-124); four actual-
   visit regressions fail before and pass after the correction.
-  Current full checks pass 2744 backend tests (303 suites), 849 frontend tests
+  That batch passed 2744 backend tests (303 suites), 849 frontend tests
   (58 files), Maven package, lint (14 existing warnings), production build and both
   chunk budgets. The frozen-build browser matrix passes 136 checks across eight
   theme/viewport contexts. Browser/release evidence is recorded with this batch's PR and
   `/home/prem/validation/lld-oop-capstone/`. Foundational rendered class diagrams
-  and final Phase 2 assessment/visual review remain open.
+  and final Phase 2 assessment/visual review were still open for that batch.
 
 - Foundation curriculum integration: sixteen published lessons (How to Learn LLD
   and fifteen individual OOP/relationship concepts), 53 planned topics. Six added

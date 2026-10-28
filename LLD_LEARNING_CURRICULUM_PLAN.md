@@ -1,10 +1,11 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-27. Status: coverage audit and seventeen
+Saved: 2026-10-17. Updated: 2026-10-28. Status: coverage audit and seventeen
 lessons implemented: How to Learn LLD, all fifteen individual OOP/relationship
 concepts, and their connected overview/capstone with a domain-model exercise.
-The remaining 52 topic deliveries and final integration are open. Phase 2 still
-needs its foundational rendered class diagrams and final assessment/visual review.
+All seventeen lessons now include foundational rendered class models. Phase 2
+content, assessment and local visual review are complete; the remaining 52 topic
+deliveries and final integration/release gates are open.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -182,10 +183,12 @@ for the remaining topics is still open; an audited gap is not a published lesson
 - [x] **Phase 1 — Reference lesson:** deliver Classes and Objects end-to-end,
   including the shared renderer, accessible visuals, tested code, exercise,
   navigation, and progress. Review this vertical slice before scaling content.
-- [ ] **Phase 2 — OOP and relationships:** all fifteen individual concepts delivered;
-  the connected overview/capstone and domain-model exercise/rubric are delivered.
-  Foundational rendered class diagrams and final assessment/visual verification
-  remain open. Individual publication does not close this phase.
+- [x] **Phase 2 — OOP and relationships:** all fifteen individual concepts, the
+  connected overview/capstone and domain-model exercise/rubric are delivered.
+  All seventeen published lessons have source-curated rendered class models and
+  complete text alternatives. Combined local assessment/visual verification passes;
+  production release evidence is recorded on the class-model PR. The dedicated
+  UML lessons and whole-curriculum release remain separate gates.
 - [ ] **Phase 3 — UML and principles:** complete all five diagram types and all
   requested principles, with connected SOLID picture/code examples.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
@@ -382,3 +385,35 @@ The capstone frozen-build matrix passes 136 browser checks across both themes an
 actual-visit hero promotion, inline/prerequisite return context, notes/bookmarks,
 review denominators, failed content import and explicit reload. These scoped
 checks do not claim all existing module workflows or the later class-model UI.
+
+
+## Foundational class models and Phase 2 review — 2026-10-28
+
+All seventeen published lessons now include selected class/interface/enum
+compartments sourced from their displayed canonical Java. A native selector
+keeps the complete overview or shows one curated relationship pair. Connectors
+distinguish generalization, realization, dependency, association, shared
+aggregation and composition; navigation, multiplicities and domain constraints
+remain explicit text. No ownership or arrowheads are inferred from object
+references. The complete text explanation stays readable outside the scaled
+canvas and retains every listed declaration when a pair is selected.
+
+The capstone's model is attached to its published lesson, and a manifest guard
+requires a model for every published lesson. Assessment review confirms that the
+independent per-plan review exercise asks for invariants, owner checks, idempotent
+updates, rejected-operation state, multiplicities and an alternative design.
+Review marks still represent personal self-checks, not mastery. This closes the
+Phase 2 content/assessment/local visual gate; it does not publish the five
+dedicated UML lessons or any of the remaining 52 topics.
+
+Validation: 2744 backend tests (303 suites), 883 frontend tests (61 files), Maven
+package, lint (14 existing warnings), production build and both chunk budgets
+(313607-byte entry; 54680-byte largest non-entry). The final routed production
+build passes 424 browser views across light/dark and 320/390/768/1280px, including
+all seventeen models and relationship pairs, complete text alternatives,
+zoom/fullscreen, unique inline/modal marker IDs, Escape focus restoration, no
+page overflow and missing-model-chunk reload without losing notes. Browser
+assets are frozen under `/home/prem/validation/lld-class-model-release/dist-v2/`;
+actual deployment/resource evidence is recorded separately on the release PR.
+Application servers were not started. These checks cover the learning slice,
+not all module workflows, all assistive technologies or hosted backend uptime.
