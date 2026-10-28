@@ -306,3 +306,26 @@ Separate releases have since expanded publication to18 lessons/51 planned topics
 including the dedicated Class Diagram lesson (#186). The original catalog
 redesign remains independent of those content deliveries. The full curriculum
 and60-module UX review retain their own completion gates.
+
+## Curriculum release follow-up — 2026-10-28
+
+The catalog's metadata-driven views now expose 20 published lessons and 49
+planned topics after the DRY and Use Case Diagram delivery. The original landing
+page redesign remains closed. The new optional use-case visual adds relationship
+selection, a complete text alternative, zoom/fit/native fullscreen and keyboard
+focus return; its diagram is separate from the Java companion class model.
+
+[PR #188](https://github.com/Prem-Duvvapu/lld-with-ui/pull/188) merged as
+`3908178` after all seven checks passed. Vercel production deployment
+`7395365515` and backend deployment `7395360552` reported success. A real-network
+review of the public site passed **392 scenario views across four light/dark ×
+390/1440 contexts**: all 20 class models, the primary use-case view and selected
+relationships/controls, both new Java/output/recorded examples, notes/review
+persistence and filtered catalog return/focus. The 968 requested asset responses
+have successful status and verified JavaScript/CSS MIME types; a 304 is accepted
+only with a previous same-URL 200 response. No response interception, page-level
+overflow or application exceptions occurred. Evidence is in
+`/home/prem/validation/lld-use-case-dry-release/deployed-results.json` and
+`deployed.log`. These checks close the two lesson releases; they do not complete
+the 49 remaining topics, Phase 3 or the separate 60-module audit, and do not
+claim a full hosted module-backend integration review.
