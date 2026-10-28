@@ -1,7 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import './DiagramViewer.css';
 
-export default function DiagramViewer({ title, width, children, legend, transcript, onLayout }) {
+// Choose the next heading level in the surrounding section; module diagrams use h3 parents.
+export default function DiagramViewer({ title, headingLevel = 4, width, children, legend, transcript, onLayout }) {
   const [scale, setScale] = useState(1);
   const [height, setHeight] = useState(600);
   const [expanded, setExpanded] = useState(false);
@@ -12,6 +13,7 @@ export default function DiagramViewer({ title, width, children, legend, transcri
   const wasExpanded = useRef(false);
   const titleId = useId();
   const Root = expanded ? 'dialog' : 'section';
+  const Heading = `h${Number.isInteger(headingLevel) && headingLevel >= 1 && headingLevel <= 6 ? headingLevel : 4}`;
 
   useEffect(() => {
     if (!expanded) {
@@ -52,7 +54,7 @@ export default function DiagramViewer({ title, width, children, legend, transcri
     <Root ref={rootRef} className={`diagram-viewer${expanded ? ' diagram-viewer-expanded' : ''}`} aria-labelledby={titleId}
       {...(expanded ? { onCancel: () => setExpanded(false), onClose: () => setExpanded(false) } : {})}>
       <div className="diagram-viewer-toolbar">
-        <h4 id={titleId}>{title} viewer</h4>
+        <Heading id={titleId} style={{ margin: 0, fontSize: 14, overflowWrap: 'anywhere' }}>{title} viewer</Heading>
         <div className="diagram-viewer-actions" role="group" aria-label="Diagram viewing controls">
           <button type="button" onClick={() => resize(scale - 0.1)} disabled={scale <= 0.1} aria-label="Zoom out">−</button>
           <output aria-live="polite" aria-label="Zoom level">{Math.round(scale * 100)}%</output>
