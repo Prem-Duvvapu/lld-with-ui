@@ -8,6 +8,8 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-128](#rca-128-live-atm-transition-focus-could-overwrite-a-newer-focus-choice) | 2026-10-28 | ATM / CI Validation | Deferred focus overwrote a newer control choice; form presence was not readiness | Pre-paint focus handoff plus strict readiness/focus regression |
+| [RCA-126](#rca-126-atm-sandbox-snapshots-and-request-burst-reported-stale-results) | 2026-10-28 | ATM / Sandbox State | Mutable unlocked snapshots and first-response selection hid final state; HTTP success was counted as approval | Coherent detached reads, selected-session checks and explicit UI recovery implemented |
 | [RCA-125](#rca-125-atm-sandbox-resource-cards-expanded-the-mobile-page) | 2026-10-28 | ATM / Responsive Simulation | Intrinsic grid/flex minimums made account and cassette cards overflow by 149px at 320px | Resolved with scoped shrinkable tracks and wrapped rows |
 | [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
 | [RCA-123](#rca-123-browser-validation-read-assets-while-vite-replaced-the-build-directory) | 2026-10-27 | Validation / Production Assets | Rebuilding Vite during a browser matrix deleted files still being served by its route handler | Resolved by serving an isolated build snapshot |
@@ -8777,3 +8779,115 @@ A responsive outer grid does not override descendants' intrinsic minimum widths.
 Use scoped shrinkable tracks and wrapped values, and keep overflow assertions
 strict rather than exempting a known failing simulation view. This layout change
 does not certify sandbox state/race fidelity or the full ATM workflow.
+
+
+## RCA-126: ATM sandbox snapshots and request burst reported stale results
+
+### 1. Overview & Severity
+High teaching/correctness defect in the isolated sandbox. It exposed mutable
+state without a common capture boundary, and the request burst reported an early
+balance and approval count unrelated to actual withdrawals. The live bank state
+is separate; this entry does not certify or repair its broader session lifecycle.
+
+### 2. Symptoms & Error Logs
+A real Java-backed browser reproduction selects Sim Bob, withdraws ₹300, then
+sends ten ₹600 requests. Java finishes at ₹500 with seven burst approvals, while
+the UI displays ₹4100 and10/10 winners. Artifacts are in
+`/home/prem/validation/lld-atm-release/before-burst.json` and its screenshot/log.
+Snapshots returned the actual Account/Card/SimEvent instances and event log.
+Reset initialization and response capture were separate controller calls.
+
+### 3. Root Cause
+Sandbox mutations used the service monitor, while reads did not. A copied outer
+map still referenced mutable domain objects, so later mutations could change an
+already-returned response. The frontend selected the first fulfilled request,
+counted HTTP200 as a successful withdrawal even when events described failure,
+and called the serialized sandbox a10-thread account-lock race. Sandbox card
+selection/authentication also lacked inserted-card and selected-account checks.
+
+### 4. Diagnostic Commands
+`node /home/prem/validation/lld-atm-release/before-burst.cjs` reproduces the old
+balance/count using frozen built assets and actual MockMvc over stdin.
+`mvn -Dtest=AtmSandboxSnapshotTest,AtmRequestValidationTest test` verifies detached
+responses, monitor-blocked capture, seven Bob approvals, session selection and
+HTTP state/reset contracts. Focused UI/API tests cover all-settled refresh,
+reordered responses, failed final reads, duplicate guards and departure aborts.
+
+### 5. Step-by-Step Resolution
+1. Capture accounts, cards, inventory and copied events/details under the same
+   monitor as mutations; reset and capture now share one service operation.
+2. Provide GET `/api/atm/sim/state`, retaining the legacy snapshots route.
+3. Enforce inserted-card authentication and selected-account withdrawal. Include
+   each withdrawal's explicit outcome in its detached response.
+4. Wait for all burst responses, count explicit approvals and then read final
+   state. Describe this as a client request burst processed serially by Java.
+5. Retain the last confirmed snapshot/drafts on an unavailable or malformed read.
+   Require an explicit read-only Retry before another mutation; never replay a
+   cash operation automatically. Surface unknown response outcomes separately.
+6. Guard synchronously, disable pending/conflicting controls, abort on departure
+   and ignore late responses. Use labelled keyboard forms and focus the next
+   workflow control or recovery action. Browser cancellation cannot roll back
+   work already completed by Java.
+
+### 6. Preventative Measures
+Do not equate HTTP success with a domain outcome, input/arrival order with final
+state, or parallel clients with competing JVM workers. Verify both seeded account
+balances, including multiple approvals, and prevent partial state exposure during
+serialization. Keep detached historical responses and explicit failed-read
+recovery in regression coverage. Full module and hosted integration review remain
+separate gates; this sandbox does not introduce idempotency or a durable ledger.
+
+
+## RCA-128: Live ATM transition focus could overwrite a newer focus choice
+
+### 1. Overview & Severity
+Medium usability and validation defect. Deferred transition focus could overwrite
+a newer focus choice on an already-rendered live terminal. CI exposed both an
+insertion-readiness assertion race and the late authentication focus race.
+
+### 2. Symptoms & Error Logs
+Run40740293696 expected PIN focus at `atmLiveWorkspace.test.jsx:77` while body
+was active. After the helper awaited a ready PIN input, run40741353890 exposed
+another failure: Retry balance was expected to retain focus, but the amount input
+was active. The original logs are retained as `ci-failed.log` and
+`ci-focus-attempt-failed.log` under the sandbox-state validation directory.
+A controlled regression reproduces the latter exactly: another consumer focuses
+the ready balance control after the DOM commit, then deferred terminal focus
+moves back to the amount input (`live-focus-order-red.log`).
+
+### 3. Root Cause
+The terminal applied transition focus in a passive effect, after DOM visibility
+and interactivity. A newer focus choice could happen first and then be overwritten
+by that late transition effect. The original test also treated heading presence
+as PIN readiness. Waiting for the PIN assertion alone did not resolve the later
+focus overwrite; the second CI failure and deterministic regression distinguish
+the runtime race from an assertion-only timing issue.
+
+### 4. Diagnostic Commands
+`gh run view 40740293696 --log-failed` and
+`gh run view 40741353890 --log-failed` capture both original failures.
+`npx vitest run src/__tests__/atmLiveFocus.test.jsx` fails before the phase change
+with expected Refresh Balance focus and actual amount focus; it passes afterward.
+The Java-backed `browser-ci-focus.cjs` checks actual live PIN/amount readiness and
+the full sandbox workflow across eight theme/viewport contexts.
+
+### 5. Step-by-Step Resolution
+1. Preserve both CI failures and add the controlled focus-order regression before
+   changing runtime code. Do not remove focus assertions or increase timeouts.
+2. Await an enabled PIN input in insertion helpers and retain the eventual-focus
+   assertion; a heading alone does not prove readiness.
+3. Apply guarded live and sandbox transition/recovery focus with useLayoutEffect,
+   before paint, instead of leaving a pending passive focus handoff. Network and
+   lifecycle work remain outside that layout effect. This SPA renders on the client.
+4. Retain focus decisions by operation/state, pending guards and the stable receipt
+   or error region. Do not focus on every field edit.
+5. Verify the red-to-green regression, full suites, browser focus/requests and
+   fresh green CI before merge. [React's layout-effect contract](https://react.dev/reference/react/useLayoutEffect)
+   describes its pre-paint timing; the regression checks this app's focus outcome.
+
+### 6. Preventative Measures
+Treat focus handoff as part of the committed visual interaction. Test that it
+cannot overwrite a later ready-control choice, and test intermediate disabled
+states separately. Use synchronous pre-paint effects only for the small visual
+focus step, not request orchestration or expensive work. Passing a rerun does not
+prove that an intermittent focus failure was fixed.

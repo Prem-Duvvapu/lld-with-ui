@@ -60,6 +60,7 @@ class AtmRequestValidationTest {
     @MethodSource("malformedMoneyRequests")
     void malformedMoneyIsTyped400WithoutAnyMutation(String operation, String body) throws Exception {
         service.authenticate(CARD, "1234");
+        service.simInsertCard("CARD-SIM-1");
         service.simAuthenticate("CARD-SIM-1", "1234");
         String beforeSim = json.writeValueAsString(service.getSimSnapshots());
         Map<NoteDenomination, Integer> beforeNotes = dispenser.getInventory();
@@ -121,6 +122,7 @@ class AtmRequestValidationTest {
     @Test
     void fractionalOrOutOfRangeWithdrawalNeverDebitsDifferentAmountFromDispensedCash() throws Exception {
         service.authenticate(CARD, "1234");
+        service.simInsertCard("CARD-SIM-1");
         service.simAuthenticate("CARD-SIM-1", "1234");
         for (double amount : List.of(500.25, 99.99, 100.0000001, 2147483700.0)) {
             String before = json.writeValueAsString(service.getSimSnapshots());
@@ -177,6 +179,7 @@ class AtmRequestValidationTest {
                         .content("{\"amount\":500,\"mode\":\"CONSERVE_LARGE_NOTES\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.dispensedNotes.ONE_HUNDRED").value(5));
         assertEquals(600.25, service.getBalance(ACCOUNT));
+        service.simInsertCard("CARD-SIM-1");
         service.simAuthenticate("CARD-SIM-1", "1234");
         http.perform(post("/api/atm/sim/withdraw").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountNumber\":\"ACC-SIM-1\",\"amount\":100}"))

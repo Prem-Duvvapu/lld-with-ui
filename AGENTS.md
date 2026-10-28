@@ -42,8 +42,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2770 tests
-cd frontend && npx vitest run  # latest validated: 883 tests
+cd backend  && mvn test        # latest validated: 2778 tests
+cd frontend && npx vitest run  # latest validated: 902 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -399,13 +399,13 @@ service. Hardened to the reference bar without changing the dispatch model.
 - The exact planner is specialized to ₹2000/₹500/₹200/₹100. It enumerates at most 800 residue vectors and allocates equal-value ₹2000 bundles in four policy-ordered steps per vector. An independent actual-count oracle checks 22,782 sampled/boundary cases. This is not an arbitrary-denomination guarantee (RCA-120).
 - `CashDispenser#getTotalCashAvailable` returns `long`. Counts are non-negative `int`; restock overflow is rejected before mutation. Planning and deduction share its lock. Live withdrawal compensates `InsufficientCashException`, not every unexpected failure or process crash.
 - Domain errors use `AtmException` → `DomainException` and shared `ErrorResponse`: invalid request/session/insufficient balance 400, wrong PIN 401, blocked card 403, missing account/card 404, insufficient cash 409.
-- Sandbox mutations are synchronized on the service and assign `simState` directly; they do not use the live state-object gate or exercise parallel account-lock competition. Snapshot detachment/atomic reset, final burst reads and sandbox session checks remain follow-ups. Do not claim whole-ATM sign-off.
+- Sandbox mutations are synchronized on the service and assign `simState` directly; they do not use the live state-object gate or exercise parallel account-lock competition. State/event reads capture detached models/details under that monitor, simReset captures atomically, inserted-card authentication and selected-account withdrawal are enforced, and each withdrawal response carries an explicit outcome. GET `/api/atm/sim/state` is the authoritative read; legacy `/sim/snapshots` remains available. Live session/idempotency/hosted integration remain follow-ups; do not claim whole-ATM sign-off.
 - ATM tests cover service/concurrency/repository, request/HTTP boundaries and both strategy objectives. `AtmExactPlanHttpTest` verifies the two stranded-remainder regressions through real MockMvc and checks long totals. `Transaction` is an abstract record hierarchy, not a Template Method executor; `AtmService` performs the workflow (RCA-103/118).
 
 ### Frontend
 - Shared `LldPage`: live terminal, isolated eight-step sandbox, class diagram, sequence diagram and design details. Live workspace retains confirmed state/drafts, guards writes and offers explicit recovery; browser cancellation does not roll back server work.
 - Sandbox account/cassette grids use scoped zero-minimum tracks and wrapped values; controls are at least 44px high. The 149px mobile overflow is resolved at 320–1280px in both themes (RCA-125).
-- Sandbox burst labels/counts and final-response selection still need correction; ten parallel browser requests are serialized by the Java sandbox. Existing race claims must not be treated as concurrency evidence. RCA-057 records the earlier walkthrough advancement fix.
+- The client burst waits for all responses, counts explicit approvals and then reads final state. Failed/invalid reads retain the last confirmed snapshot/drafts and require read-only Retry before further mutation; cancellation does not roll back Java work. Controls are labelled/guarded, Enter submits PIN/amount forms, and stage/recovery focus is restored. Ten parallel browser requests are serialized by Java and are not account-lock concurrency evidence. RCA-057 records the earlier walkthrough advancement fix.
 - Design/class/sequence teaching data now maps actual methods, exact dispensing objectives, long totals and explicit session/compensation/snapshot limits. Live per-account race examples are separate from sandbox behavior.
 
 ## LinkedIn Module
@@ -2056,8 +2056,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2770 tests, 306 classes
-cd frontend && npx vitest run # 883 tests, 61 files
+cd backend && mvn test        # 2778 tests, 307 classes
+cd frontend && npx vitest run # 902 tests, 64 files
 ```
 
 ### Cross-cutting suites — keep these green

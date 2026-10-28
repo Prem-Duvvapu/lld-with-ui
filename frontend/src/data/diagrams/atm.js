@@ -30,9 +30,10 @@ export default {
         '- transitionTo(target: ATMState): void  // sessionLock + table check for insert/auth/eject',
         '- setState(target: ATMState): void  // direct live transaction-phase write',
         '+ initSimState(): void  // synchronized on this; assigns simState directly',
-        '+ simWithdraw(accNum, amount, mode): Map  // synchronized; phase check only',
-        '+ getSimSnapshots(): Map  // unsynchronized, shallow aggregate',
-        '+ getSimEvents(): List<SimEvent>  // original event list'
+        '+ simReset(): Map  // synchronized reset + detached capture',
+        '+ simWithdraw(accNum, amount, mode): Map  // synchronized; selected account + explicit outcome',
+        '+ getSimSnapshots(): Map  // synchronized detached capture',
+        '+ getSimEvents(): List<SimEvent>  // synchronized detached events'
       ]
     },
     {

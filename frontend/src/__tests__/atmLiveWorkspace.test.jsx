@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import AtmPage from '../lld/atm/AtmPage';
@@ -19,7 +19,8 @@ function deferred() {
 function open() { return render(<MemoryRouter><AtmPage /></MemoryRouter>); }
 async function insert() {
   fireEvent.click(screen.getByRole('button', { name: /Insert Selected Card/ }));
-  await screen.findByText('Enter 4-Digit PIN');
+  const pin = await screen.findByLabelText('4-digit PIN');
+  await waitFor(() => expect(pin).toBeEnabled());
 }
 async function login() {
   await insert();
@@ -74,7 +75,7 @@ describe('ATM live terminal workspace', () => {
     expect(screen.getByRole('button', { name: /Jane Smith/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /Insert Selected Card/ })).toBeDisabled();
     const pin = screen.getByLabelText('4-digit PIN');
-    expect(pin).toHaveFocus();
+    await waitFor(() => expect(pin).toHaveFocus());
     fireEvent.change(pin, { target: { value: '1234' } });
     act(() => {
       fireEvent.submit(screen.getByRole('form', { name: 'Authenticate inserted card' }));
