@@ -142,7 +142,7 @@ const prerequisites = {
   memento: ['encapsulation', 'composition'],
   'chain-of-responsibility': ['interfaces', 'association'],
   interpreter: ['composite'],
-  'class-diagram': ['association', 'inheritance'],
+  'class-diagram': ['association', 'inheritance', 'interfaces', 'aggregation', 'composition', 'dependency'],
   'use-case-diagram': ['how-to-learn-lld'],
   'sequence-diagram': ['dependency', 'class-diagram'],
   'activity-diagram': ['how-to-learn-lld'],
@@ -188,11 +188,13 @@ const publications = [
   ['composition', '30–35 minutes'],
   ['dependency', '25–30 minutes'],
   ['oop-overview', '35–45 minutes'],
+  ['class-diagram', '35–45 minutes'],
 ];
 const published = new Map(publications);
 
 // Catalog outcomes remain metadata: browsing never imports lesson content.
 const outcomes = {
+  'class-diagram': 'Read and justify typed class relationships, visibility, multiplicity, navigation and ownership against Java.',
   'oop-overview': 'Defend a study-plan model using object identity, contracts, state, and ownership.',
   'how-to-learn-lld': 'Turn requirements into responsibilities, invariants, and testable object interactions.',
   'overloading-and-overriding': 'Separate compile-time overload selection from runtime instance dispatch.',
