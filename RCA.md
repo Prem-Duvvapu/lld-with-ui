@@ -8860,7 +8860,7 @@ regression renders the visible-but-disabled phase, then completes insertion and
 requires both an enabled input and focus. No product-focus failure was established.
 
 ### 4. Diagnostic Commands
-`gh run view40740293696 --log-failed` captures the original assertion.
+`gh run view 40740293696 --log-failed` captures the original assertion.
 `npx vitest run src/__tests__/atmLiveWorkspace.test.jsx src/__tests__/atmLiveFocus.test.jsx`
 checks the ready-input focus contract. The Java-backed frozen browser script
 `browser-ci-focus.cjs` verifies actual insertion/PIN focus and authentication/amount
