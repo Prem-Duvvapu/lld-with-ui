@@ -447,3 +447,8 @@
 
 .atm-simulation .atm-sim-actions label { display: grid; gap: 6px; flex: 1 1 200px; min-width: 0; font-weight: 600; }
 .atm-simulation .atm-sim-actions label :is(input, select) { width: 100%; }
+
+/* Keep short state, account and note labels intact at phone widths. */
+.atm-simulation .atm-state-node { flex-basis: 132px; word-break: normal; overflow-wrap: normal; }
+.atm-simulation .denom-name { word-break: normal; overflow-wrap: normal; }
+.atm-simulation .timeline-item .actor { display: inline-block; max-width: 100%; }

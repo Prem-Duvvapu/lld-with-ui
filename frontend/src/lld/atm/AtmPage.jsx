@@ -117,7 +117,7 @@ function SimulationTab() {
               <div className="inventory-grid">
                 {Object.entries(inventory).map(([denom, count]) => (
                   <div key={denom} className="denom-card">
-                    <span className="denom-name">{denom}</span>
+                    <span className="denom-name">{denom.replace(/_/g, ' ')}</span>
                     <span className="denom-count">{count} notes</span>
                   </div>
                 ))}
