@@ -540,3 +540,20 @@ checked SVG/control text contrast is at least 13.86:1. CSS zoom is reflow eviden
 not browser chrome zoom. No page overflow or application exceptions were observed.
 APIs are deliberately unavailable in this frozen-artifact harness; it does not
 claim hosted backend verification or deployed resource MIME validation.
+
+## Combined release verification — 2026-10-28
+
+[PR #188](https://github.com/Prem-Duvvapu/lld-with-ui/pull/188) merged as
+`3908178` after all seven checks passed. Vercel production deployment
+`7395365515` and backend deployment `7395360552` reported success. A real-network
+review of the public site passed **392 scenario views across four light/dark ×
+390/1440 contexts**: all 20 class models, the primary use-case view and selected
+relationships/controls, both new Java/output/recorded examples, notes/review
+persistence and filtered catalog return/focus. The 968 requested asset responses
+have successful status and verified JavaScript/CSS MIME types; a 304 is accepted
+only with a previous same-URL 200 response. No response interception, page-level
+overflow or application exceptions occurred. Evidence is in
+`/home/prem/validation/lld-use-case-dry-release/deployed-results.json` and
+`deployed.log`. These checks close the two lesson releases; they do not complete
+the 49 remaining topics, Phase 3 or the separate 60-module audit, and do not
+claim a full hosted module-backend integration review.
