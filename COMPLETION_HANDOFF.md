@@ -128,11 +128,17 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   Session/snapshot lifecycle review, backend session/idempotency support and hosted
   integration remain follow-ups.
 
-- Analytics is installed in the React/Vite root via `@vercel/analytics/react`;
-  page URLs redact query strings/fragments. On 2026-10-27 the production tracking
-  script returned plain-text 404 rather than JavaScript. Dashboard enablement and
-  a deployment afterward are still required to verify actual visitor collection;
-  no authenticated Vercel dashboard connection is available in this session.
+- Analytics production verification (2026-10-28): the React/Vite root mounts
+  `@vercel/analytics/react` in production and strips query strings/fragments from
+  page locations. The public script now returns200 JavaScript. A normal-browser
+  profile produced four accepted HTTP200 page-view requests across initial,
+  client-side and native navigation; synthetic query/fragment markers were absent
+  from every captured payload. The SDK filters automated browsers, explaining
+  why the unmodified headless probe produced no events. Evidence is under
+  `/home/prem/validation/lld-class-diagram-release/analytics-normal-raw.json`
+  and `analytics-normal.log`. No tracking code or dashboard settings were changed
+  for this verification. Authenticated dashboard totals were not inspected;
+  dashboard setup is no longer an observed blocker for script/event delivery.
 
 - All 60 modules exist, with Java backends, routes, and design data.
 - Homepage discovery, navigation memory, mobile tabs, and shared diagram zoom,

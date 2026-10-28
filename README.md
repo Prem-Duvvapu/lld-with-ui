@@ -19,7 +19,7 @@ fragments are removed before sending page locations; no custom events, practice
 answers, notes, or simulation inputs are configured for collection. Development
 builds do not mount analytics.
 
-Enable **Web Analytics** for this individual project in Vercel, then deploy after
+For a new deployment, enable **Web Analytics** for this individual project in Vercel, then deploy after
 enabling it. Visit the deployed app and check its Analytics dashboard and browser
 Network panel for the analytics script and page-view requests. Each app and the
 Learning Hub have independent analytics. A plain local server or Docker deployment
@@ -28,23 +28,33 @@ prevent learning or navigation. Live visitor totals require dashboard verificati
 The SPA fallback excludes `/_vercel/*` and `/assets/*`: platform scripts and missing
 chunks must receive their own resource response, never `index.html` (RCA-108).
 
+Production verification on 2026-10-28: the script returned JavaScript successfully
+and four synthetic page-view requests were accepted, including client-side and
+native navigation. Captured payloads omitted the test query strings/fragments.
+The SDK excludes automated browsers; verification used a normal-browser profile.
+Dashboard visitor totals were not inspected. See `COMPLETION_HANDOFF.md` for evidence.
+
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and seventeen published lessons: the
+has a searchable curriculum catalog and eighteen published lessons: the
 **How to Learn LLD** guide, **Classes and Objects**, **Constructors and
 Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
 **Encapsulation**, **Abstraction**, **Inheritance**, **Polymorphism**,
 **Method Overloading vs Overriding**, **Static vs Instance Members**,
 **Association**, **Aggregation**, **Composition**, **Dependency**, and the
-**15 Must-Know OOP Concepts** capstone.
+**15 Must-Know OOP Concepts** capstone, followed by the dedicated
+[**Class Diagram** lesson](https://lld-with-ui.vercel.app/learn/class-diagram).
 The guided sequence puts published prerequisites before dependents. The catalog
 supports available/roadmap views, outcome search, section/review/bookmark filters,
 sorting, direct bookmarks and return navigation. Reading times and outcomes come
-from the curriculum manifest. The other 52 topics remain explicitly planned;
+from the curriculum manifest. The other 51 topics remain explicitly planned;
 five proposed additions retain their labels. The capstone follows all fifteen
 individual concepts with linked reviews and an independent modeling exercise.
-Foundational class diagrams and final Phase 2 review remain open.
+All eighteen lessons include source-curated class models, selectable typed
+relationships, zoom/fullscreen controls and readable text alternatives. Phase 2
+content and local visual review are complete; remaining UML/design-principle
+lessons and later curriculum phases are still open.
 
 Each lesson connects a motivating problem, inspectable Java-verified illustrations,
 the actual Java source, a prediction question with explanations, a modeling

@@ -287,3 +287,22 @@ directory above. No response interception was used in this deployed pass.
 This closes implementation and deployed verification for this landing-page
 redesign. It does not close the separate curriculum, module audits, analytics
 collection or hosted backend integration work.
+
+
+## Analytics follow-up verification — 2026-10-28
+
+The production analytics script now returns200 JavaScript. A normal-browser
+profile sent four page views accepted with HTTP200, covering initial loading,
+client-side navigation and a native navigation from a filtered catalog. Captured
+payloads contain neither synthetic search parameters nor fragments. Unmodified
+headless browsers are filtered by the SDK; their lack of events is not an app
+loading failure. Evidence is retained under
+`/home/prem/validation/lld-class-diagram-release/analytics-normal-raw.json` and
+`analytics-normal.log`. This verifies script/event delivery and URL redaction;
+authenticated dashboard totals were not inspected. The earlier setup blocker
+describes the earlier review state, not the current production request flow.
+
+Separate releases have since expanded publication to18 lessons/51 planned topics,
+including the dedicated Class Diagram lesson (#186). The original catalog
+redesign remains independent of those content deliveries. The full curriculum
+and60-module UX review retain their own completion gates.
