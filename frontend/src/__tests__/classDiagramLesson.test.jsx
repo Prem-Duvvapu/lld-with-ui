@@ -118,7 +118,8 @@ describe('Dedicated Class Diagram lesson', () => {
       'Keep multiplicity separate from navigation', 'Justify diamonds with domain rules', 'Walk from source to model and back']) {
       expect(screen.getByRole('heading', { name: title })).toBeVisible();
     }
-    expect(screen.getByText(/Our accessible viewer instead spells out kind/)).toBeVisible();
+    expect(screen.getByText(/UML also permits a textual \{abstract\} classifier annotation/)).toBeVisible();
+    expect(screen.getByText(/Our accessible viewer spells out kind/)).toBeVisible();
     expect(screen.getByText(/This viewer leaves association and diamond connectors without arrowheads/)).toBeVisible();
     expect(screen.getByText(/Domain retirement is a behavior of reachable objects/)).toBeVisible();
     expect(screen.getByRole('link', { name: /Reconcile a class view with Parking Lot source/ })).toHaveAttribute('href', '/parking-lot');
