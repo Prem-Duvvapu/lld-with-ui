@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import DiagramViewer from '../components/DiagramViewer';
+import DiagramMarkers from '../components/DiagramMarkers';
 import './LessonClassModel.css';
 
 const CONNECTORS = {
@@ -36,20 +37,7 @@ function Connector({ relationship }) {
   const notation = CONNECTORS[relationship.kind];
   if (!notation) return null;
   return <svg className="lesson-class-model-connector" viewBox="0 0 128 64" width="128" height="64" aria-hidden="true" focusable="false" data-kind={relationship.kind}>
-    <defs>
-      <marker id={`${markerPrefix}-triangle`} markerUnits="userSpaceOnUse" markerWidth="20" markerHeight="20" viewBox="0 0 20 20" refX="20" refY="10" orient="auto">
-        <path d="M1 1 L20 10 L1 19 Z" className="lesson-class-model-hollow" />
-      </marker>
-      <marker id={`${markerPrefix}-arrow`} markerUnits="userSpaceOnUse" markerWidth="18" markerHeight="20" viewBox="0 0 18 20" refX="17" refY="10" orient="auto">
-        <path d="M1 1 L17 10 L1 19" fill="none" />
-      </marker>
-      <marker id={`${markerPrefix}-aggregation`} markerUnits="userSpaceOnUse" markerWidth="24" markerHeight="20" viewBox="0 0 24 20" refX="0" refY="10" orient="auto">
-        <path d="M0 10 L12 2 L24 10 L12 18 Z" className="lesson-class-model-hollow" />
-      </marker>
-      <marker id={`${markerPrefix}-composition`} markerUnits="userSpaceOnUse" markerWidth="24" markerHeight="20" viewBox="0 0 24 20" refX="0" refY="10" orient="auto">
-        <path d="M0 10 L12 2 L24 10 L12 18 Z" fill="currentColor" />
-      </marker>
-    </defs>
+    <DiagramMarkers prefix={markerPrefix} hollowClassName="lesson-class-model-hollow" />
     <path className="lesson-class-model-edge" d="M0 32 H128" fill="none"
       strokeDasharray={notation.dashed ? '8 5' : undefined}
       markerStart={notation.start ? `url(#${markerPrefix}-${notation.start})` : undefined}
