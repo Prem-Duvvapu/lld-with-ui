@@ -1,3 +1,4 @@
+import classModel from '../class-models/dependency';
 import policySource from '../examples/dependency/FeePolicy.java?raw';
 import flatSource from '../examples/dependency/FlatFeePolicy.java?raw';
 import thresholdSource from '../examples/dependency/FreeAbovePolicy.java?raw';
@@ -8,6 +9,7 @@ import output from '../examples/dependency-output.txt?raw';
 import snapshots from '../examples/dependency-snapshots.json';
 
 export default {
+  classModel,
   id: 'dependency',
   summary: 'Trace how a quote uses a fee policy, how changing that policy affects the result, and how temporary use differs from retaining a collaborator. Separate dependency, injection and dependency inversion.',
   prerequisites: 'Interfaces: implementing and calling a contract. Association: stored references, navigation and reference identity. The example uses integer cents and a small lambda, explained below.',

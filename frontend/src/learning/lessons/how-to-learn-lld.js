@@ -1,9 +1,11 @@
+import classModel from '../class-models/how-to-learn-lld';
 import seatSource from '../examples/howtolearn/StudySeat.java?raw';
 import demoSource from '../examples/howtolearn/StudySeatDemo.java?raw';
 import output from '../examples/howtolearn-output.txt?raw';
 import snapshots from '../examples/howtolearn-snapshots.json';
 
 export default {
+  classModel,
   id: 'how-to-learn-lld',
   summary: 'Learn a repeatable way to turn a small problem into responsibilities, objects, rules and evidence. Start with a study-seat reservation, then choose a beginner, revision or interview practice path.',
   prerequisites: 'None. Read the scenarios in ordinary language first. Java is an optional worked example, with its notation explained here; you do not need design patterns, UML notation or concurrency knowledge.',

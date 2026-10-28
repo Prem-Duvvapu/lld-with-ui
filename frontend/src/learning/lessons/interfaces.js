@@ -1,3 +1,4 @@
+import classModel from '../class-models/interfaces';
 import contractSource from '../examples/MessageFormatter.java?raw';
 import plainSource from '../examples/PlainFormatter.java?raw';
 import taggedSource from '../examples/TaggedFormatter.java?raw';
@@ -6,6 +7,7 @@ import output from '../examples/interfaces-output.txt?raw';
 import snapshots from '../examples/interfaces-snapshots.json';
 
 export default {
+  classModel,
   id: 'interfaces',
   summary: 'Describe an operation a caller needs, supply two implementations, and follow a call through an interface-typed reference.',
   prerequisites: 'Classes and Objects: constructing an object, reference variables and instance methods. Prior design-pattern knowledge is unnecessary.',

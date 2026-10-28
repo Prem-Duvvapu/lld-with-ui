@@ -6,6 +6,10 @@ delivery-gap audit, **not a completed curriculum**. There are seventeen publishe
 and 52 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
+All seventeen published lessons also include source-curated class models with
+selectable typed connectors and complete text alternatives. This foundational
+view does not publish the dedicated UML lessons below.
+
 ## Reading the matrix
 
 - Each row records a learning outcome, recommended prerequisite IDs, inspected
@@ -30,7 +34,7 @@ prerequisite graph live in `frontend/src/learning/curriculum.js`.
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
 | `how-to-learn-lld` — How to Learn LLD | Distinguish LLD from DSA/HLD and turn a bounded requirement into responsibilities, interactions, invariants and evidence. | None | [E33](#e33): StudySeat accepted/rejected workflows and actual Parking allocation responsibilities. Practice `/parking-lot`. | Scope a locker reservation, trace accepted/rejected operations and explain how a new global constraint changes responsibilities. | Delivered: `/learn/how-to-learn-lld`, canonical Java, verified snapshots/output and compiler boundaries, three learning paths, readiness checks, prediction and exercise/rubric. |
-| `oop-overview` — 15 Must-Know OOP Concepts | Defend a coherent object model using all fifteen concepts, trace its contracts and relationships, and assess a changed requirement. | `classes-and-objects`, `constructors`, `access-modifiers`, `enums`, `interfaces`, `encapsulation`, `abstraction`, `inheritance`, `polymorphism`, `overloading-and-overriding`, `static-and-instance`, `association`, `aggregation`, `composition`, `dependency` | [E34](#e34): StudyPlan, owned entries, shared mutable Topic and per-call PromptStyle; verified real Parking policy dispatch. Practice `/parking-lot`. | Add independent per-plan review progress; justify ownership, invariants, multiplicities, rejected-operation state and one alternative design. | Delivered: `/learn/oop-overview`, fifteen linked reviews, canonical Java with five verified snapshots/output, prediction and independent modeling exercise/rubric; foundational rendered class diagrams and final Phase 2 verification remain open. |
+| `oop-overview` — 15 Must-Know OOP Concepts | Defend a coherent object model using all fifteen concepts, trace its contracts and relationships, and assess a changed requirement. | `classes-and-objects`, `constructors`, `access-modifiers`, `enums`, `interfaces`, `encapsulation`, `abstraction`, `inheritance`, `polymorphism`, `overloading-and-overriding`, `static-and-instance`, `association`, `aggregation`, `composition`, `dependency` | [E34](#e34): StudyPlan, owned entries, shared mutable Topic and per-call PromptStyle; verified real Parking policy dispatch. Practice `/parking-lot`. | Add independent per-plan review progress; justify ownership, invariants, multiplicities, rejected-operation state and one alternative design. | Delivered: `/learn/oop-overview`, fifteen linked reviews, canonical Java with five verified snapshots/output, prediction and independent modeling exercise/rubric; foundational class model and Phase 2 local assessment/visual review delivered; production evidence is recorded on the release PR. |
 
 ## OOP fundamentals
 

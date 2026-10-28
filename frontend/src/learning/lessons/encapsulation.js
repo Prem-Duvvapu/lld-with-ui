@@ -1,3 +1,4 @@
+import classModel from '../class-models/encapsulation';
 import leakySource from '../examples/LeakyShelf.java?raw';
 import shelfSource from '../examples/ReadingShelf.java?raw';
 import demoSource from '../examples/EncapsulationDemo.java?raw';
@@ -5,6 +6,7 @@ import output from '../examples/encapsulation-output.txt?raw';
 import snapshots from '../examples/encapsulation-snapshots.json';
 
 export default {
+  classModel,
   id: 'encapsulation',
   summary: 'Protect an invariant through operations and detached read results. Compare that boundary with a public final list that still permits invalid mutations.',
   prerequisites: 'Classes and Objects, plus Access Modifiers. Read a list operation and an exception path in Java; the example explains the snapshot behavior.',

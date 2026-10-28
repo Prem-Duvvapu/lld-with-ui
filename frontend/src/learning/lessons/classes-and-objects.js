@@ -1,9 +1,11 @@
+import classModel from '../class-models/classes-and-objects';
 import modelSource from '../examples/StudyCard.java?raw';
 import demoSource from '../examples/StudyCardDemo.java?raw';
 import output from '../examples/classes-and-objects-output.txt?raw';
 import snapshots from '../examples/classes-and-objects-snapshots.json';
 
 export default {
+  classModel,
   id: 'classes-and-objects',
   summary: 'Separate a class definition, an object, and a reference. Then explain which state changes when two variables refer to the same object.',
   prerequisites: 'Read a variable assignment and a method call in Java. No design-pattern knowledge is needed.',

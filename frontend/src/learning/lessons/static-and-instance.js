@@ -1,3 +1,4 @@
+import classModel from '../class-models/static-and-instance';
 import logSource from '../examples/memberstate/InitializationLog.java?raw';
 import counterSource from '../examples/memberstate/StudyCounter.java?raw';
 import focusSource from '../examples/memberstate/FocusCounter.java?raw';
@@ -6,6 +7,7 @@ import output from '../examples/static-and-instance-output.txt?raw';
 import snapshots from '../examples/static-and-instance-snapshots.json';
 
 export default {
+  classModel,
   id: 'static-and-instance',
   summary: 'Choose where state belongs, follow class and object initialization, and distinguish a hidden static method from an overridden instance method.',
   prerequisites: 'Classes and Objects plus Constructors for field initialization; Inheritance and Polymorphism for the final hiding/dispatch comparison. The counter itself needs no framework or server.',

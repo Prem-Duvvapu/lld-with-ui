@@ -1,9 +1,11 @@
+import classModel from '../class-models/enums';
 import enumSource from '../examples/ReviewPriority.java?raw';
 import demoSource from '../examples/EnumDemo.java?raw';
 import output from '../examples/enums-output.txt?raw';
 import snapshots from '../examples/enums-snapshots.json';
 
 export default {
+  classModel,
   id: 'enums',
   summary: 'Model a closed set of choices, attach data to each choice, and validate an external string before using it as a Java enum.',
   prerequisites: 'Classes and Objects: fields, constructors, method calls and references. The example explains its parsing steps.',

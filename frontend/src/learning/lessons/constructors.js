@@ -1,3 +1,4 @@
+import classModel from '../class-models/constructors';
 import baseSource from '../examples/LearningSession.java?raw';
 import sessionSource from '../examples/FocusedSession.java?raw';
 import demoSource from '../examples/ConstructorDemo.java?raw';
@@ -5,6 +6,7 @@ import output from '../examples/constructors-output.txt?raw';
 import snapshots from '../examples/constructors-snapshots.json';
 
 export default {
+  classModel,
   id: 'constructors',
   summary: 'Create a valid initial state, follow this/super constructor delegation, and distinguish initialization from a later operation on the same object.',
   prerequisites: 'Classes and Objects: fields, references and method calls. The example introduces a subclass only to show constructor order; the full inheritance lesson comes later.',

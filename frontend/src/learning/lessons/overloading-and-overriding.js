@@ -1,3 +1,4 @@
+import classModel from '../class-models/overloading-and-overriding';
 import baseSource from '../examples/methodselection/PromptPrinter.java?raw';
 import childSource from '../examples/methodselection/HintPrinter.java?raw';
 import demoSource from '../examples/methodselection/MethodSelectionDemo.java?raw';
@@ -5,6 +6,7 @@ import output from '../examples/overloading-and-overriding-output.txt?raw';
 import snapshots from '../examples/overloading-and-overriding-snapshots.json';
 
 export default {
+  classModel,
   id: 'overloading-and-overriding',
   summary: 'Resolve a method call in two stages: select an applicable signature at compile time, then dispatch an overridden instance method on its runtime receiver.',
   prerequisites: 'Polymorphism and Inheritance for declared and runtime types; Constructors for creation paths; Access Modifiers for visibility. This supplemental lesson extends those examples with overload applicability and override restrictions.',

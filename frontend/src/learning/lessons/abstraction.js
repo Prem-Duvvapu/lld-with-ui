@@ -1,3 +1,4 @@
+import classModel from '../class-models/abstraction';
 import contractSource from '../examples/TopicLabel.java?raw';
 import baseSource from '../examples/BoundedTopicLabel.java?raw';
 import ellipsisSource from '../examples/EllipsisTopicLabel.java?raw';
@@ -7,6 +8,7 @@ import output from '../examples/abstraction-output.txt?raw';
 import snapshots from '../examples/abstraction-snapshots.json';
 
 export default {
+  classModel,
   id: 'abstraction',
   summary: 'Choose an operation a caller can rely on, hide irrelevant implementation decisions, and compare an interface contract with a shared abstract-class implementation.',
   prerequisites: 'Encapsulation and Interfaces. Read fields, constructors and interface calls; this example explains extends, super and the abstract method it introduces.',
