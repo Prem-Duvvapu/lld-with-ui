@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-128](#rca-128-live-atm-pin-focus-test-raced-form-readiness) | 2026-10-28 | ATM / CI Validation | Form presence was asserted before enabled-input focus settled | Readiness-aware helper and preserved eventual-focus assertion |
 | [RCA-126](#rca-126-atm-sandbox-snapshots-and-request-burst-reported-stale-results) | 2026-10-28 | ATM / Sandbox State | Mutable unlocked snapshots and first-response selection hid final state; HTTP success was counted as approval | Coherent detached reads, selected-session checks and explicit UI recovery implemented |
 | [RCA-125](#rca-125-atm-sandbox-resource-cards-expanded-the-mobile-page) | 2026-10-28 | ATM / Responsive Simulation | Intrinsic grid/flex minimums made account and cassette cards overflow by 149px at 320px | Resolved with scoped shrinkable tracks and wrapped rows |
 | [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
@@ -8835,3 +8836,48 @@ balances, including multiple approvals, and prevent partial state exposure durin
 serialization. Keep detached historical responses and explicit failed-read
 recovery in regression coverage. Full module and hosted integration review remain
 separate gates; this sandbox does not introduce idempotency or a durable ledger.
+
+
+## RCA-128: Live ATM PIN focus test raced form readiness
+
+### 1. Overview & Severity
+Medium validation defect. The PR frontend job failed a live PIN-focus assertion
+while the identical push job and two local full runs passed. The failure blocked
+merge; a passing rerun alone would not establish a repair.
+
+### 2. Symptoms & Error Logs
+GitHub run40740293696 failed `atmLiveWorkspace.test.jsx:77`, expecting the PIN
+input to have focus while `document.body` remained active.899 other tests passed.
+The original failed log is retained at
+`/home/prem/validation/lld-atm-sandbox-state/ci-failed.log`.
+
+### 3. Root Cause
+The test helper awaited a heading's presence, then immediately asserted focus.
+A form can exist before insertion's pending state is cleared; focus is applied
+by the terminal's effect once the operation settles. DOM presence alone did not
+establish an enabled, focused interaction target. The controlled readiness
+regression renders the visible-but-disabled phase, then completes insertion and
+requires both an enabled input and focus. No product-focus failure was established.
+
+### 4. Diagnostic Commands
+`gh run view40740293696 --log-failed` captures the original assertion.
+`npx vitest run src/__tests__/atmLiveWorkspace.test.jsx src/__tests__/atmLiveFocus.test.jsx`
+checks the ready-input focus contract. The Java-backed frozen browser script
+`browser-ci-focus.cjs` verifies actual insertion/PIN focus and authentication/amount
+focus before each sandbox workflow across eight theme/viewport contexts.
+
+### 5. Step-by-Step Resolution
+1. Preserve the failed CI evidence and compare the identical successful push run.
+2. Make the insertion helper await the PIN input being enabled, not only its heading.
+3. Keep the focus assertion and await its observable effect with normal waitFor;
+   do not remove it, weaken it or increase timeouts.
+4. Add a controlled visible/pending-to-ready regression and verify the actual
+   live terminal in Chromium with Java responses. All72 browser views and360
+   actual Java requests pass, including both live focus transitions.
+5. Rerun local frontend coverage and require every fresh CI check before merge.
+
+### 6. Preventative Measures
+Await the user-observable ready state when testing asynchronous focus and controls.
+A heading/rendered label proves presence, not completed effects or readiness.
+Keep pending controls locked, retain focus assertions and distinguish test repairs
+from product fixes; this change does not alter the live focus implementation.
