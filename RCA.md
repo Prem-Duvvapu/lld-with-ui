@@ -8,7 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
-| [RCA-128](#rca-128-live-atm-pin-focus-test-raced-form-readiness) | 2026-10-28 | ATM / CI Validation | Form presence was asserted before enabled-input focus settled | Readiness-aware helper and preserved eventual-focus assertion |
+| [RCA-128](#rca-128-live-atm-transition-focus-could-overwrite-a-newer-focus-choice) | 2026-10-28 | ATM / CI Validation | Deferred focus overwrote a newer control choice; form presence was not readiness | Pre-paint focus handoff plus strict readiness/focus regression |
 | [RCA-126](#rca-126-atm-sandbox-snapshots-and-request-burst-reported-stale-results) | 2026-10-28 | ATM / Sandbox State | Mutable unlocked snapshots and first-response selection hid final state; HTTP success was counted as approval | Coherent detached reads, selected-session checks and explicit UI recovery implemented |
 | [RCA-125](#rca-125-atm-sandbox-resource-cards-expanded-the-mobile-page) | 2026-10-28 | ATM / Responsive Simulation | Intrinsic grid/flex minimums made account and cassette cards overflow by 149px at 320px | Resolved with scoped shrinkable tracks and wrapped rows |
 | [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
@@ -8838,46 +8838,56 @@ recovery in regression coverage. Full module and hosted integration review remai
 separate gates; this sandbox does not introduce idempotency or a durable ledger.
 
 
-## RCA-128: Live ATM PIN focus test raced form readiness
+## RCA-128: Live ATM transition focus could overwrite a newer focus choice
 
 ### 1. Overview & Severity
-Medium validation defect. The PR frontend job failed a live PIN-focus assertion
-while the identical push job and two local full runs passed. The failure blocked
-merge; a passing rerun alone would not establish a repair.
+Medium usability and validation defect. Deferred transition focus could overwrite
+a newer focus choice on an already-rendered live terminal. CI exposed both an
+insertion-readiness assertion race and the late authentication focus race.
 
 ### 2. Symptoms & Error Logs
-GitHub run40740293696 failed `atmLiveWorkspace.test.jsx:77`, expecting the PIN
-input to have focus while `document.body` remained active.899 other tests passed.
-The original failed log is retained at
-`/home/prem/validation/lld-atm-sandbox-state/ci-failed.log`.
+Run40740293696 expected PIN focus at `atmLiveWorkspace.test.jsx:77` while body
+was active. After the helper awaited a ready PIN input, run40741353890 exposed
+another failure: Retry balance was expected to retain focus, but the amount input
+was active. The original logs are retained as `ci-failed.log` and
+`ci-focus-attempt-failed.log` under the sandbox-state validation directory.
+A controlled regression reproduces the latter exactly: another consumer focuses
+the ready balance control after the DOM commit, then deferred terminal focus
+moves back to the amount input (`live-focus-order-red.log`).
 
 ### 3. Root Cause
-The test helper awaited a heading's presence, then immediately asserted focus.
-A form can exist before insertion's pending state is cleared; focus is applied
-by the terminal's effect once the operation settles. DOM presence alone did not
-establish an enabled, focused interaction target. The controlled readiness
-regression renders the visible-but-disabled phase, then completes insertion and
-requires both an enabled input and focus. No product-focus failure was established.
+The terminal applied transition focus in a passive effect, after DOM visibility
+and interactivity. A newer focus choice could happen first and then be overwritten
+by that late transition effect. The original test also treated heading presence
+as PIN readiness. Waiting for the PIN assertion alone did not resolve the later
+focus overwrite; the second CI failure and deterministic regression distinguish
+the runtime race from an assertion-only timing issue.
 
 ### 4. Diagnostic Commands
-`gh run view 40740293696 --log-failed` captures the original assertion.
-`npx vitest run src/__tests__/atmLiveWorkspace.test.jsx src/__tests__/atmLiveFocus.test.jsx`
-checks the ready-input focus contract. The Java-backed frozen browser script
-`browser-ci-focus.cjs` verifies actual insertion/PIN focus and authentication/amount
-focus before each sandbox workflow across eight theme/viewport contexts.
+`gh run view 40740293696 --log-failed` and
+`gh run view 40741353890 --log-failed` capture both original failures.
+`npx vitest run src/__tests__/atmLiveFocus.test.jsx` fails before the phase change
+with expected Refresh Balance focus and actual amount focus; it passes afterward.
+The Java-backed `browser-ci-focus.cjs` checks actual live PIN/amount readiness and
+the full sandbox workflow across eight theme/viewport contexts.
 
 ### 5. Step-by-Step Resolution
-1. Preserve the failed CI evidence and compare the identical successful push run.
-2. Make the insertion helper await the PIN input being enabled, not only its heading.
-3. Keep the focus assertion and await its observable effect with normal waitFor;
-   do not remove it, weaken it or increase timeouts.
-4. Add a controlled visible/pending-to-ready regression and verify the actual
-   live terminal in Chromium with Java responses. All72 browser views and360
-   actual Java requests pass, including both live focus transitions.
-5. Rerun local frontend coverage and require every fresh CI check before merge.
+1. Preserve both CI failures and add the controlled focus-order regression before
+   changing runtime code. Do not remove focus assertions or increase timeouts.
+2. Await an enabled PIN input in insertion helpers and retain the eventual-focus
+   assertion; a heading alone does not prove readiness.
+3. Apply guarded live and sandbox transition/recovery focus with useLayoutEffect,
+   before paint, instead of leaving a pending passive focus handoff. Network and
+   lifecycle work remain outside that layout effect. This SPA renders on the client.
+4. Retain focus decisions by operation/state, pending guards and the stable receipt
+   or error region. Do not focus on every field edit.
+5. Verify the red-to-green regression, full suites, browser focus/requests and
+   fresh green CI before merge. [React's layout-effect contract](https://react.dev/reference/react/useLayoutEffect)
+   describes its pre-paint timing; the regression checks this app's focus outcome.
 
 ### 6. Preventative Measures
-Await the user-observable ready state when testing asynchronous focus and controls.
-A heading/rendered label proves presence, not completed effects or readiness.
-Keep pending controls locked, retain focus assertions and distinguish test repairs
-from product fixes; this change does not alter the live focus implementation.
+Treat focus handoff as part of the committed visual interaction. Test that it
+cannot overwrite a later ready-control choice, and test intermediate disabled
+states separately. Use synchronous pre-paint effects only for the small visual
+focus step, not request orchestration or expensive work. Passing a rerun does not
+prove that an intermittent focus failure was fixed.

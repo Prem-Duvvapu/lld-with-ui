@@ -43,7 +43,7 @@ Before opening the PR, run the suites locally so CI is a confirmation, not a dis
 
 ```bash
 cd backend  && mvn test        # latest validated: 2778 tests
-cd frontend && npx vitest run  # latest validated: 901 tests
+cd frontend && npx vitest run  # latest validated: 902 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -2057,7 +2057,7 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 ## Testing
 ```bash
 cd backend && mvn test        # 2778 tests, 307 classes
-cd frontend && npx vitest run # 901 tests, 64 files
+cd frontend && npx vitest run # 902 tests, 64 files
 ```
 
 ### Cross-cutting suites — keep these green

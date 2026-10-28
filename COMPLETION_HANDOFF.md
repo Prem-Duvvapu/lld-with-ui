@@ -14,10 +14,10 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   HTTP200 is not an approval. Failed reads retain confirmed state/drafts and offer
   read-only Retry without replaying money operations (RCA-126). Pending requests
   are guarded/cancelled; forms have labels, Enter submission and stage/recovery
-  focus. A readiness-aware live PIN regression repairs CI timing (RCA-128)
-  without removing the focus requirement or changing runtime focus. The before reproduction showed Bob at₹4100/10 winners while Java was
+  focus. Live transition focus now settles before paint, preventing late focus
+  overwrites; strict readiness/focus regressions cover both CI findings (RCA-128). The before reproduction showed Bob at₹4100/10 winners while Java was
   actually₹500/seven approvals; the corrected workflow displays₹500 and7/10.
-  Validation: 2778 backend tests (307 suites), 901 frontend tests (64 files),
+  Validation: 2778 backend tests (307 suites), 902 frontend tests (64 files),
   package/lint/build/budgets; 72 browser views/eight contexts with360 actual Java
   MockMvc requests, including injected read failures and PIN lockout. Final source
   verification/release artifacts are in `/home/prem/validation/lld-atm-sandbox-state/`
@@ -310,7 +310,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
 | airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
-| atm | Not adopted | Live/request validation, exact dispensing, responsive sandbox and detached state/burst recovery reviewed; whole-module sign-off open | Live session coordination/idempotency and hosted integration remain | Confirmed drafts/recovery; exact notes; selected sandbox session; final state refresh and honest approval counts; labelled keyboard forms | #177/#178/#184; RCA-115/116/118/120/125/126 | Eight new sandbox Java cases;18 UI/API/focus cases; prior exact/request/concurrency checks | 56 final sandbox views/304 actual Java MockMvc calls across eight contexts; prior64 exact/teaching/layout checks +8 comparisons; hosted workflow remains separate | Sandbox-state release PR; no whole-module closure |
+| atm | Not adopted | Live/request validation, exact dispensing, responsive sandbox and detached state/burst recovery reviewed; whole-module sign-off open | Live session coordination/idempotency and hosted integration remain | Confirmed drafts/recovery; exact notes; selected sandbox session; final state refresh and honest approval counts; labelled keyboard forms | #177/#178/#184; RCA-115/116/118/120/125/126 | Eight new sandbox Java cases;19 UI/API/focus cases; prior exact/request/concurrency checks | 56 final sandbox views/304 actual Java MockMvc calls across eight contexts; prior64 exact/teaching/layout checks +8 comparisons; hosted workflow remains separate | Sandbox-state release PR; no whole-module closure |
 | auction | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | blocking-queue | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |

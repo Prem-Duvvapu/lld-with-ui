@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 
 const MODES = [
   { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Exact)' },
@@ -37,7 +37,7 @@ export default function AtmLiveTerminal({ workspace }) {
   const authenticated = sessionState === 'AUTHENTICATED' && activeAccount;
 
   useEffect(() => activate(), [activate]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (pending) { previous.current.pending = pending; return; }
     const finished = previous.current.pending;
     const transitioned = previous.current.sessionState !== sessionState;

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import LldPage from '../../components/LldPage';
 import { useAtmSandboxWorkspace } from './useAtmSandboxWorkspace';
 import './AtmPage.css';
@@ -44,7 +44,7 @@ function SimulationTab() {
   const { snapshot, step, busy, error, needsRefresh, burstResult,
     cardNumber, setCardNumber, pin, setPin, amount, setAmount, mode, setMode } = workspace;
   const container = useRef(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!busy && (step > 0 || needsRefresh)) container.current?.querySelector('[data-step-control]')?.focus();
   }, [step, busy, needsRefresh]);
   const disabled = busy || needsRefresh;
