@@ -1,12 +1,12 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-28. Status: coverage audit and eighteen
+Saved: 2026-10-17. Updated: 2026-10-28. Status: coverage audit and nineteen
 lessons implemented: How to Learn LLD, all fifteen individual OOP/relationship
-concepts, their connected overview/capstone and the dedicated Class Diagram lesson.
-All eighteen lessons include source-curated class models. Phase 2 content,
-assessment and local visual review are complete. Phase 3 has begun with one of
-five UML lessons; the remaining 51 topic deliveries and final integration/release
-gates remain open. This implementation status is not a claim of deployment before
+concepts, their connected overview/capstone, the dedicated Class Diagram lesson
+and DRY Principle. All nineteen lessons include source-curated class models.
+Phase 2 content, assessment and local visual review are complete. Phase 3 has
+begun with one of five UML lessons and the DRY principle; the remaining 50 topic
+deliveries and final integration/release gates remain open. This implementation status is not a claim of deployment before
 the current lesson's release checks pass.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
@@ -191,9 +191,10 @@ for the remaining topics is still open; an audited gap is not a published lesson
   complete text alternatives. Combined local assessment/visual verification passes;
   production release evidence is recorded on the class-model PR. The dedicated
   UML lessons and whole-curriculum release remain separate gates.
-- [ ] **Phase 3 — UML and principles:** Class Diagram is implemented; Use Case,
-  Sequence, Activity and State Machine diagrams and all requested principles
-  remain. Complete connected SOLID picture/code examples as part of this phase.
+- [ ] **Phase 3 — UML and principles:** Class Diagram and DRY are implemented;
+  Use Case, Sequence, Activity and State Machine diagrams plus YAGNI, KISS and
+  both SOLID lessons remain. Complete connected SOLID picture/code examples as
+  part of this phase.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
   comparisons, tradeoffs, verified code, and exercises.
 - [ ] **Phase 5 — Concurrency:** deliver foundations, primitives, challenges,
@@ -457,3 +458,39 @@ fullscreen/focus, all five new recorded states, six canonical Java files/output,
 standards link and failed-model-chunk recovery retaining notes. Results and
 limits are retained under `/home/prem/validation/lld-class-diagram-release/`;
 actual deployment/resource review is recorded on the release PR.
+
+
+## Dedicated DRY Principle lesson — 2026-10-28
+
+The nineteenth lesson keeps the existing `dry` topic and its `encapsulation`
+prerequisite. Canonical Java under `examples/dry/` preserves an original duplicated
+delivery-fee requirement, exposes a partial-update disagreement, and delegates both
+refactored callers to one immutable rule. Extraction preserves the original behavior
+before the threshold changes. Independent per-book quote records and an unrelated
+loyalty threshold explain what should remain separate. No production pattern is
+invented or required by this refactoring.
+
+`DryLessonExampleTest` supplies 23 exact-source compiler/output/recorded-scalar,
+boundary, negative-access/input and source-backed Parking reuse/isolation checks.
+The lesson includes five recorded steps, a curated class model with complete text,
+prediction feedback and an independent overdue-fee exercise/rubric. E36 in the
+coverage audit records its source and mapping limits. No browser JVM execution or
+live price/payment promise is implied.
+
+Publication, catalog filters/search, roadmap gaps, prerequisites, saved progress and
+notes are reconciled to 19 published / 50 planned. The guided path continues from
+Class Diagram to DRY; the final DRY page names YAGNI as its next planned concept.
+The empty available-section check uses the still-planned creational section, while
+a separate principles check requires DRY to be visible and its four neighbors to
+remain planned. The all-published class-model guard remains in place.
+
+Actual-route browser, deployment/resource review and release belong to the parent;
+no application servers were started. This delivery does not close Phase 3, the
+remaining 50 topics, curriculum integration/release or the separate module UX audit.
+
+Final local integration checks pass: 2821 backend tests across 309 suites,
+952 frontend tests across 67 files with one worker, Maven package with clean
+exit, lint (zero errors / 14 existing warnings), Vite build and both chunk
+budgets (313607-byte entry / 54680-byte largest non-entry). Logs are retained
+under `/home/prem/validation/lld-dry-integration/`. These are local regression
+results, not hosted or actual-route browser evidence.

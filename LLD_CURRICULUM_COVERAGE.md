@@ -2,11 +2,11 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are eighteen published lessons
-and 51 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. There are nineteen published lessons
+and 50 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
-All eighteen published lessons also include source-curated class models with
+All nineteen published lessons also include source-curated class models with
 selectable typed connectors and complete text alternatives. This foundational
 view does not publish the dedicated UML lessons below.
 
@@ -65,7 +65,7 @@ view does not publish the dedicated UML lessons below.
 
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
-| `dry` — DRY Principle | Remove duplicated knowledge without merging unrelated concepts merely because their text looks alike. | `encapsulation` | [E02](#e02), [E13](#e13): live and sandbox paths reuse pricing/assignment policies while keeping state separate. | Centralize a duplicated price rule without coupling the two repositories' mutable state. | G: before/after refactoring and a counterexample where similar code should stay separate. |
+| `dry` — DRY Principle | Remove duplicated knowledge without merging unrelated concepts merely because their text looks alike. | `encapsulation` | [E36](#e36): canonical delivery-fee drift/extraction/change, independent quote records and unrelated loyalty counterexample; [E02](#e02): verified shared Parking pricing with isolated live/sandbox state. | Model a shared overdue-fee rule with a grace-period change, cap/boundary checks and separate branch records; keep an independent borrowing limit separate. | Delivered: `/learn/dry`, five canonical Java files, output and five verified recorded steps, accessible class model/text, prediction feedback, independent exercise/rubric, tradeoffs and source-backed practice limits. |
 | `yagni` — YAGNI Principle | Keep an implementation within demonstrated requirements and name what evidence would justify expansion. | `classes-and-objects` | [E24](#e24): current in-memory system and scoped curriculum plan; these are case-study inputs, not an implementation of a principle. | Choose the smallest solution for a single-user exercise and defend exclusions such as auth and a database. | G: scenario lesson, tradeoff discussion and change-trigger assessment. |
 | `kiss` — KISS Principle | Prefer the simplest adequate model while preserving explicit validation and invariants. | `classes-and-objects` | [E02](#e02): small pricing policies; [E01](#e01): focused teaching model with stated limits. | Compare a direct policy implementation with an unnecessarily generic rules framework for the same requirement. | G: contrasted solutions, complexity reasoning and a tested minimal design. |
 | `solid-pictures` — SOLID Principles with Pictures | Explain SRP, OCP, LSP, ISP and DIP through responsibility/contract diagrams, including misuse. | `abstraction`, `polymorphism`, `dependency`, `composition` | [E02](#e02), [E04](#e04), [E09](#e09): policy seams, wrappers and observers are source material, not proof of all five principles. | Draw before/after diagrams for all five principles and identify a behavioral contract that a subtype must preserve. | G: five connected visual examples, tradeoffs and accessible text alternatives. |
@@ -744,6 +744,44 @@ modifier/generic annotations. Its exercise/rubric asks learners to defend a
 changed workshop domain rather than copy box shapes. This delivery does not
 publish Use Case, Sequence, Activity or State Machine lessons.
 
+<a id="e36"></a>
+### E36 — DRY knowledge, requirement drift and a justified shared rule
+
+- [Lesson and assessment](frontend/src/learning/lessons/dry.js),
+  [curated class model](frontend/src/learning/class-models/dry.js),
+  [recorded output](frontend/src/learning/examples/dry-output.txt) and
+  [five recorded scalar-result steps](frontend/src/learning/examples/dry-snapshots.json).
+- Canonical Java: [BeforeQuotes](frontend/src/learning/examples/dry/BeforeQuotes.java),
+  [DeliveryFeeRule](frontend/src/learning/examples/dry/DeliveryFeeRule.java),
+  [OrderQuotes](frontend/src/learning/examples/dry/OrderQuotes.java),
+  [RewardRule](frontend/src/learning/examples/dry/RewardRule.java) and
+  [DryDemo](frontend/src/learning/examples/dry/DryDemo.java).
+- [Java contract checks](backend/src/test/java/com/lld/learning/DryLessonExampleTest.java)
+  compile exactly those files with Java 17, verify output/every recorded scalar,
+  preserve the original behavior through extraction, expose the changed-threshold
+  drift interval, and check inclusive boundaries, rejected writes, independent maps
+  and positive/negative compiler access cases.
+- [Frontend checks](frontend/src/__tests__/dryLesson.test.jsx) verify raw-source
+  integrity, recorded step interaction, feedback, exercise/rubric, actual source
+  links and the complete class-model text/selected association. Existing catalog,
+  journey and all-published model tests cover integration.
+
+The same Java suite supplies one real recording HourlyPricingStrategy through the
+shared factory to live ParkingLotService and ParkingLotSimService. Both pricing
+paths execute it; sandbox reset leaves the live ticket and occupied spot intact.
+A fixed two-hour CAR ticket pins the real hourly amount to ₹40. This is bounded
+evidence for policy reuse and state isolation, not proof every Parking workflow
+or validation is deduplicated. The lesson's integer-cent delivery quote books are
+single-threaded and do not model parking clocks/locks, real payments or future
+quote validity. Similar delivery and reward literals have different units and
+reasons to change; the example intentionally gives them no shared domain rule.
+
+Primary teaching references are Hunt and Thomas's publisher-hosted DRY chapter and
+Sandi Metz's own Wrong Abstraction essay, linked in the lesson. The independent
+exercise transfers the reasoning to capped overdue fees and an unrelated borrowing
+limit. This source/assessment delivery does not assert actual-route visual review,
+deployment or completion of the other design-principle lessons.
+
 ## Authoritative semantic references
 
 These references constrain future teaching; they are not evidence that its lesson
@@ -768,5 +806,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 51 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 50 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.
