@@ -189,6 +189,7 @@ const publications = [
   ['dependency', '25–30 minutes'],
   ['oop-overview', '35–45 minutes'],
   ['class-diagram', '35–45 minutes'],
+  ['use-case-diagram', '35–45 minutes'],
   ['dry', '25–30 minutes'],
 ];
 const published = new Map(publications);
@@ -196,6 +197,7 @@ const published = new Map(publications);
 // Catalog outcomes remain metadata: browsing never imports lesson content.
 const outcomes = {
   dry: 'Remove duplicated domain knowledge while keeping unrelated rules and mutable state separate.',
+  'use-case-diagram': 'Model external roles, subject scope and goals; justify participation, include, extend and role generalization against explicit requirements.',
   'class-diagram': 'Read and justify typed class relationships, visibility, multiplicity, navigation and ownership against Java.',
   'oop-overview': 'Defend a study-plan model using object identity, contracts, state, and ownership.',
   'how-to-learn-lld': 'Turn requirements into responsibilities, invariants, and testable object interactions.',

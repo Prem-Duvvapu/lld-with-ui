@@ -1,0 +1,8 @@
+borrow: [eligibility accepted, loan confirmed]
+base complete: active=true, receipt=null
+renew: [eligibility accepted, loan renewed], due day=21
+librarian borrows: [eligibility accepted, loan confirmed, receipt issued]
+Receipt: L1 borrowed Java; due day 14
+member return rejected: Librarian role required
+return: [return recorded], active=false
+inactive borrow rejected: Membership inactive
