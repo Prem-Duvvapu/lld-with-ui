@@ -390,9 +390,20 @@ public class AtmService {
         logSimEvent("SIM_RESET", "System", "Initialized simulation ATM with 2 accounts and dispenser notes (Total: ₹" + simCashDispenser.getTotalCashAvailable() + ")", null);
     }
 
+    /** Reset and capture share the sandbox monitor; another request cannot enter between them. */
+    public synchronized Map<String, Object> simReset() {
+        initSimState();
+        return getSimSnapshots();
+    }
+
     public synchronized Map<String, Object> simInsertCard(String cardNumber) {
         requireIdentifier(cardNumber, "cardNumber");
+        if (simState != ATMState.IDLE) {
+            throw new InvalidSessionStateException("Eject the current sandbox card before inserting another");
+        }
         Card card = simBankingRepository.getCard(cardNumber);
+        simActiveCard = card;
+        simActiveAccount = simBankingRepository.getAccount(card.getAccountNumber());
         if (card.isBlocked()) {
             simState = ATMState.CARD_BLOCKED;
             logSimEvent("CARD_BLOCKED", cardNumber, "Card is already BLOCKED. Insert refused.", null);
@@ -408,7 +419,11 @@ public class AtmService {
     public synchronized Map<String, Object> simAuthenticate(String cardNumber, String pin) {
         requireIdentifier(cardNumber, "cardNumber");
         requirePin(pin);
-        Card card = simBankingRepository.getCard(cardNumber);
+        if (simState != ATMState.CARD_INSERTED || simActiveCard == null
+                || !simActiveCard.getCardNumber().equals(cardNumber)) {
+            throw new InvalidSessionStateException("Insert this sandbox card before authenticating");
+        }
+        Card card = simActiveCard;
         if (card.isBlocked()) {
             simState = ATMState.CARD_BLOCKED;
             logSimEvent("AUTH_FAILED", cardNumber, "CARD IS BLOCKED due to 3 failed PIN attempts!", null);
@@ -439,40 +454,45 @@ public class AtmService {
     public synchronized Map<String, Object> simWithdraw(String accountNumber, double amount, DispenseMode mode) {
         requireIdentifier(accountNumber, "accountNumber");
         int intAmount = withdrawalAmount(amount, mode);
-        if (simState != ATMState.AUTHENTICATED && simState != ATMState.TRANSACTION_IN_PROGRESS) {
-            logSimEvent("WITHDRAW_REJECTED", accountNumber, "Session is in state " + simState + " — authenticate before withdrawing.", null);
-            return getSimSnapshots();
+        if (simState != ATMState.AUTHENTICATED || simActiveAccount == null
+                || !simActiveAccount.getAccountNumber().equals(accountNumber)) {
+            logSimEvent("WITHDRAW_REJECTED", accountNumber,
+                    "Authenticate the selected account before withdrawing.", null);
+            return withdrawalSnapshot("REJECTED");
         }
 
-        Account acc = simBankingRepository.getAccount(accountNumber);
+        Account acc = simActiveAccount;
         simState = ATMState.TRANSACTION_IN_PROGRESS;
-
         acc.getLock().lock();
         try {
             if (acc.getBalance() < amount) {
                 logSimEvent("WITHDRAW_FAILED", accountNumber, String.format("INSUFFICIENT BALANCE! Requested: ₹%.2f, Available: ₹%.2f", amount, acc.getBalance()), null);
                 simState = ATMState.AUTHENTICATED;
-                return getSimSnapshots();
+                return withdrawalSnapshot("INSUFFICIENT_BALANCE");
             }
-
-            // Debit
             acc.setBalance(acc.getBalance() - amount);
             simState = ATMState.DISPENSING;
-
+            String outcome;
             try {
                 Map<NoteDenomination, Integer> notes = simCashDispenser.dispenseCash(intAmount, mode);
                 logSimEvent("WITHDRAW_SUCCESS", accountNumber, String.format("Successfully withdrew ₹%.2f using %s. Dispensed notes: %s", amount, mode, notes), null);
+                outcome = "SUCCESS";
             } catch (InsufficientCashException ex) {
-                // Compensate
                 acc.setBalance(acc.getBalance() + amount);
                 logSimEvent("DISPENSER_FAIL_REVERT", accountNumber, "DISPENSER DENOMINATION MISMATCH! Reverted ₹" + amount + " debit back to account balance.", null);
+                outcome = "DISPENSER_FAILED";
             }
-
             simState = ATMState.AUTHENTICATED;
-            return getSimSnapshots();
+            return withdrawalSnapshot(outcome);
         } finally {
             acc.getLock().unlock();
         }
+    }
+
+    private Map<String, Object> withdrawalSnapshot(String outcome) {
+        Map<String, Object> snapshot = getSimSnapshots();
+        snapshot.put("withdrawalOutcome", outcome);
+        return snapshot;
     }
 
     public synchronized Map<String, Object> simEject() {
@@ -483,21 +503,58 @@ public class AtmService {
         return getSimSnapshots();
     }
 
-    public List<SimEvent> getSimEvents() {
-        return simEventLog;
+    public synchronized List<SimEvent> getSimEvents() {
+        return simEventLog.stream().map(AtmService::copySimEvent).toList();
     }
 
-    public Map<String, Object> getSimSnapshots() {
-        Map<String, Object> res = new HashMap<>();
+    /** Every field is captured under the same monitor used by sandbox mutations. */
+    public synchronized Map<String, Object> getSimSnapshots() {
+        Map<String, Object> res = new LinkedHashMap<>();
         res.put("simState", simState);
-        res.put("accounts", simBankingRepository.getAllAccounts());
-        res.put("cards", simBankingRepository.getAllCards());
-        res.put("activeAccount", simActiveAccount);
-        res.put("activeCard", simActiveCard);
+        res.put("accounts", simBankingRepository.getAllAccounts().stream().map(AtmService::copySimAccount).toList());
+        res.put("cards", simBankingRepository.getAllCards().stream().map(AtmService::copySimCard).toList());
+        res.put("activeAccount", copySimAccount(simActiveAccount));
+        res.put("activeCard", copySimCard(simActiveCard));
         res.put("dispenserCash", simCashDispenser.getTotalCashAvailable());
         res.put("inventory", simCashDispenser.getInventory());
-        res.put("events", simEventLog);
+        res.put("events", getSimEvents());
         return res;
+    }
+
+    private static Account copySimAccount(Account account) {
+        if (account == null) return null;
+        return Account.builder().id(account.getId()).accountNumber(account.getAccountNumber())
+                .holderName(account.getHolderName()).balance(account.getBalance()).build();
+    }
+
+    private static Card copySimCard(Card card) {
+        if (card == null) return null;
+        return Card.builder().cardNumber(card.getCardNumber()).pin(card.getPin())
+                .accountNumber(card.getAccountNumber()).isBlocked(card.isBlocked())
+                .failedPinAttempts(new java.util.concurrent.atomic.AtomicInteger(card.getFailedPinAttempts())).build();
+    }
+
+    private static SimEvent copySimEvent(SimEvent event) {
+        return new SimEvent(event.getId(), event.getTimestamp(), event.getType(), event.getActor(),
+                event.getDescription(), copySimDetails(event.getDetails()));
+    }
+
+    private static Map<String, Object> copySimDetails(Map<String, Object> details) {
+        if (details == null) return null;
+        Map<String, Object> copy = new LinkedHashMap<>();
+        details.forEach((key, value) -> copy.put(key, copySimValue(value)));
+        return copy;
+    }
+
+    private static Object copySimValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<Object, Object> copy = new LinkedHashMap<>();
+            map.forEach((key, item) -> copy.put(key, copySimValue(item)));
+            return copy;
+        }
+        if (value instanceof List<?> list) return list.stream().map(AtmService::copySimValue).toList();
+        // Sandbox event details contain JSON scalars, maps and lists only.
+        return value;
     }
 
     private void logSimEvent(String type, String actor, String desc, Map<String, Object> data) {

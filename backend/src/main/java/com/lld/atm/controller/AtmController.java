@@ -93,8 +93,7 @@ public class AtmController {
 
     @PostMapping("/sim/reset")
     public ResponseEntity<Map<String, Object>> simReset() {
-        atmService.initSimState();
-        return ResponseEntity.ok(atmService.getSimSnapshots());
+        return ResponseEntity.ok(atmService.simReset());
     }
 
     @PostMapping("/sim/insert-card")
@@ -128,6 +127,11 @@ public class AtmController {
     @GetMapping("/sim/events")
     public ResponseEntity<List<SimEvent>> simGetEvents() {
         return ResponseEntity.ok(atmService.getSimEvents());
+    }
+
+    @GetMapping("/sim/state")
+    public ResponseEntity<Map<String, Object>> simGetState() {
+        return ResponseEntity.ok(atmService.getSimSnapshots());
     }
 
     @GetMapping("/sim/snapshots")

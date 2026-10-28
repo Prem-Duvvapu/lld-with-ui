@@ -8,6 +8,7 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-126](#rca-126-atm-sandbox-snapshots-and-request-burst-reported-stale-results) | 2026-10-28 | ATM / Sandbox State | Mutable unlocked snapshots and first-response selection hid final state; HTTP success was counted as approval | Coherent detached reads, selected-session checks and explicit UI recovery implemented |
 | [RCA-125](#rca-125-atm-sandbox-resource-cards-expanded-the-mobile-page) | 2026-10-28 | ATM / Responsive Simulation | Intrinsic grid/flex minimums made account and cassette cards overflow by 149px at 320px | Resolved with scoped shrinkable tracks and wrapped rows |
 | [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
 | [RCA-123](#rca-123-browser-validation-read-assets-while-vite-replaced-the-build-directory) | 2026-10-27 | Validation / Production Assets | Rebuilding Vite during a browser matrix deleted files still being served by its route handler | Resolved by serving an isolated build snapshot |
@@ -8777,3 +8778,60 @@ A responsive outer grid does not override descendants' intrinsic minimum widths.
 Use scoped shrinkable tracks and wrapped values, and keep overflow assertions
 strict rather than exempting a known failing simulation view. This layout change
 does not certify sandbox state/race fidelity or the full ATM workflow.
+
+
+## RCA-126: ATM sandbox snapshots and request burst reported stale results
+
+### 1. Overview & Severity
+High teaching/correctness defect in the isolated sandbox. It exposed mutable
+state without a common capture boundary, and the request burst reported an early
+balance and approval count unrelated to actual withdrawals. The live bank state
+is separate; this entry does not certify or repair its broader session lifecycle.
+
+### 2. Symptoms & Error Logs
+A real Java-backed browser reproduction selects Sim Bob, withdraws ₹300, then
+sends ten ₹600 requests. Java finishes at ₹500 with seven burst approvals, while
+the UI displays ₹4100 and10/10 winners. Artifacts are in
+`/home/prem/validation/lld-atm-release/before-burst.json` and its screenshot/log.
+Snapshots returned the actual Account/Card/SimEvent instances and event log.
+Reset initialization and response capture were separate controller calls.
+
+### 3. Root Cause
+Sandbox mutations used the service monitor, while reads did not. A copied outer
+map still referenced mutable domain objects, so later mutations could change an
+already-returned response. The frontend selected the first fulfilled request,
+counted HTTP200 as a successful withdrawal even when events described failure,
+and called the serialized sandbox a10-thread account-lock race. Sandbox card
+selection/authentication also lacked inserted-card and selected-account checks.
+
+### 4. Diagnostic Commands
+`node /home/prem/validation/lld-atm-release/before-burst.cjs` reproduces the old
+balance/count using frozen built assets and actual MockMvc over stdin.
+`mvn -Dtest=AtmSandboxSnapshotTest,AtmRequestValidationTest test` verifies detached
+responses, monitor-blocked capture, seven Bob approvals, session selection and
+HTTP state/reset contracts. Focused UI/API tests cover all-settled refresh,
+reordered responses, failed final reads, duplicate guards and departure aborts.
+
+### 5. Step-by-Step Resolution
+1. Capture accounts, cards, inventory and copied events/details under the same
+   monitor as mutations; reset and capture now share one service operation.
+2. Provide GET `/api/atm/sim/state`, retaining the legacy snapshots route.
+3. Enforce inserted-card authentication and selected-account withdrawal. Include
+   each withdrawal's explicit outcome in its detached response.
+4. Wait for all burst responses, count explicit approvals and then read final
+   state. Describe this as a client request burst processed serially by Java.
+5. Retain the last confirmed snapshot/drafts on an unavailable or malformed read.
+   Require an explicit read-only Retry before another mutation; never replay a
+   cash operation automatically. Surface unknown response outcomes separately.
+6. Guard synchronously, disable pending/conflicting controls, abort on departure
+   and ignore late responses. Use labelled keyboard forms and focus the next
+   workflow control or recovery action. Browser cancellation cannot roll back
+   work already completed by Java.
+
+### 6. Preventative Measures
+Do not equate HTTP success with a domain outcome, input/arrival order with final
+state, or parallel clients with competing JVM workers. Verify both seeded account
+balances, including multiple approvals, and prevent partial state exposure during
+serialization. Keep detached historical responses and explicit failed-read
+recovery in regression coverage. Full module and hosted integration review remain
+separate gates; this sandbox does not introduce idempotency or a durable ledger.
