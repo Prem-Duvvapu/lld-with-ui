@@ -140,6 +140,18 @@ describe('Dedicated Use Case Diagram lesson', () => {
     openLesson();
     expect(screen.getByRole('heading', { name: 'Use Case Diagram', level: 1 })).toHaveFocus();
     expect(await screen.findByRole('heading', { name: lesson.classModel.title, level: 2 })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Use case diagram', exact: true })).toHaveAttribute('href', '#lesson-diagram');
+    expect(await screen.findByRole('heading', { name: useCaseModel.title, level: 2 })).toBeVisible();
+    const primary = document.querySelector('.lesson-use-case');
+    const selector = within(primary).getByRole('combobox', { name: 'Use case relationship' });
+    const fullText = within(primary).getByText('Text explanation', { selector: 'summary' }).parentElement;
+    fullText.open = true;
+    for (const edge of useCaseModel.relationships) {
+      fireEvent.change(selector, { target: { value: edge.id } });
+      expect(primary.querySelectorAll('[data-node]')).toHaveLength(7);
+      expect(primary.querySelectorAll('[data-relationship]')).toHaveLength(1);
+      for (const relationship of useCaseModel.relationships) expect(fullText).toHaveTextContent(relationship.description);
+    }
     const visual = screen.getByRole('heading', { name: lesson.visual.title }).closest('section');
     for (const [index, snapshot] of lesson.visual.snapshots.entries()) {
       const control = screen.getByRole('button', { name: `${index + 1}. ${snapshot.title}` });
@@ -158,7 +170,7 @@ describe('Dedicated Use Case Diagram lesson', () => {
     for (const block of lesson.code) {
       expect(screen.getByRole('region', { name: `${block.filename}, scrollable code` }).textContent).toBe(block.source.trim());
     }
-    const explanation = screen.getByText('Text explanation', { selector: 'summary' }).parentElement;
+    const explanation = within(document.querySelector('.lesson-class-model')).getByText('Text explanation', { selector: 'summary' }).parentElement;
     explanation.open = true;
     for (const type of lesson.classModel.classes) {
       expect(within(explanation).getByRole('heading', { name: `${type.name} — ${type.kind}` })).toBeVisible();

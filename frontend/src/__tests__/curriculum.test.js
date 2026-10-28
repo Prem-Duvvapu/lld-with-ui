@@ -30,7 +30,7 @@ describe('Curriculum inventory and publication contract', () => {
   it('publishes content only when a matching lazy-loaded file exists', async () => {
     const files = Object.keys(import.meta.glob('../learning/lessons/*.js'));
     expect(files.sort()).toEqual(PUBLISHED_LESSONS.map(entry => `../learning/lessons/${entry.id}.js`).sort());
-    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['how-to-learn-lld', 'classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation', 'abstraction', 'inheritance', 'polymorphism', 'overloading-and-overriding', 'static-and-instance', 'association', 'aggregation', 'composition', 'dependency', 'oop-overview', 'class-diagram', 'dry']);
+    expect(PUBLISHED_LESSONS.map(entry => entry.id)).toEqual(['how-to-learn-lld', 'classes-and-objects', 'constructors', 'access-modifiers', 'enums', 'interfaces', 'encapsulation', 'abstraction', 'inheritance', 'polymorphism', 'overloading-and-overriding', 'static-and-instance', 'association', 'aggregation', 'composition', 'dependency', 'oop-overview', 'class-diagram', 'use-case-diagram', 'dry']);
     expect((await loadLesson(PUBLISHED_LESSONS[0].id)).id).toBe('how-to-learn-lld');
     expect(lesson.quiz.options.filter(option => option.correct)).toHaveLength(1);
     expect((await loadLesson('classes-and-objects')).id).toBe('classes-and-objects');
