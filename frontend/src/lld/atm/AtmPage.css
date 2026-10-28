@@ -444,3 +444,6 @@
 .atm-simulation .atm-state-node.blocked { color: var(--on-status-solid); border-color: var(--danger-solid); background: var(--danger-solid); }
 .atm-simulation .atm-sim-actions :is(input, select, button) { min-width: 0; max-width: 100%; min-height: 44px; }
 @media (max-width: 900px) { .atm-simulation .atm-sim-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.atm-simulation .atm-sim-actions label { display: grid; gap: 6px; flex: 1 1 200px; min-width: 0; font-weight: 600; }
+.atm-simulation .atm-sim-actions label :is(input, select) { width: 100%; }

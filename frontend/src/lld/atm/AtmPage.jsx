@@ -1,12 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import LldPage from '../../components/LldPage';
-import {
-  simReset,
-  simInsertCard,
-  simAuthenticate,
-  simWithdraw,
-  simEject,
-} from './api';
+import { useAtmSandboxWorkspace } from './useAtmSandboxWorkspace';
 import './AtmPage.css';
 import AtmLiveTerminal from './AtmLiveTerminal';
 import { useAtmLiveWorkspace } from './useAtmLiveWorkspace';
@@ -40,91 +34,29 @@ const SIM_STEPS = [
   'Insert card',
   'Authenticate with PIN',
   'Withdraw with a chosen dispense strategy',
-  'Trigger a 10-thread concurrent withdrawal race',
+  'Send a burst of 10 withdrawal requests',
   'Eject card',
   'Review telemetry & event log',
 ];
 
 function SimulationTab() {
-  const [snapshot, setSnapshot] = useState(null);
-  const [step, setStep] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [cardNumber, setCardNumber] = useState('CARD-SIM-1');
-  const [pin, setPin] = useState('1234');
-  const [amount, setAmount] = useState('300');
-  const [mode, setMode] = useState('MINIMIZE_NOTES');
-  const [raceResult, setRaceResult] = useState(null);
-  const mountedRef = useRef(true);
-
-  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
-
+  const workspace = useAtmSandboxWorkspace();
+  const { snapshot, step, busy, error, needsRefresh, burstResult,
+    cardNumber, setCardNumber, pin, setPin, amount, setAmount, mode, setMode } = workspace;
+  const container = useRef(null);
+  useEffect(() => {
+    if (!busy && (step > 0 || needsRefresh)) container.current?.querySelector('[data-step-control]')?.focus();
+  }, [step, busy, needsRefresh]);
+  const disabled = busy || needsRefresh;
   const events = snapshot?.events || [];
   const inventory = snapshot?.inventory || {};
-
-  const applyResult = (result, advanceHint) => {
-    if (!mountedRef.current) return;
-    if (result?.error) { setError(result.error); return; }
-    setSnapshot(result);
-    if (advanceHint != null) setStep((s) => Math.min(SIM_STEPS.length - 1, Math.max(s, advanceHint)));
-  };
-
-  const withBusy = async (fn) => {
-    setBusy(true); setError('');
-    try { await fn(); } catch (err) { setError(err.message || 'Simulation step failed'); }
-    finally { if (mountedRef.current) setBusy(false); }
-  };
-
-  const doReset = () => withBusy(async () => {
-    const result = await simReset();
-    setRaceResult(null);
-    applyResult(result, 1);
-  });
-
-  const doInsertCard = () => withBusy(async () => {
-    const result = await simInsertCard(cardNumber);
-    applyResult(result, 3);
-  });
-
-  const doAuthenticate = () => withBusy(async () => {
-    const result = await simAuthenticate(cardNumber, pin);
-    applyResult(result, 4);
-  });
-
-  const doWithdraw = () => withBusy(async () => {
-    const acc = snapshot?.activeAccount;
-    if (!acc) { setError('Authenticate first.'); return; }
-    const result = await simWithdraw(acc.accountNumber, Number(amount), mode);
-    applyResult(result, 5);
-  });
-
-  const doRace = () => withBusy(async () => {
-    const acc = snapshot?.activeAccount;
-    if (!acc) { setError('Authenticate first.'); return; }
-    const attempts = 10;
-    const results = await Promise.all(
-      Array.from({ length: attempts }, () => simWithdraw(acc.accountNumber, 600, mode).catch((e) => ({ error: e.message })))
-    );
-    const succeeded = results.filter((r) => !r?.error).length;
-    setRaceResult({ attempts, succeeded });
-    const last = results.find((r) => !r?.error) || results[results.length - 1];
-    applyResult(last, 6);
-  });
-
-  const doEject = () => withBusy(async () => {
-    const result = await simEject();
-    applyResult(result, 6);
-  });
-
-  const reset = () => { setSnapshot(null); setStep(0); setError(''); setRaceResult(null); };
-  const finalStep = () => setStep(7);
 
   const accounts = snapshot?.accounts || [];
   const cards = snapshot?.cards || [];
   const simState = snapshot?.simState || 'IDLE';
 
   return (
-    <div className="atm-simulation">
+    <div className="atm-simulation" ref={container}>
       <div className="atm-step-indicator">
         {SIM_STEPS.map((s, i) => (
           <div key={s} className={`atm-step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
@@ -133,6 +65,10 @@ function SimulationTab() {
       </div>
 
       {error && <div role="alert" className="screen-alert error atm-sim-error">{error}</div>}
+      {needsRefresh && <div role="status" className="panel-card">
+        <p>Showing the last confirmed state. Refresh before making another change. Refreshing reads current state and does not repeat a withdrawal.</p>
+        <button className="btn-trigger" data-step-control onClick={workspace.refresh} disabled={busy}>Retry state refresh</button>
+      </div>}
 
       {!snapshot ? (
         <div className="atm-sim-intro">
@@ -142,7 +78,8 @@ function SimulationTab() {
             accounts and 2 cards — so nothing here can ever touch the real terminal's accounts.
           </p>
           <div className="atm-sim-actions">
-            <button className="btn-trigger" onClick={doReset} disabled={busy}>▶ Reset Sandbox</button>
+            <button className="btn-trigger" onClick={workspace.reset} disabled={disabled}>▶ Reset Sandbox</button>
+            <button className="btn-trigger" onClick={workspace.refresh} disabled={busy}>Load current sandbox</button>
           </div>
         </div>
       ) : (
@@ -151,7 +88,7 @@ function SimulationTab() {
             <div className="atm-hud-tile"><div className="v">{simState}</div><div className="l">Session State</div></div>
             <div className="atm-hud-tile"><div className="v">₹{(snapshot.dispenserCash ?? 0).toLocaleString('en-IN')}</div><div className="l">Cash In Cassette</div></div>
             <div className="atm-hud-tile"><div className="v">{events.length}</div><div className="l">Events Logged</div></div>
-            <div className="atm-hud-tile"><div className="v">{raceResult ? `${raceResult.succeeded}/${raceResult.attempts}` : '—'}</div><div className="l">Race Winners</div></div>
+            <div className="atm-hud-tile"><div className="v">{burstResult ? `${burstResult.approved}/${burstResult.attempts}` : '—'}</div><div className="l">Approved Burst Withdrawals</div></div>
             <div className="atm-hud-tile"><div className="v">{snapshot.activeAccount ? snapshot.activeAccount.accountNumber : '—'}</div><div className="l">Active Account</div></div>
           </div>
 
@@ -191,48 +128,48 @@ function SimulationTab() {
           {step === 1 && (
             <div className="atm-sim-actions">
               <span className="atm-sim-hint">The sandbox seeded 2 accounts and 2 cards, shown in the panels above — nothing to do here but look before moving on.</span>
-              <button className="btn-trigger" onClick={() => setStep(2)} disabled={busy}>Next: Insert Card →</button>
+              <button className="btn-trigger" data-step-control onClick={workspace.next} disabled={disabled}>Next: Insert Card →</button>
             </div>
           )}
 
           {step === 2 && (
             <div className="atm-sim-actions">
-              <select value={cardNumber} onChange={(e) => setCardNumber(e.target.value)}>
+              <label>Card<select data-step-control aria-label="Sandbox card" disabled={disabled} value={cardNumber} onChange={(e) => setCardNumber(e.target.value)}>
                 <option value="CARD-SIM-1">CARD-SIM-1 (Sim Alice, ₹1000)</option>
                 <option value="CARD-SIM-2">CARD-SIM-2 (Sim Bob, ₹5000)</option>
-              </select>
-              <button className="btn-trigger" onClick={doInsertCard} disabled={busy}>Insert Card</button>
+              </select></label>
+              <button className="btn-trigger" onClick={workspace.insert} disabled={disabled}>Insert Card</button>
             </div>
           )}
 
-          {step === 3 && (
-            <div className="atm-sim-actions">
-              <input value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" maxLength={4} />
-              <button className="btn-trigger" onClick={doAuthenticate} disabled={busy}>Authenticate</button>
-              <button className="btn-trigger red" onClick={() => setPin('9999')} disabled={busy}>Use Wrong PIN (demo lockout)</button>
-            </div>
+          {step === 3 && simState !== 'CARD_BLOCKED' && (
+            <form className="atm-sim-actions" aria-label="Sandbox authentication" onSubmit={event => { event.preventDefault(); workspace.authenticate(); }}>
+              <label>4-digit PIN<input type="password" inputMode="numeric" autoComplete="off" data-step-control aria-label="Sandbox PIN" disabled={disabled} value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN" maxLength={4} required pattern="[0-9]{4}" /></label>
+              <button className="btn-trigger" type="submit" disabled={disabled}>Authenticate</button>
+              <button type="button" className="btn-trigger red" onClick={() => setPin('9999')} disabled={disabled}>Use Wrong PIN (demo lockout)</button>
+            </form>
           )}
 
           {step === 4 && (
-            <div className="atm-sim-actions">
-              <input type="number" step="100" value={amount} onChange={(e) => setAmount(e.target.value)} />
-              <select value={mode} onChange={(e) => setMode(e.target.value)}>
+            <form className="atm-sim-actions" aria-label="Sandbox withdrawal" onSubmit={event => { event.preventDefault(); workspace.withdraw(); }}>
+              <label>Amount (₹)<input data-step-control aria-label="Sandbox withdrawal amount (₹)" disabled={disabled} type="number" step="100" min="100" required value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
+              <label>Dispense strategy<select aria-label="Sandbox dispense strategy" disabled={disabled} value={mode} onChange={(e) => setMode(e.target.value)}>
                 {DISPENSE_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select>
-              <button className="btn-trigger" onClick={doWithdraw} disabled={busy}>Withdraw</button>
-            </div>
+              </select></label>
+              <button className="btn-trigger" type="submit" disabled={disabled}>Withdraw</button>
+            </form>
           )}
 
           {step === 5 && (
             <div className="atm-sim-actions">
-              <span className="atm-sim-hint">Fires 10 concurrent ₹600 withdrawals at the active account — the per-account lock must let exactly one win.</span>
-              <button className="btn-trigger" onClick={doRace} disabled={busy}>🚀 Trigger 10-Thread Race</button>
+              <span className="atm-sim-hint">Sends 10 ₹600 requests together. The sandbox processes them serially; the balance and cassette determine how many are approved. This demonstrates a client request burst. The Java concurrency tests separately exercise the live account lock.</span>
+              <button className="btn-trigger" data-step-control onClick={workspace.burst} disabled={disabled}>Send 10 withdrawal requests</button>
             </div>
           )}
 
           {step === 6 && (
             <div className="atm-sim-actions">
-              <button className="btn-trigger" onClick={doEject} disabled={busy}>⏏️ Eject Card</button>
+              <button className="btn-trigger" data-step-control onClick={workspace.eject} disabled={disabled}>⏏️ Eject Card</button>
             </div>
           )}
 
@@ -256,10 +193,13 @@ function SimulationTab() {
             </div>
           </div>
 
+          {burstResult && <p role="status">{burstResult.approved} approved responses from {burstResult.attempts} requests.
+            {burstResult.unconfirmed > 0 && ` ${burstResult.unconfirmed} responses were not confirmed; their outcome is unknown. The refreshed state and event log show recorded activity.`}
+          </p>}
           <div className="atm-sim-actions">
-            {step >= 6 && step < 7 && <button className="btn-trigger" onClick={finalStep} disabled={busy}>Review Telemetry →</button>}
-            <button className="btn-trigger" onClick={doReset} disabled={busy}>↺ Reset</button>
-            <button className="btn-trigger red" onClick={reset} disabled={busy}>Exit Sandbox</button>
+            {simState === 'CARD_BLOCKED' && <button className="btn-trigger" data-step-control onClick={workspace.eject} disabled={disabled}>Eject blocked card</button>}
+            <button className="btn-trigger" data-step-control={step === 7 ? true : undefined} onClick={workspace.reset} disabled={disabled}>↺ Reset</button>
+            <button className="btn-trigger red" onClick={workspace.exit} disabled={busy}>Exit Sandbox</button>
           </div>
         </>
       )}

@@ -49,39 +49,40 @@ export function getDispenserStatus(options = {}) {
 }
 
 // Isolated Simulation API
-export function simReset() {
-  return apiFetch('/atm/sim/reset', { method: 'POST' });
+export function simReset(options = {}) {
+  return apiFetch('/atm/sim/reset', { ...options, method: 'POST' });
 }
 
-export function simInsertCard(cardNumber) {
+export function simInsertCard(cardNumber, options = {}) {
   return apiFetch('/atm/sim/insert-card', {
-    method: 'POST',
-    body: JSON.stringify({ cardNumber }),
+    ...options, method: 'POST', body: JSON.stringify({ cardNumber }),
   });
 }
 
-export function simAuthenticate(cardNumber, pin) {
+export function simAuthenticate(cardNumber, pin, options = {}) {
   return apiFetch('/atm/sim/authenticate', {
-    method: 'POST',
-    body: JSON.stringify({ cardNumber, pin }),
+    ...options, method: 'POST', body: JSON.stringify({ cardNumber, pin }),
   });
 }
 
-export function simWithdraw(accountNumber, amount, mode) {
+export function simWithdraw(accountNumber, amount, mode, options = {}) {
   return apiFetch('/atm/sim/withdraw', {
-    method: 'POST',
-    body: JSON.stringify({ accountNumber, amount: Number(amount), mode }),
+    ...options, method: 'POST', body: JSON.stringify({ accountNumber, amount: Number(amount), mode }),
   });
 }
 
-export function simEject() {
-  return apiFetch('/atm/sim/eject', { method: 'POST' });
+export function simEject(options = {}) {
+  return apiFetch('/atm/sim/eject', { ...options, method: 'POST' });
 }
 
-export function simGetEvents() {
-  return apiFetch('/atm/sim/events');
+export function simGetEvents(options = {}) {
+  return apiFetch('/atm/sim/events', options);
 }
 
-export function simGetSnapshots() {
-  return apiFetch('/atm/sim/snapshots');
+export function simGetSnapshots(options = {}) {
+  return apiFetch('/atm/sim/snapshots', options);
+}
+
+export function simGetState(options = {}) {
+  return apiFetch('/atm/sim/state', options);
 }
