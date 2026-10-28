@@ -425,3 +425,22 @@
   .atm-live-terminal .atm-cabinet, .atm-live-terminal .atm-screen { padding: 12px; }
   .atm-live-terminal .screen-actions { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Sandbox cards must shrink with the page, including long account/denomination labels. */
+.atm-simulation { min-width: 0; overflow-wrap: anywhere; }
+.atm-simulation .atm-sim-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.atm-simulation .panel-card { min-width: 0; }
+.atm-simulation .sim-account-row { flex-wrap: wrap; gap: 6px 12px; }
+.atm-simulation .sim-account-row > * { min-width: 0; }
+.atm-simulation .sim-account-row.blocked { color: var(--danger); }
+.atm-simulation .inventory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.atm-simulation .denom-card { min-width: 0; flex-wrap: wrap; gap: 4px; }
+.atm-simulation .atm-hud { grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr)); }
+.atm-simulation .atm-hud-tile { min-width: 0; }
+.atm-simulation .atm-hud-tile .l { font-size: .75rem; }
+.atm-simulation .atm-state-node { flex: 1 1 100px; min-width: 0; }
+.atm-simulation .atm-state-node.passed { color: var(--success); border-color: var(--success); background: var(--success-bg); }
+.atm-simulation .atm-state-node.active { color: var(--on-accent-solid); border-color: var(--accent-solid); background: var(--accent-solid); }
+.atm-simulation .atm-state-node.blocked { color: var(--on-status-solid); border-color: var(--danger-solid); background: var(--danger-solid); }
+.atm-simulation .atm-sim-actions :is(input, select, button) { min-width: 0; max-width: 100%; min-height: 44px; }
+@media (max-width: 900px) { .atm-simulation .atm-sim-grid { grid-template-columns: minmax(0, 1fr); } }

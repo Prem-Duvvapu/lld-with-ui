@@ -6,6 +6,22 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- ATM exact dispensing and responsive sandbox: both policies now find feasible
+  plans for the fixed four denominations; MINIMIZE_NOTES minimizes note count,
+  while CONSERVE_LARGE_NOTES minimizes larger-note usage lexicographically.
+  Independent actual-count enumeration checks 22,782 sampled/boundary cases;
+  five new real-service HTTP cases pin both stranded-remainder regressions and
+  long cash totals. Teaching views now state actual lifecycle/compensation limits
+  (RCA-118/120). Scoped shrinkable account/cassette cards resolve the 149px mobile
+  overflow (RCA-125). Validation: 2770 backend cases (306 suites), 883 frontend
+  cases (61 files), package/lint/build/budgets (313607 B entry / 54680 B largest
+  non-entry). Frozen routed browser review passes 64 workflow/teaching/layout
+  checks plus eight label-layout comparisons in eight contexts, using 184 actual
+  Java MockMvc requests. Artifacts: `/home/prem/validation/lld-atm-release/`.
+  Sandbox state detachment/final burst refresh, live session coordination and
+  hosted integration remain open; this is not whole-ATM sign-off.
+
+
 - Foundational class models: all seventeen published lessons have canonical-source
   compartments, selected relationship connectors, explicit ownership/navigation
   constraints and complete text alternatives. The capstone is integrated and the
@@ -267,7 +283,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
 | airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
-| atm | Not adopted | Live frontend and request validation reviewed 2026-10-27; whole-module sign-off remains open | Session/snapshot lifecycle and simulation review remain; hosted integration is unverified | Retained confirmed live session/drafts/receipt; guarded requests and explicit recovery; strict Java amount/request validation | #177 live workspace; RCA-115/116; earlier teaching/grid fixes | 77 new real-service/HTTP boundary cases; existing ATM/concurrency/domain tests; 22 live workspace/API cases | 56 live views with 248 actual Java MockMvc browser requests across light/dark ×320/390/768/1280; prior 8 fixture contexts and 24 learning views; not hosted HTTP E2E | #155, #167, #177; request-validation branch |
+| atm | Not adopted | Live/request validation, exact dispensing and responsive sandbox reviewed; whole-module sign-off open | Sandbox snapshots/session checks/final burst reads and live lifecycle remain; hosted integration unverified | Confirmed live state/drafts; guarded requests/recovery; strict request validation; exact note planning; shrinkable sandbox cards | #177/#178; RCA-115/116/118/120/125 | 26 new exact-dispenser/HTTP cases; independent 22,782-case count oracle; prior request/concurrency/workspace checks | 64 strict scoped checks + eight label comparisons, 184 actual Java MockMvc requests in eight contexts; prior 56 live views/248 requests; not hosted HTTP E2E | Exact-dispense release PR; whole-module review remains open |
 | auction | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | blocking-queue | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
@@ -461,8 +477,10 @@ How to Learn LLD, Method Overloading vs Overriding, Static vs Instance Members,
 Aggregation, Composition and Dependency. That batch brought the manifest to sixteen
 published lessons and 53 planned topics. The next batch adds the connected
 capstone, bringing the current total to seventeen published and 52 planned. All fifteen individual OOP concepts
-are delivered; Phase 2 still needs foundational rendered class diagrams and final
-assessment/visual review; the capstone now supplies its model exercise/rubric. Phases 3–7 remain open. This is
+are delivered. All seventeen lessons now include foundational class models and
+complete text alternatives; Phase 2 content/assessment/local visual review passed
+in #183, followed by 212 production views and verified asset responses. The
+capstone supplies its model exercise/rubric. Phases 3–7 remain open. This is
 separate from the existing-module UI/UX matrix and historical 60-module roadmap.
 The pattern inventory was checked on 2026-10-18: the original request named 22
 patterns, and Interpreter is now an explicit proposed addition to complete the

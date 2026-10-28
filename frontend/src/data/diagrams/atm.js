@@ -11,19 +11,28 @@ export default {
       fields: [
         '- bankingRepository: BankingRepository',
         '- cashDispenser: CashDispenser',
-        '- currentState: ATMState',
+        '- currentState: volatile ATMState',
         '- activeCard: Card',
         '- activeAccount: Account',
-        '- sessionLock: ReentrantLock'
+        '- sessionLock: ReentrantLock',
+        '- simBankingRepository: BankingRepository (separate instance)',
+        '- simCashDispenser: CashDispenser (separate cassette)',
+        '- simState: ATMState'
       ],
       methods: [
         '+ insertCard(cardNumber): Map',
         '+ authenticate(cardNumber, pin): Account',
         '+ getBalance(accNum): double',
         '+ withdraw(accNum, amount): WithdrawalTransaction',
+        '+ withdraw(accNum, amount, mode): WithdrawalTransaction',
         '+ deposit(accNum, amount, notes): DepositTransaction',
         '+ ejectCard(): Map',
-        '- transitionTo(target: ATMState): void  // the only place currentState is ever assigned'
+        '- transitionTo(target: ATMState): void  // sessionLock + table check for insert/auth/eject',
+        '- setState(target: ATMState): void  // direct live transaction-phase write',
+        '+ initSimState(): void  // synchronized on this; assigns simState directly',
+        '+ simWithdraw(accNum, amount, mode): Map  // synchronized; phase check only',
+        '+ getSimSnapshots(): Map  // unsynchronized, shallow aggregate',
+        '+ getSimEvents(): List<SimEvent>  // original event list'
       ]
     },
     {
@@ -41,23 +50,25 @@ export default {
       stereotype: 'resolver',
       fields: [],
       methods: [
-        '+ of(status: ATMState): SessionState  // EnumMap of the 7 singleton states'
+        '+ of(status: ATMState): SessionState  // selects one of 7 registered singleton states'
       ]
     },
     {
       name: 'CashDispenser',
       fields: [
-        '- noteInventory: ConcurrentHashMap<NoteDenomination, Integer>',
+        '- noteInventory: Map<NoteDenomination, Integer> (ConcurrentHashMap)',
         '- dispenserLock: ReentrantLock',
         '- strategyFactory: DenominationDispenseStrategyFactory',
         '- defaultMode: DispenseMode'
       ],
       methods: [
-        '+ getTotalCashAvailable(): int',
-        '+ getInventory(): Map',
+        '+ getTotalCashAvailable(): long',
+        '+ getInventory(): Map  // copied under dispenserLock',
+        '+ getLock(): ReentrantLock',
         '+ addNotes(denom, count): void',
         '+ setNoteCount(denom, count): void',
-        '+ dispenseCash(amount): Map'
+        '+ dispenseCash(amount): Map  // default mode',
+        '+ dispenseCash(amount, mode): Map  // check/calculate/deduct under dispenserLock'
       ]
     },
     {
@@ -88,7 +99,7 @@ export default {
         'implements DenominationDispenseStrategy'
       ],
       methods: [
-        '+ calculateNotes(amount, availableInventory): Map  // largest denomination first'
+        '+ calculateNotes(amount, availableInventory): Map  // legacy name; exact minimum notes, larger-note tie break'
       ]
     },
     {
@@ -97,7 +108,18 @@ export default {
         'implements DenominationDispenseStrategy'
       ],
       methods: [
-        '+ calculateNotes(amount, availableInventory): Map  // smallest denomination first'
+        '+ calculateNotes(amount, availableInventory): Map  // exact lexicographic conservation: ₹2000, then ₹500, then ₹200'
+      ]
+    },
+    {
+      name: 'ExactDenominationPlanner',
+      stereotype: 'package-private helper',
+      fields: ['- DENOMINATIONS: ₹2000 / ₹500 / ₹200 / ₹100', '- inventory, residues, best: int[4]', '- mode: DispenseMode'],
+      methods: [
+        '~ calculate(amount, available, mode): Map  // exact objective-optimal plan',
+        '- searchResidues(index, remaining): void  // at most 800 vectors',
+        '- considerBundles(needed): void  // four policy-ordered allocations per vector',
+        '- isBetter(candidate): boolean  // compare complete plans'
       ]
     },
     {
@@ -129,21 +151,24 @@ export default {
       methods: [
         '+ getLock(): ReentrantLock',
         '+ getBalance(): double',
-        '+ setBalance(b): void'
+        '+ setBalance(b): void  // plain assignment; caller must lock'
       ]
     },
     {
       name: 'Card',
       fields: [
         '- cardNumber: String',
-        '- pin: String',
+        '- pin: String (plaintext demo value)',
         '- accountNumber: String',
         '- failedPinAttempts: AtomicInteger',
         '- isBlocked: boolean'
       ],
       methods: [
-        '+ incrementFailedAttempts(): int',
-        '+ blockCard(): void'
+        '+ getPin(): String',
+        '+ incrementFailedAttempts(): int  // counter only',
+        '+ resetFailedAttempts(): void',
+        '+ blockCard(): void',
+        '+ unblockCard(): void'
       ]
     },
     {
@@ -210,10 +235,12 @@ export default {
     }
   ],
   relationships: [
+    { from: 'GreedyDenominationDispenseStrategy', to: 'ExactDenominationPlanner', label: 'delegates MINIMIZE_NOTES' },
+    { from: 'ConserveLargeNotesDispenseStrategy', to: 'ExactDenominationPlanner', label: 'delegates CONSERVE_LARGE_NOTES' },
     {
       from: 'AtmService',
       to: 'CashDispenser',
-      label: 'controls hardware dispenser'
+      label: 'uses in-memory cassette'
     },
     {
       from: 'AtmService',
@@ -223,12 +250,12 @@ export default {
     {
       from: 'AtmService',
       to: 'SessionStates',
-      label: 'resolves current phase via'
+      label: 'checks live lifecycle transitions via; setState and simState bypass'
     },
     {
       from: 'SessionStates',
       to: 'SessionState',
-      label: 'creates'
+      label: 'selects registered singleton'
     },
     {
       from: 'SessionState',
@@ -243,7 +270,7 @@ export default {
     {
       from: 'DenominationDispenseStrategyFactory',
       to: 'DenominationDispenseStrategy',
-      label: 'creates'
+      label: 'selects registered strategy'
     },
     {
       from: 'DenominationDispenseStrategyFactory',
@@ -265,12 +292,14 @@ export default {
     {
       from: 'WithdrawalTransaction',
       to: 'Transaction',
-      label: 'extends'
+      label: 'extends',
+      dashed: true
     },
     {
       from: 'DepositTransaction',
       to: 'Transaction',
-      label: 'extends'
+      label: 'extends',
+      dashed: true
     }
   ]
 };

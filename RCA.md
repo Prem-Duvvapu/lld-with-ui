@@ -8,9 +8,12 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 
 | RCA # | Date | Component / Domain | Issue Summary | Status |
 |---|---|---|---|---|
+| [RCA-125](#rca-125-atm-sandbox-resource-cards-expanded-the-mobile-page) | 2026-10-28 | ATM / Responsive Simulation | Intrinsic grid/flex minimums made account and cassette cards overflow by 149px at 320px | Resolved with scoped shrinkable tracks and wrapped rows |
 | [RCA-124](#rca-124-a-visited-next-suggestion-lost-its-catalog-focus-target) | 2026-10-27 | Learning / Navigation Continuity | Recording a real lesson visit promoted the suggestion to Continue while restoration still trusted the old control ID | Resolved by matching the originating lesson across hero roles |
 | [RCA-123](#rca-123-browser-validation-read-assets-while-vite-replaced-the-build-directory) | 2026-10-27 | Validation / Production Assets | Rebuilding Vite during a browser matrix deleted files still being served by its route handler | Resolved by serving an isolated build snapshot |
 | [RCA-122](#rca-122-catalog-bookmarks-could-overwrite-newer-lesson-notes) | 2026-10-27 | Learning / Saved Progress | Metadata writes used stale hook state and could overwrite notes saved by another tab before its storage event arrived | Resolved with latest-read merge and failed-write session retention |
+| [RCA-120](#rca-120-atm-greedy-policies-rejected-feasible-withdrawals) | 2026-10-27 | ATM / Exact Dispensing | Greedy choices rejected feasible stock; int totals overflowed | Resolved for fixed denominations; broader ATM gaps open |
+| [RCA-118](#rca-118-atm-teaching-claims-exceeded-implemented-workflow-contracts) | 2026-10-27 | ATM / Teaching Audit | State, rollback and snapshot claims exceeded Java contracts; planner mapping drifted | Teaching corrected; runtime gaps open |
 | [RCA-119](#rca-119-a-kv-lifecycle-test-confused-task-completion-with-thread-death) | 2026-10-27 | KV / Concurrency Test Reliability | Captured worker threads were checked for physical termination before waiting for their final executor bookkeeping to return | Resolved without changing runtime behavior |
 | [RCA-117](#rca-117-a-wsl-instance-restart-terminated-validation-and-agent-handles) | 2026-10-27 | Environment / Validation Recovery | WSL shutdown/restart removed live validation processes and agent handles while preserving worktree files | Recovered; validation rerun from preserved sources |
 | [RCA-116](#rca-116-atm-requests-could-corrupt-balances-or-debit-more-than-the-dispensed-notes) | 2026-10-27 | ATM / Request and Amount Validation | Nonpositive/non-finite deposits, truncated withdrawals and malformed request fields could mutate money or fail outside the domain contract | Resolved for live/sandbox request validation |
@@ -60,6 +63,151 @@ A centralized engineering log documenting issues, root cause analyses, diagnosti
 | [RCA-017](#rca-017-digital-wallets-repository-returned-wallets-in-unspecified-concurrenthashmap-iteration-order) | 2026-08-25 | Backend / Digital Wallet / Data Consistency | `WalletRepository#getAllWallets` returned `ConcurrentHashMap.values()` with no explicit ordering, so `GET /api/wallet` and the new `/sim/*` snapshot's wallet order was unspecified rather than the implied ascending-id order the new sim frontend relies on | Resolved |
 
 ---
+
+## RCA-120: ATM Greedy Policies Rejected Feasible Withdrawals
+
+### 1. Overview & Severity
+
+High for ATM dispensing correctness. Both registered note policies could reject
+valid requests despite an exact in-stock combination. Inventory totals could
+overflow int and falsely report insufficient cash. Resolved for the four supported
+denominations; this is not whole-module ATM signoff.
+
+### 2. Symptoms & Error Logs
+
+Largest-first failed ₹600 with one ₹500 and three ₹200 notes, no ₹100 notes.
+Smallest-first failed ₹500 with one each of ₹100/₹200/₹500. A cassette whose
+value exceeded Integer.MAX_VALUE could fail its total-cash admission check.
+Prepared regression/oracle evidence was revalidated after integrating main 1292415.
+Logs for this integration live in `/home/prem/validation/lld-atm-exact-integrated/`.
+
+### 3. Root Cause
+
+Single-pass greedy choices cannot establish bounded-change feasibility for this
+cassette. Opposite traversal orders did not repair the missing search. The cash
+sum also multiplied and accumulated int counts/values as int.
+
+### 4. Diagnostic Commands
+
+Inspect `ExactDenominationPlanner`, both strategy wrappers and `CashDispenser`.
+Run `MAVEN_OPTS=-Xmx512m mvn -B -ntp -DargLine=-Xmx512m -Dtest="com.lld.atm.dispenser.*Test" test`.
+Run the complete bounded Maven test/package and one-worker frontend suites, lint,
+build and chunk budgets. Browser evidence must use the built worktree assets and
+real Java MockMvc responses over stdin, without application servers.
+
+### 5. Step-by-Step Resolution
+
+1. Rebase prepared commit 95c6c88 onto origin/main 1292415.
+2. Delegate both policies to the shared exact planner. Decompose counts into
+   residues and ₹2000 bundles of 1/4/10/20 notes: at most 800 residue vectors,
+   then four policy-ordered bundle-allocation steps per vector. Every feasible
+   plan has this decomposition; equal-value bundles make that allocation optimal
+   for a fixed residue vector. Compare complete candidates globally.
+3. Minimize total count for MINIMIZE_NOTES, with larger-note lexicographic ties.
+   For CONSERVE_LARGE_NOTES minimize ₹2000, then ₹500, then ₹200 usage; do not
+   claim it minimizes total count. Keep the legacy Greedy class name compatible.
+4. Keep plan/deduction within the existing cassette lock. Use long cash products
+   and sums, reject negative/null restocks and per-denomination count overflow.
+5. Verify against independent enumeration (22,016 small-inventory comparisons
+   plus 766 bundle-boundary comparisons), extreme amounts/counts, detached maps,
+   unchanged inventory on rejection and contested exact withdrawals. Add real
+   MockMvc regressions for both stranded-remainder cases, cash-failure balance
+   compensation and the serialized long cash total.
+6. Validation on main 1292415: 40 focused dispenser cases (including five new
+   MockMvc cases); full backend 2,752 cases, including 147 ATM cases; no backend
+   failures/errors/skips. The original 58-case dispenser/service/concurrency
+   grouping is now 63 cases within that full run. Maven/test heaps were 512 MiB.
+   `backend-focused.log`, `backend-full.log`, `atm-test-counts.log` and
+   `backend-package.log` retain the evidence. JAR packaging passed separately
+   with tests skipped after the complete passing suite.
+
+### 6. Preventative Measures
+
+The proof covers only the fixed ₹2000/₹500/₹200/₹100 list and positive int amounts
+in ₹100 steps with valid non-negative int stock. Revisit decomposition, bounds,
+objectives and oracle tests before changing denominations. Preserve separate
+session/account coordination, sandbox authorization/snapshot and recovery issues
+as open; dispenser and scoped browser checks do not resolve them.
+
+## RCA-118: ATM Teaching Claims Exceeded Implemented Workflow Contracts
+
+### 1. Overview & Severity
+
+Medium for teaching accuracy. Design, diagram and sequence data overstated state
+transition enforcement, rollback, entity behavior and snapshot guarantees. The
+teaching audit is resolved in those data files; broader runtime gaps stay open.
+
+### 2. Symptoms & Error Logs
+
+Teaching described universal state gating and implied stronger transaction and
+snapshot semantics than Java implements. Source inspection found direct setState
+and simState writes, separate locks, shallow snapshots and no general rollback.
+The audit commit also documented the then-current greedy false negatives; after
+the exact-planner integration those statements and the int total became stale.
+There was no single runtime exception for this documentation drift. Scoped browser
+checks also found 345px horizontal overflow at 320px from the sequence description’s
+unbroken class-and-test-method identifier; screenshot and DOM evidence are retained
+in the integration validation directory.
+
+### 3. Root Cause
+
+Pattern names and intended architecture were treated as guarantees without
+following actual call paths, lock ownership, mutation order and return aliases.
+Teaching data can drift when an audited implementation subsequently changes.
+
+### 4. Diagnostic Commands
+
+Compare `AtmService`, `CashDispenser`, session state types, controller, models and
+`AtmConcurrencyTest` against `frontend/src/data/{design,diagrams,sequences}/atm.js`.
+Search `rg -n "greedy|Greedy|chain|Chain|heuristic|getTotalCashAvailable"` in ATM
+source/teaching/UI. Run design-data coverage and the full frontend suites. Logs
+and scoped browser evidence: `/home/prem/validation/lld-atm-exact-integrated/`.
+
+### 5. Step-by-Step Resolution
+
+1. Cherry-pick 67018a6e175156a6b1bb066f875e852588d851ba, changing only its
+   three ATM design/diagram/sequence files.
+2. Retain distinctions between guarded insert/auth/eject and direct money-phase
+   writes, account/cassette locks and sessionLock, specific InsufficientCash
+   compensation and general recovery, and separate sandbox/live behavior.
+3. Update affected dispensing requirements, method descriptions, strategy mapping,
+   planner node/edges, complexity limits, regression examples and long cash return.
+   Preserve the live race sequence fixture and distinguish its sufficient-stock
+   assumption from the separate exact-plan regressions.
+4. Replace only the stale Greedy mode labels in the live and simulation selectors
+   with Exact; retain the legacy Java class name and explain its mapping. No
+   Chain of Responsibility label exists in these scoped ATM views.
+5. Use a readable same-account test description in the sequence prose and keep the
+   exact method mapping in a source comment. This removes the 320px overflow
+   without changing shared diagram rendering or the live workspace.
+6. Full frontend: 838 tests across 57 files passed with one worker. Lint passed
+   (zero errors, 14 existing warnings), and final production build/chunk budgets
+   passed (entry 313,174 bytes; largest non-entry 57,287 bytes). A final targeted
+   data/workspace recheck passed 397 cases. The preceding supplemental run hit an
+   intermittent existing balance-retry focus assertion (input held focus instead
+   of Retry); preserve its failure log and treat that reliability gap as open.
+7. Scoped browser evidence: four contexts (light/dark × 320/1280), 32 checked
+   views plus four layout-follow-up observations and 92 actual Java MockMvc HTTP
+   requests over stdin. Both modes rendered the exact ₹600/₹500 plans. Updated
+   objectives, long signature, planner node, sequence and open limitations were
+   checked in the built UI. The teaching/app/sequence checks had no page overflow
+   or page errors; the simulation label was checked separately. Its existing
+   320px account/card panel overflow is 149px with both the new Exact label and
+   the legacy Greedy label, and remains open. Evidence: `browser-results.json`,
+   `browser.log`, screenshots, DOM overflow records and `frontend-*.log` in the
+   integration directory. Built assets were copied to a separate stable snapshot
+   before the final browser run. Browser route fulfillment does not verify hosted
+   MIME/cache/304 behavior, a deployed API, or physical delivery.
+
+### 6. Preventative Measures
+
+Map teaching claims to actual Java calls and tests; absence of a dangling edge or
+passing frontend shape tests does not prove concurrency semantics. Keep partial
+state enforcement, concurrent session changes, sandbox workflow authorization,
+shallow/mixed snapshots, PIN exposure, double-valued money, unbounded events and
+the simulation race walkthrough, mobile simulation layout and intermittent live
+focus-test reliability as open follow-ups. This audit does not publish
+the capstone, redesign the live workspace, or provide hosted/full ATM signoff.
 
 ## RCA-119: A KV Lifecycle Test Confused Task Completion with Thread Death
 
@@ -8590,3 +8738,42 @@ navigate back. Red/green logs and the browser reproduction are in
 Navigation tests must resolve the action's state-changing effects. A stable control
 ID is not stable semantic identity when its destination changes. Keep both the
 last-unreviewed and additional-unreviewed cases in the regression suite.
+
+
+## RCA-125: ATM sandbox resource cards expanded the mobile page
+
+### 1. Overview & Severity
+Medium usability defect. The simulation's account/card and cassette panels made
+the 320px page scroll horizontally, obscuring content on a phone.
+
+### 2. Symptoms & Error Logs
+The strict browser check failed with `149px overflow` at 320px. The resource panel
+measured about 429px wide inside the narrow layout. The earlier label-only check
+proved the same overflow with both Exact and legacy Greedy labels. Evidence is
+in `/home/prem/validation/lld-atm-release/before.log` and the preceding agent
+DOM/screenshot records under `lld-atm-exact-integrated`.
+
+### 3. Root Cause
+The parent grid and nested two-column inventory used intrinsic auto minimums.
+Unwrapped flex rows preserved their children's minimum content width. Stacking
+the outer grid alone did not let the panel shrink below the nested inventory.
+
+### 4. Diagnostic Commands
+`node /home/prem/validation/lld-atm-release/before.cjs` reproduces the failure
+using frozen built assets and actual Java MockMvc responses over stdin. DOM
+bounding boxes identify the resource panels and denomination rows as the source.
+
+### 5. Step-by-Step Resolution
+1. Scope sandbox styling under `atm-simulation` to keep the live terminal isolated.
+2. Use zero-minimum grid tracks at both resource and inventory levels.
+3. Allow account and denomination rows to wrap while retaining every value.
+4. Keep controls at least 44px high and bound their width to the container.
+5. Use theme status tokens for the affected state/blocked labels and readable HUD
+   label sizing. Verify both themes with the real Java-backed browser workflow.
+
+### 6. Preventative Measures
+Mobile layout checks must include seeded/loaded data, not only the empty sandbox.
+A responsive outer grid does not override descendants' intrinsic minimum widths.
+Use scoped shrinkable tracks and wrapped values, and keep overflow assertions
+strict rather than exempting a known failing simulation view. This layout change
+does not certify sandbox state/race fidelity or the full ATM workflow.

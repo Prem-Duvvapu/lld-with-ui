@@ -12,7 +12,7 @@ import AtmLiveTerminal from './AtmLiveTerminal';
 import { useAtmLiveWorkspace } from './useAtmLiveWorkspace';
 
 const DISPENSE_MODES = [
-  { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Greedy)' },
+  { value: 'MINIMIZE_NOTES', label: 'Minimize Notes (Exact)' },
   { value: 'CONSERVE_LARGE_NOTES', label: 'Conserve Large Notes' },
 ];
 
@@ -124,7 +124,7 @@ function SimulationTab() {
   const simState = snapshot?.simState || 'IDLE';
 
   return (
-    <div>
+    <div className="atm-simulation">
       <div className="atm-step-indicator">
         {SIM_STEPS.map((s, i) => (
           <div key={s} className={`atm-step-dot ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} title={s} />
