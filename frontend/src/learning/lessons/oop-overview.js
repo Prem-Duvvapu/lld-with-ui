@@ -1,3 +1,4 @@
+import classModel from '../class-models/oop-overview';
 import { createElement, Fragment } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import topicSource from '../examples/oopoverview/Topic.java?raw';
@@ -27,6 +28,7 @@ function review(id, title, text, proposed = false) {
 
 export default {
   id: 'oop-overview',
+  classModel,
   summary: 'A capstone after the fifteen concept lessons: choose responsibilities for a study plan, trace its Java objects, and defend the relationships and limits. Use the linked reviews when a decision needs more practice.',
   prerequisites: 'All fifteen OOP fundamentals and relationship topics reviewed below. This is a synthesis assessment, not an introductory shortcut or proof of mastery. The Java files are self-contained and require JDK 17 only.',
   objectives: [

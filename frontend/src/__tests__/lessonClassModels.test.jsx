@@ -5,7 +5,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LessonClassModel from '../learning/LessonClassModel';
 import LessonContent from '../learning/LessonContent';
-import { LESSONS } from '../learning/curriculum';
+import { LESSONS, PUBLISHED_LESSONS } from '../learning/curriculum';
 
 // Eager only inside this test. Production data is imported by individual lazy lessons.
 const lessons = Object.values(import.meta.glob('../learning/lessons/*.js', { eager: true }))
@@ -20,12 +20,13 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); document.body.style.overflow = ''; });
 
 describe('Canonical lesson class models', () => {
-  it('covers the guide and fifteen individual OOP lessons without requiring the capstone', () => {
+  it('covers every published guide, concept lesson and capstone', () => {
+    expect(Object.keys(byId).sort()).toEqual(PUBLISHED_LESSONS.map(lesson => lesson.id).sort());
     expect(Object.keys(byId)).toEqual(expect.arrayContaining([
       'how-to-learn-lld', 'classes-and-objects', 'constructors', 'access-modifiers',
       'enums', 'interfaces', 'encapsulation', 'abstraction', 'inheritance', 'polymorphism',
       'overloading-and-overriding', 'static-and-instance', 'association', 'aggregation',
-      'composition', 'dependency',
+      'composition', 'dependency', 'oop-overview',
     ]));
   });
 
