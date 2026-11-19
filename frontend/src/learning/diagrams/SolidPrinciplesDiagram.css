@@ -42,6 +42,7 @@
 .lesson-solid .solid-question { margin-bottom: 20px; font-size: 1.125rem; }
 .solid-comparison { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 20px; }
 .lesson-solid .solid-side {
+  container: solid-picture / inline-size;
   min-width: 0;
   margin: 0;
   padding: clamp(12px, 2vw, 20px);
@@ -63,7 +64,8 @@
 .lesson-solid .solid-arrows { display: grid; gap: 12px; padding: 0; list-style: none; }
 .lesson-solid .solid-arrows > li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  text-align: center;
   align-items: center;
   gap: 8px;
   margin: 0;
@@ -75,6 +77,7 @@
 .solid-endpoint-label { display: block; font-weight: 400; }
 .solid-arrows .solid-relation { text-align: center; }
 .solid-arrow { display: block; font-size: 1.75rem; line-height: 1; color: var(--text-primary); }
+.solid-arrows .solid-arrow { transform: rotate(90deg); margin-block: 4px; }
 .solid-connection-text { padding-inline-start: 22px; }
 .solid-connection-text .solid-endpoint-label { display: inline; }
 .solid-connection-text .solid-relation { display: block; padding-inline-start: 12px; }
@@ -117,7 +120,12 @@
   border: 0;
 }
 
-@media (max-width: 479px) {
-  .lesson-solid .solid-arrows > li { grid-template-columns: minmax(0, 1fr); text-align: center; }
-  .solid-arrows .solid-arrow { transform: rotate(90deg); margin-block: 4px; }
+/* Use the picture's width: desktop side-by-side cards can also be narrow. */
+@container solid-picture (min-width: 320px) {
+  .lesson-solid .solid-arrows > li { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); }
+  .solid-arrows .solid-endpoint:first-child { grid-column: 1; grid-row: 1; }
+  .solid-arrows .solid-endpoint:last-child { grid-column: 3; grid-row: 1; }
+  .solid-arrows .solid-relation { display: contents; }
+  .solid-arrows .solid-arrow { grid-column: 2; grid-row: 1; transform: none; margin: 0; }
+  .solid-arrows .solid-relation > span:last-child { grid-column: 1 / -1; grid-row: 2; }
 }
