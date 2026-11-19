@@ -559,7 +559,7 @@ claim a full hosted module-backend integration review.
 
 ## YAGNI / KISS curriculum integration — 2026-11-19
 
-Current local publication is 22 lessons / 47 planned topics, with source-curated
+Current released publication is 22 lessons / 47 planned topics, with source-curated
 class models for every published lesson. DRY → YAGNI → KISS preserves the existing
 prerequisites and catalog grouping; KISS names planned SOLID Pictures next. Both
 new lessons retain only Classes and Objects as prerequisite. E38/E39 record their
@@ -571,8 +571,14 @@ The strict all-published class-model guard remains in place.
 
 Full local validation evidence and actual counts are recorded in the current
 COMPLETION_HANDOFF.md entry and `/home/prem/validation/lld-yagni/`. Older dated
-release counts above are historical snapshots. Combined actual-route browser,
-responsive/theme review, deployment and release remain parent-owned and pending.
+release counts above are historical snapshots. PR #190 merged as `3c1c972`
+after all seven checks passed with normal CI settings. Frozen browser review
+passed 168 checks across eight light/dark ×320/390/768/1440 contexts.
+Real-network production review passed 84 checks across four light/dark ×390/1440
+contexts, including canonical source/output, recorded fields, class model text
+and selection, fullscreen/focus, separate notes, catalog return and asset MIME
+types. Vercel deployment7920795741 reports success for that release. Evidence:
+`/home/prem/validation/lld-one-hour-completion/lessons-browser/`.
 Phase 3 still needs three UML lessons and both SOLID lessons; later curriculum
 phases and the separate 60-module UX audit are not complete.
 
@@ -581,4 +587,6 @@ in 71 files passed. Maven package, full lint (0 errors / 14 existing warnings),
 build and both chunk budgets passed. The full frontend run used one worker and
 a 15000ms per-test allowance after observed five-second journey timeouts; no
 assertions or publication/model/notes guards were weakened. Existing DRY act
-warnings remain recorded. Parent-owned browser/release/ATM work remains pending.
+warnings remain recorded. Browser/release checks above are complete for these
+two lessons; the remaining curriculum gates and whole-module audit remain open.
+ATM ownership/recovery shipped separately in PR #191; see COMPLETION_HANDOFF.md.

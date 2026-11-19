@@ -27,9 +27,14 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   build pass. Entry313620 B / largest non-entry54680 B meet both budgets. Under
   concurrent workspace load, the successful local frontend run used one worker
   and a15s test timeout; repo/CI defaults remain unchanged. An earlier local
-  default5s run timed out in an existing long journey; CI must pass normally.
-  Whole-ATM sign-off and hosted workflow review remain open. CI/release results
-  are recorded in the release PR; this does not close the60-module audit.
+  default 5s run timed out in an existing long journey. Normal CI then passed
+  all 2917 backend and 1023 frontend cases; all seven checks were green before
+  [PR #191](https://github.com/Prem-Duvvapu/lld-with-ui/pull/191) merged as
+  `cae54ec`. The source checkout was fast-forwarded to that release; its branches
+  were deleted after verifying tree equality with the merged result. Vercel
+  deployment7921005044 reports success. Whole-ATM sign-off and the full hosted
+  workflow review remain open; scoped release evidence does not close the
+  60-module audit. Deployment/read-only smoke results are retained in PR #191.
 
 - Released YAGNI / KISS lessons (2026-11-19): **22 lessons / 47 planned topics**.
   Guided order is DRY → YAGNI → KISS; final KISS names planned SOLID Pictures.
@@ -442,7 +447,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
 | airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
-| atm | Not adopted | Live owned commands, expiry, idempotent recovery, exact dispensing and sandbox reviewed; whole-module sign-off open | Owned lifecycle/recovery reviewed; full hosted workflow and whole-module sign-off remain | Confirmed drafts/recovery; exact notes; selected sandbox session; final state refresh and honest approval counts; labelled keyboard forms | #177/#178/#184; owned-session release; RCA-129–132 | Combined2917 Java/1023 frontend pass; adversarial money/fault and owned-session regressions; prior sandbox checks | 96 owned-session views/112 actual Java HTTP calls; 56 prior sandbox views/304 calls; prior64 exact/teaching/layout checks +8 comparisons; hosted workflow remains separate | Sandbox-state release PR; no whole-module closure |
+| atm | Not adopted | Live owned commands, expiry, idempotent recovery, exact dispensing and sandbox reviewed; whole-module sign-off open | Owned lifecycle/recovery reviewed; full hosted workflow and whole-module sign-off remain | Confirmed drafts/recovery; exact notes; selected sandbox session; final state refresh and honest approval counts; labelled keyboard forms | #177/#178/#184/#191; RCA-129–132 | Combined2917 Java/1023 frontend pass; adversarial money/fault and owned-session regressions; prior sandbox checks | 96 owned-session views/112 actual Java HTTP calls; 56 prior sandbox views/304 calls; prior64 exact/teaching/layout checks +8 comparisons; hosted workflow remains separate | #184/#191; no whole-module closure |
 | auction | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | blocking-queue | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |
