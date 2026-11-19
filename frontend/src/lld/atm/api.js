@@ -48,6 +48,27 @@ export function getDispenserStatus(options = {}) {
   return apiFetch('/atm/dispenser', options);
 }
 
+// Coordinated live terminal. Keep the caller's immutable body and request key on replay.
+export function getTerminalState(sessionToken, options = {}) {
+  return apiFetch('/atm/terminal/state', {
+    ...options, headers: { ...options.headers, 'X-ATM-Session': sessionToken },
+  });
+}
+
+export function sendTerminalCommand(sessionToken, requestId, body, options = {}) {
+  return apiFetch('/atm/terminal/commands', {
+    ...options, method: 'POST',
+    headers: { ...options.headers, 'Content-Type': 'application/json', 'X-ATM-Session': sessionToken, 'Idempotency-Key': requestId },
+    body: JSON.stringify(body),
+  });
+}
+
+export function getTerminalRequest(sessionToken, requestId, options = {}) {
+  return apiFetch(`/atm/terminal/requests/${encodeURIComponent(requestId)}`, {
+    ...options, headers: { ...options.headers, 'X-ATM-Session': sessionToken },
+  });
+}
+
 // Isolated Simulation API
 export function simReset(options = {}) {
   return apiFetch('/atm/sim/reset', { ...options, method: 'POST' });

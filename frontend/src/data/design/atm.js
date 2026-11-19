@@ -5,21 +5,24 @@
 export default {
   title: 'ATM System — Design Details',
   requirements: [
-    'Live session lifecycle: insertCard, authenticate and ejectCard use transitionTo under sessionLock. It resolves a singleton SessionState and checks allowedNext. Withdraw/deposit instead use setState to write TRANSACTION_IN_PROGRESS, DISPENSING and AUTHENTICATED directly; the transition table does not enforce those internal updates.',
-    'Per-account money movement: getBalance, withdraw and deposit acquire Account.getLock before checking the current session and matching account. Withdraw re-reads balance inside that lock, then acquires the dispenser lock through dispenseCash. The account lock does not serialize concurrent insertion/ejection, which use sessionLock.',
-    'Cash inventory: CashDispenser holds one fair ReentrantLock across the total-cash check, note calculation and deduction. Its inventory getter returns a copy; total and inventory are separately locked reads, not one combined snapshot.',
+    'Live session lifecycle: one fair sessionLock protects admission, account/cassette work, settlement and response capture. All live phase changes use transitionTo and the singleton SessionState table. Ejection waits for admitted money movement before clearing the card/account.',
+    'Live lock order is terminal → account → dispenser. A physical terminal has one authenticated account at a time; holding its lock across a command prevents ejection or card changes between admission and settlement. Account and cassette locks retain their independent storage and note-selection responsibilities.',
+    'Cash inventory: CashDispenser locks the complete note calculation and deduction. getDispenserSnapshot holds its lock across both total and copied inventory; coordinated terminal snapshots also hold the live session lock across account/history capture.',
     'Dispense Strategy + Factory: an EnumMap selects two policies backed by ExactDenominationPlanner. MINIMIZE_NOTES finds the fewest notes, breaking ties by preferring more ₹2000, then ₹500, then ₹200 notes. CONSERVE_LARGE_NOTES lexicographically minimizes use of ₹2000, then ₹500, then ₹200 notes among exact feasible plans; it need not minimize the total note count.',
     'Withdrawal compensation: after debiting, the live service credits the amount back specifically when dispenseCash throws InsufficientCashException and records a FAILED transaction. This in-memory compensation is not a database transaction, crash recovery or a guarantee that every unexpected failure is rolled back.',
-    'PIN attempts: the service compares the active card’s stored plaintext PIN, increments its counter on a wrong PIN and calls blockCard at three failures. Card.incrementFailedAttempts only increments; it does not block by itself. Successful PIN verification resets attempts.',
-    'Request amounts: the controller accepts finite JSON numbers, not numeric strings. The service requires finite positive amounts; withdrawals must also be exact multiples of ₹100 within the int dispenser range before conversion. Deposits may be fractional ledger amounts and reject a non-finite resulting balance. HTTP withdrawal mode defaults to MINIMIZE_NOTES when omitted/null; other values must match one of the two enum names.',
+    'PIN attempts: authentication checks the submitted card against the inserted card and its phase before comparing the stored demo PIN. Wrong-card requests do not consume another card’s attempts. Wrong PIN increments and blocks at three; successful authentication resets attempts. Replaying a coordinated PIN request returns its original outcome without another increment.',
+    'Request amounts: the controller accepts finite JSON numbers, not numeric strings. The service requires finite positive amounts; withdrawals must also be exact multiples of ₹100 within the int dispenser range before conversion. Deposits may be fractional ledger amounts and reject a non-finite resulting balance. Both credits and debits reject an amount that rounds away to the unchanged double balance before money or audit mutation. This is not a conversion to an exact monetary type. HTTP withdrawal mode defaults to MINIMIZE_NOTES when omitted/null; other values must match one of the two enum names.',
     'REST deposits are ledger credits: the controller passes null for notes, so a successful deposit does not replenish the cassette or verify a physical note total. The service method can add a supplied note map, but has no validation that its counts/value match the credited amount.',
+    'Browser-owned terminal commands carry a tab token, process boot identifier, expected revision and request UUID. Other browsers see BUSY without account/card/history and cannot eject or mutate that owner’s session. Ten minutes of inactivity releases the slot when next observed; reads do not renew the lease.',
+    'Request recovery: up to1024 command outcomes are retained per process. The same request/body replays its original receipt or failure without repeating money movement or a PIN attempt; changing its body is409. Every admitted attempt advances revision, so stale commands cannot execute again after eviction or a new session. A process boot identifier rejects old commands after restart. The journal is not durable storage.',
+    'GET terminal request status is read-only. NOT_FOUND does not prove that an earlier request was cancelled or will not arrive. The browser may explicitly retry only its original body/key; it must not turn a lost withdrawal response into a fresh withdrawal.',
     'Sandbox isolation: /api/atm/sim/* uses its own BankingRepository, CashDispenser, accounts and cards, sharing strategy implementations with live dispensing. Mutations and detached state/event reads share the AtmService monitor and assign simState directly. Reset and response capture are one operation. A client request burst is processed serially; this is not a live account-lock race or enforcement through SessionStates.',
-    'Domain errors use AtmException → DomainException and the shared ErrorResponse (error, code, status, timestamp). Invalid requests/session states and insufficient balance are 400; a well-formed incorrect PIN is 401; blocked card is 403; missing account/card is 404; insufficient cash is 409. Sandbox withdrawal responses include withdrawalOutcome (SUCCESS, REJECTED, INSUFFICIENT_BALANCE or DISPENSER_FAILED). A 200 response is not proof of approval; invalid insertion/authentication transitions use the shared typed error contract.'
+    'Domain errors use AtmException → DomainException and the shared ErrorResponse (error, code, status, timestamp). Invalid requests/session states and insufficient balance are 400; a well-formed incorrect PIN is 401; blocked card is 403; missing account/card is 404; insufficient cash is 409. Unexpected internal operation failures use a separate non-domain AtmOperationUncertainException and500 ErrorResponse; a cached500 stays an uncertain recovery outcome. Sandbox withdrawal responses include withdrawalOutcome (SUCCESS, REJECTED, INSUFFICIENT_BALANCE or DISPENSER_FAILED). A 200 response is not proof of approval; invalid insertion/authentication transitions use the shared typed error contract.'
   ],
   entities: [
     {
       name: 'AtmService',
-      description: 'Spring @Service coordinating one live terminal and a separate sandbox. Session lifecycle checks, account money movement and simulation mutation use different locking boundaries.',
+      description: 'Spring @Service coordinating one live terminal under sessionLock and a separate sandbox under its own monitor. AtmLiveSessionCoordinator owns browser lease/revision and bounded request outcomes; the service owns money/state behavior.',
       fields: [
         {
           name: 'bankingRepository',
@@ -34,7 +37,7 @@ export default {
         {
           name: 'currentState',
           type: 'ATMState',
-          description: 'Volatile live phase, written by guarded transitionTo and direct internal setState; it is not an atomic snapshot of the session fields.'
+          description: 'Volatile phase with every live update checked through transitionTo under the terminal lock. Read the coordinated snapshot for a coherent session/account/history view.'
         },
         {
           name: 'activeCard',
@@ -46,14 +49,13 @@ export default {
           type: 'Account',
           description: 'Account selected on card insertion, before PIN verification; money operations additionally check the session phase and account number.'
         },
-        { name: 'sessionLock', type: 'ReentrantLock', description: 'Fair lock used by insertion/authentication/ejection, not held across withdrawal or deposit money movement.' },
+        { name: 'sessionLock', type: 'ReentrantLock', description: 'Fair terminal lock held across live admission, money operations, ejection and coordinated snapshot capture; always acquired before account/cassette locks.' },
         { name: 'simBankingRepository', type: 'BankingRepository', description: 'Separate sandbox account/card store; never the injected live repository.' },
         { name: 'simCashDispenser', type: 'CashDispenser', description: 'Separate sandbox cassette using the shared strategy factory.' },
         { name: 'simState', type: 'ATMState', description: 'Sandbox phase directly assigned by synchronized mutation methods; no SessionStates table check.' }
       ],
       methods: [
-        { name: 'transitionTo(target)', returns: 'void', description: 'Private lifecycle transition: takes sessionLock and checks SessionStates.of(currentState).canTransitionTo(target).' },
-        { name: 'setState(target)', returns: 'void', description: 'Private direct phase assignment used by admitted money operations; no table check or sessionLock acquisition.' },
+        { name: 'transitionTo(target)', returns: 'void', description: 'Private live transition: takes sessionLock reentrantly, checks SessionStates.of(currentState).canTransitionTo(target), and tracks legacy state changes for revision admission.' },
         { name: 'getSimSnapshots()', returns: 'Map<String, Object>', description: 'Captures state, detached accounts/cards/events/details and inventory under the sandbox mutation monitor. The state and legacy snapshots routes share this capture; no returned Account/Card/SimEvent is a live sandbox model.' },
         {
           name: 'insertCard(cardNumber)',
@@ -63,22 +65,22 @@ export default {
         {
           name: 'authenticate(cardNumber, pin)',
           returns: 'Account',
-          description: 'Checks the active card’s PIN under sessionLock, tracks failures and uses transitionTo for authentication/blocking. If a card is already active, the supplied cardNumber is not checked against it.'
+          description: 'Matches the submitted card to the inserted card, checks phase and PIN, and returns a detached Account. authenticateSnapshot captures its HTTP response and phase under the same terminal lock.'
         },
         {
           name: 'withdraw(accNum, amount, mode)',
           returns: 'WithdrawalTransaction',
-          description: 'Validates the amount/mode, holds the account lock across session/account checks, balance check, debit, dispense and recording; compensates InsufficientCashException only.'
+          description: 'Holds terminal then account locks across admission, debit, exact dispensing, audit recording and settlement. Returns a detached receipt; compensates InsufficientCashException specifically, without promising general durable rollback.'
         },
         {
           name: 'deposit(accNum, amount, notes)',
           returns: 'DepositTransaction',
-          description: 'Credits a validated positive amount under the account lock; optionally adds supplied notes. The REST controller supplies null, so HTTP deposits leave note inventory unchanged.'
+          description: 'Credits a valid positive amount under terminal/account locks and returns a detached receipt. HTTP supplies null notes, so it is a ledger-credit demo and leaves cassette inventory unchanged.'
         },
         {
           name: 'ejectCard()',
           returns: 'Map<String, Object>',
-          description: 'Under sessionLock, transitions through SESSION_ENDED to IDLE and clears active references. It does not wait for an account’s in-flight money operation.'
+          description: 'Acquires the same terminal lock as money movement, waits for admitted work, then transitions through SESSION_ENDED to IDLE and clears references. Coordinated requests additionally require the owning browser and current revision.'
         }
       ]
     },
@@ -271,7 +273,7 @@ export default {
     {
       name: 'State Pattern',
       used: true,
-      explanation: 'One singleton SessionState implementation per ATMState declares allowedNext. Live insert/authenticate/eject consult it through transitionTo and reject illegal table transitions. Money operations bypass the table via setState, and sandbox methods assign simState directly. This is partial lifecycle enforcement, not a universal gate for every state write.'
+      explanation: 'One singleton SessionState implementation per ATMState declares allowedNext. All live lifecycle and transaction phase changes consult transitionTo under the terminal lock. The isolated sandbox assigns simState directly under its mutation monitor and does not use this live transition table.'
     },
     {
       name: 'Strategy + Factory Pattern',
@@ -314,17 +316,17 @@ export default {
     },
     {
       name: 'Abstraction',
-      description: 'REST endpoints delegate session and money operations to the service. Sandbox state responses are detached captures under its mutation monitor. Live response maps retain their separate limitations; neither path is a durable transaction boundary.'
+      description: 'REST endpoints delegate business behavior to Java. The coordinated terminal returns detached state/account/history/cassette captures; the sandbox uses its separate monitor. These boundaries are in-memory and provide no durable ledger or hardware acknowledgement.'
     }
   ],
   tradeoffs: [
     'Regression examples: with one ₹500 and three ₹200 notes and no ₹100 notes, both modes now dispense ₹600 as three ₹200 notes. With one each of ₹100/₹200/₹500, CONSERVE_LARGE_NOTES dispenses ₹500 as one ₹500 note. Independent count-enumeration tests check feasibility and both objectives, including bundle boundaries; they do not prove session authorization or atomic snapshots.',
-    'Session/account coordination remains incomplete: sessionLock does not protect the account-locked admission check or setState. Ejection can clear the session while an admitted withdrawal continues, and the withdrawal can later overwrite IDLE with AUTHENTICATED. Do not infer an atomic session lifecycle from the volatile phase or the account lock.',
+    'One terminal serializes live command admission, work and settlement before ejection. This intentionally limits concurrency for its one active account. CashDispenser can still be exercised independently; a volatile phase alone would not provide the same lifecycle guarantee.',
     'Sandbox insertion requires IDLE, authentication requires the inserted card in CARD_INSERTED, and withdrawal requires AUTHENTICATED with the selected account. Wrong PIN replies retain the current phase or block the card. These checks protect the single demo terminal; they do not provide user identities or production authentication.',
-    'Sandbox state/event reads now share the mutation monitor, with detached model copies and copied event detail maps/lists. simReset holds that monitor across reseeding and response capture. This response cannot later change with sandbox mutation; the same guarantee has not been established for every live endpoint.',
+    'Sandbox state/event reads share the mutation monitor with reset/mutations and return detached copies. Live coordinated state/account/history uses sessionLock and detached account/transaction copies; cassette totals/inventory share its own lock. Direct repository/model references remain internal mutable objects.',
     'The UI waits for every burst response, counts explicit approvals and then reads GET /api/atm/sim/state. Failed final reads retain the last confirmed view and require an explicit read-only Retry; no withdrawal is repeated automatically. A lost response remains an unknown outcome even after a fresh state read.',
     'Sandbox telemetry is an in-memory event list, not a durable audit log or concurrency proof. Mutations log selected outcomes; validation/lookup exceptions may add no event. Reset clears events but does not reset simEventIdGen. Events use local time-of-day strings, and the list has no size bound between resets.',
-    'This is a teaching banking model: card getters expose plaintext PINs in sandbox card responses, live transaction-history reads have no session check, and money uses double rather than an exact monetary type. There is no production authentication, durable ledger, physical delivery acknowledgement or general recovery protocol.',
+    'This is a teaching banking model: sandbox card responses expose demo PINs and money uses double. Coordinated live snapshots never include a PIN and history requires the authenticated account; browser ownership tokens coordinate visits and are not production identity verification. The outcome journal is bounded and in memory, with no durable ledger or hardware-delivery guarantee.',
     'Exact planning is specialized to ₹2000/₹500/₹200/₹100. Each count decomposes into a residue plus ₹2000 bundles of 1/4/10/20 notes: at most 800 residue vectors and four bundle-allocation steps per vector, independent of amount/inventory magnitude, with fixed scratch space. Equal-value bundles are allocated in objective order and complete candidates compared. Adding a denomination requires revisiting this proof and the fixed planner list; no arbitrary-currency optimality is claimed.'
   ],
   extensibility: [

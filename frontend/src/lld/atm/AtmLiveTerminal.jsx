@@ -23,7 +23,8 @@ export default function AtmLiveTerminal({ workspace }) {
   const {
     sessionState, cardNumber, pinInput, activeAccount, currentBalance, amountInput, mode,
     transactions, dispenser, receipt, errorMsg, successMsg, uncertain, pending, reads,
-    activate, load, run, setDraft,
+    activate, load, run, setDraft, retrySameRequest, beginEndRecovery, cancelEndRecovery, endRecovery, endRecoveryConfirmation,
+    owned, needsRefresh, storageWarning, recovery, recoveryStatus, expiresAt, pinAttemptsRemaining,
   } = workspace;
   const pinRef = useRef(null);
   const amountRef = useRef(null);
@@ -31,26 +32,48 @@ export default function AtmLiveTerminal({ workspace }) {
   const headerRef = useRef(null);
   const receiptRef = useRef(null);
   const errorRef = useRef(null);
-  const previous = useRef({ sessionState, pending });
+  const refreshRef = useRef(null);
+  const endRecoveryRef = useRef(null);
+  const keepRecoveryRef = useRef(null);
+  const previousConfirmation = useRef(false);
+  const previous = useRef({ sessionState, pending, receipt, recoveryStatus });
   const busy = Boolean(pending);
-  const locked = busy || uncertain;
+  const locked = busy || uncertain || needsRefresh;
   const authenticated = sessionState === 'AUTHENTICATED' && activeAccount;
+  const canEndRecovery = recovery && uncertain && !owned && !needsRefresh;
+  const reading = Object.values(reads).some(read => read.loading);
 
   useEffect(() => activate(), [activate]);
   useLayoutEffect(() => {
-    if (pending) { previous.current.pending = pending; return; }
+    if (pending || needsRefresh) {
+      if (pending) previous.current.pending = pending;
+      return;
+    }
     const finished = previous.current.pending;
     const transitioned = previous.current.sessionState !== sessionState;
-    previous.current = { sessionState, pending };
-    if (!finished && !transitioned) return;
+    const newReceipt = receipt && previous.current.receipt !== receipt;
+    const recoveryChanged = previous.current.recoveryStatus !== recoveryStatus;
+    previous.current = { sessionState, pending, receipt, recoveryStatus };
+    if (!finished && !transitioned && !newReceipt && !recoveryChanged) return;
     if (uncertain && errorMsg) errorRef.current?.focus();
+    else if (newReceipt && !errorMsg) receiptRef.current?.focus();
     else if (sessionState === 'CARD_INSERTED') pinRef.current?.focus();
     else if (sessionState === 'AUTHENTICATED') {
       if (['withdraw', 'deposit'].includes(finished) && !errorMsg && receipt) receiptRef.current?.focus();
       else amountRef.current?.focus();
     } else if (sessionState === 'IDLE') insertRef.current?.focus();
     else headerRef.current?.focus();
-  }, [sessionState, pending, errorMsg, receipt, uncertain]);
+  }, [sessionState, pending, errorMsg, receipt, uncertain, recoveryStatus, needsRefresh]);
+
+  useLayoutEffect(() => {
+    if (endRecoveryConfirmation) keepRecoveryRef.current?.focus();
+    else if (previousConfirmation.current) {
+      if (recovery && endRecoveryRef.current) endRecoveryRef.current.focus();
+      else if (!recovery && sessionState === 'IDLE') insertRef.current?.focus();
+      else refreshRef.current?.focus();
+    }
+    previousConfirmation.current = endRecoveryConfirmation;
+  }, [endRecoveryConfirmation, recovery, sessionState]);
 
   const submitPin = event => { event.preventDefault(); run('authenticate'); };
   const keypad = key => {
@@ -67,9 +90,36 @@ export default function AtmLiveTerminal({ workspace }) {
           <h2 ref={headerRef} tabIndex={-1} className="bank-logo">🏦 APEX BANK ATM</h2>
           <span className={`status-pill ${sessionState.toLowerCase()}`}>State: {sessionState}</span>
         </div>
+        {storageWarning && <div role="alert" className="screen-alert error">{storageWarning}</div>}
+        <ReadFeedback status={reads.terminal || {}} name="terminal state" />
+        <button ref={refreshRef} type="button" className="btn-action balance" aria-disabled={busy || reads.terminal?.loading}
+          onClick={() => load('terminal')}>{reads.terminal?.error ? 'Retry terminal state' : 'Refresh terminal state'}</button>
+        {needsRefresh && <p role="status">Refresh the terminal state before making another change. Last confirmed information is shown.</p>}
+        {expiresAt != null && (owned || sessionState === 'BUSY') && <p className="hint">Session expires at {new Date(expiresAt).toLocaleTimeString()} after 10 minutes of inactivity. Reading state does not extend the timeout.</p>}
         {errorMsg && <div ref={errorRef} tabIndex={-1} role="alert" className="screen-alert error">{errorMsg}</div>}
         {successMsg && <div role="status" className="screen-alert success">{successMsg}</div>}
         {pending && <p role="status">{({ insert: 'Inserting card', authenticate: 'Verifying PIN', withdraw: 'Requesting withdrawal', deposit: 'Requesting deposit', eject: 'Ejecting card' })[pending]}…</p>}
+
+        {sessionState === 'UNKNOWN' && <p role="status">Checking terminal ownership and current phase…</p>}
+        {sessionState === 'BUSY' && <div className="screen-body">
+          <h3>Terminal in use by another session</h3>
+          <p>Wait for the current session to finish or its inactivity timeout to expire, then refresh terminal state. This tab cannot eject another session’s card.</p>
+        </div>}
+        {recovery && <section className="atm-live-recovery" aria-label="Transaction recovery">
+          <h3>Recover pending {recovery.body.operation}</h3>
+          <p>Original amount: ₹{recovery.body.payload.amount.toLocaleString('en-IN')}. Request: {recovery.requestId}</p>
+          <button type="button" className="btn-action balance" aria-disabled={busy || Object.values(reads).some(read => read.loading)}
+            onClick={() => load('terminal')}>Check request outcome</button>
+          {recoveryStatus === 'NOT_FOUND' && <button type="button" className="btn-action balance"
+            disabled={busy || needsRefresh || Object.values(reads).some(read => read.loading)} onClick={retrySameRequest}>Retry same request</button>}
+          {canEndRecovery && (endRecoveryConfirmation ? <div role="group" aria-labelledby="atm-end-recovery-title" aria-describedby="atm-end-recovery-explanation">
+            <h4 id="atm-end-recovery-title">End local recovery?</h4>
+            <p id="atm-end-recovery-explanation">This transaction may have completed. Ending local recovery does not reverse it. Review your balance and transaction history after signing in again.</p>
+            <button ref={keepRecoveryRef} type="button" className="btn-action balance" onClick={cancelEndRecovery}>Keep recovery</button>
+            <button type="button" className="btn-action balance" disabled={busy || reading} onClick={endRecovery}>Confirm end recovery</button>
+          </div> : <button ref={endRecoveryRef} type="button" className="btn-action balance" disabled={busy || reading}
+            onClick={beginEndRecovery}>End unresolved recovery</button>)}
+        </section>}
 
         {sessionState === 'IDLE' && <div className="screen-body idle">
           <h3>Please Select Card to Begin</h3>
@@ -78,6 +128,7 @@ export default function AtmLiveTerminal({ workspace }) {
 
         {sessionState === 'CARD_INSERTED' && <form className="screen-body pin-entry" aria-label="Authenticate inserted card" onSubmit={submitPin}>
           <h3>Enter 4-Digit PIN</h3>
+          {pinAttemptsRemaining != null && <p>PIN attempts remaining: {pinAttemptsRemaining}</p>}
           <label htmlFor="atm-live-pin">4-digit PIN</label>
           <input ref={pinRef} id="atm-live-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={4}
             value={pinInput} onChange={event => setDraft('pinInput', event.target.value)} disabled={locked} />
@@ -118,15 +169,14 @@ export default function AtmLiveTerminal({ workspace }) {
           <h3 className="red">🚫 CARD BLOCKED</h3>
           <p>The server reports that this card is blocked. Eject it to reset the terminal.</p>
         </div>}
-        <button type="button" className="btn-action eject atm-live-eject" disabled={busy} onClick={() => run('eject')}>⏏️ Eject Card</button>
-        {sessionState === 'IDLE' && <p className="hint">Eject also resets a terminal left active in another visit.</p>}
+        <button type="button" className="btn-action eject atm-live-eject" disabled={busy || needsRefresh || !owned} onClick={() => run('eject')}>⏏️ Eject Card</button>
       </div>
 
       <div className="atm-hardware-panel">
         <div className="card-slot-area">
           <span className="slot-label">💳 CARD SLOT</span>
-          <div className={`card-slot ${sessionState !== 'IDLE' ? 'active' : ''}`}>
-            {sessionState !== 'IDLE' ? '💳 [CARD INSERTED]' : '[INSERT CARD]'}
+          <div className={`card-slot ${owned ? 'active' : ''}`}>
+            {owned ? '💳 [CARD INSERTED]' : sessionState === 'BUSY' ? '[TERMINAL IN USE]' : '[INSERT CARD]'}
           </div>
         </div>
         <div className="keypad-grid" role="group" aria-label="PIN keypad">
@@ -186,6 +236,7 @@ export default function AtmLiveTerminal({ workspace }) {
                 <span className="txn-status">{transaction.status}</span>
                 {transaction.failureReason && <span className="atm-txn-reason">{transaction.failureReason}</span>}
               </div>)}</div>}
+        {transactions?.length > 8 && <p>Showing the latest 8 transactions from the last confirmed history.</p>}
         <button type="button" className="btn-action balance" aria-disabled={busy || reads.transactions.loading} onClick={() => load('transactions')}>{reads.transactions.error ? 'Retry transactions' : 'Refresh transactions'}</button>
       </section>}
     </div>

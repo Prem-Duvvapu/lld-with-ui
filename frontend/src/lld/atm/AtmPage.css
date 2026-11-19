@@ -452,3 +452,13 @@
 .atm-simulation .atm-state-node { flex-basis: 132px; word-break: normal; overflow-wrap: normal; }
 .atm-simulation .denom-name { word-break: normal; overflow-wrap: normal; }
 .atm-simulation .timeline-item .actor { display: inline-block; max-width: 100%; }
+
+.atm-live-terminal .atm-live-recovery {
+  margin-block: 12px;
+  padding: 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.atm-live-terminal .atm-live-recovery button { margin: 4px 8px 4px 0; }
+.atm-live-terminal .status-pill.busy { color: var(--info); background: var(--info-bg); }

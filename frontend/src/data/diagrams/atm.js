@@ -6,6 +6,11 @@ export default {
   title: 'ATM System — Class Diagram',
   classes: [
     {
+      name: 'AtmLiveSessionCoordinator',
+      fields: ['- owner: String', '- revision: long', '- bootId: String {final}', '- outcomes: LinkedHashMap<Key, Outcome>', '- clock: Clock', '- lastActivity: long'],
+      methods: ['~ state(token): Map', '~ command(token, requestId, body): Map', '~ outcome(token, requestId): Map', '- expire(): void', '- snapshot(token): Map']
+    },
+    {
       name: 'AtmService',
       stereotype: 'singleton',
       fields: [
@@ -15,6 +20,7 @@ export default {
         '- activeCard: Card',
         '- activeAccount: Account',
         '- sessionLock: ReentrantLock',
+        '- liveSessions: AtmLiveSessionCoordinator',
         '- simBankingRepository: BankingRepository (separate instance)',
         '- simCashDispenser: CashDispenser (separate cassette)',
         '- simState: ATMState'
@@ -27,8 +33,13 @@ export default {
         '+ withdraw(accNum, amount, mode): WithdrawalTransaction',
         '+ deposit(accNum, amount, notes): DepositTransaction',
         '+ ejectCard(): Map',
-        '- transitionTo(target: ATMState): void  // sessionLock + table check for insert/auth/eject',
-        '- setState(target: ATMState): void  // direct live transaction-phase write',
+        '- transitionTo(target: ATMState): void  // all live phases under terminal lock',
+        '+ terminalState(token): Map',
+        '+ terminalCommand(token, requestId, body): Map',
+        '+ terminalOutcome(token, requestId): Map',
+        '+ authenticateSnapshot(cardNumber, pin): Map',
+        '+ getAuthenticatedTransactions(accountNumber): List<Transaction>',
+        '+ getDispenserSnapshot(): Map',
         '+ initSimState(): void  // synchronized on this; assigns simState directly',
         '+ simReset(): Map  // synchronized reset + detached capture',
         '+ simWithdraw(accNum, amount, mode): Map  // synchronized; selected account + explicit outcome',
@@ -236,6 +247,7 @@ export default {
     }
   ],
   relationships: [
+    { from: 'AtmService', to: 'AtmLiveSessionCoordinator', label: 'coordinates under sessionLock; bounded in-memory outcomes' },
     { from: 'GreedyDenominationDispenseStrategy', to: 'ExactDenominationPlanner', label: 'delegates MINIMIZE_NOTES' },
     { from: 'ConserveLargeNotesDispenseStrategy', to: 'ExactDenominationPlanner', label: 'delegates CONSERVE_LARGE_NOTES' },
     {
@@ -251,7 +263,7 @@ export default {
     {
       from: 'AtmService',
       to: 'SessionStates',
-      label: 'checks live lifecycle transitions via; setState and simState bypass'
+      label: 'checks all live transitions; sandbox simState is separate'
     },
     {
       from: 'SessionStates',
