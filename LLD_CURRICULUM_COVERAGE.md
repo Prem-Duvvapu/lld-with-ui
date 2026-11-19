@@ -2,11 +2,11 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. Updated 2026-11-19: there are twenty-two published lessons
-and 47 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. Updated 2026-11-19: there are twenty-four published lessons
+and 45 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
-All twenty-two published lessons also include source-curated class models with
+All twenty-four published lessons also include source-curated class models with
 selectable typed connectors and complete text alternatives. This foundational
 view does not substitute for the dedicated UML lessons and their delivery gates.
 
@@ -68,8 +68,8 @@ view does not substitute for the dedicated UML lessons and their delivery gates.
 | `dry` — DRY Principle | Remove duplicated knowledge without merging unrelated concepts merely because their text looks alike. | `encapsulation` | [E36](#e36): canonical delivery-fee drift/extraction/change, independent quote records and unrelated loyalty counterexample; [E02](#e02): verified shared Parking pricing with isolated live/sandbox state. | Model a shared overdue-fee rule with a grace-period change, cap/boundary checks and separate branch records; keep an independent borrowing limit separate. | Delivered: `/learn/dry`, five canonical Java files, output and five verified recorded steps, accessible class model/text, prediction feedback, independent exercise/rubric, tradeoffs and source-backed practice limits. |
 | `yagni` — YAGNI Principle | Keep an implementation within demonstrated requirements and name what evidence would justify expansion. | `classes-and-objects` | [E38](#e38): canonical current/speculative parcel quotes and an approved pickup change; verified Tic Tac Toe scope review, not proof of author intent or in-memory architecture as YAGNI. | Independently quote workshop seats, defend deferral and expansion evidence, implement a fixed voucher discount, and expose a guessed per-seat rate’s failure. | Delivered: `/learn/yagni`, four canonical Java files, exact output/five scalar steps, curated class model/text, prediction feedback, transfer rubric and explicit semantic limits. |
 | `kiss` — KISS Principle | Prefer the simplest adequate model while preserving explicit validation and invariants. | `classes-and-objects` | [E39](#e39): canonical fixed parcel-fee contract implemented by rule plumbing and direct code; verified Parking flat-rate policy inside its real strategy factory. | Design community-room quotes with guest/duration validation, rejection precedence and independent boundary expectations; justify any later abstraction with actual variation. | Delivered: `/learn/kiss`, three canonical Java files, exact output/five scalar steps, curated class model/text, distinct prediction feedback, independent exercise/rubric and source-backed limits. |
-| `solid-pictures` — SOLID Principles with Pictures | Explain SRP, OCP, LSP, ISP and DIP through responsibility/contract diagrams, including misuse. | `abstraction`, `polymorphism`, `dependency`, `composition` | [E02](#e02), [E04](#e04), [E09](#e09): policy seams, wrappers and observers are source material, not proof of all five principles. | Draw before/after diagrams for all five principles and identify a behavioral contract that a subtype must preserve. | G: five connected visual examples, tradeoffs and accessible text alternatives. |
-| `solid-code` — SOLID Principles with Code | Validate each visual refactoring with Java behavior rather than claiming a pattern automatically proves SOLID. | `solid-pictures` | [E02](#e02), [E04](#e04), [E09](#e09): production calls/tests to link after each individual principle example is verified. | Refactor a deliberately broken contract; test substitutability and explain the remaining factory-registration edit. | G: five compiled before/after examples, tests and shared links to the picture views. |
+| `solid-pictures` — SOLID Principles with Pictures | Explain SRP, OCP, LSP, ISP and DIP using before/after responsibility and contract views, naming the preserved behavior, tradeoffs and limits. | `abstraction`, `polymorphism`, `dependency`, `composition` | [E40](#e40): five shared conceptual pictures tied to canonical parcel Java and recorded results; [E02](#e02), [E04](#e04), [E09](#e09) are bounded comparison material, not automatic proof of all five principles. | Model independent community-room quotes and subsidized pricing with five defended before/after pictures, explicit accepted/rejected inputs, separate web/desk clients and one invalid substitute. | Delivered: `/learn/solid-pictures`, five selectable before/after conceptual pictures with complete text alternatives, shared canonical Java/output/scalar snapshots, its own curated class model, prediction and transfer exercise/rubric. Java, browser and deployment validation remain pending parent evidence. |
+| `solid-code` — SOLID Principles with Code | Refactor the same five examples in Java and validate responsibility boundaries, extension seams, substitutability, role-specific APIs and dependency direction. | `solid-pictures` | [E41](#e41): shared canonical parcel before/after sources, output and five scalar snapshots with dedicated SolidLessonExampleTest contract checks; [E02](#e02), [E04](#e04), [E09](#e09) support only individually justified comparisons. | Implement community-room standard/subsidized quotes, guest-first validation and separate receipt APIs; use independent boundary/contract tests, reject a six-guest counterexample and identify remaining wiring edits. | Delivered: `/learn/solid-code`, connected picture/code views, canonical Java/output/scalar recorded states, its own curated class model, distinct prediction feedback and independent exercise/rubric. Java, browser and deployment validation remain pending parent evidence. |
 
 ## Creational patterns
 
@@ -876,6 +876,83 @@ simple or permission to remove its locks. The primary design reference is
 with Oracle Java 17 callback API references linked in the lesson. The example does
 not purchase delivery, perform payment or implement an editable rules platform.
 
+<a id="e40"></a>
+### E40 — SOLID Pictures: five responsibility and contract comparisons
+
+- [Pictures lesson](frontend/src/learning/lessons/solid-pictures.js) and its own [curated class model](frontend/src/learning/class-models/solid-pictures.js).
+- Both SOLID lessons use the same [five before/after conceptual pictures](frontend/src/learning/diagrams/solid-principles.js) through the [shared renderer](frontend/src/learning/diagrams/SolidPrinciplesDiagram.jsx). The selected principle has named directed relationships, a preserved contract and tradeoff; complete text alternatives retain all five principles when selection changes.
+- [Shared lesson assets](frontend/src/learning/solidLessonAssets.js) import all seven canonical [Java sources](frontend/src/learning/examples/solid/), [demo](frontend/src/learning/examples/solid/SolidDemo.java), [exact output fixture](frontend/src/learning/examples/solid-output.txt) and [five scalar snapshots](frontend/src/learning/examples/solid-snapshots.json) connect each picture to observable behavior.
+- [SolidLessonExampleTest](backend/src/test/java/com/lld/learning/SolidLessonExampleTest.java) is the Java 17 verification contract for those exact sources, output and recorded fields. Its execution results remain pending parent validation; publication metadata and frontend checks alone do not prove the Java or pictures correct.
+
+- [Lesson integration tests](frontend/src/__tests__/solidLessons.test.jsx) cover the two published views; [renderer tests](frontend/src/__tests__/solidPrinciplesDiagram.test.jsx) cover the shared selectable pictures and complete text. Their execution evidence is pending.
+
+The teaching parcel example separates fee calculation from receipt wording (SRP),
+supplies policies through a stable caller (OCP), exposes a subtype that rejects a
+valid weight (LSP), separates online quoting from a desk's receipt role (ISP), and
+moves the service's source dependency toward a policy contract with explicit
+construction (DIP). Pictures are conceptual responsibility/contract views, not UML,
+object snapshots or JVM execution. The curated class models remain separate: Pictures focuses on FeePolicy and four
+implementations, including the deliberately invalid subtype; Code focuses on
+CounterExamples client/ISP types plus FeePolicy/StandardFee. Both are partial views
+with explicit omissions, not complete class inventories.
+
+The abstraction is justified by stated variation and client contracts, not by
+class count, interface syntax or injection alone. Pictures practice uses E02 at
+`/parking-lot`: follow the enum-backed factory and selected pricing call, acknowledging
+that the real service receives a factory rather than the lesson's direct policy.
+E02's pricing seam, E04's wrappers and E09's observers are bounded production
+comparison material, not automatic proof of all five principles or a production
+parcel feature. Browser accessibility,
+actual-route visual fidelity and deployed resource review remain separate gates.
+
+<a id="e41"></a>
+### E41 — SOLID Code: the same examples with explicit behavior evidence
+
+- [Code lesson](frontend/src/learning/lessons/solid-code.js) and its own [curated class model](frontend/src/learning/class-models/solid-code.js), paired with E40's shared conceptual pictures.
+- The [canonical solid directory](frontend/src/learning/examples/solid/) contains the before/after Java, including [CounterExamples](frontend/src/learning/examples/solid/CounterExamples.java), [FeePolicy](frontend/src/learning/examples/solid/FeePolicy.java), the policy implementations and [SolidDemo](frontend/src/learning/examples/solid/SolidDemo.java). Displayed sources are imported from these files rather than maintained as duplicate code strings.
+- The shared [output](frontend/src/learning/examples/solid-output.txt) and [scalar snapshots](frontend/src/learning/examples/solid-snapshots.json) record results/rejections, including null where no result exists. [SolidLessonExampleTest](backend/src/test/java/com/lld/learning/SolidLessonExampleTest.java) checks compilation, exact output, recorded values and behavior boundaries; successful execution must be reported by the parent before being claimed here.
+
+- [Lesson integration tests](frontend/src/__tests__/solidLessons.test.jsx) and [shared picture renderer tests](frontend/src/__tests__/solidPrinciplesDiagram.test.jsx) supply frontend coverage separate from the Java contract; successful runs remain a validation gate.
+
+Before/after receipt equivalence is a bounded SRP observation. OCP keeps the caller
+stable for the demonstrated policy extension; choosing or registering a new policy
+still changes construction. LSP requires semantic acceptance and result guarantees,
+not merely a compiling override. ISP follows actual client roles rather than a rule
+that every interface have one method. DIP concerns dependency direction and who owns
+the useful contract; constructor injection by itself is insufficient. Counterexamples
+are deliberately runnable failures, not recommended production designs.
+
+Both views reuse teaching Java but have separate lesson IDs, outcomes, assessments,
+curated class-model files and isolated notes/review marks. Practice mappings remain
+limited to inspected production behaviors; E02/E04/E09 do not certify whole modules
+as SOLID. Code practice uses E04 at `/coffee-machine`: inspect CoffeeComponent,
+real wrapper delegation and ingredient-map copying before stating supported
+behavior promises. Implementing the interface does not prove every possible
+substitution contract. The examples do not implement parcel purchase, payment, persistent state
+or concurrent business workflows. Full parent Java/frontend regression checks,
+browser and deployed release evidence remain pending for this integration.
+
+### SOLID integration validation status — 2026-11-19
+
+The final scoped global frontend run passed **89 tests across four files**:
+`curriculum.test.js` (30), `curriculumCoverage.test.js` (9), `learnCatalog.test.jsx`
+(28) and `learningLessons.test.jsx` (22), using
+`--maxWorkers=1 --testTimeout=15000`. This covers publication/source/scalar-field
+contracts, prerequisite order and graph consistency, all 69 audit rows and evidence
+links, catalog discovery, guided navigation, planned recovery and isolated progress.
+Publication/prerequisite/progress guards remain intact. E40/E41's dedicated
+lesson/renderer tests, Java contract, full regression/build/chunk budgets, browser
+and deployed resource checks still require separate parent evidence; the scoped
+result does not complete those gates or Phase 3.
+
+Parent combined local validation passes 2947 Java/1056 frontend tests, package,
+lint/build/budgets, and 376 frozen browser checks across eight light/dark contexts.
+The exact sources/output/scalars and both lessons' own class models are checked;
+source/content review confirms the bounded practice claims. See the current
+curriculum plan, release PR and `/home/prem/validation/lld-solid/` for commands,
+local worker/timeout settings and evidence. CI and deployed delivery remain
+separate gates; this does not close Phase 3 or the whole-module audit.
+
 ## Authoritative semantic references
 
 These references constrain future teaching; they are not evidence that its lesson
@@ -900,5 +977,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 47 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 45 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.
