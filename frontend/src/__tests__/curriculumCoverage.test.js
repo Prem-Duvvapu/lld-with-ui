@@ -82,6 +82,8 @@ describe('Curriculum evidence audit', () => {
       checked.add(id);
     };
     LESSONS.forEach(lesson => inspect(lesson.id));
+    expect(findLesson('solid-pictures').prerequisites).toEqual(['abstraction', 'polymorphism', 'dependency', 'composition']);
+    expect(findLesson('solid-code').prerequisites).toEqual(['solid-pictures']);
     expect(findLesson('abstract-factory').prerequisites).toContain('factory-method');
     expect(findLesson('state').prerequisites).toContain('state-machine-diagram');
     expect(findLesson('condition-variables').prerequisites).toContain('mutex');
@@ -110,7 +112,7 @@ describe('Curriculum evidence audit', () => {
 
   it('does not confuse unknown teaching coverage with completed topics or different concurrency contracts', () => {
     const audit = read('LLD_CURRICULUM_COVERAGE.md').replace(/\s+/g, ' ');
-    expect(audit).toContain('twenty-two published lessons and 47 undelivered topics');
+    expect(audit).toContain('twenty-four published lessons and 45 undelivered topics');
     expect(audit).toContain('not a claim of repository-wide absence');
     expect(audit).toContain('not a timed lock acquisition');
     expect(audit).toContain('not JVM thread states');
