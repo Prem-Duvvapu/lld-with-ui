@@ -1,0 +1,174 @@
+[
+  {
+    "title": "Same required behavior today",
+    "explanation": "Both implementations quote 600 cents for three parcels. Only the speculative alternative requires a named service and a configured rate map.",
+    "items": [
+      {
+        "label": "current",
+        "typeLabel": "CurrentParcelQuote results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 3
+          },
+          {
+            "name": "feeCents",
+            "value": 600
+          }
+        ]
+      },
+      {
+        "label": "speculative",
+        "typeLabel": "SpeculativeQuoteEngine results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 3
+          },
+          {
+            "name": "service",
+            "value": "STANDARD"
+          },
+          {
+            "name": "feeCents",
+            "value": 600
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Adequate includes validation",
+    "explanation": "Zero parcels is rejected by the current model. A later valid call still quotes 600; keeping scope small did not remove today’s validation.",
+    "items": [
+      {
+        "label": "current",
+        "typeLabel": "CurrentParcelQuote results",
+        "fields": [
+          {
+            "name": "zeroRejected",
+            "value": true
+          },
+          {
+            "name": "validFeeAfterRejection",
+            "value": 600
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "One matching example is insufficient",
+    "explanation": "After pickup is approved, a guessed 100-cent per-parcel rate and the actual fixed discount both return 100 for one parcel. That coincidence does not prove the model fits.",
+    "items": [
+      {
+        "label": "guessedPickup",
+        "typeLabel": "SpeculativeQuoteEngine results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 1
+          },
+          {
+            "name": "feeCents",
+            "value": 100
+          }
+        ]
+      },
+      {
+        "label": "changed",
+        "typeLabel": "PickupParcelQuote results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 1
+          },
+          {
+            "name": "pickup",
+            "value": true
+          },
+          {
+            "name": "feeCents",
+            "value": 100
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "The real change breaks the guess",
+    "explanation": "For three parcels, the guessed rate returns 300. The accepted per-quote discount returns 600 minus 100 = 500; the guessed abstraction needs repair.",
+    "items": [
+      {
+        "label": "guessedPickup",
+        "typeLabel": "SpeculativeQuoteEngine results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 3
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          }
+        ]
+      },
+      {
+        "label": "changed",
+        "typeLabel": "PickupParcelQuote results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 3
+          },
+          {
+            "name": "pickup",
+            "value": true
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Preserve ordinary delivery",
+    "explanation": "The later calculator returns 600 for standard delivery. Its retained current calculator still returns 600 independently; neither call mutates that object.",
+    "items": [
+      {
+        "label": "changed",
+        "typeLabel": "PickupParcelQuote results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 3
+          },
+          {
+            "name": "pickup",
+            "value": false
+          },
+          {
+            "name": "feeCents",
+            "value": 600
+          }
+        ]
+      },
+      {
+        "label": "current",
+        "typeLabel": "CurrentParcelQuote results",
+        "fields": [
+          {
+            "name": "parcels",
+            "value": 3
+          },
+          {
+            "name": "feeCents",
+            "value": 600
+          }
+        ]
+      }
+    ]
+  }
+]
