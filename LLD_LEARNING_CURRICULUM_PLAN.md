@@ -1,13 +1,15 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-11-19. Status: coverage audit and twenty-two
+Saved: 2026-10-17. Updated: 2026-11-19. Status: coverage audit and twenty-four
 lessons implemented: How to Learn LLD, all fifteen individual OOP/relationship
-concepts, their connected overview/capstone, the dedicated Class Diagram and Use Case Diagram lessons
-and DRY, YAGNI and KISS Principles. All twenty-two lessons include source-curated class models.
-Phase 2 content, assessment and local visual review are complete. Phase 3 has
-begun with two of five UML lessons and DRY/YAGNI/KISS; the remaining 47 topic
-deliveries and final integration/release gates remain open. This implementation status is not a claim of deployment before
-the current lesson's release checks pass.
+concepts, their connected overview/capstone, the dedicated Class Diagram and Use Case Diagram lessons,
+DRY, YAGNI and KISS Principles, and SOLID Principles with Pictures and with Code.
+All twenty-four lessons include source-curated class models. Phase 2 content,
+assessment and local visual review are complete. Phase 3 includes two of five UML
+lessons and all five principles lessons; Sequence, Activity and State Machine
+Diagram remain open. The remaining 45 topic deliveries and final integration/release
+gates remain open. SOLID full regression, actual-route browser review and deployment
+evidence are pending; implementation/publication status does not establish release.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -191,9 +193,10 @@ for the remaining topics is still open; an audited gap is not a published lesson
   complete text alternatives. Combined local assessment/visual verification passes;
   production release evidence is recorded on the class-model PR. The dedicated
   UML lessons and whole-curriculum release remain separate gates.
-- [ ] **Phase 3 — UML and principles:** Class Diagram, Use Case Diagram, DRY, YAGNI and KISS are implemented;
-  Sequence, Activity and State Machine diagrams and both SOLID lessons remain. Complete connected SOLID picture/code examples as
-  part of this phase.
+- [ ] **Phase 3 — UML and principles:** Class Diagram, Use Case Diagram, DRY, YAGNI,
+  KISS and the connected SOLID Pictures/Code lessons are implemented. Sequence,
+  Activity and State Machine diagrams remain. SOLID's full Java/frontend regression,
+  browser and release evidence is pending; this phase is not complete.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
   comparisons, tradeoffs, verified code, and exercises.
 - [ ] **Phase 5 — Concurrency:** deliver foundations, primitives, challenges,
@@ -446,7 +449,7 @@ concept is Use Case Diagram. Notes remain isolated through that sequence. A shar
 heading-context fix closes the h2-to-h4 skip in class models while retaining h4
 under module h3 titles (RCA-127). Full parent checks, eight-context browser review
 and deployment evidence belong to this release. This does not complete Phase 3,
-the entire curriculum, or the separate60-module UX review.
+the entire curriculum, or the separate 60-module UX review.
 
 Local integrated release checks pass2798 backend tests (308 suites),941 frontend
 tests (66 files), Maven package with clean exit, lint (14 existing warnings),
@@ -573,7 +576,7 @@ Full local validation evidence and actual counts are recorded in the current
 COMPLETION_HANDOFF.md entry and `/home/prem/validation/lld-yagni/`. Older dated
 release counts above are historical snapshots. PR #190 merged as `3c1c972`
 after all seven checks passed with normal CI settings. Frozen browser review
-passed 168 checks across eight light/dark ×320/390/768/1440 contexts.
+passed 168 checks across eight light/dark × 320/390/768/1440 contexts.
 Real-network production review passed 84 checks across four light/dark ×390/1440
 contexts, including canonical source/output, recorded fields, class model text
 and selection, fullscreen/focus, separate notes, catalog return and asset MIME
@@ -590,3 +593,63 @@ assertions or publication/model/notes guards were weakened. Existing DRY act
 warnings remain recorded. Browser/release checks above are complete for these
 two lessons; the remaining curriculum gates and whole-module audit remain open.
 ATM ownership/recovery shipped separately in PR #191; see COMPLETION_HANDOFF.md.
+
+
+## SOLID Pictures / Code curriculum integration — 2026-11-19
+
+The current integration publishes 24 lessons / 45 planned topics. The guided order
+is DRY → YAGNI → KISS → SOLID Pictures → SOLID Code. Pictures retains exactly
+Abstraction, Polymorphism, Dependency and Composition as prerequisites; Code retains
+only SOLID Pictures. Catalog grouping and all five proposed-addition labels remain
+unchanged. All five principles lessons are available; planned search/recovery and
+invalid stored completion fixtures now use Sequence Diagram in the UML group.
+Publication/prerequisite guards, one class model per published lesson and bounded,
+isolated lesson progress remain required.
+
+E40/E41 in the coverage audit track the two connected views. Both reuse canonical
+Java in `frontend/src/learning/examples/solid/`, one exact output fixture and five
+recorded scalar snapshots. `SolidLessonExampleTest` is the contract for compiling
+those displayed sources and checking output/recorded behavior; execution evidence
+must come from the parent's validation. Five shared before/after conceptual pictures
+show responsibilities and contracts with complete text alternatives. They are
+separate from UML and from each lesson's own source-curated class-model file.
+
+Pictures emphasizes reasons to change, extension seams, behavioral substitution,
+client roles and source dependency direction. Code checks the same distinctions
+against concrete Java before/after behavior and deliberately broken counterexamples.
+Construction/registration edits and the cost of additional abstractions stay
+explicit. Each lesson has its own prediction/transfer work and saved notes; review
+is a personal self-check. E02/E04/E09 support bounded comparisons of inspected
+pricing, wrappers and observers, not automatic proof of all five principles or
+whole-module conformance. No production parcel purchase or payment is introduced.
+
+The final scoped global frontend run passed 89 tests across four files:
+`curriculum.test.js` (30), `curriculumCoverage.test.js` (9), `learnCatalog.test.jsx`
+(28) and `learningLessons.test.jsx` (22), using
+`--maxWorkers=1 --testTimeout=15000`. Publication/source/scalar contracts,
+prerequisite order/graph, catalog discovery, guided navigation, planned recovery,
+isolated progress and the 69-row audit/evidence links passed with guards intact.
+Dedicated lesson/renderer tests, Java checks, full frontend regression, build/chunk
+budgets, actual-route browser/accessibility review and deployed resource verification
+remain parent gates. Older dated counts and release results above are
+historical evidence and do not validate SOLID. Phase 3 still needs three dedicated
+UML lessons; later curriculum phases, full integration/release and the separate
+60-module UX audit remain open.
+
+
+### SOLID parent integration verification — 2026-11-19
+
+Full local checks pass: **2947 Java tests / 316 suites**, Maven package, **1056
+frontend tests / 73 files**, full lint (0 errors / 14 existing warnings), production
+build and both budgets (313620-byte entry /54680-byte largest non-entry).
+The successful local frontend command used `--maxWorkers=1 --testTimeout=15000`
+under concurrent workspace load; repo/CI defaults stay unchanged. Final frozen
+browser review passes 376 checks across eight light/dark × 320/390/768/1440 contexts,
+covering both lessons, all five pictures each, complete transcripts, canonical
+source/output, every recorded scalar, typed class relations, keyboard/focus,
+separate notes and filtered catalog return. Screenshot review also corrected
+nested-card endpoint wrapping using container width (RCA-133). No application
+servers were started. Evidence: `/home/prem/validation/lld-solid/`.
+Normal CI, merge and real-network production delivery are separate release gates
+recorded in the release PR. Phase 3 still needs Sequence, Activity and State
+Machine Diagram lessons; 45 planned topics and later gates remain open.

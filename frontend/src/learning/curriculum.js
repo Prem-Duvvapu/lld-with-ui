@@ -193,11 +193,15 @@ const publications = [
   ['dry', '25–30 minutes'],
   ['yagni', '25–30 minutes'],
   ['kiss', '25–30 minutes'],
+  ['solid-pictures', '35–45 minutes'],
+  ['solid-code', '45–60 minutes'],
 ];
 const published = new Map(publications);
 
 // Catalog outcomes remain metadata: browsing never imports lesson content.
 const outcomes = {
+  'solid-pictures': 'Explain SRP, OCP, LSP, ISP and DIP with before/after responsibility and contract pictures; justify each change and its limits.',
+  'solid-code': 'Refactor the same five SOLID examples in Java, preserve explicit behavior contracts and test substitutability, client roles and dependency direction.',
   yagni: 'Defer speculative capabilities, name expansion evidence and implement changed requirements without sacrificing validation or tests.',
   kiss: 'Choose the simplest clear design that preserves the same validation, boundaries and results; justify abstraction with real variation.',
   dry: 'Remove duplicated domain knowledge while keeping unrelated rules and mutable state separate.',

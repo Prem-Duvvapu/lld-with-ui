@@ -6,6 +6,31 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- Current SOLID Pictures / Code integration (2026-11-19): **24 lessons / 45 planned topics**
+  in source. Both lessons share seven canonical Java files, actual output and five
+  recorded scalar steps, plus five selectable before/after responsibility pictures.
+  Their class models, assessment feedback, independent exercises and saved notes
+  remain distinct. Conceptual picture arrows are explicitly separate from UML;
+  complete normal-size text stays under a native disclosure for all five principles.
+  Java contracts cover independent boundaries, invalid inputs, the deliberately
+  broken small-parcel substitute, unsupported broad printing API, narrow-client
+  compiler cases, injected selection and exact output/recorded fields.
+  Focused checks:30 Java /16 lesson /10 picture /89 global catalog-flow tests pass.
+  Independent source/content review found no substantive semantic mismatch.
+  Combined verification passes **2947 backend tests / 316 suites** and **1056
+  frontend tests / 73 files**, Maven package, lint (zero errors / 14 existing warnings),
+  Vite build and both budgets (entry 313620 B / largest non-entry 54680 B). The full
+  local frontend run used one worker and a 15s per-test allowance under workspace
+  load; repository/CI defaults remain unchanged. Final frozen-build review passes
+  **376 checks / eight light/dark ×320/390/768/1440 contexts**: all ten before/after
+  views, complete text, canonical Java/output/scalars, typed class relations,
+  keyboard/fullscreen focus, isolated notes and catalog return. RCA-133 records
+  the nested-card readability fix. Actual release/CI and production evidence
+  belongs to the release PR; local fixtures do not prove deployed MIME types.
+  All design-principle lessons are implemented; Phase 3 still has three UML lessons.
+  Later phases and the separate 60-module UX review remain open. Evidence:
+  `/home/prem/validation/lld-solid/`.
+
 - Live ATM ownership and request recovery (2026-11-19): terminal/account/cassette
   coordination, inserted-card checks and detached receipts/snapshots resolve the
   reproduced lifecycle/alias defects. Owned commands use boot/revision admission,
@@ -24,9 +49,9 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   `/home/prem/validation/lld-one-hour-completion/atm-browser/`.
   Combined validation: **2917 backend tests / 315 suites**, Maven package, **1023
   frontend tests / 71 files**, lint (zero errors,14 existing warnings), and Vite
-  build pass. Entry313620 B / largest non-entry54680 B meet both budgets. Under
+  build pass. Entry313620 B / largest non-entry 54680 B meet both budgets. Under
   concurrent workspace load, the successful local frontend run used one worker
-  and a15s test timeout; repo/CI defaults remain unchanged. An earlier local
+  and a 15s test timeout; repo/CI defaults remain unchanged. An earlier local
   default 5s run timed out in an existing long journey. Normal CI then passed
   all 2917 backend and 1023 frontend cases; all seven checks were green before
   [PR #191](https://github.com/Prem-Duvvapu/lld-with-ui/pull/191) merged as
@@ -62,7 +87,7 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   controls, notes/catalog return and JS/CSS response MIME checks. Vercel
   deployment7920795741 reports success for3c1c972. Evidence:
   `/home/prem/validation/lld-one-hour-completion/lessons-browser/deployed-results.json`.
-  The47 remaining topics, Phase3, later gates and60-module audit remain open.
+  The47 remaining topics, Phase 3, later gates and60-module audit remain open.
 
 - Historical DRY and Use Case Diagram release (2026-10-28): publication
   at that release was **20 lessons / 49 planned topics**. The dedicated use-case view distinguishes
@@ -140,7 +165,7 @@ snapshots; the combined entry above records the current lesson publication total
   lint/build and budgets (313607 B entry /54680 B largest non-entry). The frozen
   routed app passes544 browser views/eight contexts covering all18 models and
   the new Java/output/states. Evidence: `/home/prem/validation/lld-class-diagram-release/`;
-  CI/deployment/resource evidence is recorded on this batch's PR. Phase3 and the
+  CI/deployment/resource evidence is recorded on this batch's PR. Phase 3 and the
   whole-project/module review remain open.
 
 

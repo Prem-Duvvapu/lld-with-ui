@@ -9098,3 +9098,42 @@ Inject failures after observable effects, not just before admission. A domain
 rejection and an uncertain infrastructure outcome need different UI recovery.
 DomainException subclasses remain4xx; no general rollback or durable bank recovery
 is promised by this in-memory journal.
+
+## RCA-133: Desktop SOLID picture columns split long endpoint names
+
+### 1. Overview & Severity
+Low-severity readability defect found during pre-release visual review. A wide
+browser viewport did not guarantee enough space inside each side-by-side picture.
+
+### 2. Symptoms & Error Logs
+At1440px the lesson's bounded reading column split into two picture cards. Three
+equal arrow columns wrapped StandardFee and BulkyOnlyFee onto a trailing letter.
+There was no page overflow or application exception; the initial376 browser checks
+passed, but the screenshot showed the reading problem. Before/after evidence:
+`/home/prem/validation/lld-solid/before-layout-dark-1440-lsp.png` and
+`local-dark-1440-lsp.png`.
+
+### 3. Root Cause
+The arrow row allocated equal widths to source, relation and target. A viewport
+media query handled small phones only, missing narrow cards inside desktop grids.
+
+### 4. Diagnostic Commands
+Build with `cd frontend && npm run build`. Review the frozen build using
+`node /home/prem/validation/lld-solid/browser.cjs` and inspect the selected LSP
+picture screenshot at1440px; compare computed card widths with viewport width.
+The harness intercepts immutable build assets and unavailable API paths; it does
+not start application servers or verify production resource delivery.
+
+### 5. Step-by-Step Resolution
+1. Make each picture an inline-size query container.
+2. Stack arrows in narrow picture cards regardless of the browser viewport.
+3. At sufficient card width, keep endpoints and arrow on one row and give the
+   relation label its own full-width row; keep every label and text alternative.
+4. Rebuild and repeat all376 browser checks across light/dark themes at320,390,
+   768 and1440px. Checks, keyboard/focus behavior and complete transcripts pass;
+   visual comparison confirms whole endpoint names at the reviewed desktop width.
+
+### 6. Preventative Measures
+Review the width of nested components as well as the viewport. Overflow assertions
+cannot establish reading quality; retain screenshot review and explicit text
+alternatives. This change does not establish a full accessibility or module audit.

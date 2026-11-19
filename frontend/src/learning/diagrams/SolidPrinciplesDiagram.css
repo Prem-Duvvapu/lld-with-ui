@@ -1,0 +1,131 @@
+.lesson-solid {
+  min-width: 0;
+  max-width: 100%;
+  margin-top: 40px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.lesson-solid *, .lesson-solid *::before, .lesson-solid *::after { box-sizing: border-box; }
+.lesson-solid :is(p, strong, code, dd, figcaption, h2, h3, h4, h5, .solid-relation, .solid-notes li) { white-space: pre-wrap; }
+.lesson-solid :is(h2, h3, h4, h5) { line-height: 1.4; }
+.lesson-solid p { margin-block: 12px; }
+.lesson-solid :is(ul, dl) { margin-block: 12px; }
+.lesson-solid li + li { margin-top: 8px; }
+
+.lesson-solid .solid-reading-guide {
+  padding: 16px;
+  border-inline-start: 4px solid var(--info);
+  border-radius: 0 10px 10px 0;
+  background: var(--bg-tertiary);
+}
+
+.solid-selector { display: grid; gap: 8px; min-width: 0; font-weight: 700; }
+.solid-selector select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--text-muted);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
+.lesson-solid :is(select, summary):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
+
+.solid-selected { margin-top: 24px; }
+.solid-selected > h3 { margin-bottom: 8px; font-size: 1.25rem; }
+.lesson-solid .solid-question { margin-bottom: 20px; font-size: 1.125rem; }
+.solid-comparison { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: 20px; }
+.lesson-solid .solid-side {
+  container: solid-picture / inline-size;
+  min-width: 0;
+  margin: 0;
+  padding: clamp(12px, 2vw, 20px);
+  border: 1px solid var(--border-primary);
+  border-top: 4px solid var(--warning);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-sm);
+}
+.lesson-solid .solid-side-after { border-top-color: var(--info); }
+.solid-side h4 { margin: 0 0 20px; font-size: 1.125rem; }
+.solid-stage { display: block; margin-bottom: 8px; font-size: 1rem; color: var(--text-primary); }
+.lesson-solid .solid-nodes { padding: 0; list-style: none; }
+.solid-side .solid-nodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 12px; }
+.lesson-solid .solid-side .solid-node { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--text-muted); border-radius: 8px; background: var(--bg-card); }
+.lesson-solid .solid-node-lines { font-family: var(--code-font); font-size: 1rem; }
+.solid-side figcaption { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--border-primary); }
+
+.lesson-solid .solid-arrows { display: grid; gap: 12px; padding: 0; list-style: none; }
+.lesson-solid .solid-arrows > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  text-align: center;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+}
+.solid-endpoint, .solid-relation { min-width: 0; }
+.solid-endpoint-label { display: block; font-weight: 400; }
+.solid-arrows .solid-relation { text-align: center; }
+.solid-arrow { display: block; font-size: 1.75rem; line-height: 1; color: var(--text-primary); }
+.solid-arrows .solid-arrow { transform: rotate(90deg); margin-block: 4px; }
+.solid-connection-text { padding-inline-start: 22px; }
+.solid-connection-text .solid-endpoint-label { display: inline; }
+.solid-connection-text .solid-relation { display: block; padding-inline-start: 12px; }
+.solid-connection-text .solid-arrow { display: inline; margin-inline-end: 8px; font-size: 1.125rem; }
+
+.lesson-solid .solid-contract { display: grid; gap: 16px; padding: 16px; border: 1px solid var(--border-primary); border-radius: 10px; background: var(--bg-tertiary); }
+.solid-contract > div { min-width: 0; }
+.solid-contract dt { font-weight: 700; }
+.solid-contract dd { margin: 4px 0 0; }
+.solid-transcript { min-width: 0; margin-top: 36px; border-top: 1px solid var(--border-primary); padding-top: 20px; }
+.solid-transcript > h3 { font-size: 1.25rem; }
+.solid-transcript-details { min-width: 0; font-size: 1rem; }
+.solid-transcript-details > summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  font-weight: 700;
+  cursor: pointer;
+}
+.solid-transcript-principle { margin-block: 28px; }
+.solid-transcript-principle h4 { margin-bottom: 8px; font-size: 1.125rem; }
+.solid-transcript-side { padding-inline-start: 12px; border-inline-start: 2px solid var(--border-primary); }
+.solid-transcript-side h5 { font-size: 1rem; margin-block: 20px 12px; }
+.solid-transcript .solid-node { padding-block: 6px; }
+.solid-sources, .solid-notes { padding-inline-start: 22px; }
+.solid-sources code { font-family: var(--code-font); font-size: 1rem; }
+
+.lesson-solid .solid-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Use the picture's width: desktop side-by-side cards can also be narrow. */
+@container solid-picture (min-width: 320px) {
+  .lesson-solid .solid-arrows > li { grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr); }
+  .solid-arrows .solid-endpoint:first-child { grid-column: 1; grid-row: 1; }
+  .solid-arrows .solid-endpoint:last-child { grid-column: 3; grid-row: 1; }
+  .solid-arrows .solid-relation { display: contents; }
+  .solid-arrows .solid-arrow { grid-column: 2; grid-row: 1; transform: none; margin: 0; }
+  .solid-arrows .solid-relation > span:last-child { grid-column: 1 / -1; grid-row: 2; }
+}

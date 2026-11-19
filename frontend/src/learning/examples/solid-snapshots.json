@@ -1,0 +1,308 @@
+[
+  {
+    "title": "SRP: separate independent changes",
+    "explanation": "Both stages return the same receipt. Pricing and wording become separate responsibilities; no physical print or charge occurs.",
+    "items": [
+      {
+        "label": "coupled counter",
+        "typeLabel": "CoupledCounter result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "receipt",
+            "value": "Parcel 1000g: 300c"
+          }
+        ]
+      },
+      {
+        "label": "separated counter",
+        "typeLabel": "QuoteService result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "receipt",
+            "value": "Parcel 1000g: 300c"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "OCP: supply an approved new policy",
+    "explanation": "The same QuoteService runs the standard, pickup and new free policies. The construction site changes to select FreeFee; the service source does not.",
+    "items": [
+      {
+        "label": "standard",
+        "typeLabel": "QuoteService result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "pickup",
+        "typeLabel": "QuoteService result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 200
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "free",
+        "typeLabel": "QuoteService result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 0
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "LSP: test a promised small parcel",
+    "explanation": "The shared contract accepts 1 gram and permits different nonnegative fees. BulkyOnlyFee compiles but rejects that promised input, so it is intentionally not a behavioral substitute.",
+    "items": [
+      {
+        "label": "standard",
+        "typeLabel": "StandardFee result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "pickup",
+        "typeLabel": "PickupFee result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1
+          },
+          {
+            "name": "feeCents",
+            "value": 200
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "free",
+        "typeLabel": "FreeFee result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1
+          },
+          {
+            "name": "feeCents",
+            "value": 0
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "broken bulky-only",
+        "typeLabel": "BulkyOnlyFee result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1
+          },
+          {
+            "name": "feeCents",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "IllegalArgumentException: Bulky parcels only"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "ISP: keep printing out of online quoting",
+    "explanation": "The broad OnlineStation interface promises a print operation that throws. The revised OnlineQuote has only quoting; DeskPrinter serves the distinct printer client. Its printReceipt returns a string, not physical output.",
+    "items": [
+      {
+        "label": "legacy online station",
+        "typeLabel": "OnlineStation result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "printResult",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "UnsupportedOperationException: Online station cannot print"
+          }
+        ]
+      },
+      {
+        "label": "quote-only online client",
+        "typeLabel": "OnlineQuote result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          }
+        ]
+      },
+      {
+        "label": "desk printer client",
+        "typeLabel": "DeskPrinter result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "receipt",
+            "value": "Parcel 1000g: 300c"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "DIP: choose details at the construction site",
+    "explanation": "DirectCounter fixes StandardFee internally. Three QuoteService instances depend on the FeePolicy boundary and use the same orchestration with different supplied details.",
+    "items": [
+      {
+        "label": "direct concrete dependency",
+        "typeLabel": "DirectCounter result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1001
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "injected standard",
+        "typeLabel": "QuoteService result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1001
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "injected pickup",
+        "typeLabel": "QuoteService result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1001
+          },
+          {
+            "name": "feeCents",
+            "value": 400
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "injected free",
+        "typeLabel": "QuoteService result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1001
+          },
+          {
+            "name": "feeCents",
+            "value": 0
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      }
+    ]
+  }
+]

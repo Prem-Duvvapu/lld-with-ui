@@ -29,6 +29,8 @@ import dryLesson from '../learning/lessons/dry';
 import useCaseLesson from '../learning/lessons/use-case-diagram';
 import yagniLesson from '../learning/lessons/yagni';
 import kissLesson from '../learning/lessons/kiss';
+import solidPicturesLesson from '../learning/lessons/solid-pictures';
+import solidCodeLesson from '../learning/lessons/solid-code';
 
 vi.mock('../learning/lessonLoader', () => ({ loadLesson: vi.fn() }));
 
@@ -54,13 +56,14 @@ beforeEach(() => {
     aggregation: aggregationLesson, composition: compositionLesson, dependency: dependencyLesson,
     'overloading-and-overriding': overloadLesson, 'static-and-instance': staticLesson,
     'how-to-learn-lld': guideLesson, 'oop-overview': capstoneLesson, 'class-diagram': classDiagramLesson, dry: dryLesson, 'use-case-diagram': useCaseLesson, yagni: yagniLesson, kiss: kissLesson,
+    'solid-pictures': solidPicturesLesson, 'solid-code': solidCodeLesson,
   }[id]));
 });
 
 describe('Published curriculum learning journey', () => {
   it('distinguishes the available lesson from planned topics and filters search accessibly', () => {
     renderLearning();
-    expect(screen.getByRole('button', { name: 'Available lessons (22)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Available lessons (24)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('link', { name: 'Classes and Objects', exact: true })).toHaveAttribute('href', '/learn/classes-and-objects');
     expect(screen.getByRole('link', { name: 'Enums', exact: true })).toHaveAttribute('href', '/learn/enums');
     expect(screen.getByRole('link', { name: 'Interfaces', exact: true })).toHaveAttribute('href', '/learn/interfaces');
@@ -70,11 +73,16 @@ describe('Published curriculum learning journey', () => {
     expect(constructors).toHaveTextContent('20–25 minutes');
     expect(screen.getByRole('article', { name: 'Access Modifiers' })).toHaveTextContent('Proposed addition');
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search lessons' }), { target: { value: 'SOLID' } });
+    expect(screen.getByRole('status')).toHaveTextContent('2 available lessons');
+    expect(screen.getByRole('link', { name: 'SOLID Principles with Pictures', exact: true })).toHaveAttribute('href', '/learn/solid-pictures');
+    expect(screen.getByRole('link', { name: 'SOLID Principles with Code', exact: true })).toHaveAttribute('href', '/learn/solid-code');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Section' }), { target: { value: 'uml' } });
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search lessons' }), { target: { value: 'Sequence Diagram' } });
     expect(screen.getByRole('status')).toHaveTextContent('0 available lessons');
     fireEvent.click(screen.getByRole('button', { name: 'View matching roadmap topics' }));
-    expect(screen.getByText('SOLID Principles with Pictures')).toBeVisible();
-    expect(screen.getByText('SOLID Principles with Code')).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('0 available lessons · 2 planned topics');
+    expect(screen.getByText('Sequence Diagram', { exact: true })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Sequence Diagram', exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('0 available lessons · 1 planned topics · UML');
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'no-match' } });
     fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
     expect(screen.getByRole('searchbox')).toHaveValue('');
@@ -312,8 +320,8 @@ describe('Published curriculum learning journey', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
       expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons[id].notes).toBe(notes);
     }
-    expect(screen.getByText('Next planned concept: SOLID Principles with Pictures. It is not published yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /^Next:/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Next planned concept:/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Next: SOLID Principles with Pictures →' })).toHaveAttribute('href', '/learn/solid-pictures');
     fireEvent.click(screen.getByRole('link', { name: '← YAGNI Principle' }));
     await screen.findByRole('heading', { name: 'YAGNI Principle', level: 1 });
     expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('YAGNI notes: approved evidence before expansion');
@@ -355,6 +363,42 @@ describe('Published curriculum learning journey', () => {
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('continues from KISS through both SOLID views with exact prerequisite reviews and separate saved notes', async () => {
+    renderLearning('/learn/kiss');
+    await screen.findByRole('heading', { name: 'KISS Principle', level: 1 });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: 'KISS notes before SOLID' } });
+    const stages = [
+      ['solid-pictures', 'SOLID Principles with Pictures', ['Abstraction', 'Polymorphism', 'Dependency', 'Composition']],
+      ['solid-code', 'SOLID Principles with Code', ['SOLID Principles with Pictures']],
+    ];
+    for (const [id, title, prerequisites] of stages) {
+      const next = screen.getByRole('link', { name: `Next: ${title} →` });
+      expect(next).toHaveAttribute('href', `/learn/${id}`);
+      fireEvent.click(next);
+      await waitFor(() => expect(screen.getByRole('heading', { name: title, level: 1 })).toHaveFocus());
+      expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('');
+      expect(screen.getAllByRole('radio').every(radio => !radio.checked)).toBe(true);
+      const reviews = within(screen.getByRole('navigation', { name: 'Prerequisite lessons' }));
+      expect(reviews.getAllByRole('link').map(link => link.textContent)).toEqual(prerequisites.map(name => `Review ${name}`));
+      fireEvent.change(screen.getByRole('textbox', { name: 'Your explanation' }), { target: { value: `${title} independent notes` } });
+      fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
+      expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe(id);
+    }
+    expect(screen.getByText('Next planned concept: Singleton. It is not published yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Next:/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: '← SOLID Principles with Pictures' }));
+    await screen.findByRole('heading', { name: 'SOLID Principles with Pictures', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('SOLID Principles with Pictures independent notes');
+    expect(screen.getByRole('button', { name: 'Remove bookmark' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Mark lesson not reviewed' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('link', { name: '← KISS Principle' }));
+    await screen.findByRole('heading', { name: 'KISS Principle', level: 1 });
+    expect(screen.getByRole('textbox', { name: 'Your explanation' })).toHaveValue('KISS notes before SOLID');
+    const saved = JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons;
+    for (const [id, title] of stages) expect(saved[id]).toMatchObject({ notes: `${title} independent notes`, reviewed: true, bookmarked: true });
+  });
+
   it('persists notes, bookmark, resume and review independently from module progress', async () => {
     localStorage.setItem('lld-progress-v1', JSON.stringify({ parking: 123 }));
     await openLesson();
@@ -362,7 +406,7 @@ describe('Published curriculum learning journey', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Bookmark lesson' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mark lesson reviewed' }));
     fireEvent.click(screen.getByRole('link', { name: '← All lessons' }));
-    expect(screen.getByText(/1 of 22 available lessons marked reviewed/)).toBeInTheDocument();
+    expect(screen.getByText(/1 of 24 available lessons marked reviewed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('checkbox', { name: 'Bookmarked only' }));
     expect(screen.getByRole('status')).toHaveTextContent('1 available lessons');
     fireEvent.click(screen.getByRole('link', { name: 'Continue learning →' }));
@@ -373,12 +417,14 @@ describe('Published curriculum learning journey', () => {
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lastLessonId).toBe('classes-and-objects');
   });
 
-  it.each(['/learn/solid-pictures', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
+  it.each(['/learn/sequence-diagram', '/learn/not-a-lesson'])('renders an honest recovery page for %s without loading content', path => {
     renderLearning(path);
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Mark lesson/ })).not.toBeInTheDocument();
     expect(loadLesson).not.toHaveBeenCalled();
-    if (path === '/learn/solid-pictures') {
+    if (path === '/learn/sequence-diagram') {
+      expect(screen.getByRole('heading', { name: 'Sequence Diagram', level: 1 })).toBeInTheDocument();
+      expect(screen.getByText(/This topic is planned, not published/)).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Start with How to Learn LLD →' })).toHaveAttribute('href', '/learn/how-to-learn-lld');
     }
   });
@@ -411,11 +457,13 @@ describe('Published curriculum learning journey', () => {
   });
 
   it('bounds and validates stored lesson data and ignores unpublished completion marks', async () => {
-    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'solid-pictures', lessons: { 'solid-pictures': { reviewed: true }, yagni: { reviewed: true, notes: 'Valid published YAGNI notes' }, kiss: { bookmarked: true, notes: 'Valid published KISS notes' }, dry: { reviewed: true, notes: 'Valid published DRY notes' }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
+    localStorage.setItem(LESSON_STORAGE_KEY, JSON.stringify({ lastLessonId: 'sequence-diagram', lessons: { 'sequence-diagram': { reviewed: true }, 'solid-pictures': { reviewed: true, notes: 'Valid published SOLID Pictures notes' }, 'solid-code': { bookmarked: true, notes: 'Valid published SOLID Code notes' }, yagni: { reviewed: true, notes: 'Valid published YAGNI notes' }, kiss: { bookmarked: true, notes: 'Valid published KISS notes' }, dry: { reviewed: true, notes: 'Valid published DRY notes' }, 'classes-and-objects': { notes: 'x'.repeat(3000), reviewed: 'true', bookmarked: true } } }));
     await openLesson();
     expect(screen.getByRole('textbox', { name: 'Your explanation' }).value).toHaveLength(2000);
     expect(screen.getByRole('button', { name: 'Mark lesson reviewed' })).toHaveAttribute('aria-pressed', 'false');
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons['solid-pictures']).toBeUndefined());
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons['sequence-diagram']).toBeUndefined());
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons['solid-pictures']).toMatchObject({ reviewed: true, notes: 'Valid published SOLID Pictures notes' });
+    expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons['solid-code']).toMatchObject({ bookmarked: true, notes: 'Valid published SOLID Code notes' });
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.dry).toMatchObject({ reviewed: true, notes: 'Valid published DRY notes' });
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.yagni).toMatchObject({ reviewed: true, notes: 'Valid published YAGNI notes' });
     expect(JSON.parse(localStorage.getItem(LESSON_STORAGE_KEY)).lessons.kiss).toMatchObject({ bookmarked: true, notes: 'Valid published KISS notes' });

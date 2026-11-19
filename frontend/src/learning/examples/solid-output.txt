@@ -1,0 +1,8 @@
+SRP before: Parcel 1000g: 300c
+SRP after: Parcel 1000g: 300c
+OCP standard=300 pickup=200 free=0
+LSP valid 1g: standard=300 pickup=200 free=0
+LSP broken 1g: IllegalArgumentException: Bulky parcels only
+ISP legacy quote=300 print=UnsupportedOperationException: Online station cannot print
+ISP segregated quote=300 print=Parcel 1000g: 300c
+DIP standard=500 pickup=400 free=0
