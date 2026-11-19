@@ -1,0 +1,222 @@
+[
+  {
+    "title": "Accepted lower band",
+    "explanation": "1000 g returns a fee of 300 cents and exact receipt text after the fee reply. The same collaborator objects remain available for the next request.",
+    "items": [
+      {
+        "label": "Request at 1000 g",
+        "typeLabel": "QuoteDesk.Result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "accepted",
+            "value": true
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "receipt",
+            "value": "Parcel 1000 g: 300 cents"
+          },
+          {
+            "name": "rejection",
+            "value": null
+          },
+          {
+            "name": "call count",
+            "value": 3
+          },
+          {
+            "name": "reply count",
+            "value": 3
+          },
+          {
+            "name": "trace",
+            "value": "call client -> desk: quote(1000)\ncall desk -> fees: quote(1000)\nreturn fees -> desk: fee = 300 cents\ncall desk -> receipts: render(accepted quote)\nreturn receipts -> desk: \"Parcel 1000 g: 300 cents\"\nreturn desk -> client: accepted result"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Rejected below the range",
+    "explanation": "0 g returns a rejected Quote and Result. The fee and receipt are absent; the receipt object remains unused.",
+    "items": [
+      {
+        "label": "Request at 0 g",
+        "typeLabel": "QuoteDesk.Result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 0
+          },
+          {
+            "name": "accepted",
+            "value": false
+          },
+          {
+            "name": "feeCents",
+            "value": null
+          },
+          {
+            "name": "receipt",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "Weight must be 1 to 2000 g"
+          },
+          {
+            "name": "call count",
+            "value": 2
+          },
+          {
+            "name": "reply count",
+            "value": 2
+          },
+          {
+            "name": "trace",
+            "value": "call client -> desk: quote(0)\ncall desk -> fees: quote(0)\nreturn fees -> desk: rejected: Weight must be 1 to 2000 g\nreturn desk -> client: rejected result"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Accepted upper band after rejection",
+    "explanation": "1001 g returns a fee of 500 cents and exact receipt text after the fee reply. The same collaborator objects remain available for the next request.",
+    "items": [
+      {
+        "label": "Request at 1001 g",
+        "typeLabel": "QuoteDesk.Result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1001
+          },
+          {
+            "name": "accepted",
+            "value": true
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "receipt",
+            "value": "Parcel 1001 g: 500 cents"
+          },
+          {
+            "name": "rejection",
+            "value": null
+          },
+          {
+            "name": "call count",
+            "value": 3
+          },
+          {
+            "name": "reply count",
+            "value": 3
+          },
+          {
+            "name": "trace",
+            "value": "call client -> desk: quote(1001)\ncall desk -> fees: quote(1001)\nreturn fees -> desk: fee = 500 cents\ncall desk -> receipts: render(accepted quote)\nreturn receipts -> desk: \"Parcel 1001 g: 500 cents\"\nreturn desk -> client: accepted result"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Rejected above the range",
+    "explanation": "2001 g returns a rejected Quote and Result. The fee and receipt are absent; the receipt object remains unused.",
+    "items": [
+      {
+        "label": "Request at 2001 g",
+        "typeLabel": "QuoteDesk.Result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 2001
+          },
+          {
+            "name": "accepted",
+            "value": false
+          },
+          {
+            "name": "feeCents",
+            "value": null
+          },
+          {
+            "name": "receipt",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "Weight must be 1 to 2000 g"
+          },
+          {
+            "name": "call count",
+            "value": 2
+          },
+          {
+            "name": "reply count",
+            "value": 2
+          },
+          {
+            "name": "trace",
+            "value": "call client -> desk: quote(2001)\ncall desk -> fees: quote(2001)\nreturn fees -> desk: rejected: Weight must be 1 to 2000 g\nreturn desk -> client: rejected result"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Accepted upper boundary after rejection",
+    "explanation": "2000 g returns a fee of 500 cents and exact receipt text after the fee reply. The same collaborator objects remain available for the next request.",
+    "items": [
+      {
+        "label": "Request at 2000 g",
+        "typeLabel": "QuoteDesk.Result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 2000
+          },
+          {
+            "name": "accepted",
+            "value": true
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "receipt",
+            "value": "Parcel 2000 g: 500 cents"
+          },
+          {
+            "name": "rejection",
+            "value": null
+          },
+          {
+            "name": "call count",
+            "value": 3
+          },
+          {
+            "name": "reply count",
+            "value": 3
+          },
+          {
+            "name": "trace",
+            "value": "call client -> desk: quote(2000)\ncall desk -> fees: quote(2000)\nreturn fees -> desk: fee = 500 cents\ncall desk -> receipts: render(accepted quote)\nreturn receipts -> desk: \"Parcel 2000 g: 500 cents\"\nreturn desk -> client: accepted result"
+          }
+        ]
+      }
+    ]
+  }
+]
