@@ -32,3 +32,31 @@ describe('ATM live API cancellation and Java request contracts', () => {
     }
   });
 });
+
+describe('coordinated ATM terminal API', () => {
+  it('reads state with the tab token and cancellation', async () => {
+    const controller = new AbortController();
+    await api.getTerminalState('tab-token', { signal: controller.signal });
+    expect(apiFetch).toHaveBeenCalledWith('/atm/terminal/state', {
+      signal: controller.signal, headers: { 'X-ATM-Session': 'tab-token' },
+    });
+  });
+  it('sends and replays the exact command with its original key, revision, payload and content type', async () => {
+    const controller = new AbortController();
+    const body = { operation: 'withdraw', expectedRevision: 8, bootId: 'boot-a', payload: { accountNumber: 'A1', amount: 700, mode: 'MINIMIZE_NOTES' } };
+    await api.sendTerminalCommand('tab-token', 'request-key', body, { signal: controller.signal });
+    await api.sendTerminalCommand('tab-token', 'request-key', body, { signal: controller.signal });
+    expect(apiFetch.mock.calls[0]).toEqual(apiFetch.mock.calls[1]);
+    expect(apiFetch).toHaveBeenLastCalledWith('/atm/terminal/commands', {
+      signal: controller.signal, method: 'POST', body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json', 'X-ATM-Session': 'tab-token', 'Idempotency-Key': 'request-key' },
+    });
+  });
+  it('recovers an outcome using GET, with no mutation body or idempotency key', async () => {
+    const controller = new AbortController();
+    await api.getTerminalRequest('tab-token', 'request-key', { signal: controller.signal });
+    expect(apiFetch).toHaveBeenCalledWith('/atm/terminal/requests/request-key', {
+      signal: controller.signal, headers: { 'X-ATM-Session': 'tab-token' },
+    });
+  });
+});

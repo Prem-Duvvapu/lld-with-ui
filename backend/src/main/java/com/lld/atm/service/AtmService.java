@@ -10,6 +10,8 @@ import com.lld.atm.state.SessionStates;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalTime;
+import java.time.Clock;
+import java.util.function.Supplier;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,28 +20,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Facade over one physical ATM terminal: session state machine, PIN authentication, withdrawal,
- * deposit, and an isolated {@code /sim/*} sandbox on a second {@link BankingRepository}/
- * {@link CashDispenser} pair (matching {@code AirlineService}/{@code TrafficSignalService}'s
- * isolated-sandbox shape) so a demo run can never touch a real seeded account.
- *
- * <p><b>Two independent locking disciplines, deliberately not merged:</b>
- * <ul>
- *   <li>{@link #sessionLock} guards the single-terminal session fields
- *       ({@code currentState}/{@code activeCard}/{@code activeAccount}) — there is exactly one
- *       card in the slot at a time, so this is a plain mutual-exclusion lock, not a
- *       per-something lock.</li>
- *   <li>{@code Account#getLock()} (per-account) and {@code CashDispenser#getLock()} (per-terminal
- *       cash cassette) guard the actual money movement in {@link #withdraw}. Two withdrawal
- *       requests against the <em>same</em> account race on the account lock; two requests that
- *       both need physical notes race on the dispenser lock. {@link #withdraw} always acquires the
- *       account lock first and the dispenser lock second — a fixed global ordering, so there is no
- *       lock-ordering deadlock even though both locks are held at once.</li>
- * </ul>
- * The session lock is intentionally <em>not</em> held for the duration of a withdrawal's money
- * movement: the state-machine guard only needs to be true at the moment the request is admitted,
- * and holding a single terminal-wide lock across the account/dispenser critical section would
- * serialize withdrawals against unrelated accounts for no correctness reason.
+ * One physical ATM and an isolated simulation. The live terminal holds sessionLock
+ * across admission, account/cassette mutation, settlement and detached capture.
+ * Lock order is terminal -> account -> dispenser; ejection waits for admitted work.
+ * Per-account and cassette locks still protect their own independently used state.
+ * This is in-memory coordination, not a durable transaction or hardware guarantee.
  */
 @Service
 public class AtmService {
@@ -55,6 +40,9 @@ public class AtmService {
     private final AtomicLong transactionIdGen = new AtomicLong(1001);
     private final ReentrantLock sessionLock = new ReentrantLock(true);
 
+    private final AtmLiveSessionCoordinator liveSessions;
+    private boolean coordinatedCommand; // Accessed only while sessionLock is held.
+
     // Isolated Simulation Engine State
     private final BankingRepository simBankingRepository = new BankingRepository();
     private final CashDispenser simCashDispenser;
@@ -64,11 +52,18 @@ public class AtmService {
     private final List<SimEvent> simEventLog = new CopyOnWriteArrayList<>();
     private final AtomicLong simEventIdGen = new AtomicLong(1);
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AtmService(BankingRepository bankingRepository, CashDispenser cashDispenser,
-                       com.lld.atm.dispenser.DenominationDispenseStrategyFactory strategyFactory) {
+                      com.lld.atm.dispenser.DenominationDispenseStrategyFactory strategyFactory) {
+        this(bankingRepository, cashDispenser, strategyFactory, Clock.systemUTC());
+    }
+
+    AtmService(BankingRepository bankingRepository, CashDispenser cashDispenser,
+               com.lld.atm.dispenser.DenominationDispenseStrategyFactory strategyFactory, Clock clock) {
         this.bankingRepository = bankingRepository;
         this.cashDispenser = cashDispenser;
         this.simCashDispenser = new CashDispenser(strategyFactory);
+        this.liveSessions = new AtmLiveSessionCoordinator(this, clock);
         initSimState();
     }
 
@@ -77,11 +72,13 @@ public class AtmService {
     }
 
     public Account getActiveAccount() {
-        return activeAccount;
+        sessionLock.lock();
+        try { return copyLiveAccount(activeAccount); } finally { sessionLock.unlock(); }
     }
 
     public Card getActiveCard() {
-        return activeCard;
+        sessionLock.lock();
+        try { return copySimCard(activeCard); } finally { sessionLock.unlock(); }
     }
 
     public CashDispenser getCashDispenser() {
@@ -92,16 +89,7 @@ public class AtmService {
     // STATE MACHINE TRANSITIONS & GUARDS
     // =========================================================================
 
-    /**
-     * The guarded gateway for the terminal's externally-observable lifecycle transitions
-     * (insert card / authenticate / eject). Consults {@link SessionStates#of(ATMState)} for the
-     * current phase's legal next phases and throws {@link InvalidSessionStateException} for
-     * anything not in that set — see {@code com.lld.atm.state.SessionState}. Always called while
-     * already holding {@link #sessionLock} (it is a fair {@code ReentrantLock}, so the re-entrant
-     * acquisition here is free) from {@link #insertCard}, {@link #authenticate} and
-     * {@link #ejectCard} — the three methods a caller can legally invoke without already being
-     * mid-transaction.
-     */
+    /** All live phase changes are checked while the caller owns the terminal lock. */
     private void transitionTo(ATMState target) {
         sessionLock.lock();
         try {
@@ -111,23 +99,10 @@ public class AtmService {
                         "Illegal session transition: " + currentState + " -> " + target);
             }
             currentState = target;
+            if (!coordinatedCommand) liveSessions.legacyChanged();
         } finally {
             sessionLock.unlock();
         }
-    }
-
-    /**
-     * Unguarded internal bookkeeping update for the in-flight phases of an already-admitted
-     * withdrawal/deposit ({@code TRANSACTION_IN_PROGRESS}/{@code DISPENSING} and settling back to
-     * {@code AUTHENTICATED}). Deliberately does not re-run the {@link #transitionTo} table check:
-     * by the time {@link #withdraw}/{@link #deposit} reach this point they are holding the
-     * account's lock and are committed to completing the operation started under
-     * {@link #requireAuthenticatedSessionFor} — re-validating against {@code currentState} here
-     * would let a concurrent {@link #ejectCard()} abort an in-flight debit after the money had
-     * already moved, with no compensating credit to unwind it.
-     */
-    private void setState(ATMState target) {
-        currentState = target;
     }
 
     /**
@@ -138,7 +113,7 @@ public class AtmService {
      */
     private void requireAuthenticatedSessionFor(String accountNumber) {
         ATMState state = currentState;
-        if (state != ATMState.AUTHENTICATED && state != ATMState.TRANSACTION_IN_PROGRESS) {
+        if (state != ATMState.AUTHENTICATED) {
             throw new InvalidSessionStateException(
                     "This operation requires an authenticated session. Current state: " + state);
         }
@@ -152,18 +127,19 @@ public class AtmService {
         requireIdentifier(cardNumber, "cardNumber");
         sessionLock.lock();
         try {
+            requireLegacyAccess();
             if (currentState != ATMState.IDLE && currentState != ATMState.SESSION_ENDED) {
                 throw new InvalidSessionStateException("Cannot insert card! Session is currently in state: " + currentState);
             }
 
             Card card = bankingRepository.getCard(cardNumber);
+            activeAccount = bankingRepository.getAccount(card.getAccountNumber());
+            activeCard = card;
             if (card.isBlocked()) {
                 transitionTo(ATMState.CARD_BLOCKED);
                 throw new CardBlockedException("Card " + cardNumber + " is BLOCKED due to 3 failed PIN attempts!");
             }
 
-            activeCard = card;
-            activeAccount = bankingRepository.getAccount(card.getAccountNumber());
             transitionTo(ATMState.CARD_INSERTED);
 
             Map<String, Object> res = new LinkedHashMap<>();
@@ -182,18 +158,26 @@ public class AtmService {
         requirePin(pin);
         sessionLock.lock();
         try {
+            requireLegacyAccess();
             // Guard state transition
             if (currentState == ATMState.IDLE || activeCard == null) {
                 insertCard(cardNumber);
             }
 
+            if (!activeCard.getCardNumber().equals(cardNumber)) {
+                throw new InvalidSessionStateException("Authenticate the card currently inserted in this terminal");
+            }
             if (activeCard.isBlocked()) {
-                transitionTo(ATMState.CARD_BLOCKED);
+                if (currentState != ATMState.CARD_BLOCKED) transitionTo(ATMState.CARD_BLOCKED);
                 throw new CardBlockedException("Card is BLOCKED!");
             }
 
+            if (currentState != ATMState.CARD_INSERTED) {
+                throw new InvalidSessionStateException("Enter a PIN only after inserting the card");
+            }
             if (!activeCard.getPin().equals(pin)) {
                 int attempts = activeCard.incrementFailedAttempts();
+                if (!coordinatedCommand) liveSessions.legacyChanged();
                 if (attempts >= 3) {
                     activeCard.blockCard();
                     transitionTo(ATMState.CARD_BLOCKED);
@@ -205,21 +189,26 @@ public class AtmService {
             // Authentication success
             activeCard.resetFailedAttempts();
             transitionTo(ATMState.AUTHENTICATED);
-            return activeAccount;
+            return copyLiveAccount(activeAccount);
         } finally {
             sessionLock.unlock();
         }
     }
 
     public double getBalance(String accountNumber) {
-        Account acc = bankingRepository.getAccount(accountNumber);
-        acc.getLock().lock();
+        sessionLock.lock();
         try {
-            requireAuthenticatedSessionFor(accountNumber);
-            return acc.getBalance();
-        } finally {
-            acc.getLock().unlock();
-        }
+            requireLegacyAccess();
+            Account acc = bankingRepository.getAccount(accountNumber);
+            acc.getLock().lock();
+            try {
+                requireAuthenticatedSessionFor(accountNumber);
+                return acc.getBalance();
+            } finally {
+                acc.getLock().unlock();
+            }
+
+        } finally { sessionLock.unlock(); }
     }
 
     public WithdrawalTransaction withdraw(String accountNumber, double amount) {
@@ -227,120 +216,146 @@ public class AtmService {
     }
 
     public WithdrawalTransaction withdraw(String accountNumber, double amount, DispenseMode mode) {
-        requireIdentifier(accountNumber, "accountNumber");
-        int intAmount = withdrawalAmount(amount, mode);
-        Account acc = bankingRepository.getAccount(accountNumber);
-
-        // Acquire fine-grained per-account lock first, dispenser lock second — fixed global
-        // ordering shared by every caller, so the two locks never deadlock against each other.
-        //
-        // The session-state check AND the TRANSACTION_IN_PROGRESS transition both happen INSIDE
-        // this lock, not before it (see RCA-029): requireAuthenticatedSessionFor reads currentState
-        // unsynchronized, and setState writes it unsynchronized by design (its own javadoc explains
-        // why it must not re-run the transitionTo table check). Two threads racing withdraw() on the
-        // SAME account used to be able to interleave their session-state reads/writes around each
-        // other's critical section — one thread would read currentState mid-flight as DISPENSING
-        // (another thread's in-progress transaction) and fail with a spurious
-        // InvalidSessionStateException instead of either succeeding or seeing a clean
-        // InsufficientBalanceException. Moving both calls inside the account lock makes the whole
-        // check-transition-execute-transition-back sequence atomic per account: by the time any
-        // thread reaches this point, the previous thread's finally block has always already reset
-        // currentState back to AUTHENTICATED before releasing the lock.
-        acc.getLock().lock();
+        sessionLock.lock();
         try {
-            requireAuthenticatedSessionFor(accountNumber);
-            setState(ATMState.TRANSACTION_IN_PROGRESS);
+            requireLegacyAccess();
+            requireIdentifier(accountNumber, "accountNumber");
+            int intAmount = withdrawalAmount(amount, mode);
+            Account acc = bankingRepository.getAccount(accountNumber);
 
-            // Validate balance
-            if (acc.getBalance() < amount) {
-                WithdrawalTransaction failedTx = new WithdrawalTransaction(
-                        "TXN-" + transactionIdGen.getAndIncrement(), accountNumber, amount);
-                failedTx.setStatus("FAILED");
-                failedTx.setFailureReason("Insufficient account balance");
-                recordTransaction(accountNumber, failedTx);
-                setState(ATMState.AUTHENTICATED);
-
-                throw new InsufficientBalanceException(String.format("Insufficient account balance! Requested: ₹%.2f, Available: ₹%.2f",
-                        amount, acc.getBalance()));
-            }
-
-            // Step 1: Debit account balance
-            acc.setBalance(acc.getBalance() - amount);
-            setState(ATMState.DISPENSING);
-
-            // Step 2: Attempt physical cash dispensing under dispenser lock
-            Map<NoteDenomination, Integer> dispensedNotes;
+            // One terminal admits and settles a transaction before ejection or another command.
+            acc.getLock().lock();
+            boolean admitted = false;
             try {
-                dispensedNotes = cashDispenser.dispenseCash(intAmount, mode);
-            } catch (InsufficientCashException ex) {
-                // COMPENSATING TRANSACTION: Revert debit on hardware dispense failure
-                acc.setBalance(acc.getBalance() + amount);
+                requireAuthenticatedSessionFor(accountNumber);
+                admitted = true;
+                transitionTo(ATMState.TRANSACTION_IN_PROGRESS);
 
-                WithdrawalTransaction failedTx = new WithdrawalTransaction(
+                // Validate balance
+                if (acc.getBalance() < amount) {
+                    WithdrawalTransaction failedTx = new WithdrawalTransaction(
+                            "TXN-" + transactionIdGen.getAndIncrement(), accountNumber, amount);
+                    failedTx.setStatus("FAILED");
+                    failedTx.setFailureReason("Insufficient account balance");
+                    recordTransaction(accountNumber, failedTx);
+                    transitionTo(ATMState.AUTHENTICATED);
+
+                    throw new InsufficientBalanceException(String.format("Insufficient account balance! Requested: ₹%.2f, Available: ₹%.2f",
+                            amount, acc.getBalance()));
+                }
+
+                double debitedBalance = acc.getBalance() - amount;
+                if (debitedBalance == acc.getBalance()) {
+                    throw new InvalidAtmRequestException("The withdrawal amount is too small for this balance's supported precision");
+                }
+                // Step 1: Debit account balance only after checking representability.
+                acc.setBalance(debitedBalance);
+                transitionTo(ATMState.DISPENSING);
+
+                // Step 2: Attempt physical cash dispensing under dispenser lock
+                Map<NoteDenomination, Integer> dispensedNotes;
+                try {
+                    dispensedNotes = cashDispenser.dispenseCash(intAmount, mode);
+                } catch (InsufficientCashException ex) {
+                    // COMPENSATING TRANSACTION: Revert debit on hardware dispense failure
+                    acc.setBalance(acc.getBalance() + amount);
+
+                    WithdrawalTransaction failedTx = new WithdrawalTransaction(
+                            "TXN-" + transactionIdGen.getAndIncrement(), accountNumber, amount);
+                    failedTx.setStatus("FAILED");
+                    failedTx.setFailureReason("Dispenser failure: " + ex.getMessage());
+                    recordTransaction(accountNumber, failedTx);
+                    transitionTo(ATMState.AUTHENTICATED);
+
+                    throw ex;
+                }
+
+                // Success
+                WithdrawalTransaction txn = new WithdrawalTransaction(
                         "TXN-" + transactionIdGen.getAndIncrement(), accountNumber, amount);
-                failedTx.setStatus("FAILED");
-                failedTx.setFailureReason("Dispenser failure: " + ex.getMessage());
-                recordTransaction(accountNumber, failedTx);
-                setState(ATMState.AUTHENTICATED);
+                txn.setDispensedNotes(dispensedNotes);
+                txn.setStatus("SUCCESS");
+                recordTransaction(accountNumber, txn);
 
-                throw ex;
+                transitionTo(ATMState.AUTHENTICATED);
+                return txn.detachedCopy();
+
+            } catch (com.lld.config.DomainException knownRejection) {
+                throw knownRejection;
+            } catch (AtmOperationUncertainException uncertain) {
+                throw uncertain;
+            } catch (RuntimeException unexpected) {
+                throw new AtmOperationUncertainException(unexpected);
+            } finally {
+                // Restore an inspectable phase even after an unexpected failure. This does
+                // not compensate unknown money effects or allow an automatic new request.
+                try {
+                    if (admitted && currentState != ATMState.AUTHENTICATED) transitionTo(ATMState.AUTHENTICATED);
+                } finally { acc.getLock().unlock(); }
             }
 
-            // Success
-            WithdrawalTransaction txn = new WithdrawalTransaction(
-                    "TXN-" + transactionIdGen.getAndIncrement(), accountNumber, amount);
-            txn.setDispensedNotes(dispensedNotes);
-            txn.setStatus("SUCCESS");
-            recordTransaction(accountNumber, txn);
-
-            setState(ATMState.AUTHENTICATED);
-            return txn;
-
-        } finally {
-            acc.getLock().unlock();
-        }
+        } finally { sessionLock.unlock(); }
     }
 
     public DepositTransaction deposit(String accountNumber, double amount, Map<NoteDenomination, Integer> notes) {
-        requireIdentifier(accountNumber, "accountNumber");
-        requirePositiveAmount(amount);
-        Account acc = bankingRepository.getAccount(accountNumber);
-
-        // Same fix as withdraw() (see its comment and RCA-029): the session check and initial state
-        // transition must happen inside the account lock, not before it.
-        acc.getLock().lock();
+        sessionLock.lock();
         try {
-            requireAuthenticatedSessionFor(accountNumber);
-            double updatedBalance = acc.getBalance() + amount;
-            if (!Double.isFinite(updatedBalance)) {
-                throw new InvalidAtmRequestException("Deposit would exceed the account balance range");
-            }
-            setState(ATMState.TRANSACTION_IN_PROGRESS);
-            acc.setBalance(updatedBalance);
+            requireLegacyAccess();
+            requireIdentifier(accountNumber, "accountNumber");
+            requirePositiveAmount(amount);
+            Account acc = bankingRepository.getAccount(accountNumber);
 
-            // Add notes to dispenser inventory if provided
-            if (notes != null) {
-                for (Map.Entry<NoteDenomination, Integer> entry : notes.entrySet()) {
-                    cashDispenser.addNotes(entry.getKey(), entry.getValue());
+            acc.getLock().lock();
+            boolean admitted = false;
+            try {
+                requireAuthenticatedSessionFor(accountNumber);
+                admitted = true;
+                double updatedBalance = acc.getBalance() + amount;
+                if (!Double.isFinite(updatedBalance)) {
+                    throw new InvalidAtmRequestException("Deposit would exceed the account balance range");
                 }
+                if (updatedBalance == acc.getBalance()) {
+                    throw new InvalidAtmRequestException("The deposit amount is too small for this balance's supported precision");
+                }
+                transitionTo(ATMState.TRANSACTION_IN_PROGRESS);
+                acc.setBalance(updatedBalance);
+
+                // Add notes to dispenser inventory if provided
+                if (notes != null) {
+                    for (Map.Entry<NoteDenomination, Integer> entry : notes.entrySet()) {
+                        cashDispenser.addNotes(entry.getKey(), entry.getValue());
+                    }
+                }
+
+                DepositTransaction txn = new DepositTransaction(
+                        "TXN-" + transactionIdGen.getAndIncrement(), accountNumber, amount, notes);
+                txn.setStatus("SUCCESS");
+                recordTransaction(accountNumber, txn);
+
+                transitionTo(ATMState.AUTHENTICATED);
+                return txn.detachedCopy();
+
+            } catch (com.lld.config.DomainException knownRejection) {
+                throw knownRejection;
+            } catch (AtmOperationUncertainException uncertain) {
+                throw uncertain;
+            } catch (RuntimeException unexpected) {
+                throw new AtmOperationUncertainException(unexpected);
+            } finally {
+                // Restore an inspectable phase even after an unexpected failure. This does
+                // not compensate unknown money effects or allow an automatic new request.
+                try {
+                    if (admitted && currentState != ATMState.AUTHENTICATED) transitionTo(ATMState.AUTHENTICATED);
+                } finally { acc.getLock().unlock(); }
             }
 
-            DepositTransaction txn = new DepositTransaction(
-                    "TXN-" + transactionIdGen.getAndIncrement(), accountNumber, amount, notes);
-            txn.setStatus("SUCCESS");
-            recordTransaction(accountNumber, txn);
-
-            setState(ATMState.AUTHENTICATED);
-            return txn;
-
-        } finally {
-            acc.getLock().unlock();
-        }
+        } finally { sessionLock.unlock(); }
     }
 
     public Map<String, Object> ejectCard() {
         sessionLock.lock();
         try {
+            requireLegacyAccess();
             if (currentState != ATMState.IDLE) {
                 transitionTo(ATMState.SESSION_ENDED);
                 transitionTo(ATMState.IDLE);
@@ -357,11 +372,77 @@ public class AtmService {
     }
 
     public List<Transaction> getTransactions(String accountNumber) {
-        return accountTransactions.getOrDefault(accountNumber, Collections.emptyList());
+        sessionLock.lock();
+        try {
+            return accountTransactions.getOrDefault(accountNumber, Collections.emptyList()).stream()
+                    .map(Transaction::detachedCopy).toList();
+        } finally { sessionLock.unlock(); }
     }
 
     private void recordTransaction(String accountNumber, Transaction txn) {
-        accountTransactions.computeIfAbsent(accountNumber, k -> new CopyOnWriteArrayList<>()).add(txn);
+        accountTransactions.computeIfAbsent(accountNumber, k -> new CopyOnWriteArrayList<>()).add(txn.detachedCopy());
+    }
+
+    private void requireLegacyAccess() {
+        if (!coordinatedCommand && liveSessions.hasOwner())
+            throw new AtmSessionConflictException("This terminal belongs to a browser session; use its coordinated requests");
+    }
+
+    /** Runs only under sessionLock; nested internal calls retain the validated owner context. */
+    <T> T coordinated(Supplier<T> operation) {
+        if (!sessionLock.isHeldByCurrentThread()) throw new IllegalStateException("Terminal lock required");
+        boolean previous = coordinatedCommand;
+        coordinatedCommand = true;
+        try { return operation.get(); } finally { coordinatedCommand = previous; }
+    }
+
+    public Map<String, Object> terminalState(String token) {
+        sessionLock.lock();
+        try { return liveSessions.state(token); } finally { sessionLock.unlock(); }
+    }
+
+    public Map<String, Object> terminalCommand(String token, String requestId, Map<String, Object> body) {
+        sessionLock.lock();
+        try { return liveSessions.command(token, requestId, body); } finally { sessionLock.unlock(); }
+    }
+
+    public Map<String, Object> terminalOutcome(String token, String requestId) {
+        sessionLock.lock();
+        try { return liveSessions.outcome(token, requestId); } finally { sessionLock.unlock(); }
+    }
+
+    private Account copyLiveAccount(Account account) {
+        if (account == null) return null;
+        account.getLock().lock();
+        try { return copySimAccount(account); } finally { account.getLock().unlock(); }
+    }
+
+    /** Capture authentication result and phase before ejection can run. */
+    public Map<String, Object> authenticateSnapshot(String cardNumber, String pin) {
+        sessionLock.lock();
+        try {
+            Account account = authenticate(cardNumber, pin);
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("id", account.getId()); response.put("accountNumber", account.getAccountNumber());
+            response.put("holderName", account.getHolderName()); response.put("balance", account.getBalance());
+            response.put("state", currentState); return response;
+        } finally { sessionLock.unlock(); }
+    }
+
+    public List<Transaction> getAuthenticatedTransactions(String accountNumber) {
+        sessionLock.lock();
+        try {
+            requireLegacyAccess();
+            requireAuthenticatedSessionFor(accountNumber);
+            return getTransactions(accountNumber);
+        } finally { sessionLock.unlock(); }
+    }
+
+    /** Both values describe the same cassette capture, including direct hardware callers. */
+    public Map<String, Object> getDispenserSnapshot() {
+        cashDispenser.getLock().lock();
+        try { return Map.of("totalCash", cashDispenser.getTotalCashAvailable(), "inventory", cashDispenser.getInventory()); }
+        finally { cashDispenser.getLock().unlock(); }
     }
 
     // =========================================================================

@@ -484,8 +484,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2898 tests across 312 suites
-cd frontend && npx vitest run  # 1000 tests across 71 files
+cd backend  && mvn test        # 2917 tests across 315 suites
+cd frontend && npx vitest run  # 1023 tests across 71 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one
@@ -639,12 +639,23 @@ corresponds to a defect that shipped silently (see [RCA.md](RCA.md)):
 #### Key Features
 - **State Pattern Session Machine**: one `SessionState` class per `ATMState` (`IdleSessionState` ➔ `CardInsertedSessionState` ➔ `AuthenticatedSessionState` ➔ `TransactionInProgressSessionState` ➔ `DispensingSessionState` ➔ `SessionEndedSessionState` / `CardBlockedSessionState`), each declaring its own legal-next-states set, enforced by `AtmService#transitionTo` — the single place `currentState` is ever assigned.
 - **Denomination Dispensing Strategy + Factory**: `DenominationDispenseStrategyFactory` resolves `MINIMIZE_NOTES` (`GreedyDenominationDispenseStrategy`) or `CONSERVE_LARGE_NOTES` (`ConserveLargeNotesDispenseStrategy`) via an `EnumMap` — `CashDispenser` never branches on the mode itself.
-- **Fine-Grained Concurrency**: fair per-account `ReentrantLock`, re-checked balance inside the lock (not just acquired), preventing overselling under concurrent withdrawal races — proven with 10 real threads in `AtmConcurrencyTest`, including a cassette-level test proving concurrent dispenses never exceed the note inventory.
+- **Terminal and cash coordination**: live commands hold terminal → account → cassette locks through admission and settlement. Ejection waits for admitted dispensing; authentication checks the inserted card. Real-thread tests cover same-account/cassette races and ejection during a paused dispense.
 - **Compensating Refund Transaction**: automatically credits account balance back if cash dispenser note combination fails after debiting.
 - **Card Security Lockout**: tracks failed PIN attempts and blocks card (`CARD_BLOCKED`) after 3 consecutive failures.
-- **Isolated Simulation Sandbox**: `/api/atm/sim/*` runs against a second `BankingRepository`/`CashDispenser` pair, driving the real state machine and dispense strategies so the demo can never touch live accounts.
+- **Owned request recovery**: browser sessions carry an owner, boot and revision; a bounded in-memory journal retains original request outcomes. Reads never replay money, original-key retries are explicit, and cached unexpected failures stay uncertain. Inactive sessions expire after ten minutes. This does not provide production identity verification or durable hardware settlement.
+- **Isolated Simulation Sandbox**: `/api/atm/sim/*` runs real money/dispensing behavior against a second repository/cassette pair. Sandbox phases are updated under its own monitor, separate from the live session-state table.
 
 #### API Endpoints
+- `GET /api/atm/terminal/state`
+- `POST /api/atm/terminal/commands`
+- `GET /api/atm/terminal/requests/{requestId}`
+
+The live UI sends `X-ATM-Session`; commands also carry an `Idempotency-Key`,
+boot identifier and expected revision. Token and financial recovery metadata live
+in tab storage, never the entered PIN. Another owner sees BUSY and cannot eject
+the current card. The following legacy routes work only on an unowned terminal;
+coordinated clients use the three routes above.
+
 - `POST /api/atm/insert-card`
 - `POST /api/atm/authenticate`
 - `GET /api/atm/{accountNumber}/balance`

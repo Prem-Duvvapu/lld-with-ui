@@ -6,7 +6,32 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
-- Current YAGNI / KISS local integration (2026-11-19): **22 lessons / 47 planned topics**.
+- Live ATM ownership and request recovery (2026-11-19): terminal/account/cassette
+  coordination, inserted-card checks and detached receipts/snapshots resolve the
+  reproduced lifecycle/alias defects. Owned commands use boot/revision admission,
+  ten-minute inactivity expiry and a bounded1024-outcome journal. Other owners see
+  BUSY without account/card/history; legacy HTTP paths cannot bypass the owner.
+  Read-only lookup never repeats money; explicit retries preserve the original
+  body/key. Tab persistence excludes PINs and retains unknown financial requests
+  through navigation/reload. Explicitly ending recovery after a session ends sends
+  no money command and does not reverse its effects. Precision guards reject
+  zero-effect double updates; unexpected post-effect failures remain500/uncertain.
+  RCA-129–132 record causes, boundaries, red/green and fault-injection evidence.
+  Frozen-build review passes96 views/eight light/dark ×320/390/768/1280 contexts,
+  with112 actual Java MockMvc HTTP responses, two owners, wrong PIN, lost committed
+  reply, NOT_FOUND/original-key retry plus late original, reload recovery, teaching
+  tabs and expiry. No application servers started. Evidence:
+  `/home/prem/validation/lld-one-hour-completion/atm-browser/`.
+  Combined validation: **2917 backend tests / 315 suites**, Maven package, **1023
+  frontend tests / 71 files**, lint (zero errors,14 existing warnings), and Vite
+  build pass. Entry313620 B / largest non-entry54680 B meet both budgets. Under
+  concurrent workspace load, the successful local frontend run used one worker
+  and a15s test timeout; repo/CI defaults remain unchanged. An earlier local
+  default5s run timed out in an existing long journey; CI must pass normally.
+  Whole-ATM sign-off and hosted workflow review remain open. CI/release results
+  are recorded in the release PR; this does not close the60-module audit.
+
+- Released YAGNI / KISS lessons (2026-11-19): **22 lessons / 47 planned topics**.
   Guided order is DRY → YAGNI → KISS; final KISS names planned SOLID Pictures.
   E38/E39 document canonical Java, exact outputs/five scalar steps each, complete
   source-curated class models, distinct feedback, independent transfer tasks and
@@ -22,9 +47,17 @@ module-construction plan; its zero remaining modules does not mean the UI work i
   stopped before the final complete rerun; assertions remain intact. Existing DRY
   React act warnings were observed. Evidence and exact commands:
   `/home/prem/validation/lld-yagni/INTEGRATION_HANDOFF.md` and `integration-*.log`.
-  Parent owns combined browser/release review and ATM lifecycle source/data/RCA.
-  No current claim of production deployment or completion of the 47 remaining
-  topics, Phase 3, later curriculum gates or the separate 60-module audit.
+  Parent completed combined browser/release review and owns ATM lifecycle source/data/RCA.
+  [PR #190](https://github.com/Prem-Duvvapu/lld-with-ui/pull/190) merged as
+  `3c1c972` after all seven checks passed with normal CI timeouts. Parent frozen
+  review passes168 views/eight light/dark ×320/390/768/1440 contexts: Java/output,
+  all recorded fields, model text/relationships, fullscreen/focus, separate notes
+  and filtered catalog return. Real-network production review passes84 views
+  across four light/dark ×390/1440 contexts, including published content, model
+  controls, notes/catalog return and JS/CSS response MIME checks. Vercel
+  deployment7920795741 reports success for3c1c972. Evidence:
+  `/home/prem/validation/lld-one-hour-completion/lessons-browser/deployed-results.json`.
+  The47 remaining topics, Phase3, later gates and60-module audit remain open.
 
 - Historical DRY and Use Case Diagram release (2026-10-28): publication
   at that release was **20 lessons / 49 planned topics**. The dedicated use-case view distinguishes
@@ -409,7 +442,7 @@ Cross-cutting findings from the 2026-10-05 static scan of the 35 non-adopted pag
 | Module | Playback | Inspection | Concrete gaps | Chosen interaction | Implementation | Test evidence | Browser coverage | PR |
 |---|---|---|---|---|---|---|---|---|
 | airline | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2); standalone shell (**fixed**, batch 3) | Pending per-module review | Batches 1–2 fixes; batch 3 shell migration | `transientMessage.test.jsx`, `accessibilityContracts.test.js`, shell contract | Intercepted Chromium, 4 views (batch 3) | #152, #155, #156 |
-| atm | Not adopted | Live/request validation, exact dispensing, responsive sandbox and detached state/burst recovery reviewed; whole-module sign-off open | Live session coordination/idempotency and hosted integration remain | Confirmed drafts/recovery; exact notes; selected sandbox session; final state refresh and honest approval counts; labelled keyboard forms | #177/#178/#184; RCA-115/116/118/120/125/126 | Eight new sandbox Java cases;19 UI/API/focus cases; prior exact/request/concurrency checks | 56 final sandbox views/304 actual Java MockMvc calls across eight contexts; prior64 exact/teaching/layout checks +8 comparisons; hosted workflow remains separate | Sandbox-state release PR; no whole-module closure |
+| atm | Not adopted | Live owned commands, expiry, idempotent recovery, exact dispensing and sandbox reviewed; whole-module sign-off open | Owned lifecycle/recovery reviewed; full hosted workflow and whole-module sign-off remain | Confirmed drafts/recovery; exact notes; selected sandbox session; final state refresh and honest approval counts; labelled keyboard forms | #177/#178/#184; owned-session release; RCA-129–132 | Combined2917 Java/1023 frontend pass; adversarial money/fault and owned-session regressions; prior sandbox checks | 96 owned-session views/112 actual Java HTTP calls; 56 prior sandbox views/304 calls; prior64 exact/teaching/layout checks +8 comparisons; hosted workflow remains separate | Sandbox-state release PR; no whole-module closure |
 | auction | Not adopted | Static scan 2026-10-05 | live regions (**fixed**, batch 2) | Pending per-module review | Batch 2 a11y fix | `accessibilityContracts.test.js` | Not yet | #155 |
 | blackjack | Not adopted | Static scan 2026-10-05 | flash timer race + unmount leak (**fixed**, batch 1); live regions (**fixed**, batch 2) | Pending per-module review | Batches 1–2 fixes | `transientMessage.test.jsx`, `accessibilityContracts.test.js` | Not yet | #152, #155 |
 | blocking-queue | Shared recorded | Shipped #148–#150 | Final cross-project audit pending | `RecordedTraceControls` | Adopted | Existing replay suites | #150 batch: 5 routes × 3 viewports | #148–#150 |

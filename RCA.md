@@ -8935,3 +8935,166 @@ Shared components need explicit semantic context when callers have different
 heading hierarchies. Check rendered native headings and modal accessible names,
 not just screenshots or label text. A heading-order check is a scoped automated
 check, not a complete assistive-technology or whole-site accessibility audit.
+
+## RCA-129: ATM live commands used different lifecycle and money lock boundaries
+
+### 1. Overview & Severity
+High correctness defect in the shared live terminal. Ejection could clear a session
+while an admitted withdrawal was dispensing; completion then restored AUTHENTICATED
+with no active card/account. Authentication also compared the inserted card's PIN
+without checking the submitted card identifier. Mutable returned models aliased live
+balances and audit receipts. The isolated sandbox has its own synchronization.
+
+### 2. Symptoms & Error Logs
+Three clean regressions fail on the prior release: ejection returns while a latch
+holds dispensing; CARD-B with CARD-A's correct PIN authenticates CARD-A; changing a
+returned account balance to1 changes the live balance from500 to1. Evidence:
+`/home/prem/validation/lld-one-hour-completion/atm-lifecycle-red-recovered.log`.
+
+### 3. Root Cause
+Money operations held account/cassette locks but did not hold sessionLock. Ejection
+used sessionLock independently, while setState directly overwrote live phases.
+The active card identifier was never compared after insertion. Authentication and
+transaction/history getters returned mutable repository/ledger objects.
+
+### 4. Diagnostic Commands
+`mvn --batch-mode --no-transfer-progress clean -Dtest=AtmLiveLifecycleTest test`
+reproduces all three defects. `rg -n 'sessionLock|setState|activeCard|getTransactions'`
+on AtmService identifies the split ownership and aliases. The ejection test pauses
+the real dispense call with latches and releases workers in finally.
+
+### 5. Step-by-Step Resolution
+1. Hold the terminal lock across admission, account/cassette mutation and settlement,
+   with fixed terminal → account → dispenser ordering. Ejection waits for admitted work.
+2. Check the submitted card against the inserted card and the authentication phase.
+3. Route live transaction phases through transitionTo's checked state table.
+4. Return detached account/card and transaction subtype copies, including timestamp
+   and denomination maps; store a separate ledger copy. Capture authentication phase
+   with its account response and cassette totals/inventory under their owning locks.
+5. Guard HTTP transaction history with the authenticated account. Internal detached
+   audit inspection remains available for tests and explicit service use.
+6. The focused green run passes103 tests, including the three reproduced failures,
+   existing PIN/money validation and simultaneous same-account/cassette races.
+
+### 6. Preventative Measures
+Treat one physical terminal's lifecycle as part of admission and settlement. Reconcile
+lock ordering across reads, writes and snapshot capture. Test ejection during a
+paused real dispense, card mismatch without PIN-counter changes, and mutation of
+returned snapshots. This in-memory locking does not provide durable recovery or
+exactly-once hardware delivery; client-session ownership and request recovery have
+their own explicit contract and tests.
+
+## RCA-130: Live ATM visits could interfere and lost responses had no recoverable request identity
+
+### 1. Overview & Severity
+High live-workflow correctness issue. Every browser operated the same terminal
+without owner/revision admission, and a response lost after a debit could not be
+correlated with an operation result. A fresh retry could become another debit.
+
+### 2. Symptoms & Error Logs
+The prior API accepted eject/auth/money commands without a browser-session owner
+or operation key. Frontend cancellation could not cancel work already admitted
+by Java; the prior UI froze unknown money outcomes without a recoverable request
+record. The new owned-session tests exercise real simultaneous commands/retries,
+foreign owner/legacy API refusal, lost-result lookup, expiry, restart and eviction.
+
+### 3. Root Cause
+Terminal state, client intent and transport completion were treated as one lifecycle.
+There was no boot/revision guard, retained request/body identity or outcome lookup.
+A fresh balance alone cannot prove whether an earlier request will still arrive.
+
+### 4. Diagnostic Commands
+`mvn -Dtest=AtmOwnedSessionTest,AtmLiveLifecycleTest test` and
+`npx vitest run src/__tests__/atmLiveWorkspace.test.jsx src/__tests__/atmLiveApi.test.js`
+exercise Java admission/outcomes and the actual live hook. The browser bridge under
+`/home/prem/validation/lld-one-hour-completion/atm-browser/` dispatches real MockMvc
+requests over stdin, including original keys/headers, without a listening server.
+
+### 5. Step-by-Step Resolution
+1. Add an in-memory owner, boot UUID, monotonic revision and ten-minute inactivity
+   timeout under the same terminal lock. Other clients see BUSY without account,
+   card or history, and legacy HTTP commands cannot bypass an owned session.
+2. Retain1024 request outcomes with a canonical body fingerprint. The same key/body
+   replays its receipt/failure; changed bodies conflict. Every admitted attempt
+   advances revision, so an evicted/stale command cannot become another execution.
+3. Add read-only outcome lookup. NOT_FOUND remains uncertain; only an explicit
+   original-body/key retry may send the pending command again. No read replays cash.
+4. Persist tab ownership and financial recovery data separately from learning/module
+   progress. Never persist the entered PIN. Guard pending work, invalidate late reads,
+   retain drafts and confirmed views, and recover after navigation/reload.
+5. Provide explicit confirmed local recovery ending after its session ends, retaining
+   token/drafts/snapshot. Explain that this does not reverse a transaction; BUSY
+   continues to prevent foreign insertion/ejection. Send no money POST on this action.
+6. Mark ATM HTTP responses no-store so state/outcome views are not cached across
+   owner headers. Retain keyboard labels and stable stage/recovery/receipt focus.
+
+### 6. Preventative Measures
+Separate transport cancellation from server admission and settlement. Test the
+original request arriving after its retry, competing owners/revisions, rejected PIN
+replays and bounded-cache loss. These tokens coordinate a teaching terminal; they
+are not production identity verification. The journal is process-local, cannot
+acknowledge physical cash delivery, and does not survive backend restart.
+
+## RCA-131: Finite double-valued ATM amounts could report success with no ledger effect
+
+### 1. Overview & Severity
+High numerical correctness defect. A positive finite deposit could round away;
+a sufficiently large finite balance could dispense cash without a representable debit.
+
+### 2. Symptoms & Error Logs
+Adversarial tests show a tiny deposit at1000 returning SUCCESS with balance1000.
+After depositing2^64, withdrawing500 removed500 cash but changed the double balance
+by0. Evidence: `/home/prem/validation/lld-atm-adversarial/maven.log` (two failures).
+
+### 3. Root Cause
+Positive/finite validation and overflow rejection did not check whether adding or
+subtracting the amount produced a different representable double balance.
+
+### 4. Diagnostic Commands
+`mvn -Dtest=AtmOwnedSessionAdversarialTest test` reproduces both precision boundaries,
+with real coordinator, banking repository and cassette state.
+
+### 5. Step-by-Step Resolution
+Calculate the proposed balance before money movement and reject equality with its
+previous value using InvalidAtmRequestException. Keep the existing positive/finite,
+overflow, balance and exact-note validation. Neither rejected case may change cash,
+balance or ledger. The full package run includes both adversarial regressions.
+
+### 6. Preventative Measures
+Test representability as well as finite/range checks. This guard prevents zero-effect
+operations; the teaching model still uses double and does not claim exact monetary
+arithmetic or production banking suitability.
+
+## RCA-132: An unexpected post-effect failure looked like a definitive client rejection
+
+### 1. Overview & Severity
+High recovery-classification defect found by fault injection. An internal exception
+after cash deduction could be cached as400, allowing the UI to clear unknown recovery.
+
+### 2. Symptoms & Error Logs
+A CashDispenser subclass called real dispenseCash, then threw IllegalStateException.
+The account and cassette each lost500, phase settled to AUTHENTICATED, no success
+record existed, but cached httpStatus was400. Evidence is preserved in
+`/home/prem/validation/lld-atm-adversarial/post-dispense-fault.log`.
+
+### 3. Root Cause
+The coordinator mirrored the global handler's broad IllegalStateException/argument
+400 classification without distinguishing known pre-effect/compensated domain
+rejections from unexpected infrastructure failures after possible side effects.
+
+### 4. Diagnostic Commands
+`mvn -Dtest=AtmOwnedSessionTest test` includes a real note-deduction fault followed
+by outcome lookup and original-key replay, checking bank/cash are not changed again.
+
+### 5. Step-by-Step Resolution
+Keep known DomainException rejections at their existing4xx statuses. Wrap unexpected
+money/coordinator failures in a separate non-domain AtmOperationUncertainException;
+return the shared ErrorResponse with500 and retain500 in the journal. Restore an
+inspectable live phase without claiming compensation. UI recovery stays uncertain
+for a cached500 and cannot automatically start/replay another money command.
+
+### 6. Preventative Measures
+Inject failures after observable effects, not just before admission. A domain
+rejection and an uncertain infrastructure outcome need different UI recovery.
+DomainException subclasses remain4xx; no general rollback or durable bank recovery
+is promised by this in-memory journal.

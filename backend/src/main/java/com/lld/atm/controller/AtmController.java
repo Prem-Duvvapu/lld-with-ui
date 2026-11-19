@@ -7,7 +7,6 @@ import com.lld.atm.service.AtmService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +21,38 @@ public class AtmController {
         this.atmService = atmService;
     }
 
+    @ExceptionHandler(com.lld.atm.exception.AtmOperationUncertainException.class)
+    public ResponseEntity<com.lld.config.ErrorResponse> uncertainOperation(
+            com.lld.atm.exception.AtmOperationUncertainException failure) {
+        return ResponseEntity.status(500).body(com.lld.config.ErrorResponse.of(failure, 500));
+    }
+
+    @ModelAttribute
+    public void preventCaching(jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store");
+    }
+
+    @GetMapping("/terminal/state")
+    public ResponseEntity<Map<String, Object>> terminalState(
+            @RequestHeader(value = "X-ATM-Session", required = false) String token) {
+        return ResponseEntity.ok(atmService.terminalState(token));
+    }
+
+    @PostMapping("/terminal/commands")
+    public ResponseEntity<Map<String, Object>> terminalCommand(
+            @RequestHeader(value = "X-ATM-Session", required = false) String token,
+            @RequestHeader(value = "Idempotency-Key", required = false) String requestId,
+            @RequestBody Map<String, Object> command) {
+        return ResponseEntity.ok(atmService.terminalCommand(token, requestId, command));
+    }
+
+    @GetMapping("/terminal/requests/{requestId}")
+    public ResponseEntity<Map<String, Object>> terminalOutcome(
+            @RequestHeader(value = "X-ATM-Session", required = false) String token,
+            @PathVariable String requestId) {
+        return ResponseEntity.ok(atmService.terminalOutcome(token, requestId));
+    }
+
     @PostMapping("/insert-card")
     public ResponseEntity<Map<String, Object>> insertCard(@RequestBody Map<String, Object> request) {
         String cardNumber = stringField(request, "cardNumber");
@@ -33,15 +64,7 @@ public class AtmController {
     public ResponseEntity<Map<String, Object>> authenticate(@RequestBody Map<String, Object> request) {
         String cardNumber = stringField(request, "cardNumber");
         String pin = stringField(request, "pin");
-        Account account = atmService.authenticate(cardNumber, pin);
-
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("id", account.getId());
-        response.put("accountNumber", account.getAccountNumber());
-        response.put("holderName", account.getHolderName());
-        response.put("balance", account.getBalance());
-        response.put("state", atmService.getCurrentState());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(atmService.authenticateSnapshot(cardNumber, pin));
     }
 
     @GetMapping("/{accountNumber}/balance")
@@ -75,16 +98,13 @@ public class AtmController {
 
     @GetMapping("/{accountNumber}/transactions")
     public ResponseEntity<List<Transaction>> getTransactions(@PathVariable String accountNumber) {
-        List<Transaction> transactions = atmService.getTransactions(accountNumber);
+        List<Transaction> transactions = atmService.getAuthenticatedTransactions(accountNumber);
         return ResponseEntity.ok(transactions);
     }
 
     @GetMapping("/dispenser")
     public ResponseEntity<Map<String, Object>> getDispenserStatus() {
-        Map<String, Object> res = new LinkedHashMap<>();
-        res.put("totalCash", atmService.getCashDispenser().getTotalCashAvailable());
-        res.put("inventory", atmService.getCashDispenser().getInventory());
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(atmService.getDispenserSnapshot());
     }
 
     // =========================================================================

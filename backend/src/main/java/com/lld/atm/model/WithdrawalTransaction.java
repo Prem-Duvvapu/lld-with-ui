@@ -13,4 +13,11 @@ public class WithdrawalTransaction extends Transaction {
     public WithdrawalTransaction(String transactionId, String accountNumber, double amount) {
         super(transactionId, accountNumber, TransactionType.WITHDRAWAL, amount);
     }
+
+    private WithdrawalTransaction(WithdrawalTransaction source) {
+        super(source);
+        this.dispensedNotes = source.dispensedNotes == null ? null : new java.util.LinkedHashMap<>(source.dispensedNotes);
+    }
+
+    @Override public WithdrawalTransaction detachedCopy() { return new WithdrawalTransaction(this); }
 }
