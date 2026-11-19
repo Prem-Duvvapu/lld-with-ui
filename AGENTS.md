@@ -42,8 +42,8 @@ values in `ci.yml` exactly).
 Before opening the PR, run the suites locally so CI is a confirmation, not a discovery:
 
 ```bash
-cd backend  && mvn test        # latest validated: 2898 tests
-cd frontend && npx vitest run  # latest validated: 1000 tests
+cd backend  && mvn test        # latest validated: 2917 tests
+cd frontend && npx vitest run  # latest validated: 1023 tests
 cd frontend && npm run build   # entry chunk must stay under 500 kB
 ```
 
@@ -397,17 +397,21 @@ service. Hardened to the reference bar without changing the dispatch model.
 ## ATM Module
 ### Backend
 - `AtmService` coordinates one live terminal and a separate sandbox repository/cassette pair. `AtmInitializer` seeds the live accounts/cards; sandbox reset reseeds Sim Alice (₹1000) and Sim Bob (₹5000).
-- State objects declare legal live lifecycle transitions through `transitionTo`, but admitted money operations use direct `setState`. Session insertion/authentication/ejection use `sessionLock`; account-locked money movement does not hold it. Concurrent ejection/card replacement and post-operation state overwrites remain open lifecycle gaps (RCA-118); the phase is not an atomic session snapshot.
-- Per-account `ReentrantLock` guards balances and the fair cassette lock guards whole-inventory check/plan/deduction. Lock order is account then cassette. `AtmConcurrencyTest` proves one success for its specifically seeded ten-caller fixture, not for every balance or the serialized sandbox.
+- Every live phase uses `transitionTo` while holding the fair terminal `sessionLock` across admission, money movement, settlement and detached capture. Ejection waits for admitted work; authentication checks the inserted card identifier before PIN counters. Lock order is terminal → account → cassette (RCA-129).
+- Per-account `ReentrantLock` guards balances and the fair cassette lock guards whole-inventory check/plan/deduction. The live service acquires terminal, account, then cassette locks. `AtmConcurrencyTest` proves one success for its specifically seeded ten-caller fixture, not for every balance or the serialized sandbox.
 - Denomination Strategy + EnumMap Factory: `MINIMIZE_NOTES` minimizes total note count with a larger-note tie preference; `CONSERVE_LARGE_NOTES` lexicographically minimizes ₹2000, then ₹500, then ₹200 use. Both use `ExactDenominationPlanner`; `GreedyDenominationDispenseStrategy` is a legacy compatibility name, not the current algorithm.
 - The exact planner is specialized to ₹2000/₹500/₹200/₹100. It enumerates at most 800 residue vectors and allocates equal-value ₹2000 bundles in four policy-ordered steps per vector. An independent actual-count oracle checks 22,782 sampled/boundary cases. This is not an arbitrary-denomination guarantee (RCA-120).
 - `CashDispenser#getTotalCashAvailable` returns `long`. Counts are non-negative `int`; restock overflow is rejected before mutation. Planning and deduction share its lock. Live withdrawal compensates `InsufficientCashException`, not every unexpected failure or process crash.
 - Domain errors use `AtmException` → `DomainException` and shared `ErrorResponse`: invalid request/session/insufficient balance 400, wrong PIN 401, blocked card 403, missing account/card 404, insufficient cash 409.
-- Sandbox mutations are synchronized on the service and assign `simState` directly; they do not use the live state-object gate or exercise parallel account-lock competition. State/event reads capture detached models/details under that monitor, simReset captures atomically, inserted-card authentication and selected-account withdrawal are enforced, and each withdrawal response carries an explicit outcome. GET `/api/atm/sim/state` is the authoritative read; legacy `/sim/snapshots` remains available. Live session/idempotency/hosted integration remain follow-ups; do not claim whole-ATM sign-off.
+- Sandbox mutations are synchronized on the service and assign `simState` directly; they do not use the live state-object gate or exercise parallel account-lock competition. State/event reads capture detached models/details under that monitor, simReset captures atomically, inserted-card authentication and selected-account withdrawal are enforced, and each withdrawal response carries an explicit outcome. GET `/api/atm/sim/state` is the authoritative read; legacy `/sim/snapshots` remains available. The live owned-session protocol is separate from this sandbox; whole-module hosted integration and final sign-off remain open.
+- `AtmLiveSessionCoordinator` uses a browser token, process boot UUID, monotonic revision and ten-minute inactivity expiry under sessionLock. A bounded1024-outcome journal replays the same request/body and conflicts on changed payload; stale boot/revision prevents evicted requests from executing again. Other owners see BUSY without account/card/history; legacy HTTP mutation/read paths cannot bypass an active owner. This is process-local coordination, not production identity verification or durable bank recovery.
+- Live UI uses GET `/api/atm/terminal/state`, POST `/terminal/commands` and read-only GET `/terminal/requests/{requestId}` with `X-ATM-Session`; commands add `Idempotency-Key`, bootId and expectedRevision. NOT_FOUND does not prove cancellation. Original-key/body retries are explicit; reads never repeat money. ATM HTTP responses are no-store.
+- Known domain rejections remain4xx. Unexpected post-effect failures use non-domain `AtmOperationUncertainException` and500/shared ErrorResponse, retained as uncertain by the journal/UI. Both deposit/withdraw reject double updates that round away unchanged; the model still uses double and does not promise exact monetary arithmetic (RCA-131/132).
 - ATM tests cover service/concurrency/repository, request/HTTP boundaries and both strategy objectives. `AtmExactPlanHttpTest` verifies the two stranded-remainder regressions through real MockMvc and checks long totals. `Transaction` is an abstract record hierarchy, not a Template Method executor; `AtmService` performs the workflow (RCA-103/118).
 
 ### Frontend
 - Shared `LldPage`: live terminal, isolated eight-step sandbox, class diagram, sequence diagram and design details. Live workspace retains confirmed state/drafts, guards writes and offers explicit recovery; browser cancellation does not roll back server work.
+- `lld-atm-terminal-v1` in sessionStorage holds the tab token and only financial recovery metadata/body, never an entered PIN. Preserve pending guards, frozen original retries, read-only recovery and reload/navigation continuity. Ending unowned unresolved recovery requires explicit confirmation, sends no money command and does not claim reversal/cancellation. Keep learning/module storage separate (RCA-130).
 - Sandbox account/cassette grids use scoped zero-minimum tracks and wrapped values; controls are at least 44px high. The 149px mobile overflow is resolved at 320–1280px in both themes (RCA-125).
 - The client burst waits for all responses, counts explicit approvals and then reads final state. Failed/invalid reads retain the last confirmed snapshot/drafts and require read-only Retry before further mutation; cancellation does not roll back Java work. Controls are labelled/guarded, Enter submits PIN/amount forms, and stage/recovery focus is restored. Ten parallel browser requests are serialized by Java and are not account-lock concurrency evidence. RCA-057 records the earlier walkthrough advancement fix.
 - Design/class/sequence teaching data now maps actual methods, exact dispensing objectives, long totals and explicit session/compensation/snapshot limits. Live per-account race examples are separate from sandbox behavior.
@@ -2060,8 +2064,8 @@ Override with `VITE_BACKEND_URL` (proxy target) or `VITE_SWAGGER_URL` (link href
 
 ## Testing
 ```bash
-cd backend && mvn test        # 2898 tests, 312 suites
-cd frontend && npx vitest run # 1000 tests, 71 files
+cd backend && mvn test        # 2917 tests, 315 suites
+cd frontend && npx vitest run # 1023 tests, 71 files
 ```
 
 ### Cross-cutting suites — keep these green
