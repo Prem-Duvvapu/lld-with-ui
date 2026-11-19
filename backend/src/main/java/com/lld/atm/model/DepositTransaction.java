@@ -12,4 +12,11 @@ public class DepositTransaction extends Transaction {
         super(transactionId, accountNumber, TransactionType.DEPOSIT, amount);
         this.depositedNotes = depositedNotes;
     }
+
+    private DepositTransaction(DepositTransaction source) {
+        super(source);
+        this.depositedNotes = source.depositedNotes == null ? null : new java.util.LinkedHashMap<>(source.depositedNotes);
+    }
+
+    @Override public DepositTransaction detachedCopy() { return new DepositTransaction(this); }
 }

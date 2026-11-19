@@ -7,7 +7,7 @@ import java.util.Set;
 /**
  * Balance/ledger mutation underway. A withdrawal moves on to {@code DISPENSING} for the physical
  * cash-out step; a deposit (no hardware dispense involved) returns straight to
- * {@code AUTHENTICATED}. Either can also be interrupted by an eject.
+ * {@code AUTHENTICATED}. Ejection waits for this operation to settle under the terminal lock.
  */
 public final class TransactionInProgressSessionState implements SessionState {
     public static final TransactionInProgressSessionState INSTANCE = new TransactionInProgressSessionState();
@@ -21,6 +21,6 @@ public final class TransactionInProgressSessionState implements SessionState {
 
     @Override
     public Set<ATMState> allowedNext() {
-        return Set.of(ATMState.DISPENSING, ATMState.AUTHENTICATED, ATMState.SESSION_ENDED);
+        return Set.of(ATMState.DISPENSING, ATMState.AUTHENTICATED);
     }
 }

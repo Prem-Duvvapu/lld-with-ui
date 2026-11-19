@@ -17,6 +17,6 @@ public final class DispensingSessionState implements SessionState {
 
     @Override
     public Set<ATMState> allowedNext() {
-        return Set.of(ATMState.AUTHENTICATED, ATMState.SESSION_ENDED);
+        return Set.of(ATMState.AUTHENTICATED);
     }
 }

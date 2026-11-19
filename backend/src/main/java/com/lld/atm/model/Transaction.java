@@ -30,4 +30,16 @@ public abstract class Transaction {
         this.timestampEpoch = System.currentTimeMillis();
         this.status = "SUCCESS";
     }
+
+    protected Transaction(Transaction source) {
+        this.transactionId = source.transactionId;
+        this.accountNumber = source.accountNumber;
+        this.type = source.type;
+        this.amount = source.amount;
+        this.timestampEpoch = source.timestampEpoch;
+        this.status = source.status;
+        this.failureReason = source.failureReason;
+    }
+
+    public abstract Transaction detachedCopy();
 }
