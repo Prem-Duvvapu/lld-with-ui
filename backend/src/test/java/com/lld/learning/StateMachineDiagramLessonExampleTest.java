@@ -102,6 +102,39 @@ class StateMachineDiagramLessonExampleTest {
     }
 
     @Test
+    void rejectedAttemptDoesNotMoveTheAcceptedLogicalTimeBoundary() throws Exception {
+        Object r = reservation();
+        command(r, "hold", 10);
+        command(r, "inspect", 11);
+        command(r, "renew", 12);
+        rejectUnchanged(r, "confirm", 22, IllegalStateException.class, "Hold expired");
+        assertEquals(12L, read(r, "lastMinute"));
+        command(r, "confirm", 13);
+        assertEquals("CONFIRMED", read(r, "state").toString());
+        assertEquals(13L, read(r, "lastMinute"));
+        assertEquals(2, read(r, "heldEntries"));
+        assertEquals(2, read(r, "heldExits"));
+        assertEquals(true, read(r, "isTerminated"));
+    }
+
+    @Test
+    void explicitExpiryIsNotTheOnlyCommandThatProducesTheCancelledSnapshot() throws Exception {
+        Object expired = reservation(), cancelled = reservation();
+        for (Object r : List.of(expired, cancelled)) {
+            command(r, "hold", 10);
+            command(r, "inspect", 11);
+            command(r, "renew", 12);
+            rejectUnchanged(r, "confirm", 22, IllegalStateException.class, "Hold expired");
+        }
+        command(expired, "expire", 22);
+        command(cancelled, "cancel", 22);
+        assertEquals(state(expired), state(cancelled));
+        assertEquals("CANCELLED", read(cancelled, "state").toString());
+        assertEquals(22L, read(cancelled, "lastMinute"));
+        assertEquals(2, read(cancelled, "heldExits"));
+    }
+
+    @Test
     void internalInspectionAndExternalRenewalHaveDifferentObservableEffects() throws Exception {
         Object r = reservation();
         command(r, "hold", 0);

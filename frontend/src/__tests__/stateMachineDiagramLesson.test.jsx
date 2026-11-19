@@ -217,4 +217,14 @@ describe('Authored state machine subset validation', () => {
     mutate(invalid);
     expect(() => validateStateMachineModel(invalid)).toThrow('Invalid state machine diagram');
   });
+  it('keeps rejected logical time and the chosen demo ending out of exclusive feedback claims', () => {
+    const correct = lesson.quiz.options.find(option => option.correct);
+    const expiry = lesson.quiz.options.find(option => option.id === 'auto-expire');
+    expect(correct.feedback).toMatch(/Only accepted commands advance lastMinute/);
+    expect(correct.feedback).toContain('confirm(13)');
+    expect(correct.feedback).toContain('cancel(22)');
+    expect(expiry.feedback).toContain('expire(22) or cancel(22)');
+    expect(expiry.feedback).not.toMatch(/Only.*expire/);
+  });
+
 });
