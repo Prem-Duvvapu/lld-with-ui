@@ -1,11 +1,11 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-10-28. Status: coverage audit and twenty
+Saved: 2026-10-17. Updated: 2026-11-19. Status: coverage audit and twenty-two
 lessons implemented: How to Learn LLD, all fifteen individual OOP/relationship
 concepts, their connected overview/capstone, the dedicated Class Diagram and Use Case Diagram lessons
-and DRY Principle. All twenty lessons include source-curated class models.
+and DRY, YAGNI and KISS Principles. All twenty-two lessons include source-curated class models.
 Phase 2 content, assessment and local visual review are complete. Phase 3 has
-begun with two of five UML lessons and the DRY principle; the remaining 49 topic
+begun with two of five UML lessons and DRY/YAGNI/KISS; the remaining 47 topic
 deliveries and final integration/release gates remain open. This implementation status is not a claim of deployment before
 the current lesson's release checks pass.
 
@@ -191,9 +191,8 @@ for the remaining topics is still open; an audited gap is not a published lesson
   complete text alternatives. Combined local assessment/visual verification passes;
   production release evidence is recorded on the class-model PR. The dedicated
   UML lessons and whole-curriculum release remain separate gates.
-- [ ] **Phase 3 — UML and principles:** Class Diagram, Use Case Diagram and DRY are implemented;
-  Sequence, Activity and State Machine diagrams plus YAGNI, KISS and
-  both SOLID lessons remain. Complete connected SOLID picture/code examples as
+- [ ] **Phase 3 — UML and principles:** Class Diagram, Use Case Diagram, DRY, YAGNI and KISS are implemented;
+  Sequence, Activity and State Machine diagrams and both SOLID lessons remain. Complete connected SOLID picture/code examples as
   part of this phase.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
   comparisons, tradeoffs, verified code, and exercises.
@@ -557,3 +556,29 @@ overflow or application exceptions occurred. Evidence is in
 `deployed.log`. These checks close the two lesson releases; they do not complete
 the 49 remaining topics, Phase 3 or the separate 60-module audit, and do not
 claim a full hosted module-backend integration review.
+
+## YAGNI / KISS curriculum integration — 2026-11-19
+
+Current local publication is 22 lessons / 47 planned topics, with source-curated
+class models for every published lesson. DRY → YAGNI → KISS preserves the existing
+prerequisites and catalog grouping; KISS names planned SOLID Pictures next. Both
+new lessons retain only Classes and Objects as prerequisite. E38/E39 record their
+canonical Java, scalar fixtures, distinct feedback, independent transfer tasks,
+source-backed practice and semantic limits. Publication/catalog/journey/storage
+checks require the new content and isolated notes; planned recovery/storage
+fixtures now use SOLID Pictures. Principles show three available and two planned.
+The strict all-published class-model guard remains in place.
+
+Full local validation evidence and actual counts are recorded in the current
+COMPLETION_HANDOFF.md entry and `/home/prem/validation/lld-yagni/`. Older dated
+release counts above are historical snapshots. Combined actual-route browser,
+responsive/theme review, deployment and release remain parent-owned and pending.
+Phase 3 still needs three UML lessons and both SOLID lessons; later curriculum
+phases and the separate 60-module UX audit are not complete.
+
+Integration validation: 2898 backend tests in 312 suites and 1000 frontend tests
+in 71 files passed. Maven package, full lint (0 errors / 14 existing warnings),
+build and both chunk budgets passed. The full frontend run used one worker and
+a 15000ms per-test allowance after observed five-second journey timeouts; no
+assertions or publication/model/notes guards were weakened. Existing DRY act
+warnings remain recorded. Parent-owned browser/release/ATM work remains pending.

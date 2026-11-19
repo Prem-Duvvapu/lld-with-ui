@@ -37,7 +37,7 @@ Dashboard visitor totals were not inspected. See `COMPLETION_HANDOFF.md` for evi
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and twenty published lessons: the
+has a searchable curriculum catalog and twenty-two published lessons: the
 **How to Learn LLD** guide, **Classes and Objects**, **Constructors and
 Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
 **Encapsulation**, **Abstraction**, **Inheritance**, **Polymorphism**,
@@ -46,14 +46,19 @@ Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
 **15 Must-Know OOP Concepts** capstone, followed by the dedicated
 [**Class Diagram** lesson](https://lld-with-ui.vercel.app/learn/class-diagram),
 [**Use Case Diagram** lesson](https://lld-with-ui.vercel.app/learn/use-case-diagram) and
-[**DRY Principle** lesson](https://lld-with-ui.vercel.app/learn/dry).
-The guided sequence puts published prerequisites before dependents. The catalog
+[**DRY Principle** lesson](https://lld-with-ui.vercel.app/learn/dry),
+[**YAGNI Principle** lesson](https://lld-with-ui.vercel.app/learn/yagni) and
+[**KISS Principle** lesson](https://lld-with-ui.vercel.app/learn/kiss).
+The guided sequence puts published prerequisites before dependents and ends
+DRY → YAGNI → KISS; KISS names SOLID Pictures as the next planned concept.
+The two newest lessons are locally integrated; combined browser/deployment review
+is pending and is tracked in `COMPLETION_HANDOFF.md`. The catalog
 supports available/roadmap views, outcome search, section/review/bookmark filters,
 sorting, direct bookmarks and return navigation. Reading times and outcomes come
-from the curriculum manifest. The other 49 topics remain explicitly planned;
+from the curriculum manifest. The other 47 topics remain explicitly planned;
 five proposed additions retain their labels. The capstone follows all fifteen
 individual concepts with linked reviews and an independent modeling exercise.
-All twenty lessons include source-curated class models, selectable typed
+All twenty-two lessons include source-curated class models, selectable typed
 relationships, zoom/fullscreen controls and readable text alternatives. Phase 2
 content and local visual review are complete; remaining UML/design-principle
 lessons and later curriculum phases are still open.
@@ -75,6 +80,11 @@ Use Case Diagram adds a dedicated actor/ellipse/subject view, selectable
 participation/include/extend/generalization, full text explanations and native
 fullscreen controls. Its four canonical Java files verify six recorded outcomes;
 roles/goals remain separate from the companion implementation class model.
+YAGNI compares a current quote, an executed speculative alternative and an
+approved fixed-discount change. KISS compares rule plumbing with direct fee
+behavior while preserving every required rejection and boundary. Dedicated Java
+and frontend checks verify canonical sources, output/scalars and source-backed
+practice; their independent exercises transfer the reasoning to different domains.
 No learner code is submitted or executed by the application.
 
 Bookmarks, notes (up to 2000 characters), a resume destination, and review marks use
@@ -474,8 +484,8 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2821 tests across 309 classes
-cd frontend && npx vitest run  # 952 tests across 67 files
+cd backend  && mvn test        # 2898 tests across 312 suites
+cd frontend && npx vitest run  # 1000 tests across 71 files
 ```
 
 Six suites are cross-cutting rather than per-module, and they exist because each one

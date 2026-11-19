@@ -2,11 +2,11 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. There are twenty published lessons
-and 49 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. Updated 2026-11-19: there are twenty-two published lessons
+and 47 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
-All twenty published lessons also include source-curated class models with
+All twenty-two published lessons also include source-curated class models with
 selectable typed connectors and complete text alternatives. This foundational
 view does not substitute for the dedicated UML lessons and their delivery gates.
 
@@ -66,8 +66,8 @@ view does not substitute for the dedicated UML lessons and their delivery gates.
 | Topic ID and title | Learning outcome | Prerequisites | Inspected evidence and intended practice | Exercise / assessment | Missing delivery |
 |---|---|---|---|---|---|
 | `dry` — DRY Principle | Remove duplicated knowledge without merging unrelated concepts merely because their text looks alike. | `encapsulation` | [E36](#e36): canonical delivery-fee drift/extraction/change, independent quote records and unrelated loyalty counterexample; [E02](#e02): verified shared Parking pricing with isolated live/sandbox state. | Model a shared overdue-fee rule with a grace-period change, cap/boundary checks and separate branch records; keep an independent borrowing limit separate. | Delivered: `/learn/dry`, five canonical Java files, output and five verified recorded steps, accessible class model/text, prediction feedback, independent exercise/rubric, tradeoffs and source-backed practice limits. |
-| `yagni` — YAGNI Principle | Keep an implementation within demonstrated requirements and name what evidence would justify expansion. | `classes-and-objects` | [E24](#e24): current in-memory system and scoped curriculum plan; these are case-study inputs, not an implementation of a principle. | Choose the smallest solution for a single-user exercise and defend exclusions such as auth and a database. | G: scenario lesson, tradeoff discussion and change-trigger assessment. |
-| `kiss` — KISS Principle | Prefer the simplest adequate model while preserving explicit validation and invariants. | `classes-and-objects` | [E02](#e02): small pricing policies; [E01](#e01): focused teaching model with stated limits. | Compare a direct policy implementation with an unnecessarily generic rules framework for the same requirement. | G: contrasted solutions, complexity reasoning and a tested minimal design. |
+| `yagni` — YAGNI Principle | Keep an implementation within demonstrated requirements and name what evidence would justify expansion. | `classes-and-objects` | [E38](#e38): canonical current/speculative parcel quotes and an approved pickup change; verified Tic Tac Toe scope review, not proof of author intent or in-memory architecture as YAGNI. | Independently quote workshop seats, defend deferral and expansion evidence, implement a fixed voucher discount, and expose a guessed per-seat rate’s failure. | Delivered: `/learn/yagni`, four canonical Java files, exact output/five scalar steps, curated class model/text, prediction feedback, transfer rubric and explicit semantic limits. |
+| `kiss` — KISS Principle | Prefer the simplest adequate model while preserving explicit validation and invariants. | `classes-and-objects` | [E39](#e39): canonical fixed parcel-fee contract implemented by rule plumbing and direct code; verified Parking flat-rate policy inside its real strategy factory. | Design community-room quotes with guest/duration validation, rejection precedence and independent boundary expectations; justify any later abstraction with actual variation. | Delivered: `/learn/kiss`, three canonical Java files, exact output/five scalar steps, curated class model/text, distinct prediction feedback, independent exercise/rubric and source-backed limits. |
 | `solid-pictures` — SOLID Principles with Pictures | Explain SRP, OCP, LSP, ISP and DIP through responsibility/contract diagrams, including misuse. | `abstraction`, `polymorphism`, `dependency`, `composition` | [E02](#e02), [E04](#e04), [E09](#e09): policy seams, wrappers and observers are source material, not proof of all five principles. | Draw before/after diagrams for all five principles and identify a behavioral contract that a subtype must preserve. | G: five connected visual examples, tradeoffs and accessible text alternatives. |
 | `solid-code` — SOLID Principles with Code | Validate each visual refactoring with Java behavior rather than claiming a pattern automatically proves SOLID. | `solid-pictures` | [E02](#e02), [E04](#e04), [E09](#e09): production calls/tests to link after each individual principle example is verified. | Refactor a deliberately broken contract; test substitutability and explain the remaining factory-registration edit. | G: five compiled before/after examples, tests and shared links to the picture views. |
 
@@ -824,6 +824,58 @@ primary notation/semantic references. The independent exercise uses workshop
 registration with explicit scope, success/rejection postconditions and a boundary
 critique. This delivery does not publish the other three dedicated UML lessons.
 
+<a id="e38"></a>
+### E38 — YAGNI: accepted requirements, deferred guesses and an evidenced change
+
+- [Lesson](frontend/src/learning/lessons/yagni.js) and [curated class model](frontend/src/learning/class-models/yagni.js).
+- Canonical [CurrentParcelQuote](frontend/src/learning/examples/yagni/CurrentParcelQuote.java), [SpeculativeQuoteEngine](frontend/src/learning/examples/yagni/SpeculativeQuoteEngine.java), [PickupParcelQuote](frontend/src/learning/examples/yagni/PickupParcelQuote.java), and [YagniDemo](frontend/src/learning/examples/yagni/YagniDemo.java); [output](frontend/src/learning/examples/yagni-output.txt) and [five scalar snapshots](frontend/src/learning/examples/yagni-snapshots.json).
+- [Java 17 checks](backend/src/test/java/com/lld/learning/YagniLessonExampleTest.java) compile those displayed files, verify exact process output/every scalar, all supported current quantities, actual pickup boundaries, rejected inputs, detached configuration, positive/negative compiler controls and a real-service Tic Tac Toe workflow.
+- [Lesson UI checks](frontend/src/__tests__/yagniLesson.test.jsx) verify recorded selection, distinct feedback, source provenance, source links, full class-model text and the retained collaborator association.
+
+The executed speculative named-rate engine satisfies today's 200-cent per-parcel
+contract but adds service/configuration decisions. A later approved pickup rule
+subtracts 100 cents once per quote; a guessed rate matches one parcel and fails at
+three. The lesson distinguishes build/delay/carry/repair costs without claiming
+measured savings, keeps validation/design/tests, and records explicit expansion
+evidence. Workshop-seat/voucher transfer work is independent of the parcel code.
+The current and changed models are teaching stages, not production parcel features.
+
+Practice inspects actual [Game](backend/src/main/java/com/lld/tictactoe/model/Game.java),
+[Board](backend/src/main/java/com/lld/tictactoe/model/Board.java),
+[TicTacToeService](backend/src/main/java/com/lld/tictactoe/service/TicTacToeService.java)
+and [PlaceMoveCommand](backend/src/main/java/com/lld/tictactoe/command/PlaceMoveCommand.java).
+The Java test verifies two-player setup, rejected moves preserving count/turn and a
+row win. It does not infer author intent or treat in-memory storage as proof of
+YAGNI; Board's size parameter and existing command-backed behavior are acknowledged.
+The primary principle reference is [Fowler's Yagni](https://martinfowler.com/bliki/Yagni.html).
+No payments, tax, persistent migration or concurrency guarantees are modeled.
+
+<a id="e39"></a>
+### E39 — KISS: simplify while preserving the complete contract
+
+- [Lesson](frontend/src/learning/lessons/kiss.js) and [curated class model](frontend/src/learning/class-models/kiss.js).
+- Canonical [RuleBasedParcelFees](frontend/src/learning/examples/kiss/RuleBasedParcelFees.java), [ParcelFees](frontend/src/learning/examples/kiss/ParcelFees.java), and [KissDemo](frontend/src/learning/examples/kiss/KissDemo.java); [output](frontend/src/learning/examples/kiss-output.txt) and [five scalar snapshots](frontend/src/learning/examples/kiss-snapshots.json).
+- [Java 17 checks](backend/src/test/java/com/lld/learning/KissLessonExampleTest.java) compile exactly those sources, verify output/every scalar, test every valid whole-gram weight, invalid extremes and exact rejection messages, compiler access boundaries and real Parking flat-price behavior.
+- [Lesson UI checks](frontend/src/__tests__/kissLesson.test.jsx) verify scalar/null rejection states, distinct prediction feedback, canonical code, the complete transcript and selected retained-rule association.
+
+The two teaching alternatives calculate the same fixed fee bands with the same
+validation; the direct model removes list/callback/order decisions without dropping
+rejection behavior. No performance improvement or universally optimal design is
+claimed. Independent community-room work includes guest-count/duration validation,
+error precedence and a justified expansion decision. KISS, YAGNI and DRY retain
+separate questions about clarity, demonstrated scope and authoritative knowledge.
+
+Practice inspects [FlatRatePricingStrategy](backend/src/main/java/com/lld/parkinglot/strategy/FlatRatePricingStrategy.java),
+[PricingStrategy](backend/src/main/java/com/lld/parkinglot/strategy/PricingStrategy.java)
+and [PricingStrategyFactory](backend/src/main/java/com/lld/parkinglot/strategy/PricingStrategyFactory.java).
+The Java suite pins all three fixed vehicle rates at short/long durations, proves
+calculation leaves ticket fields unchanged and verifies factory selection. This is
+a small clear policy inside real variation, not proof every Parking workflow is
+simple or permission to remove its locks. The primary design reference is
+[Google's complexity review guidance](https://google.github.io/eng-practices/review/reviewer/looking-for.html#complexity),
+with Oracle Java 17 callback API references linked in the lesson. The example does
+not purchase delivery, perform payment or implement an editable rules platform.
+
 ## Authoritative semantic references
 
 These references constrain future teaching; they are not evidence that its lesson
@@ -848,5 +900,5 @@ were manually inspected and the relevant Java suites remain required validation.
 
 When publishing a lesson, update its matrix row and manifest status together, add
 compile-tested examples and explained assessments, and verify actual practice links.
-Preserve the five proposed-addition labels. The remaining 49 topic deliveries,
+Preserve the five proposed-addition labels. The remaining 47 topic deliveries,
 curriculum integration/release gates, and separate 60-module UX review remain open.

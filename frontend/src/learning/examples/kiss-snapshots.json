@@ -1,0 +1,284 @@
+[
+  {
+    "title": "Smallest supported parcel",
+    "explanation": "At 1 gram both implementations return 300 cents. Positive weight validation remains part of the direct solution.",
+    "items": [
+      {
+        "label": "rules at 1 g",
+        "typeLabel": "RuleBasedParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "direct at 1 g",
+        "typeLabel": "ParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Cross the inclusive fee boundary",
+    "explanation": "1000 grams still costs 300 cents; 1001 costs 500. The ordered rules and the direct branch agree on both sides.",
+    "items": [
+      {
+        "label": "rules at 1000 g",
+        "typeLabel": "RuleBasedParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "direct at 1000 g",
+        "typeLabel": "ParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "rules at 1001 g",
+        "typeLabel": "RuleBasedParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1001
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "direct at 1001 g",
+        "typeLabel": "ParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1001
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Largest supported parcel",
+    "explanation": "2000 grams is accepted at 500 cents. The upper size bound is inclusive.",
+    "items": [
+      {
+        "label": "rules at 2000 g",
+        "typeLabel": "RuleBasedParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 2000
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "direct at 2000 g",
+        "typeLabel": "ParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 2000
+          },
+          {
+            "name": "feeCents",
+            "value": 500
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Reject outside the supported domain",
+    "explanation": "Zero and 2001 grams both throw IllegalArgumentException with the same message. A null fee means no fee was returned; it does not mean free shipping.",
+    "items": [
+      {
+        "label": "rules at 0 g",
+        "typeLabel": "RuleBasedParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 0
+          },
+          {
+            "name": "feeCents",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "IllegalArgumentException: weightGrams must be 1..2000"
+          }
+        ]
+      },
+      {
+        "label": "direct at 0 g",
+        "typeLabel": "ParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 0
+          },
+          {
+            "name": "feeCents",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "IllegalArgumentException: weightGrams must be 1..2000"
+          }
+        ]
+      },
+      {
+        "label": "rules at 2001 g",
+        "typeLabel": "RuleBasedParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 2001
+          },
+          {
+            "name": "feeCents",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "IllegalArgumentException: weightGrams must be 1..2000"
+          }
+        ]
+      },
+      {
+        "label": "direct at 2001 g",
+        "typeLabel": "ParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 2001
+          },
+          {
+            "name": "feeCents",
+            "value": null
+          },
+          {
+            "name": "rejection",
+            "value": "IllegalArgumentException: weightGrams must be 1..2000"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "A valid call after rejection",
+    "explanation": "The same objects again quote 1000 grams at 300 cents. Neither implementation stores a quote, charges money or changes state during these calls.",
+    "items": [
+      {
+        "label": "rules at 1000 g",
+        "typeLabel": "RuleBasedParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      },
+      {
+        "label": "direct at 1000 g",
+        "typeLabel": "ParcelFees result",
+        "fields": [
+          {
+            "name": "weightGrams",
+            "value": 1000
+          },
+          {
+            "name": "feeCents",
+            "value": 300
+          },
+          {
+            "name": "rejection",
+            "value": null
+          }
+        ]
+      }
+    ]
+  }
+]

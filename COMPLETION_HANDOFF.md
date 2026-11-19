@@ -6,8 +6,28 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
-- Combined DRY and Use Case Diagram release (2026-10-28): current publication
-  is **20 lessons / 49 planned topics**. The dedicated use-case view distinguishes
+- Current YAGNI / KISS local integration (2026-11-19): **22 lessons / 47 planned topics**.
+  Guided order is DRY → YAGNI → KISS; final KISS names planned SOLID Pictures.
+  E38/E39 document canonical Java, exact outputs/five scalar steps each, complete
+  source-curated class models, distinct feedback, independent transfer tasks and
+  bounded real-module practice. Both retain Classes and Objects as prerequisite.
+  Publication/catalog/journey/storage checks include both lessons and isolated
+  notes; planned recovery/storage fixtures use SOLID Pictures. Principles require
+  three available and two planned topics; all-published model guards stay strict.
+  Full local verification: **2898 backend tests (312 suites)** and **1000 frontend
+  tests (71 files)**, all passed; Maven package exit 0. Full lint: zero errors /
+  14 existing warnings. Build and budgets pass (313620-byte entry / 54680-byte
+  largest non-entry). Frontend command: `npx vitest run --maxWorkers=1
+  --testTimeout=15000`. The initial run hit five-second journey timeouts and was
+  stopped before the final complete rerun; assertions remain intact. Existing DRY
+  React act warnings were observed. Evidence and exact commands:
+  `/home/prem/validation/lld-yagni/INTEGRATION_HANDOFF.md` and `integration-*.log`.
+  Parent owns combined browser/release review and ATM lifecycle source/data/RCA.
+  No current claim of production deployment or completion of the 47 remaining
+  topics, Phase 3, later curriculum gates or the separate 60-module audit.
+
+- Historical DRY and Use Case Diagram release (2026-10-28): publication
+  at that release was **20 lessons / 49 planned topics**. The dedicated use-case view distinguishes
   external actors/goals/subject scope from the Java companion class model. All
   nodes remain when a relationship is selected; complete text includes conditions,
   extension points and mapping limits. Zoom/fit/native fullscreen, keyboard focus,

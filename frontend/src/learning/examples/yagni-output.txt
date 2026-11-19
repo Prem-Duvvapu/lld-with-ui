@@ -1,0 +1,6 @@
+today, 3 parcels: current=600, speculative=600
+today, 0 parcels: rejected
+pickup, 1 parcel: guessed=100, required=100
+pickup, 3 parcels: guessed=300, required=500
+standard, 3 parcels after change=600
+earlier current model, 3 parcels=600
