@@ -192,12 +192,14 @@ const publications = [
   ['use-case-diagram', '35–45 minutes'],
   ['dry', '25–30 minutes'],
   ['yagni', '25–30 minutes'],
+  ['kiss', '25–30 minutes'],
 ];
 const published = new Map(publications);
 
 // Catalog outcomes remain metadata: browsing never imports lesson content.
 const outcomes = {
   yagni: 'Defer speculative capabilities, name expansion evidence and implement changed requirements without sacrificing validation or tests.',
+  kiss: 'Choose the simplest clear design that preserves the same validation, boundaries and results; justify abstraction with real variation.',
   dry: 'Remove duplicated domain knowledge while keeping unrelated rules and mutable state separate.',
   'use-case-diagram': 'Model external roles, subject scope and goals; justify participation, include, extend and role generalization against explicit requirements.',
   'class-diagram': 'Read and justify typed class relationships, visibility, multiplicity, navigation and ownership against Java.',

@@ -1,0 +1,7 @@
+1 g -> rules=300 cents; direct=300 cents
+1000 g -> rules=300 cents; direct=300 cents
+1001 g -> rules=500 cents; direct=500 cents
+2000 g -> rules=500 cents; direct=500 cents
+0 g -> rules=IllegalArgumentException: weightGrams must be 1..2000; direct=IllegalArgumentException: weightGrams must be 1..2000
+2001 g -> rules=IllegalArgumentException: weightGrams must be 1..2000; direct=IllegalArgumentException: weightGrams must be 1..2000
+1000 g -> rules=300 cents; direct=300 cents
