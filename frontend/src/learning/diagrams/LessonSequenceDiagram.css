@@ -1,0 +1,38 @@
+.lesson-sequence,
+.lesson-sequence-transcript,
+.lesson-sequence .seq-diagram-section {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.lesson-sequence .seq-diagram-section {
+  padding: clamp(8px, 3vw, 24px);
+}
+
+.lesson-sequence-transcript {
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.lesson-sequence-transcript li + li {
+  margin-top: 0.75rem;
+}
+
+.lesson-sequence-transcript code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lesson-sequence button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.lesson-sequence button:focus-visible,
+.lesson-sequence summary:focus-visible,
+.lesson-sequence [tabindex="0"]:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}

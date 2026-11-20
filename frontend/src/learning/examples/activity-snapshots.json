@@ -1,0 +1,202 @@
+[
+  {
+    "title": "Missing request",
+    "explanation": "Null input takes the invalid branch before vacancy or assignment. The fixed slot stays free.",
+    "items": [
+      {
+        "label": "After return",
+        "typeLabel": "Request observation",
+        "fields": [
+          {
+            "name": "request room",
+            "value": null
+          },
+          {
+            "name": "requested attendees",
+            "value": null
+          },
+          {
+            "name": "status",
+            "value": "REJECTED_INVALID"
+          },
+          {
+            "name": "message",
+            "value": "Use R1 with 1..4 attendees"
+          },
+          {
+            "name": "booked room",
+            "value": null
+          },
+          {
+            "name": "booked attendees",
+            "value": null
+          },
+          {
+            "name": "available",
+            "value": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Accepted request",
+    "explanation": "R1 for two attendees passes both decisions and becomes the saved booking. Printing happens after return.",
+    "items": [
+      {
+        "label": "After return",
+        "typeLabel": "Request observation",
+        "fields": [
+          {
+            "name": "request room",
+            "value": "R1"
+          },
+          {
+            "name": "requested attendees",
+            "value": 2
+          },
+          {
+            "name": "status",
+            "value": "CONFIRMED"
+          },
+          {
+            "name": "message",
+            "value": "Room reserved"
+          },
+          {
+            "name": "booked room",
+            "value": "R1"
+          },
+          {
+            "name": "booked attendees",
+            "value": 2
+          },
+          {
+            "name": "available",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Occupied slot",
+    "explanation": "A valid second request takes the occupied branch. Its attendee count does not overwrite the saved count of two.",
+    "items": [
+      {
+        "label": "After return",
+        "typeLabel": "Request observation",
+        "fields": [
+          {
+            "name": "request room",
+            "value": "R1"
+          },
+          {
+            "name": "requested attendees",
+            "value": 1
+          },
+          {
+            "name": "status",
+            "value": "REJECTED_UNAVAILABLE"
+          },
+          {
+            "name": "message",
+            "value": "Slot already booked"
+          },
+          {
+            "name": "booked room",
+            "value": "R1"
+          },
+          {
+            "name": "booked attendees",
+            "value": 2
+          },
+          {
+            "name": "available",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Invalid while occupied",
+    "explanation": "R2 is invalid even though the slot is occupied. Validation rejects first and preserves the original booking.",
+    "items": [
+      {
+        "label": "After return",
+        "typeLabel": "Request observation",
+        "fields": [
+          {
+            "name": "request room",
+            "value": "R2"
+          },
+          {
+            "name": "requested attendees",
+            "value": 3
+          },
+          {
+            "name": "status",
+            "value": "REJECTED_INVALID"
+          },
+          {
+            "name": "message",
+            "value": "Use R1 with 1..4 attendees"
+          },
+          {
+            "name": "booked room",
+            "value": "R1"
+          },
+          {
+            "name": "booked attendees",
+            "value": 2
+          },
+          {
+            "name": "available",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Fresh slot at capacity",
+    "explanation": "A different, fresh service accepts exactly four attendees. This is a new activity execution, not a reset or retry in the earlier activity.",
+    "items": [
+      {
+        "label": "After return",
+        "typeLabel": "Request observation",
+        "fields": [
+          {
+            "name": "request room",
+            "value": "R1"
+          },
+          {
+            "name": "requested attendees",
+            "value": 4
+          },
+          {
+            "name": "status",
+            "value": "CONFIRMED"
+          },
+          {
+            "name": "message",
+            "value": "Room reserved"
+          },
+          {
+            "name": "booked room",
+            "value": "R1"
+          },
+          {
+            "name": "booked attendees",
+            "value": 4
+          },
+          {
+            "name": "available",
+            "value": false
+          }
+        ]
+      }
+    ]
+  }
+]

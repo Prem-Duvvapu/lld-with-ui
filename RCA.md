@@ -9137,3 +9137,182 @@ not start application servers or verify production resource delivery.
 Review the width of nested components as well as the viewport. Overflow assertions
 cannot establish reading quality; retain screenshot review and explicit text
 alternatives. This change does not establish a full accessibility or module audit.
+
+## RCA-134: Concurrent linked-worktree fetches raced the shared origin/main ref
+
+### 1. Overview & Severity
+Low-severity workflow interruption during release synchronization. One fetch was
+rejected safely; no source changes or commits were lost.
+
+### 2. Symptoms & Error Logs
+The release worktree fetched main while the original checkout ran a pull. The
+latter reported: `cannot lock ref 'refs/remotes/origin/main': is at 03 e 4 db 2... but
+expected b 6159 f 8...` and `unable to update local ref`. Its merge did not run.
+
+### 3. Root Cause
+Linked worktrees have separate files and indexes but share remote-tracking refs.
+Both fetches read the old ref; one updated it first. Git rejected the second
+compare-and-swap instead of overwriting a ref it no longer expected.
+
+### 4. Diagnostic Commands
+Use `git worktree list`, `git rev-parse --git-common-dir` and
+`git rev-parse refs/remotes/origin/main` in the affected worktrees. Check the
+command result and branch before retrying; a ref mismatch is not evidence that
+an index lock file should be deleted.
+
+### 5. Step-by-Step Resolution
+1. Let the first fetch finish and verify the merged release commit.
+2. Run the original checkout's `git pull --ff-only origin main` sequentially.
+3. Confirm its fast-forward from b 6159 f 8 to 03 e 4 db 2 succeeds without force/reset.
+4. Keep unrelated source and author worktrees intact. Record the successful
+   release/deployed browser checks separately from this local sync failure.
+
+### 6. Preventative Measures
+Serialize fetch/pull/push and shared-ref mutations across linked worktrees, even
+when their working directories differ. Batch independent read-only GitHub/API
+queries; directory isolation alone does not make repository mutations independent.
+Do not delete locks or force-update refs to work around this comparison failure.
+
+## RCA-135: State-machine feedback treated a rejected logical input as advancing time
+
+### 1. Overview & Severity
+Moderate teaching-correctness issue found by independent review before publication.
+Canonical Java preserved state correctly; assessment feedback excluded valid
+continuations and overstated which command could produce cancellation.
+
+### 2. Symptoms & Error Logs
+After hold(10), inspect(11), renew(12), confirm(22) rejects with lastMinute still 12.
+Feedback said only expiry/cancellation could complete the reservation. In fact,
+confirm(13) is valid because only accepted commands update the logical-time bound.
+It also described expire(22) as the exclusive cause of the shown cancelled fields,
+although cancel(22) yields the same state. Existing recorded snapshots did not
+exercise those counterfactual continuations.
+
+### 3. Root Cause
+The explanation inferred a global advancing clock from an attempted method input,
+contradicting the explicit accepted-command time contract. It also confused the
+chosen demo path with every path reaching an equal observable result.
+
+### 4. Diagnostic Commands
+Run `cd backend && mvn -Dtest=StateMachineDiagramLessonExampleTest test`.
+The added accepted-time continuation and equal-cancellation-outcome tests execute
+those exact canonical Java files. The focused suite passes 21 tests.
+
+### 5. Step-by-Step Resolution
+1. Keep the existing Java policy: a rejected command preserves every stored scalar.
+2. Explain confirm(13) after the rejected 22 input and name both expire(22) and
+   cancel(22) as accepted cancellation paths.
+3. Clarify the independent exercise's monotonicity relative to accepted commands.
+4. Add Java counterexamples and a frontend assessment-content regression, then
+   rebuild and rerun release checks on the corrected source.
+
+### 6. Preventative Measures
+Review continuations after rejection, not only the recorded demonstration. Separate
+attempted input, accepted history and wall-clock assumptions. Avoid exclusive
+claims based on a single chosen path when different commands can share an outcome.
+
+## RCA-136: The canonical-model provenance guard excluded valid Java records
+
+### 1. Overview & Severity
+Low-severity integration-test compatibility issue. New Java 17 examples compiled,
+but the all-published class-model check rejected their accurately labelled records.
+
+### 2. Symptoms & Error Logs
+The combined frontend suite failed for Activity BookingRequest and Sequence
+ParcelFees.Quote. The source guard expected `class|interface|enum` before the
+name, while those exact displayed sources declare `record`. Canonical Java checks
+passed; source files and complete class-model text were present.
+
+### 3. Root Cause
+The lightweight provenance regex listed only the declaration kinds used by the
+earlier lessons. It was neither a Java parser nor a complete Java 17 type list.
+
+### 4. Diagnostic Commands
+Run `cd frontend && npx vitest run src/__tests__/lessonClassModels.test.jsx`.
+The initial full result is retained in
+`/home/prem/validation/lld-uml/frontend-full.log`; the corrected model/feedback
+scope passes 54 tests in `record-feedback-front.log`.
+
+### 5. Step-by-Step Resolution
+1. Recognize class, interface, enum and record declarations in the canonical source.
+2. Also require the model's stated kind to agree with the matched declaration kind.
+3. Preserve every publication/model ID, source binding, member text, typed endpoint,
+   transcript and accessibility assertion. No record or lesson is skipped.
+4. Continue compiling the exact Java 17 examples; the regex is only provenance
+   evidence and does not replace compiler or behavioral checks.
+
+### 6. Preventative Measures
+Expand supported language coverage without weakening evidence. Test legitimate
+new declaration forms through the same global guard and keep model-kind agreement.
+Do not relabel records as ordinary class declarations merely to satisfy a regex.
+
+## RCA-137: Authored UML captions obscured control-flow geometry
+
+### 1. Overview & Severity
+Moderate diagram-readability defect found in native-size pre-release screenshots.
+The Java workflows and transcripts were correct, but an activity caption crossed
+its continuation and a state caption masked part of a different transition.
+
+### 2. Symptoms & Error Logs
+The activity merge caption sat on the outgoing vertical arrow. The cancellation
+label background spanned y 635..735 and covered the expiry route at y 690. Two final
+completion routes also shared their last segment, reducing their visual distinction.
+Before images are retained under `/home/prem/validation/lld-uml/before-layout-native-*.png`.
+Page-overflow assertions alone did not detect these intersections.
+
+### 3. Root Cause
+Authored positions were individually within the canvas but were not checked against
+neighboring flow segments and caption bounds. Valid node geometry was insufficient
+to establish readable connections.
+
+### 4. Diagnostic Commands
+Build the frontend, run `/home/prem/validation/lld-uml/browser.cjs --quick-native`,
+and inspect native-size Activity/State Machine canvas screenshots. Use SVG getBBox
+and each authored polyline to check captions against neighboring flows.
+
+### 5. Step-by-Step Resolution
+1. Move the activity merge caption below/right of the diamond and clear of its
+   vertical continuation and horizontal incoming alternatives.
+2. Move the state cancellation caption above the expiry route.
+3. Route the two completion arrows separately to distinct final-ring endpoints.
+4. Preserve every node, transition, guard/effect, selection and complete transcript.
+   The focused activity/state suite passes 32 tests after this geometry adjustment.
+5. Add browser caption/flow intersection assertions and review the rebuilt final
+   pictures at native size as well as responsive fit views.
+
+### 6. Preventative Measures
+Check actual text/background bounds against neighboring edges, not only canvas
+bounds or page overflow. Keep normal-size text alternatives. Geometry checks are
+specific to this authored subset and do not prove arbitrary UML layout correctness.
+
+## RCA-138: The final lesson hint skipped earlier unpublished curriculum groups
+
+### 1. Overview & Severity
+Low-severity learning-navigation issue. Newly appended UML lessons made the final
+page suggest concurrency while the earlier design-pattern group was still planned.
+
+### 2. Symptoms & Error Logs
+State Machine Diagram was the last published lesson. Its next-planned hint named
+Introduction to Concurrency even though Singleton was the first ready unpublished
+topic in the canonical curriculum and the next delivery phase was patterns.
+
+### 3. Root Cause
+The hint sliced the catalog after the current lesson. Catalog grouping and guided
+publication order differ; newly published batches can leave unpublished topics
+in earlier groups, which that forward-only slice discarded.
+
+### 4. Diagnostic Commands
+Run `cd frontend && npx vitest run src/__tests__/learningLessons.test.jsx`.
+The final-UML journey preserves notes/reviews and now expects the Singleton hint;
+all 23 journey tests pass with the corrected source.
+
+### 5. Step-by-Step Resolution
+Find the first planned topic in canonical curriculum order whose prerequisites
+are published. Keep existing available-lesson previous/next order and catalog
+grouping intact. Show this hint only after the last published lesson. Prerequisite
+readiness guides the hint; it does not lock access or assert learner mastery.
+
+### 6. Preventative Measures
+Test the final-page hint after noncontiguous publication batches. Do not infer
+course delivery priority from only the current topic's catalog position. Retain
+honest planned labels and the canonical prerequisite/cycle consistency checks.

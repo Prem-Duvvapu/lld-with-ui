@@ -112,7 +112,7 @@ describe('Curriculum evidence audit', () => {
 
   it('does not confuse unknown teaching coverage with completed topics or different concurrency contracts', () => {
     const audit = read('LLD_CURRICULUM_COVERAGE.md').replace(/\s+/g, ' ');
-    expect(audit).toContain('twenty-four published lessons and 45 undelivered topics');
+    expect(audit).toContain('twenty-seven published lessons and 42 undelivered topics');
     expect(audit).toContain('not a claim of repository-wide absence');
     expect(audit).toContain('not a timed lock acquisition');
     expect(audit).toContain('not JVM thread states');

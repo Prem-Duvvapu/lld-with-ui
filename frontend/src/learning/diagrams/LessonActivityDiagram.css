@@ -1,0 +1,19 @@
+.lesson-activity { min-width: 0; max-width: 100%; margin-top: 40px; padding-top: 8px; color: var(--text-primary); overflow-wrap: anywhere; }
+.lesson-activity *, .lesson-activity *::before, .lesson-activity *::after { box-sizing: border-box; }
+.lesson-activity .diagram-viewer { max-width: 100%; }
+.activity-selector { display: grid; gap: 8px; min-width: 0; font-weight: 600; }
+.activity-selector select { width: 100%; min-width: 0; max-width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--border-primary); border-radius: 8px; font: inherit; background: var(--bg-card); color: var(--text-primary); }
+.activity-selection { margin-block: 16px; padding: 12px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-card); }
+.lesson-activity :is(button, select, summary, [tabindex]):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
+.lesson-activity .diagram-viewer-actions button { min-width: 44px; min-height: 44px; }
+.lesson-activity .diagram-viewer-details summary { min-height: 44px; }
+.lesson-activity .diagram-viewer-details { font-size: 1rem; }
+.lesson-activity .diagram-viewer-hint { color: var(--text-primary); }
+.activity-canvas { display: block; max-width: none; color: var(--text-primary); background: var(--bg-secondary); font: inherit; font-size: 16px; }
+.activity-canvas :is(circle, rect, polygon, polyline) { stroke: currentColor; stroke-width: 2; }
+.activity-canvas text { fill: currentColor; stroke: none; }
+.activity-canvas .activity-solid { fill: currentColor; }
+.activity-canvas .activity-hollow { fill: var(--bg-card); }
+.activity-canvas .activity-guard rect { fill: var(--bg-secondary); stroke: none; }
+.activity-canvas .activity-decision-label { font-size: 14px; }
+.activity-canvas [data-selected="true"] .activity-edge { stroke-width: 4; }

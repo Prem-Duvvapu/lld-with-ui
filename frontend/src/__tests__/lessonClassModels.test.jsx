@@ -49,7 +49,9 @@ describe('Canonical lesson class models', () => {
       // A source provenance guard, not a Java parser or semantic proof.
       const source = lesson.code.find(block => block.filename === type.source)?.source;
       expect(source, `${type.name} must come from the displayed canonical Java`).toBeTruthy();
-      expect(source).toMatch(new RegExp(`(?:class|interface|enum)\\s+${type.name.split('.').at(-1)}\\b`));
+      const declaration = source.match(new RegExp(`\\b(class|interface|enum|record)\\s+${type.name.split('.').at(-1)}\\b`));
+      expect(declaration, `${type.name} must be a Java type declaration`).not.toBeNull();
+      expect(type.kind).toMatch(new RegExp(`\\b${declaration[1]}\\b`));
     }
     for (const relationship of model.relationships) {
       expect(model.classes.some(type => type.name === relationship.from)).toBe(true);

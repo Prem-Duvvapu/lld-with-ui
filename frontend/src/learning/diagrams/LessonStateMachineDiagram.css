@@ -1,0 +1,23 @@
+.lesson-state-machine { min-width: 0; max-width: 100%; margin-top: 40px; padding-top: 8px; color: var(--text-primary); overflow-wrap: anywhere; }
+.lesson-state-machine *, .lesson-state-machine *::before, .lesson-state-machine *::after { box-sizing: border-box; }
+.lesson-state-machine .diagram-viewer { width: 100%; max-width: 100%; }
+.lesson-state-machine-selector { display: grid; gap: 8px; min-width: 0; font-weight: 600; }
+.lesson-state-machine-selector select { width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid var(--border-primary); border-radius: 8px; font: inherit; background: var(--bg-card); color: var(--text-primary); }
+.lesson-state-machine-selection { margin-block: 16px; padding: 12px; border: 1px solid var(--border-primary); border-radius: 8px; background: var(--bg-card); }
+.lesson-state-machine :is(button, select, summary, [tabindex]):focus-visible { outline: 3px solid var(--text-primary); outline-offset: 3px; }
+.lesson-state-machine .diagram-viewer-actions { min-width: 0; max-width: 100%; }
+.lesson-state-machine .diagram-viewer-actions button { min-width: 44px; min-height: 44px; }
+.lesson-state-machine .diagram-viewer-details summary { min-height: 44px; }
+.lesson-state-machine .diagram-viewer-details { font-size: 1rem; }
+.lesson-state-machine .diagram-viewer-hint { color: var(--text-primary); }
+.lesson-state-machine code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.lesson-state-machine-canvas { display: block; max-width: none; color: var(--text-primary); background: var(--bg-secondary); font: inherit; font-size: 16px; }
+.lesson-state-machine-canvas text { fill: currentColor; stroke: none; }
+.lesson-state-machine-canvas :is(.state-machine-arrow, .state-machine-compartment) { stroke: currentColor; stroke-width: 2; }
+.lesson-state-machine-canvas .state-machine-selected-arrow { stroke-width: 5; }
+.lesson-state-machine-canvas :is(.state-machine-state, .state-machine-final-ring) { fill: var(--bg-card); stroke: currentColor; stroke-width: 2; }
+.lesson-state-machine-canvas :is(.state-machine-initial, .state-machine-final-dot) { fill: currentColor; }
+.lesson-state-machine-canvas .state-machine-state-title { font-weight: 700; }
+.lesson-state-machine-canvas .state-machine-label rect { fill: var(--bg-secondary); stroke: none; }
+.lesson-state-machine-canvas .state-machine-selected-label rect { stroke: currentColor; stroke-width: 2; }
+@media (prefers-reduced-motion: reduce) { .lesson-state-machine * { animation: none !important; transition: none !important; } }

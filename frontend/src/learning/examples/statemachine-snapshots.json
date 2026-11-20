@@ -1,0 +1,370 @@
+[
+  {
+    "title": "New draft",
+    "explanation": "Construction follows the initial arrow to DRAFT; it is not a Java thread status.",
+    "items": [
+      {
+        "label": "reservation",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "DRAFT"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": null
+          },
+          {
+            "name": "heldEntries",
+            "value": 0
+          },
+          {
+            "name": "heldExits",
+            "value": 0
+          },
+          {
+            "name": "inspections",
+            "value": 0
+          },
+          {
+            "name": "lastMinute",
+            "value": 0
+          },
+          {
+            "name": "terminated",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Hold at minute 10",
+    "explanation": "hold(10) sets deadline 20 and enters HELD once.",
+    "items": [
+      {
+        "label": "reservation",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "HELD"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": 20
+          },
+          {
+            "name": "heldEntries",
+            "value": 1
+          },
+          {
+            "name": "heldExits",
+            "value": 0
+          },
+          {
+            "name": "inspections",
+            "value": 0
+          },
+          {
+            "name": "lastMinute",
+            "value": 10
+          },
+          {
+            "name": "terminated",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Internal inspection at 11",
+    "explanation": "inspect(11) increments inspections without entry, exit or a new deadline.",
+    "items": [
+      {
+        "label": "reservation",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "HELD"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": 20
+          },
+          {
+            "name": "heldEntries",
+            "value": 1
+          },
+          {
+            "name": "heldExits",
+            "value": 0
+          },
+          {
+            "name": "inspections",
+            "value": 1
+          },
+          {
+            "name": "lastMinute",
+            "value": 11
+          },
+          {
+            "name": "terminated",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "External renewal at 12",
+    "explanation": "renew(12) exits and re-enters HELD; deadline becomes 22.",
+    "items": [
+      {
+        "label": "reservation",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "HELD"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": 22
+          },
+          {
+            "name": "heldEntries",
+            "value": 2
+          },
+          {
+            "name": "heldExits",
+            "value": 1
+          },
+          {
+            "name": "inspections",
+            "value": 1
+          },
+          {
+            "name": "lastMinute",
+            "value": 12
+          },
+          {
+            "name": "terminated",
+            "value": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Confirm rejected at deadline",
+    "explanation": "confirm(22) rejects at equality. No field changes and HELD remains active until another accepted command.",
+    "items": [
+      {
+        "label": "reservation",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "HELD"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": 22
+          },
+          {
+            "name": "heldEntries",
+            "value": 2
+          },
+          {
+            "name": "heldExits",
+            "value": 1
+          },
+          {
+            "name": "inspections",
+            "value": 1
+          },
+          {
+            "name": "lastMinute",
+            "value": 12
+          },
+          {
+            "name": "terminated",
+            "value": false
+          },
+          {
+            "name": "rejection",
+            "value": "Hold expired"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Explicit expiry at 22",
+    "explanation": "expire(22) exits HELD and completes as CANCELLED; the deadline remains historical data.",
+    "items": [
+      {
+        "label": "reservation",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "CANCELLED"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": 22
+          },
+          {
+            "name": "heldEntries",
+            "value": 2
+          },
+          {
+            "name": "heldExits",
+            "value": 2
+          },
+          {
+            "name": "inspections",
+            "value": 1
+          },
+          {
+            "name": "lastMinute",
+            "value": 22
+          },
+          {
+            "name": "terminated",
+            "value": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Command rejected after completion",
+    "explanation": "hold(23) cannot restart a completed lifecycle. Getters still read the retained outcome.",
+    "items": [
+      {
+        "label": "reservation",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "CANCELLED"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": 22
+          },
+          {
+            "name": "heldEntries",
+            "value": 2
+          },
+          {
+            "name": "heldExits",
+            "value": 2
+          },
+          {
+            "name": "inspections",
+            "value": 1
+          },
+          {
+            "name": "lastMinute",
+            "value": 22
+          },
+          {
+            "name": "terminated",
+            "value": true
+          },
+          {
+            "name": "rejection",
+            "value": "Lifecycle terminated"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Confirmation before deadline",
+    "explanation": "A separate reservation holds at 30 (deadline 40), then confirm(39) completes successfully.",
+    "items": [
+      {
+        "label": "confirmed",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "CONFIRMED"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": 40
+          },
+          {
+            "name": "heldEntries",
+            "value": 1
+          },
+          {
+            "name": "heldExits",
+            "value": 1
+          },
+          {
+            "name": "inspections",
+            "value": 0
+          },
+          {
+            "name": "lastMinute",
+            "value": 39
+          },
+          {
+            "name": "terminated",
+            "value": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "title": "Cancel directly from draft",
+    "explanation": "A third reservation cancels at minute 0; no HELD entry or exit occurs.",
+    "items": [
+      {
+        "label": "cancelledDraft",
+        "typeLabel": "Reservation",
+        "fields": [
+          {
+            "name": "state",
+            "value": "CANCELLED"
+          },
+          {
+            "name": "expiresAtMinute",
+            "value": null
+          },
+          {
+            "name": "heldEntries",
+            "value": 0
+          },
+          {
+            "name": "heldExits",
+            "value": 0
+          },
+          {
+            "name": "inspections",
+            "value": 0
+          },
+          {
+            "name": "lastMinute",
+            "value": 0
+          },
+          {
+            "name": "terminated",
+            "value": true
+          }
+        ]
+      }
+    ]
+  }
+]

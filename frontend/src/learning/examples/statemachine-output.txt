@@ -1,0 +1,11 @@
+draft: DRAFT expiry=null entries=0 exits=0 inspections=0 last=0 terminated=false
+held: HELD expiry=20 entries=1 exits=0 inspections=0 last=10 terminated=false
+internal inspect: HELD expiry=20 entries=1 exits=0 inspections=1 last=11 terminated=false
+external renew: HELD expiry=22 entries=2 exits=1 inspections=1 last=12 terminated=false
+confirm rejected: Hold expired
+unchanged after rejection: HELD expiry=22 entries=2 exits=1 inspections=1 last=12 terminated=false
+expired: CANCELLED expiry=22 entries=2 exits=2 inspections=1 last=22 terminated=true
+hold rejected: Lifecycle terminated
+still terminated: CANCELLED expiry=22 entries=2 exits=2 inspections=1 last=22 terminated=true
+confirmed before deadline: CONFIRMED expiry=40 entries=1 exits=1 inspections=0 last=39 terminated=true
+cancelled draft: CANCELLED expiry=null entries=0 exits=0 inspections=0 last=0 terminated=true

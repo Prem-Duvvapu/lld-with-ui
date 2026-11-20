@@ -1,0 +1,36 @@
+Request: 1000 g
+call client -> desk: quote(1000)
+call desk -> fees: quote(1000)
+return fees -> desk: fee = 300 cents
+call desk -> receipts: render(accepted quote)
+return receipts -> desk: "Parcel 1000 g: 300 cents"
+return desk -> client: accepted result
+Result: accepted=true, feeCents=300, receipt=Parcel 1000 g: 300 cents, rejection=null
+Request: 0 g
+call client -> desk: quote(0)
+call desk -> fees: quote(0)
+return fees -> desk: rejected: Weight must be 1 to 2000 g
+return desk -> client: rejected result
+Result: accepted=false, feeCents=null, receipt=null, rejection=Weight must be 1 to 2000 g
+Request: 1001 g
+call client -> desk: quote(1001)
+call desk -> fees: quote(1001)
+return fees -> desk: fee = 500 cents
+call desk -> receipts: render(accepted quote)
+return receipts -> desk: "Parcel 1001 g: 500 cents"
+return desk -> client: accepted result
+Result: accepted=true, feeCents=500, receipt=Parcel 1001 g: 500 cents, rejection=null
+Request: 2001 g
+call client -> desk: quote(2001)
+call desk -> fees: quote(2001)
+return fees -> desk: rejected: Weight must be 1 to 2000 g
+return desk -> client: rejected result
+Result: accepted=false, feeCents=null, receipt=null, rejection=Weight must be 1 to 2000 g
+Request: 2000 g
+call client -> desk: quote(2000)
+call desk -> fees: quote(2000)
+return fees -> desk: fee = 500 cents
+call desk -> receipts: render(accepted quote)
+return receipts -> desk: "Parcel 2000 g: 500 cents"
+return desk -> client: accepted result
+Result: accepted=true, feeCents=500, receipt=Parcel 2000 g: 500 cents, rejection=null

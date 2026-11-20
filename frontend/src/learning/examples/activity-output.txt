@@ -1,0 +1,5 @@
+Missing request: REJECTED_INVALID | Use R1 with 1..4 attendees | booked=none | available=true
+Accepted request: CONFIRMED | Room reserved | booked=R1/2 | available=false
+Occupied slot: REJECTED_UNAVAILABLE | Slot already booked | booked=R1/2 | available=false
+Invalid while occupied: REJECTED_INVALID | Use R1 with 1..4 attendees | booked=R1/2 | available=false
+Fresh slot at capacity: CONFIRMED | Room reserved | booked=R1/4 | available=false
