@@ -195,11 +195,17 @@ const publications = [
   ['kiss', '25–30 minutes'],
   ['solid-pictures', '35–45 minutes'],
   ['solid-code', '45–60 minutes'],
+  ['sequence-diagram', '40–50 minutes'],
+  ['activity-diagram', '35–45 minutes'],
+  ['state-machine-diagram', '40–50 minutes'],
 ];
 const published = new Map(publications);
 
 // Catalog outcomes remain metadata: browsing never imports lesson content.
 const outcomes = {
+  'sequence-diagram': 'Trace object lifelines, synchronous calls, returns and rejected paths against the actual Java interaction; distinguish message ordering from object ownership.',
+  'activity-diagram': 'Follow guarded activity control flow and distinguish decisions/merges from parallel fork/join behavior using a verified Java workflow.',
+  'state-machine-diagram': 'Read event, guard and effect transitions against a verified object lifecycle; preserve rejected-command state and distinguish terminal states from JVM thread states.',
   'solid-pictures': 'Explain SRP, OCP, LSP, ISP and DIP with before/after responsibility and contract pictures; justify each change and its limits.',
   'solid-code': 'Refactor the same five SOLID examples in Java, preserve explicit behavior contracts and test substitutability, client roles and dependency direction.',
   yagni: 'Defer speculative capabilities, name expansion evidence and implement changed requirements without sacrificing validation or tests.',

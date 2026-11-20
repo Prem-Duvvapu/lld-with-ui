@@ -31,8 +31,8 @@ export default function LessonContent({ lesson, metadata }) {
   const previous = PUBLISHED_LESSONS[index - 1];
   const next = PUBLISHED_LESSONS[index + 1];
   const group = CURRICULUM_GROUPS.find(entry => entry.id === metadata.group);
-  const nextPlanned = LESSONS.slice(LESSONS.findIndex(entry => entry.id === lesson.id) + 1)
-    .find(entry => entry.status === 'planned');
+  const nextPlanned = LESSONS.find(entry => entry.status === 'planned'
+    && entry.prerequisites.every(id => PUBLISHED_LESSONS.some(published => published.id === id)));
 
   useEffect(() => {
     visit(lesson.id);

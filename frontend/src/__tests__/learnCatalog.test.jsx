@@ -50,11 +50,11 @@ afterEach(cleanup);
 describe('Learning catalog discovery', () => {
   it('starts with published lessons in prerequisite order and a clearly named start action', () => {
     renderCatalog();
-    expect(screen.getByRole('button', { name: 'Available lessons (24)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Available lessons (27)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Full roadmap (69)' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('link', { name: 'Start learning →' })).toHaveAttribute('href', '/learn/how-to-learn-lld');
-    expect(screen.getByText(/0 of 24 available lessons marked reviewed/)).toBeVisible();
-    expectCount(24);
+    expect(screen.getByText(/0 of 27 available lessons marked reviewed/)).toBeVisible();
+    expectCount(27);
     expect(cardTitles()).toEqual(PUBLISHED_LESSONS.map(lesson => lesson.title));
     for (const lesson of PUBLISHED_LESSONS) {
       const card = screen.getByRole('article', { name: lesson.title });
@@ -93,7 +93,7 @@ describe('Learning catalog discovery', () => {
     expect(search).toHaveValue('');
     expect(screen.getByRole('combobox', { name: 'Review status' })).toHaveValue('all');
     expect(screen.getByRole('checkbox', { name: 'Bookmarked only' })).not.toBeChecked();
-    expectCount(24);
+    expectCount(27);
   });
 
   it('searches section metadata and lesson outcomes as well as titles', () => {
@@ -118,19 +118,19 @@ describe('Learning catalog discovery', () => {
     expect(new URLSearchParams(router.state.location.search).has('sort')).toBe(false);
   });
 
-  it('offers a planned UML search result in an explicitly labelled roadmap without a lesson link', () => {
-    const router = renderCatalog('/learn?section=uml');
-    change('Search lessons', 'Sequence Diagram');
+  it('offers a planned pattern search result in an explicitly labelled roadmap without a lesson link', () => {
+    const router = renderCatalog('/learn?section=creational');
+    change('Search lessons', 'Singleton');
     expectCount(0);
     fireEvent.click(screen.getByRole('button', { name: 'View matching roadmap topics' }));
     expect(screen.getByRole('button', { name: 'Full roadmap (69)' })).toHaveAttribute('aria-pressed', 'true');
     expect(new URLSearchParams(router.state.location.search).get('view')).toBe('roadmap');
-    expect(new URLSearchParams(router.state.location.search).get('q')).toBe('Sequence Diagram');
-    expect(new URLSearchParams(router.state.location.search).get('section')).toBe('uml');
-    expect(screen.getByRole('combobox', { name: 'Section' })).toHaveValue('uml');
-    expect(screen.getByText('Sequence Diagram', { exact: true })).toBeVisible();
-    expect(screen.queryByRole('link', { name: 'Sequence Diagram', exact: true })).not.toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('0 available lessons · 1 planned topics · UML');
+    expect(new URLSearchParams(router.state.location.search).get('q')).toBe('Singleton');
+    expect(new URLSearchParams(router.state.location.search).get('section')).toBe('creational');
+    expect(screen.getByRole('combobox', { name: 'Section' })).toHaveValue('creational');
+    expect(screen.getByText('Singleton', { exact: true })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Singleton', exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('0 available lessons · 1 planned topics · Creational patterns');
     expect(screen.getAllByText(/planned.*not published/i).length).toBeGreaterThan(0);
     expect(loadLesson).not.toHaveBeenCalled();
   });
@@ -141,12 +141,12 @@ describe('Learning catalog discovery', () => {
     clear.focus();
     fireEvent.click(clear);
     expect(screen.getByRole('searchbox', { name: 'Search lessons' })).toHaveFocus();
-    expectCount(24);
+    expectCount(27);
   });
 
   it('preserves a selected roadmap section on switching views and lets Clear recover the empty available view', () => {
     const router = renderCatalog('/learn?view=roadmap&section=creational');
-    fireEvent.click(screen.getByRole('button', { name: 'Available lessons (24)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Available lessons (27)' }));
     expect(screen.getByRole('combobox', { name: 'Section' })).toHaveValue('creational');
     expectCount(0);
     expect(screen.queryAllByRole('article')).toHaveLength(0);
@@ -154,7 +154,7 @@ describe('Learning catalog discovery', () => {
     expect(new URLSearchParams(router.state.location.search).has('view')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
     expect(screen.getByRole('combobox', { name: 'Section' })).toHaveValue('');
-    expectCount(24);
+    expectCount(27);
     expect(router.state.location.search).toBe('');
   });
 
@@ -178,6 +178,18 @@ describe('Learning catalog discovery', () => {
     expect(screen.getByRole('status')).toHaveTextContent('5 available lessons · 0 planned topics');
     for (const [id, title] of principles)
       expect(screen.getByRole('link', { name: title, exact: true })).toHaveAttribute('href', `/learn/${id}`);
+    expect(screen.queryByText(/planned.*not published/i)).not.toBeInTheDocument();
+    expect(loadLesson).not.toHaveBeenCalled();
+  });
+
+  it('offers all five UML lessons without planned placeholders or content imports', () => {
+    renderCatalog('/learn?section=uml');
+    const titles = ['Class Diagram', 'Use Case Diagram', 'Sequence Diagram', 'Activity Diagram', 'State Machine Diagram'];
+    expect(cardTitles()).toEqual(titles);
+    expectCount(5);
+    for (const title of titles) expect(screen.getByRole('link', { name: title, exact: true })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Full roadmap (69)' }));
+    expect(screen.getByRole('status')).toHaveTextContent('5 available lessons · 0 planned topics · UML');
     expect(screen.queryByText(/planned.*not published/i)).not.toBeInTheDocument();
     expect(loadLesson).not.toHaveBeenCalled();
   });
@@ -210,7 +222,7 @@ describe('Learning catalog continuity', () => {
     expect(new URLSearchParams(router.state.location.search).get('q')).toBe('interfaces');
     fireEvent.click(screen.getByRole('button', { name: 'Clear lesson filters' }));
     expect(router.state.location.search).toBe('');
-    expectCount(24);
+    expectCount(27);
     await act(() => router.navigate(-1));
     await screen.findByRole('heading', { name: 'Before catalog' });
   });
@@ -301,7 +313,7 @@ describe('Learning catalog continuity', () => {
     const resume = screen.getByRole('link', { name: 'Continue learning →' });
     expect(resume).toHaveAttribute('href', '/learn/interfaces');
     expect(screen.getAllByText('Interfaces', { exact: true }).length).toBeGreaterThan(1);
-    expect(screen.getByText(/24 of 24 available lessons marked reviewed/)).toBeVisible();
+    expect(screen.getByText(/27 of 27 available lessons marked reviewed/)).toBeVisible();
     expect(screen.queryByRole('link', { name: /Next unreviewed/ })).not.toBeInTheDocument();
     expect(cardTitles()).toHaveLength(PUBLISHED_LESSONS.length);
     expect(screen.queryByText(/69 of 69|curriculum complete|mastered all/i)).not.toBeInTheDocument();
