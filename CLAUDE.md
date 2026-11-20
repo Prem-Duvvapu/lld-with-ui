@@ -16,7 +16,7 @@ Run everything through WSL (`wsl <command>`) — the repo lives on a Windows dri
 
 ```bash
 # Backend (Java 17 / Maven, run from backend/)
-mvn test                                  # latest validated: 2947 tests, 316 suites
+mvn test                                  # latest validated: 2999 tests, 319 suites
 mvn test -Dtest=SplitwiseServiceTest      # one class
 mvn test -Dtest='SplitwiseServiceTest#someTestMethod'            # one method
 mvn test -Dtest='com.lld.config.*Test'    # one package's suites
@@ -118,13 +118,13 @@ manifest; an audit row is not a published lesson. The coverage test also guards
 the corrected ATM/KV teaching contracts and shrinkable shared pattern-card grid.
 
 `/learn` and `/learn/:lessonId` are lazy routes backed by the canonical publication
-manifest in `src/learning/curriculum.js`. Twenty-four lessons are implemented: How to
+manifest in `src/learning/curriculum.js`. Twenty-seven lessons are implemented: How to
 Learn LLD plus all fifteen OOP/relationship concepts (including the four proposed
-supplemental fundamentals), followed by their connected OOP capstone, the dedicated
-Class Diagram and Use Case Diagram lessons and DRY, YAGNI and KISS Principles plus connected SOLID Pictures and Code lessons. The remaining 45 topics are planned. All
-twenty-four lessons have source-curated class models with selectable typed connectors
+supplemental fundamentals), followed by their connected OOP capstone, the
+five dedicated UML lessons and DRY, YAGNI and KISS Principles plus connected SOLID Pictures and Code lessons. The remaining 42 topics are planned. All
+twenty-seven lessons have source-curated class models with selectable typed connectors
 and complete text alternatives; Phase 2 content/assessment/local visual review is
-complete. The other three dedicated UML lessons and later integration/release gates
+complete. All five dedicated UML lessons are implemented; later integration/release gates
 remain open. `OopOverviewExampleTest` compiles the
 capstone sources and verifies its five snapshots/output and compiler boundaries. Planned
 topics must not be presented as delivered content. Lesson data stays separate from
@@ -145,9 +145,11 @@ sharing knowledge must not merge unrelated rules or mutable quote records. Actua
 visual/deployment checks for new lessons are separate release evidence. Frontend
 deployment does not need backend source files.
 
-YAGNI and KISS keep only Classes and Objects as their prerequisite. Their canonical `yagni/` and `kiss/` Java, exact output and five scalar steps each are checked by `YagniLessonExampleTest` and `KissLessonExampleTest`. YAGNI contrasts speculative scope with an approved pickup change; KISS preserves a fixed fee contract while removing needless indirection. Practice mappings are bounded Tic Tac Toe scope review and Parking flat pricing, not blanket claims about the modules. Guided order continues DRY → YAGNI → KISS → SOLID Pictures → SOLID Code. YAGNI/KISS release and production evidence is recorded in PR #190; the SOLID release has separate checks.
-SOLID Pictures and Code share seven canonical `solid/` Java files, `solid-output.txt`, five scalar snapshots and `solidLessonAssets.js`; `SolidLessonExampleTest` compiles the exact files and checks independent contracts/output/fixtures plus client compiler boundaries. The before/after `principles` picture renderer is lazy, uses labelled conceptual relations rather than UML and preserves all five normal-size transcripts under a native disclosure. Each lesson keeps its own source-curated class model, distinct assessment and independent exercise. Signature realization is not behavioral LSP; construction/registration still change under the bounded OCP extension, and DIP is claimed only at the fee boundary. Keep the intentionally broken bulky/printing alternatives labelled and preserve the recorded-Java vs browser distinction. Three dedicated UML lessons and later phases remain open.
+YAGNI and KISS keep only Classes and Objects as their prerequisite. Their canonical `yagni/` and `kiss/` Java, exact output and five scalar steps each are checked by `YagniLessonExampleTest` and `KissLessonExampleTest`. YAGNI contrasts speculative scope with an approved pickup change; KISS preserves a fixed fee contract while removing needless indirection. Practice mappings are bounded Tic Tac Toe scope review and Parking flat pricing, not blanket claims about the modules. Guided order continues DRY → YAGNI → KISS → SOLID Pictures → SOLID Code. YAGNI/KISS release and production evidence is recorded in PR #190; SOLID release and production evidence is recorded in PR #193.
+SOLID Pictures and Code share seven canonical `solid/` Java files, `solid-output.txt`, five scalar snapshots and `solidLessonAssets.js`; `SolidLessonExampleTest` compiles the exact files and checks independent contracts/output/fixtures plus client compiler boundaries. The before/after `principles` picture renderer is lazy, uses labelled conceptual relations rather than UML and preserves all five normal-size transcripts under a native disclosure. Each lesson keeps its own source-curated class model, distinct assessment and independent exercise. Signature realization is not behavioral LSP; construction/registration still change under the bounded OCP extension, and DIP is claimed only at the fee boundary. Keep the intentionally broken bulky/printing alternatives labelled and preserve the recorded-Java vs browser distinction. The dedicated UML lessons are implemented; later curriculum phases remain open.
 
+
+The dedicated Sequence, Activity and State Machine lessons use canonical `sequence/`, `activity/` and `statemachine/` Java, verified output/scalars and their own curated class models. `SequenceDiagramLessonExampleTest`, `ActivityDiagramLessonExampleTest` and `StateMachineDiagramLessonExampleTest` check the displayed sources. Lazy diagram kinds `sequence`, `activity` and `state-machine` preserve complete normal-size text and all authored lifelines/nodes under selection. Sequence rejection is a normally returned value, not an exception; separate flow buttons are not an alt frame. Activity decisions/merges are not fork/join synchronization. State-machine time is explicit logical-minute input: only accepted commands advance lastMinute, so rejected confirm(22) can still be followed by valid confirm(13) after accepted minute12; cancel(22) and expire(22) can share an outcome. Final completion retains readable Java outcomes, not object destruction or JVM thread states. Keep internal inspection distinct from external renewal and preserve checked-overflow/rejection state. The provenance guard supports records while checking declaration-kind agreement. Next-planned hints use the first ready planned topic in canonical order, not a slice after the last published topic. Later curriculum and whole-module release/audit gates remain open.
 
 `useLessonProgress` owns the separate `lld-lessons-v1` key. Resume writes must read
 the current storage before merging, and notes are bounded at 2000 characters. Do not

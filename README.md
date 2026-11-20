@@ -37,7 +37,7 @@ Dashboard visitor totals were not inspected. See `COMPLETION_HANDOFF.md` for evi
 ## Learn LLD concepts
 
 Open **Learn LLD concepts** from the homepage or the system learning path. `/learn`
-has a searchable curriculum catalog and twenty-four published lessons: the
+has a searchable curriculum catalog and twenty-seven published lessons: the
 **How to Learn LLD** guide, **Classes and Objects**, **Constructors and
 Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
 **Encapsulation**, **Abstraction**, **Inheritance**, **Polymorphism**,
@@ -50,21 +50,26 @@ Initialization**, **Access Modifiers**, **Enums**, **Interfaces**,
 [**YAGNI Principle** lesson](https://lld-with-ui.vercel.app/learn/yagni) and
 [**KISS Principle** lesson](https://lld-with-ui.vercel.app/learn/kiss),
 [**SOLID Principles with Pictures**](https://lld-with-ui.vercel.app/learn/solid-pictures) and
-[**SOLID Principles with Code**](https://lld-with-ui.vercel.app/learn/solid-code).
+[**SOLID Principles with Code**](https://lld-with-ui.vercel.app/learn/solid-code),
+[**Sequence Diagram**](https://lld-with-ui.vercel.app/learn/sequence-diagram),
+[**Activity Diagram**](https://lld-with-ui.vercel.app/learn/activity-diagram) and
+[**State Machine Diagram**](https://lld-with-ui.vercel.app/learn/state-machine-diagram).
 The guided sequence puts published prerequisites before dependents and ends
-DRY → YAGNI → KISS → SOLID Pictures → SOLID Code; Singleton is the next planned concept.
+DRY → YAGNI → KISS → SOLID Pictures → SOLID Code → Sequence → Activity → State Machine.
+The final page suggests the first ready planned topic, currently Singleton.
 The SOLID pair shares five before/after responsibility pictures, canonical Java,
 verified recorded results and separate assessments. Release evidence and remaining
 gates are tracked in `COMPLETION_HANDOFF.md`. The catalog
 supports available/roadmap views, outcome search, section/review/bookmark filters,
 sorting, direct bookmarks and return navigation. Reading times and outcomes come
-from the curriculum manifest. The other 45 topics remain explicitly planned;
+from the curriculum manifest. The other 42 topics remain explicitly planned;
 five proposed additions retain their labels. The capstone follows all fifteen
 individual concepts with linked reviews and an independent modeling exercise.
-All twenty-four lessons include source-curated class models, selectable typed
+All twenty-seven lessons include source-curated class models, selectable typed
 relationships, zoom/fullscreen controls and readable text alternatives. Phase 2
-content and local visual review are complete; three remaining dedicated UML
-lessons and later curriculum phases are still open.
+content and local visual review are complete; all UML and principles content is
+implemented. Patterns, concurrency, interview content and later release/audit gates
+remain open.
 
 Each lesson connects a motivating problem, inspectable Java-verified illustrations,
 the actual Java source, a prediction question with explanations, a modeling
@@ -487,7 +492,7 @@ A domain exception never maps to a 5xx — a rule violation is the caller's prob
 ## Testing
 
 ```bash
-cd backend  && mvn test        # 2947 tests across 316 suites
+cd backend  && mvn test        # 2999 tests across 319 suites
 cd frontend && npx vitest run  # 1056 tests across 73 files
 ```
 

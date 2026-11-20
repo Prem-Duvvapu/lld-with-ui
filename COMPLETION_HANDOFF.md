@@ -6,6 +6,29 @@ module-construction plan; its zero remaining modules does not mean the UI work i
 
 ## Verified progress
 
+- Current UML completion integration (2026-11-20): **27 lessons / 42 planned**.
+  Sequence, Activity and State Machine lessons each include canonical Java,
+  exact output/recorded scalars, their own class model, a lazy primary diagram,
+  distinct assessment/independent practice and complete text alternatives.
+  Cross-review checks notation against source; corrected accepted-time feedback,
+  record provenance and caption/flow geometry are documented in RCA-135–137.
+  The final available lesson recommends the first ready planned topic (Singleton)
+  without skipping earlier unpublished groups (RCA-138). Source/publication is
+  distinct from merge/deployment evidence. Phase 3 content/local review is complete;
+  the remaining content is 23 patterns, 18 concurrency topics and the interview
+  lesson. Later curriculum integration/release and whole-module UX gates stay open.
+  Final local browser review passes **632 checks /eight light/dark contexts** at
+  320/ 390/ 768/ 1440 px, including canonical source/output/scalars, retained graph
+  nodes/lifelines, caption separation, transcripts, typed class pairs, focus,
+  isolated notes, filtered catalog return and older diagram kinds. Native-size
+  screenshots were inspected separately. Maven package passes **2999 tests /
+  319 suites**; lint is 0 errors / 14 existing warnings; build budgets pass at
+  entry 313838 B /largest non-entry 44703 B. Full frontend/CI/deployed results are
+  recorded in the release PR and evidence folder. A validation spanning an
+  environment interruption timed out in an unchanged ATM test and is not counted
+  as green; final verification uses a fresh stable session. No servers started.
+  Evidence: `/home/prem/validation/lld-uml/`.
+
 - Current SOLID Pictures / Code integration (2026-11-19): **24 lessons / 45 planned topics**
   in source. Both lessons share seven canonical Java files, actual output and five
   recorded scalar steps, plus five selectable before/after responsibility pictures.

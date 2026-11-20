@@ -1,15 +1,14 @@
 # LLD Learning Curriculum Plan
 
-Saved: 2026-10-17. Updated: 2026-11-19. Status: coverage audit and twenty-four
+Saved: 2026-10-17. Updated: 2026-11-20. Status: coverage audit and twenty-seven
 lessons implemented: How to Learn LLD, all fifteen individual OOP/relationship
-concepts, their connected overview/capstone, the dedicated Class Diagram and Use Case Diagram lessons,
-DRY, YAGNI and KISS Principles, and SOLID Principles with Pictures and with Code.
-All twenty-four lessons include source-curated class models. Phase 2 content,
-assessment and local visual review are complete. Phase 3 includes two of five UML
-lessons and all five principles lessons; Sequence, Activity and State Machine
-Diagram remain open. The remaining 45 topic deliveries and final integration/release
-gates remain open. SOLID full regression, actual-route browser review and deployment
-evidence are pending; implementation/publication status does not establish release.
+concepts, their connected capstone, all five dedicated UML lessons and all five
+principles lessons. All twenty-seven have source-curated class models. Phase 2
+and Phase 3 content/assessment/local visual review are complete; whole-curriculum
+release and the independent module UX audit remain open. The remaining 42 topic
+deliveries are 23 patterns, 18 concurrency topics and the interview lesson.
+Local evidence is recorded below; CI/merge and real-network production delivery
+remain distinct release gates documented in the release PR.
 
 This plan covers the requested learning curriculum inside `lld-with-ui`. It is
 separate from the existing 60-module implementation roadmap and the UI/UX work
@@ -193,10 +192,11 @@ for the remaining topics is still open; an audited gap is not a published lesson
   complete text alternatives. Combined local assessment/visual verification passes;
   production release evidence is recorded on the class-model PR. The dedicated
   UML lessons and whole-curriculum release remain separate gates.
-- [ ] **Phase 3 — UML and principles:** Class Diagram, Use Case Diagram, DRY, YAGNI,
-  KISS and the connected SOLID Pictures/Code lessons are implemented. Sequence,
-  Activity and State Machine diagrams remain. SOLID's full Java/frontend regression,
-  browser and release evidence is pending; this phase is not complete.
+- [x] **Phase 3 — UML and principles:** all five dedicated UML lessons and all
+  five principles lessons are implemented, with canonical Java, distinct assessment,
+  source-curated class models and complete text alternatives. Combined local
+  semantic/visual evidence is recorded below. Whole-curriculum release, later
+  content phases and the separate module UX audit remain open.
 - [ ] **Phase 4 — Patterns:** deliver all 23 in small reviewed batches, including
   comparisons, tradeoffs, verified code, and exercises.
 - [ ] **Phase 5 — Concurrency:** deliver foundations, primitives, challenges,
@@ -653,3 +653,44 @@ servers were started. Evidence: `/home/prem/validation/lld-solid/`.
 Normal CI, merge and real-network production delivery are separate release gates
 recorded in the release PR. Phase 3 still needs Sequence, Activity and State
 Machine Diagram lessons; 45 planned topics and later gates remain open.
+
+
+## Complete UML and principles integration — 2026-11-20
+
+Publication is 27 lessons / 42 planned topics. The three new UML lessons retain the
+canonical prerequisites and join the guided tail after SOLID Code. The final
+available page suggests Singleton, the first ready planned topic in canonical
+order, even though patterns occur earlier in catalog grouping (RCA-138).
+
+Sequence maps actual synchronous Java calls and normal returned rejections, with
+all lifelines and both complete transcripts retained. Activity models one guarded
+sequential room request; decision/merge, fork/join and the two final-node kinds
+are distinguished. State Machine maps explicit logical-minute inputs, guarded
+commands, internal inspection, external re-entry and completion with readable
+retained outcomes. It implements neither a JVM thread model nor a generic UML
+runtime. Independent peer review found and corrected assessment exclusivity
+claims around rejected time and alternative cancellation paths (RCA-135).
+
+E 42–E 44 record actual source/test/practice evidence and limits. Exact Java sources,
+console output and recorded scalars are shared with their dedicated compiler and
+behavior tests. The global class-model guard includes valid record declarations
+and checks model-kind agreement without dropping publication/member/transcript
+assertions (RCA-136). Native-size review separates captions from neighboring flows
+and gives final completion arrows distinct paths (RCA-137).
+
+Final frozen-build review passes 632 checks across eight light/dark ×320/ 390/ 768/
+1440 contexts: all new graph choices with retained nodes/lifelines, complete text,
+canonical source/output/scalars, typed class pairs, keyboard/fullscreen focus,
+independent notes, all-five UML catalog return and existing use-case/SOLID kinds.
+The guard/caption intersection checks are specific to these authored drawings.
+Evidence: `/home/prem/validation/lld-uml/`, including native-size before/after
+screenshots. Browser assets were intercepted locally; that is not deployed MIME
+verification. No application servers were started.
+
+Maven package passes 2999 tests / 319 suites; full lint has 0 errors / 14 pre-existing
+warnings. The production build meets both budgets:313838-byte entry and 44703-byte
+largest non-entry chunk. The recovered full frontend run is recorded in the
+release PR and handoff; repository/CI timeout defaults remain unchanged. CI/merge
+and production resource review are separate release gates. Phase 4 begins with
+patterns; 42 topic deliveries, later integration/release and the 60-module audit
+remain open.

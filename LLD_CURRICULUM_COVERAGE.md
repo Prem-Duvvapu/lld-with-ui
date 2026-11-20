@@ -2,11 +2,11 @@
 
 Audited: 2026-10-23, with source corrections from #167, KV runtime ordering from
 #168, and the OOP lesson deliveries below. This is the Phase 0 source and
-delivery-gap audit, **not a completed curriculum**. Updated 2026-11-19: there are twenty-four published lessons
-and 45 undelivered topics. The canonical IDs, publication status, grouping and
+delivery-gap audit, **not a completed curriculum**. Updated 2026-11-19: there are twenty-seven published lessons
+and 42 undelivered topics. The canonical IDs, publication status, grouping and
 prerequisite graph live in `frontend/src/learning/curriculum.js`.
 
-All twenty-four published lessons also include source-curated class models with
+All twenty-seven published lessons also include source-curated class models with
 selectable typed connectors and complete text alternatives. This foundational
 view does not substitute for the dedicated UML lessons and their delivery gates.
 
@@ -119,9 +119,9 @@ payment provider or asynchronous processing that the Java module does not implem
 |---|---|---|---|---|---|
 | `class-diagram` — Class Diagram | Read viewpoint, compartments, visibility, six relationships, both endpoint counts and navigation, checking claims against Java. | `association`, `inheritance`, `interfaces`, `aggregation`, `composition`, `dependency` | [E35](#e35): canonical library types, shared shelves, required loan/book links and an optional owned receipt; [E02](#e02): source reconciliation for Parking pricing/Ticket. | Model workshop registrations and owned confirmations; justify multiplicity, lifecycle, omissions and a source-checked Parking edge. | Delivered: `/learn/class-diagram`, canonical Java/output and five verified snapshots, six selected relationship pairs with complete text alternatives, prediction and independent exercise/rubric. |
 | `use-case-diagram` — Use Case Diagram | Identify external roles, offered goals and subject scope; justify participation, include, extend and specialization using explicit requirements. | `how-to-learn-lld` | [E37](#e37): canonical lending portal scenarios and selected outcomes, dedicated role/ellipse/subject visual and companion class model; [E22](#e22): Parking source supports behaviors, while Driver/Attendant remain proposed roles. | Model a workshop registration subject, required eligibility, an optional accessibility extension, independent base, condition/extension point and justified coordinator role policy; verify accepted/rejected outcomes. | Delivered: `/learn/use-case-diagram`, four canonical Java files, eight output lines and six verified states, selectable UML visual/full text, scenario, prediction feedback, independent exercise/rubric and explicit mapping limits. |
-| `sequence-diagram` — Sequence Diagram | Trace ordered calls, returns, alternate failures and concurrency without inventing timing guarantees. | `dependency`, `class-diagram` | [E22](#e22): Parking's concurrent exit flow; [E13](#e13): completeExit lock and already-exited guard. | Annotate two competing exits and explain why the loser observes committed ticket state. | G: general sequence-notation lesson, alternate paths and an authoring exercise. |
-| `activity-diagram` — Activity Diagram | Model decisions and completion, using parallel branches only when the modeled workflow justifies them. | `how-to-learn-lld` | [E22](#e22), [E13](#e13): existing workflow/code can ground the diagram; no dedicated activity learning view was mapped. | Draw entry/scan/pay decisions and rejection paths without treating a lock-protected payment as parallel work. | G: activity visual, fork/join explanation with a labelled contrasting example and self-check. |
-| `state-machine-diagram` — State Machine Diagram | Model events, guards and legal transitions separately from the classes that implement them. | `enums` | [E13](#e13): Ticket exitTime/payment state and completeExit guard; [E22](#e22): existing sequence is not a statechart. | Draw active-to-exited behavior, a read-only scan self-transition and the guard against a second payment. | G: actual statechart and text equivalent; distinguish a conceptual projection from a new Java status enum. |
+| `sequence-diagram` — Sequence Diagram | Trace ordered calls, returns, alternate failures and concurrency without inventing timing guarantees. | `dependency`, `class-diagram` | [E42](#e42): canonical synchronous quote calls and normal returned rejection; [E22](#e22) remains a bounded production comparison. | Model accepted/rejected enquiries with object lifelines, replies, retained idle participants and independently checked message order. | Delivered (E42): Java-backed interaction view, complete text, typed class model and independent exercise; full parent release checks remain separate. |
+| `activity-diagram` — Activity Diagram | Model decisions and completion, using parallel branches only when the modeled workflow justifies them. | `how-to-learn-lld` | [E43](#e43): canonical sequential room-request workflow; [E13](#e13) supplies bounded Parking entry practice. | Draw validated alternatives with exhaustive guards and a merge; contrast genuine parallel fork/join work without inventing concurrency. | Delivered (E43): guarded activity view, Java outcomes and preservation, fork/join and final-node distinctions, complete text and exercise; release checks separate. |
+| `state-machine-diagram` — State Machine Diagram | Model events, guards and legal transitions separately from the classes that implement them. | `enums` | [E44](#e44): canonical reservation lifecycle, logical time and internal/external behavior; Uber practice is source-backed and bounded. | Model events, guards, effects, rejection preservation and final completion; distinguish internal behavior from an external self-transition. | Delivered (E44): statechart, canonical Java and fixtures, text, typed model and independent exercise; terminal outcome is not Java destruction or thread state. |
 
 ## Concurrency 101
 
@@ -952,6 +952,66 @@ source/content review confirms the bounded practice claims. See the current
 curriculum plan, release PR and `/home/prem/validation/lld-solid/` for commands,
 local worker/timeout settings and evidence. CI and deployed delivery remain
 separate gates; this does not close Phase 3 or the whole-module audit.
+
+<a id="e42"></a>
+### E42 — Dedicated Sequence Diagram interaction
+
+The [lesson](frontend/src/learning/lessons/sequence-diagram.js),
+[authored interaction](frontend/src/learning/diagrams/sequence-diagram.js),
+[renderer](frontend/src/learning/diagrams/LessonSequenceDiagram.jsx), and
+[source-curated class model](frontend/src/learning/class-models/sequence-diagram.js)
+map actual instance calls and normal returned values from the
+[canonical Java](frontend/src/learning/examples/sequence/).
+[SequenceDiagramLessonExampleTest](backend/src/test/java/com/lld/learning/SequenceDiagramLessonExampleTest.java)
+checks independent boundaries, exact output, recorded scalars/message order and
+compiler limits. The [frontend checks](frontend/src/__tests__/sequenceDiagramLesson.test.jsx)
+review both full transcripts and retained idle lifelines. Selection chooses separate
+scenarios, not an alt fragment. Activations are schematic; vertical spacing is not
+a duration scale or a universal global schedule. Parking practice traces the real
+read-only scan/strategy call and does not equate this teaching example with its
+concurrent payment workflow. Actual-route browser and combined release checks are
+parent-owned gates.
+
+<a id="e43"></a>
+### E43 — Dedicated Activity Diagram control flow
+
+The [lesson](frontend/src/learning/lessons/activity-diagram.js),
+[activity model](frontend/src/learning/diagrams/activity-diagram.js),
+[renderer](frontend/src/learning/diagrams/LessonActivityDiagram.jsx) and
+[class model](frontend/src/learning/class-models/activity-diagram.js) map one
+[RoomBookingService.request](frontend/src/learning/examples/activity/RoomBookingService.java)
+execution. Complementary read-only guards select invalid, confirmed or occupied
+outcomes before a common merge/return. Only confirmation changes the single slot;
+rejection preserves the previous booking. Fork/join are explicitly contrasted
+with this sequential workflow, and activity final differs from flow final.
+[ActivityDiagramLessonExampleTest](backend/src/test/java/com/lld/learning/ActivityDiagramLessonExampleTest.java)
+checks canonical Java, independent cases, output and all recorded scalars;
+[frontend checks](frontend/src/__tests__/activityDiagramLesson.test.jsx) inspect
+all nodes/flows and full text under selection. No concurrency, database, real
+room service or whole Parking quality guarantee is inferred. Browser/release
+checks remain separate from author-focused evidence.
+
+<a id="e44"></a>
+### E44 — Dedicated State Machine Diagram lifecycle
+
+The [lesson](frontend/src/learning/lessons/state-machine-diagram.js),
+[lifecycle model](frontend/src/learning/diagrams/state-machine-diagram.js),
+[renderer](frontend/src/learning/diagrams/LessonStateMachineDiagram.jsx) and
+[class model](frontend/src/learning/class-models/state-machine-diagram.js) map
+[Reservation](frontend/src/learning/examples/statemachine/Reservation.java) and
+[ReservationState](frontend/src/learning/examples/statemachine/ReservationState.java).
+Explicit logical-minute inputs define accepted transitions; equality at the
+expiry deadline rejects confirmation, overflow rejects before mutation, and
+only accepted commands advance the recorded time. Internal inspect leaves entry/
+exit counts unchanged; external renew executes exit/effect/entry. Terminal
+outcomes remain readable while commands reject. Initial/completion vertices
+are authored UML concepts, not extra Java enum states or object destruction.
+[StateMachineDiagramLessonExampleTest](backend/src/test/java/com/lld/learning/StateMachineDiagramLessonExampleTest.java)
+checks actual source, independent boundaries, rejection preservation, terminal
+commands, output and all snapshots. The [frontend suite](frontend/src/__tests__/stateMachineDiagramLesson.test.jsx)
+checks full text, retained vertices and scoped notation. Uber's actual transition
+map is bounded comparison evidence; it is not this reservation model or a proof
+of all UML semantics. Parent browser/combined/release review is a separate gate.
 
 ## Authoritative semantic references
 
