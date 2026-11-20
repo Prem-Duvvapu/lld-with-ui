@@ -29,7 +29,7 @@ function Canvas({ model, selected }) {
       {node.kind === 'activity-final' && <><circle className="activity-hollow" cx={node.x} cy={node.y} r="20" /><circle className="activity-solid" cx={node.x} cy={node.y} r="12" /></>}
       {node.kind === 'action' && <rect className="activity-hollow" x={node.x - 120} y={node.y - 30} width="240" height="60" rx="18" />}
       {['decision', 'merge'].includes(node.kind) && <polygon className="activity-hollow" points={(node.kind === 'decision' ? [[0, -48], [48, 0], [0, 48], [-48, 0]] : [[0, -22], [22, 0], [0, 22], [-22, 0]]).map(([x, y]) => `${node.x + x},${node.y + y}`).join(' ')} />}
-      <text className={node.kind === 'decision' ? 'activity-decision-label' : undefined} x={['initial', 'activity-final'].includes(node.kind) ? node.x + 32 : node.x} y={node.kind === 'merge' ? node.y + 48 : node.y + 5} textAnchor={['initial', 'activity-final'].includes(node.kind) ? 'start' : 'middle'}>{node.label}</text>
+      <text className={node.kind === 'decision' ? 'activity-decision-label' : undefined} x={node.kind === 'merge' ? node.x + 40 : ['initial', 'activity-final'].includes(node.kind) ? node.x + 32 : node.x} y={node.kind === 'merge' ? node.y + 40 : node.y + 5} textAnchor={['initial', 'activity-final', 'merge'].includes(node.kind) ? 'start' : 'middle'}>{node.label}</text>
     </g>)}
   </svg>;
 }
